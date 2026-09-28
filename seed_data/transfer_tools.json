@@ -1,0 +1,249 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "transfer_tools.json",
+  "vendor_label": "Linux 通用（跨发行版运维工具）",
+  "vendor_slug": "ops",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 6,
+  "entries": [
+    {
+      "uuid": "33907be8-0f9a-53c7-86ef-c79d5b95db4e",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（RHEL/Debian 系通用）",
+      "category": "传输工具",
+      "title": "rsync 断点续传同步大文件（先 -n 演练）",
+      "description": "离网/半离网环境传 ISO、日志包、备份目录：rsync -avP 中断后重跑同命令即续传。",
+      "commands": "# ===== rsync 断点续传同步大文件（先 -n 演练）=====\n# ---- 0. ★ 首次务必 -n 演练（dry run）：确认将同步/覆盖的清单再实跑 ----\nrsync -avn --progress {{src_path}} {{dst_path}}\n# ---- 1. 实跑（-P = --partial --progress；中断后重跑同一条命令即断点续传）----\nrsync -avP {{src_path}} {{dst_path}}\n# ---- 2. 校验（单文件全量比对；目录用 du -sh 两侧对比先粗验）----\nsha256sum {{src_path}}\nsha256sum {{dst_path}}\n",
+      "params": [
+        {
+          "name": "src_path",
+          "label": "源路径（文件或目录）",
+          "default": "",
+          "required": true,
+          "validate": "path",
+          "example": "/data/iso/openEuler-22.03.iso"
+        },
+        {
+          "name": "dst_path",
+          "label": "目标路径",
+          "default": "",
+          "required": true,
+          "validate": "path",
+          "example": "/backup/"
+        }
+      ],
+      "notes": "1) ★ 危险点：首次必须 -n 演练。rsync 的斜杠语义要命：src 尾部带 /（如 /data/iso/）拷的是\"目录内容\"，不带 / 拷的是\"目录本身\"——演练输出里核对路径再实跑。\n2) 绝不要随手加 --delete：它会把目标侧多余文件删光，先想清楚再上。\n3) 单文件用 sha256sum 两侧比对；目录级粗验用 du -sh，精确校验走《分卷打包与合并校验》条目的 SHA256SUMS 流程。\n4) 两台机器都装了 rsync 才能用远端路径；本地盘/U 盘之间同样可用（rsync /src /mnt/usb/）。\n验证方法：先 -n 演练确认清单，实跑后 sha256sum 两侧比对一致即通过；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "aa9c2c24-c478-5614-bf42-0a3a606023fd",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（RHEL/Debian 系通用）",
+      "category": "传输工具",
+      "title": "分卷打包与合并校验（tar + split + sha256）",
+      "description": "大目录/大文件切成小卷过 U 盘或受限通道：打包分卷、逐卷校验、合并解压三段流程。",
+      "commands": "# ===== 分卷打包与合并校验（tar + split + sha256）=====\n# ---- 1.【打包机】打包并按卷大小切分（-l 是小写 L；卷名以 .aa/.ab… 结尾）----\ntar czf - {{src_path}} | split -b {{chunk_size}} - {{dst_path}}/bundle.tar.gz.\n# ---- 2.【打包机】生成逐卷校验清单（清单要随卷一起带走）----\nsha256sum {{dst_path}}/bundle.tar.gz.* > {{dst_path}}/SHA256SUMS\n# ---- 3.【接收机】★ 合并前先逐卷校验，任何一行 FAILED 都不许往下走 ----\ncd {{dst_path}} && sha256sum -c SHA256SUMS\n# ---- 4.【接收机】校验全过才合并解压（-C 恢复目录自行替换）----\ncat {{dst_path}}/bundle.tar.gz.* > {{dst_path}}/bundle.tar.gz\ntar xzf {{dst_path}}/bundle.tar.gz -C /恢复目录\n",
+      "params": [
+        {
+          "name": "src_path",
+          "label": "源路径（文件或目录）",
+          "default": "",
+          "required": true,
+          "validate": "path",
+          "example": "/data/iso/openEuler-22.03.iso"
+        },
+        {
+          "name": "dst_path",
+          "label": "目标路径",
+          "default": "",
+          "required": true,
+          "validate": "path",
+          "example": "/backup/"
+        },
+        {
+          "name": "chunk_size",
+          "label": "分卷大小",
+          "default": "2G",
+          "required": false,
+          "validate": "",
+          "example": "2G / 500M"
+        }
+      ],
+      "notes": "1) ★ 危险点：合并与解压前必须先 sha256sum -c 全绿——少一卷/坏一卷时 cat 出来的 tar 解压必报错甚至静默丢数据。\n2) split -b 的 {{chunk_size}} 写法：2G / 500M / 100k（tar 命令本身也认 -b 但这里给 split 用，注意单位大小写）。\n3) 卷文件名前缀 bundle.tar.gz. 末尾的点是刻意的（split 自动补 aa/ab），别手抖删掉。\n4) 解压报\"unexpected EOF\"九成是卷不全或合并前没校验；tar tzf 列表预览可再验一次压缩包完整性。\n验证方法：打包后随机删改一卷跑 sha256sum -c 应报 FAILED（负例），全量重拷后 -c 全过再解压成功；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "773e37b3-60e1-5687-8c6e-ae29cbd59dee",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（RHEL/Debian 系通用）",
+      "category": "传输工具",
+      "title": "U 盘挂载拷贝（ntfs-3g/exfat，认准设备名防错盘）",
+      "description": "物理介质离线搬运：识别设备、按文件系统类型挂载、拷贝落盘、安全卸载。",
+      "commands": "# ===== U 盘挂载拷贝（ntfs-3g/exfat）=====\n# ---- 0. ★ 认准设备名：lsblk 核对容量/型号，别凭 sda/sdb 惯性猜 ----\nlsblk -o NAME,SIZE,MODEL,FSTYPE,MOUNTPOINT\n# ---- 1. 挂载（挂载点必须是空目录；NTFS 用 ntfs-3g，exFAT 用 exfat-fuse，FAT32 直接 mount vfat）----\nmkdir -p /mnt/usb\nmount.ntfs-3g /dev/{{usb_dev}} /mnt/usb\nmount | grep /mnt/usb\n# ---- 2. 拷贝 + 强制落盘 ----\ncp -av {{src_path}} /mnt/usb/\nsync\n# ---- 3. 安全卸载（卸载成功才拔盘）----\numount /mnt/usb\n",
+      "params": [
+        {
+          "name": "src_path",
+          "label": "源路径（文件或目录）",
+          "default": "",
+          "required": true,
+          "validate": "path",
+          "example": "/data/iso/openEuler-22.03.iso"
+        },
+        {
+          "name": "dst_path",
+          "label": "目标路径",
+          "default": "",
+          "required": true,
+          "validate": "path",
+          "example": "/backup/"
+        },
+        {
+          "name": "usb_dev",
+          "label": "U 盘分区设备名（lsblk 确认）",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "sdb1"
+        }
+      ],
+      "notes": "1) ★ 危险点（高危）：/dev/{{usb_dev}} 必须是分区（sdb1）不是整盘（sdb），更不能是系统盘——mount 前用 lsblk 核对容量与 MODEL 字段，现场血泪教训多为错插错挂。\n2) ★ 拔盘前必须 sync：U 盘写缓存未落盘就拔 = 文件损坏；cp 完成只代表进了缓存。\n3) NTFS/exFAT 支持需 ntfs-3g / exfat-utils 包（离网安装见本地源条目）；都不支持时退回 FAT32 中转（单文件 ≤4G 限制要留意）。\n4) umount 报 target is busy：cd 出挂载点、lsof +D /mnt/usb 找占用进程，别硬拔。\n验证方法：挂载后 df -h /mnt/usb 看容量与文件系统、cp 后 sync + ls -l 对比大小、umount 无报错；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "0a7c29e2-568f-5c00-9e22-6e92dc0c64b6",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（RHEL/Debian 系通用）",
+      "category": "传输工具",
+      "title": "scp 限速传输（-l 限速，避免占满管理口带宽）",
+      "description": "半离网内网走 ssh 通道传文件：scp -l 限速；更长清单推荐 rsync --bwlimit（可续传）。",
+      "commands": "# ===== scp 限速传输 =====\n# ---- scp：-l 单位 Kbit/s（8000 ≈ 1 MB/s），给管理口留出带宽数量级 ----\nscp -l 8000 {{src_path}} {{remote_user}}@{{remote_ip}}:{{dst_path}}\n# ---- 备选：rsync --bwlimit 单位 KB/s（断点续传、目录递归更省心，二选一）----\nrsync -avP --bwlimit=8000 {{src_path}} {{remote_user}}@{{remote_ip}}:{{dst_path}}\n# ---- 接收侧校验 ----\nsha256sum {{dst_path}}\n",
+      "params": [
+        {
+          "name": "src_path",
+          "label": "源路径（文件或目录）",
+          "default": "",
+          "required": true,
+          "validate": "path",
+          "example": "/data/iso/openEuler-22.03.iso"
+        },
+        {
+          "name": "dst_path",
+          "label": "目标路径",
+          "default": "",
+          "required": true,
+          "validate": "path",
+          "example": "/backup/"
+        },
+        {
+          "name": "remote_user",
+          "label": "对端登录用户",
+          "default": "root",
+          "required": false,
+          "validate": "",
+          "example": "root"
+        },
+        {
+          "name": "remote_ip",
+          "label": "对端 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.67.14"
+        }
+      ],
+      "notes": "1) scp -l 是 Kbit/s、rsync --bwlimit 是 KB/s——差 8 倍，同一个\"8000\"含义完全不同，别混。\n2) scp 大文件中断只能重来；传 ISO 这类大文件优先 rsync -avP（见 rsync 条目），scp 留给小文件/单次快传。\n3) 首连会问 host key（yes 确认）；目标端口非 22 用 scp -P 大写、rsync -e \"ssh -p 端口\"。\n验证方法：传输完成 sha256sum 与源端比对一致即通过；限速生效用 -v 或传输速率目测核对；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "5ad3452a-c461-57c6-87f6-7d11cf13976c",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（RHEL/Debian 系通用）",
+      "category": "传输工具",
+      "title": "python3 http.server 临时文件分发（半离网）",
+      "description": "内网无 FTP/samba 时零安装起临时下载点：python3 自带 http.server，浏览器/wget 即取。",
+      "commands": "# ===== python3 http.server 临时文件分发 =====\n# ---- 0. 确认要分发的目录与本机 IP ----\nls {{src_path}}\nhostname -I\n# ---- 1. 起临时 HTTP 服务（前台运行，Ctrl+C 即停；卡住终端可放 tmux/screen 里跑）----\ncd {{src_path}} && python3 -m http.server {{port}}\n# ---- 2. 接收侧下载（浏览器打开 http://<hostname -I 显示的IP>:{{port}}/ 点选文件；或命令行）----\n# wget http://<本机IP>:{{port}}/文件名\n# curl -O http://<本机IP>:{{port}}/文件名\n# ---- 3. 下载完校验（分发侧先生成清单放进 {{src_path}} 更省事）----\n# sha256sum -c SHA256SUMS\n",
+      "params": [
+        {
+          "name": "src_path",
+          "label": "分发目录",
+          "default": "",
+          "required": true,
+          "validate": "path",
+          "example": "/data/share"
+        },
+        {
+          "name": "port",
+          "label": "监听端口",
+          "default": "8000",
+          "required": false,
+          "validate": "int:1024-65535",
+          "example": "8000"
+        }
+      ],
+      "notes": "1) ★ 危险点：http.server 无鉴权，同网段任何人可浏览/下载 {{src_path}} 全部内容——只放待分发文件，用完 Ctrl+C 立即关；绝不要起在 / 或含敏感数据的目录。\n2) 防火墙会拦 {{port}}：放行见 firewalld/ufw 条目（或临时 systemctl stop firewalld 用完恢复，不建议）。\n3) python3 为 Linux 通行自带（RHEL/Debian 系都预装）；需要上传能力则换 ssh/scp 条目，http.server 只做单向分发。\n验证方法：接收侧 wget 拉取一个文件 + sha256sum 与分发侧比对一致；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "250cdf66-7530-5c2c-8143-5d294078d57e",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（客户端/服务端通用）",
+      "category": "地址分配",
+      "title": "DHCP 客户端取址与服务端排查（Linux 通用）",
+      "description": "Linux 侧拿不到地址时：客户端重新取址 + 服务端 dnsmasq 状态 + 抓包定位（半离网办公网/隔离区通用）。",
+      "commands": "# ===== DHCP 客户端取址与服务端排查（Linux 通用）=====\n# ---- 0. 看当前地址与网卡状态（有没有拿到 169.254.* 自动私有地址 = 取址失败的典型特征）----\nip -4 addr show\n# ---- 1. 客户端重新取址（指定网卡，-v 显示交互过程）----\n# dhclient -v <网卡名>          # 有 dhclient 的系统\n# nmcli con up \"<连接名>\"       # NetworkManager 系统重连即触发 DHCP\n# ---- 2. 服务端侧（本机是 dnsmasq DHCP 时）：服务状态与租约表 ----\nsystemctl status dnsmasq --no-pager | head -8\n# tail /var/lib/misc/dnsmasq.leases        ← 租约表路径按配置核实\n# ---- 3. 定位 DISCOVER 有没有到服务端（服务端/中继上抓包）----\n# tcpdump -i <网卡名> -n port 67 or port 68\n",
+      "params": [],
+      "notes": "1) 拿到 169.254.x.x = DHCP 请求发出但无服务端应答：查服务端存活、中继（ip helper）配置、VLAN 间广播是否被隔离。\n2) tcpdump 看到 DISCOVER 没有 OFFER = 服务端池空/池错网段；连 DISCOVER 都没有 = 客户端侧问题（网卡/交换机端口/中继）。\n3) <网卡名>/<连接名> 按实际替换（ip link / nmcli con show 查看）。\n验证方法：客户端 ip addr 拿到预期网段地址 + 服务端租约表出现该终端记录；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

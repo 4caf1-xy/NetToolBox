@@ -1,0 +1,112 @@
+
+
+## 一、评估向导结论
+
+### 1. 结论成立性判定
+
+**部分成立，但存在逻辑跳跃。**
+
+向导的逻辑链是：
+> 路由表中无条目 → 缺静态路由 → 添加静态路由
+
+这条链成立的前提是：**192.168.20.0/24 是一个需要通过路由转发的远端网段**。但如果该网段本应是直连网段，则根因完全不同，加静态路由也解决不了问题。
+
+---
+
+### 2. 结论成立的前提条件
+
+| 前提 | 说明 |
+|------|------|
+| 该网段非直连 | 必须确认 192.168.20.0/24 不直接挂在本设备任何 VLAN/接口上 |
+| 非动态路由域 | 若网络使用 OSPF/EIGRP，缺路由的原因可能是邻居未建立，而非静态路由缺失 |
+| 非安全策略拦截 | 路由存在但被 ACL/VACL 拦截时，`show ip route` 同样看不到该目的网段（流量被丢弃） |
+
+---
+
+### 3. 遗漏的原因分支
+
+**分支一：直连网段但接口/VLAN 异常**
+- SVI 未创建、VLAN 未激活、物理口未加入该 VLAN、STP 阻塞
+- 表现为路由表中无直连路由，加静态路由属于误治
+
+**分支二：动态路由协议未收敛**
+- OSPF 邻居 Down、区域配置错误、网络语句未覆盖该网段
+- 需检查邻居状态而非直接加静态
+
+**分支三：ACL / 安全特性拦截**
+- 入向 ACL 丢弃报文、IP Source Guard/DHCP Snooping/DAI 触发违规丢弃
+- 路由表正常但流量进不来
+
+**分支四：VACL 过滤**
+- Cisco IOS 支持 VLAN ACL，可在二层拦截特定网段流量
+
+---
+
+## 二、补充排查步骤与命令
+
+### 第一步：确认 192.168.20.0/24 是否为直连网段
+
+```
+# 适用 Cisco IOS (C2960X)
+show ip interface brief | include 20.
+show vlan id <对应VLAN号>
+show interface vlan <对应SVI编号>
+```
+
+- 若发现对应 VLAN 存在且 SVI 为 `up/up`，则该网段应出现在路由表中，此时"缺路由"是**接口异常**导致，而非缺少静态路由
+- 若 SVI 为 `down/down`，优先查物理侧和 Trunk 配置
+
+---
+
+### 第二步：检查动态路由协议状态（如网络使用动态路由）
+
+```
+# 适用 Cisco IOS (C2960X)
+show ip ospf neighbor          # 若运行 OSPF
+show ip eigrp neighbors        # 若运行 EIGRP
+show ip route static           # 查看已有静态路由
+show run | section router ospf # 查看OSPF配置
+```
+
+- 若邻居关系未建立，根因是二层连通性或协议参数不匹配，非静态路由问题
+
+---
+
+### 第三步：检查是否存在 ACL / 安全特性拦截
+
+```
+# 适用 Cisco IOS (C2960X)
+show access-lists
+show ip interface vlan <对应VLAN>   # 查看入/出方向ACL绑定情况
+show running-config | include ip access-group
+show running-config | include dhcp-snooping
+show running-config | include dae   # 动态ARP检测
+```
+
+- 若发现入方向 ACL 拒绝 192.168.20.0/24 流量，则补路由无效，需调整 ACL
+
+---
+
+### 第四步：确认流量真实丢点（定位是路由问题还是安全策略问题）
+
+```
+# 适用 Cisco IOS (C2960X)
+show ip cache flow                 # 查看是否有机检缓存
+show interfaces counters errors    # 查看接口错误计数
+debug ip packet detail 192.168.20.0 255.255.255.0   【未经真机验证，谨慎使用】
+```
+
+> ⚠️ **警告**：`debug ip packet` 在生产设备高流量场景下会严重消耗 CPU，仅建议在维护窗口、低峰期短暂启用，排查后立即 `undebug all` 关闭。
+
+---
+
+## 三、结论协同建议
+
+| 情况 | 处理方式 |
+|------|----------|
+| 确认非直连、无动态路由、无 ACL 拦截 | 向导结论成立，添加静态路由并持久化 |
+| 确认是直连网段 | 排查 VLAN/SVI/STP/Trunk，而非加路由 |
+| 确认运行动态路由 | 排查协议邻居与收敛，而非替换为静态 |
+| 发现 ACL 拦截 | 调整 ACL 放行策略 |
+
+**建议执行顺序：第一步 → 第二步 → 第三步 → 第四步 → 最后才执行向导的处理动作（添加静态路由）。**

@@ -1,0 +1,830 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "juniper.json",
+  "vendor_label": "Juniper（瞻博 / Junos）",
+  "vendor_slug": "juniper",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 16,
+  "entries": [
+    {
+      "uuid": "2eb086b7-9e35-5a3e-b98b-68a782066662",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2300 / EX3400 / EX4300 / QFX5100",
+      "category": "VLAN",
+      "title": "创建 VLAN 并把端口划入 Access（Junos）",
+      "description": "用 set 形式创建 VLAN，把接口配上 access 模式并加入该 VLAN，最后 commit。",
+      "commands": "# ===== 创建 VLAN 并划入端口（Junos EX/QFX）=====\nconfigure\nset vlans {{vlan_name}} vlan-id {{vlan_id}}\nset interfaces {{port}} unit 0 family ethernet-switching interface-mode access\nset interfaces {{port}} unit 0 family ethernet-switching vlan members {{vlan_name}}\nset interfaces {{port}} description \"{{port_desc}}\"\nshow | compare\ncommit and-quit\nshow vlans\nshow ethernet-switching table",
+      "params": [
+        {
+          "name": "vlan_name",
+          "label": "VLAN 名称",
+          "default": "VLAN10-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "VLAN10-OFFICE"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_name",
+          "label": "VLAN 名称",
+          "default": "OFFICE",
+          "required": false,
+          "validate": "",
+          "example": "OFFICE"
+        },
+        {
+          "name": "port",
+          "label": "端口",
+          "default": "ge-0/0/1",
+          "required": true,
+          "validate": "port",
+          "example": "ge-0/0/1"
+        },
+        {
+          "name": "port_desc",
+          "label": "端口描述",
+          "default": "to-办公区",
+          "required": false,
+          "validate": "",
+          "example": "to-办公区"
+        }
+      ],
+      "notes": "1) Junos 改完必须 commit 才生效；commit and-quit 提交并退出配置模式，\n   rollback 0 丢弃未提交改动，rollback 1 回到上一次提交。\n2) members 写 VLAN 名称还是 VLAN ID 取决于版本：新版(15.1+)用名称，老版本可直接写 VLAN ID；\n   写错会提示对象不存在。\n3) 接口名是两段式 ge-0/0/1（FPC/PIC/端口），QFX 上常见 xe-/et- 前缀，别按思科 0/1 敲。\n4) show | compare 是 Junos 上最好用的自检命令，提交前一定要看一眼改了什么。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "4b1d8884-23ae-52d6-b6f5-64e17784d73c",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX4300 / QFX5100 / EX3400",
+      "category": "Trunk",
+      "title": "配置 Trunk 口并放通 VLAN（Junos）",
+      "description": "把上联口配成 trunk 模式，放通多个 VLAN 并设置 native-vlan-id。",
+      "commands": "# ===== 配置 Trunk 口（Junos）=====\nconfigure\nset interfaces {{port}} unit 0 family ethernet-switching interface-mode trunk\nset interfaces {{port}} unit 0 family ethernet-switching vlan members {{vlan_list}}\nset interfaces {{port}} unit 0 family ethernet-switching native-vlan-id {{native_vlan}}\nset interfaces {{port}} description \"{{port_desc}}\"\nshow | compare\ncommit and-quit\nshow interfaces {{port}} | display set",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口",
+          "default": "ge-0/0/24",
+          "required": true,
+          "validate": "port",
+          "example": "ge-0/0/24"
+        },
+        {
+          "name": "vlan_list",
+          "label": "放通 VLAN",
+          "default": "VLAN10-OFFICE VLAN20-FINANCE",
+          "required": true,
+          "validate": "",
+          "example": "空格分隔的 VLAN 名称列表"
+        },
+        {
+          "name": "native_vlan",
+          "label": "Native VLAN ID",
+          "default": "1",
+          "required": false,
+          "validate": "vlan",
+          "example": "1"
+        },
+        {
+          "name": "port_desc",
+          "label": "端口描述",
+          "default": "to-核心交换机",
+          "required": false,
+          "validate": "",
+          "example": "to-核心交换机"
+        }
+      ],
+      "notes": "1) Junos 的成员列表是\"空格分隔\"，与思科/华为的逗号或 to 段完全不同：\n   set ... vlan members VLAN10-OFFICE VLAN20-FINANCE\n2) native-vlan-id 写在 family ethernet-switching 层，不是写在 unit 上。\n3) trunk 放通全部用 vlan members all；生产上建议显式列举，便于审计。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "c7a88531-3888-5a30-8fa2-851f6c7b540d",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "SRX300/1500 / MX / EX 三层",
+      "category": "静态路由",
+      "title": "配置静态路由与浮动备份（Junos）",
+      "description": "用 CIDR 前缀写静态路由，并给出 qualified-next-hop 做备份的写法。",
+      "commands": "# ===== 静态路由（Junos）=====\nconfigure\nset routing-options static route {{dest_net}}/{{prefix_len}} next-hop {{next_hop}}\nset routing-options static route 0.0.0.0/0 next-hop {{next_hop}}\n! 浮动备份：qualified-next-hop + preference（静态路由默认 preference 为 5）\nset routing-options static route {{dest_net}}/{{prefix_len}} preference {{main_preference}}\nset routing-options static route {{dest_net}}/{{prefix_len}} qualified-next-hop {{backup_hop}} preference {{preference}}\nshow | compare\ncommit and-quit\nshow route {{dest_net}}/{{prefix_len}}\nshow route protocol static",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "192.168.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.20.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "前缀长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（Junos 用 CIDR 不用掩码）"
+        },
+        {
+          "name": "next_hop",
+          "label": "下一跳地址",
+          "default": "10.0.0.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.2"
+        },
+        {
+          "name": "backup_hop",
+          "label": "备份下一跳",
+          "default": "10.0.0.3",
+          "required": false,
+          "validate": "ipv4",
+          "example": "10.0.0.3"
+        },
+        {
+          "name": "preference",
+          "label": "备份优先级",
+          "default": "10",
+          "required": false,
+          "validate": "int:1-255",
+          "example": "备份写 10，比主路由 5 大"
+        },
+        {
+          "name": "main_preference",
+          "label": "主路由优先级",
+          "default": "5",
+          "required": false,
+          "validate": "int:1-255",
+          "example": "静态默认 5"
+        }
+      ],
+      "notes": "1) Junos 写 CIDR 前缀（192.168.20.0/24），不能写点分掩码，这是最容易出错的地方。\n2) preference 越小越优先：静态默认 5、OSPF 内部 10、BGP 170。做备份把 preference 调大即可。\n3) 删路由用整条 delete：delete routing-options static route 192.168.20.0/24\n4) show route protocol static 只看静态路由，比看全表快得多。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "8fe8f10d-ee6a-5b19-bbe3-51096df96a7b",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "SRX / MX / EX 三层",
+      "category": "OSPF",
+      "title": "配置 OSPF 基本组网（Junos）",
+      "description": "按接口宣告 OSPF（Junos 没有 network 语句），指定区域、router-id 并设置被动接口。",
+      "commands": "# ===== OSPF 基本配置（Junos）=====\nconfigure\nset routing-options router-id {{router_id}}\nset protocols ospf area {{area_id}} interface {{uplink_port}}.0\nset protocols ospf area {{area_id}} interface {{port}}.0\nset protocols ospf area {{area_id}} interface {{port}}.0 passive\nset protocols ospf area {{area_id}} interface lo0.0 passive\nshow | compare\ncommit and-quit\nshow ospf neighbor\nshow ospf interface\nshow route protocol ospf",
+      "params": [
+        {
+          "name": "router_id",
+          "label": "Router ID",
+          "default": "1.1.1.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "1.1.1.1"
+        },
+        {
+          "name": "area_id",
+          "label": "区域号",
+          "default": "0.0.0.0",
+          "required": false,
+          "validate": "",
+          "example": "0.0.0.0（Junos 用点分格式）"
+        },
+        {
+          "name": "port",
+          "label": "业务接口（被动）",
+          "default": "ge-0/0/1",
+          "required": true,
+          "validate": "port",
+          "example": "ge-0/0/1"
+        },
+        {
+          "name": "uplink_port",
+          "label": "上行接口（非被动）",
+          "default": "ge-0/0/24",
+          "required": true,
+          "validate": "port",
+          "example": "ge-0/0/24"
+        }
+      ],
+      "notes": "1) Junos 的 OSPF 是\"接口级宣告\"，没有 network 语句；接口必须带 unit 号（ge-0/0/1.0）。\n2) 区域号用点分格式 0.0.0.0；写 0 会被 Junos 自动展开，但显式写更清楚。\n3) 被动接口就是在同一行末尾加 passive（不用另起 passive-interface 命令）。\n4) 改 router-id 后需要 clear ospf neighbor 或重启路由进程才生效，生产环境慎用。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "e8e21247-766d-5b28-bdb4-25afbc67c7d3",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "SRX / EX / MX 全系列",
+      "category": "ACL",
+      "title": "配置防火墙过滤器（Junos Firewall Filter）并应用",
+      "description": "创建 family inet filter，按 term 匹配源/目的并 accept/discard，绑定到接口方向。",
+      "commands": "# ===== 防火墙过滤器（Junos）=====\nconfigure\nset firewall family inet filter {{filter_name}} term ALLOW-INTERNAL from source-address {{src_net}}/{{src_prefix}}\nset firewall family inet filter {{filter_name}} term ALLOW-INTERNAL from destination-address {{dst_net}}/{{dst_prefix}}\nset firewall family inet filter {{filter_name}} term ALLOW-INTERNAL then accept\nset firewall family inet filter {{filter_name}} term DENY-LOG from source-address 0.0.0.0/0\nset firewall family inet filter {{filter_name}} term DENY-LOG then count DENY-COUNT\nset firewall family inet filter {{filter_name}} term DENY-LOG then discard\nset interfaces {{port}} unit 0 family inet filter input {{filter_name}}\nshow | compare\ncommit and-quit\nshow firewall filter {{filter_name}}\nshow firewall",
+      "params": [
+        {
+          "name": "filter_name",
+          "label": "过滤器名称",
+          "default": "FILTER-IN-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "FILTER-IN-OFFICE"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_prefix",
+          "label": "源前缀长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24"
+        },
+        {
+          "name": "dst_net",
+          "label": "目的网段",
+          "default": "10.10.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.10.0.0"
+        },
+        {
+          "name": "dst_prefix",
+          "label": "目的前缀长度",
+          "default": "16",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "16"
+        },
+        {
+          "name": "port",
+          "label": "应用接口",
+          "default": "ge-0/0/1",
+          "required": true,
+          "validate": "port",
+          "example": "ge-0/0/1"
+        }
+      ],
+      "notes": "1) Junos filter 未匹配任何 term 时默认丢弃（与思科隐含 deny 一致），所以放通规则要写在前面。\n2) term 按书写顺序匹配，先匹配先生效；要插规则得用 insert 或调整顺序。\n3) 绑定方向必须写明 input/output：set interfaces ge-0/0/1 unit 0 family inet filter input <名称>。\n4) 加 then count 统计命中，show firewall 能看到每个 term 的实际命中数，排查特别快。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "d0ae3c17-7ead-5779-b727-122575241872",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "SRX300 / SRX1500 / SRX3400",
+      "category": "NAT",
+      "title": "配置源 NAT（PAT）与目的 NAT（端口映射）",
+      "description": "SRX 的 NAT 必须配合安全区域与策略：先配 zone、再配 NAT 规则集、最后放行策略。",
+      "commands": "# ===== 源 NAT + 目的 NAT（Junos SRX）=====\nconfigure\n! ---- 1) 接口先划入安全区域（NAT 与策略都依赖 zone）----\nset security zones security-zone trust interfaces {{inside_port}}.0\nset security zones security-zone untrust interfaces {{outside_port}}.0\n! ---- 2) 源 NAT（PAT：借用出接口地址）----\nset security nat source rule-set SNAT-RS from zone trust\nset security nat source rule-set SNAT-RS to zone untrust\nset security nat source rule-set SNAT-RS rule SNAT-R1 match source-address {{src_net}}/{{src_prefix}}\nset security nat source rule-set SNAT-RS rule SNAT-R1 then source-nat interface\n! ---- 3) 目的 NAT（公网端口 → 内网服务器端口）----\nset security nat destination pool {{pool_name}} address {{inside_ip}}/32\nset security nat destination pool {{pool_name}} address port {{inside_port}}\nset security nat destination rule-set DNAT-RS from zone untrust\nset security nat destination rule-set DNAT-RS rule DNAT-R1 match destination-address {{public_ip}}/32\nset security nat destination rule-set DNAT-RS rule DNAT-R1 match destination-port {{public_port}}\nset security nat destination rule-set DNAT-RS rule DNAT-R1 then destination-nat pool {{pool_name}}\n! ---- 4) 安全策略放行（不做这步 NAT 生效也不通）----\nset security policies from-zone trust to-zone untrust policy ALLOW-OUT match source-address any\nset security policies from-zone trust to-zone untrust policy ALLOW-OUT match destination-address any\nset security policies from-zone trust to-zone untrust policy ALLOW-OUT match application any\nset security policies from-zone trust to-zone untrust policy ALLOW-OUT then permit\nshow | compare\ncommit and-quit\nshow security nat source summary\nshow security flow session",
+      "params": [
+        {
+          "name": "inside_port",
+          "label": "内网接口",
+          "default": "ge-0/0/1",
+          "required": true,
+          "validate": "port",
+          "example": "ge-0/0/1"
+        },
+        {
+          "name": "outside_port",
+          "label": "外网接口",
+          "default": "ge-0/0/0",
+          "required": true,
+          "validate": "port",
+          "example": "ge-0/0/0"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_prefix",
+          "label": "源前缀长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24"
+        },
+        {
+          "name": "pool_name",
+          "label": "地址池名",
+          "default": "DNAT-POOL-WEB",
+          "required": true,
+          "validate": "",
+          "example": "DNAT-POOL-WEB"
+        },
+        {
+          "name": "inside_ip",
+          "label": "内网服务器",
+          "default": "192.168.10.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.100"
+        },
+        {
+          "name": "inside_port",
+          "label": "内网端口",
+          "default": "80",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "80"
+        },
+        {
+          "name": "public_ip",
+          "label": "公网 IP",
+          "default": "200.1.1.30",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.30"
+        },
+        {
+          "name": "public_port",
+          "label": "公网端口",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        }
+      ],
+      "notes": "1) SRX 的 NAT 一定要\"接口划 zone → NAT 规则集 → 安全策略\"三步齐全，缺一步表现为\"配了不通\"。\n2) source-nat interface 就是 PAT（借用出接口地址）；要指定地址池用 source-nat pool <池名>。\n3) 目的 NAT 的端口写在 pool 的 address ... port 上，公网端口写在 match destination-port。\n4) show security flow session 看会话是否建立，是排查 SRX 转发问题最快的办法。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "7a6092d4-a515-5f25-9af1-0550a38f8ec1",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX / QFX / SRX 全系列",
+      "category": "SSH管理",
+      "title": "开启 SSH 并创建管理用户（Junos）",
+      "description": "配置主机名域名、开启 SSHv2、禁止 root 直登，并创建超级用户。",
+      "commands": "# ===== 开启 SSH + 管理用户（Junos）=====\nconfigure\nset system host-name {{hostname}}\nset system domain-name {{domain}}\nset system services ssh protocol-version v2\nset system services ssh root-login deny\nset system services ssh connection-limit 5\nset system login user {{username}} uid {{uid}} class super-user\nset system login user {{username}} authentication encrypted-password \"{{password_hash}}\"\nset system login message \"{{banner}}\"\nshow | compare\ncommit and-quit\nshow system users\nshow system services",
+      "params": [
+        {
+          "name": "hostname",
+          "label": "设备名",
+          "default": "SW-CORE-01",
+          "required": false,
+          "validate": "",
+          "example": "SW-CORE-01"
+        },
+        {
+          "name": "domain",
+          "label": "域名",
+          "default": "corp.local",
+          "required": true,
+          "validate": "",
+          "example": "corp.local"
+        },
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "uid",
+          "label": "用户 UID",
+          "default": "2001",
+          "required": true,
+          "validate": "int:100-64000",
+          "example": "2001（不要用 0）"
+        },
+        {
+          "name": "password_hash",
+          "label": "加密口令串",
+          "default": "$1$AbCdEfGh$XyZ1234567890abcdef",
+          "required": true,
+          "validate": "",
+          "example": "Junos 的 $1$/$6$ 加密串"
+        },
+        {
+          "name": "banner",
+          "label": "登录提示语",
+          "default": "仅授权人员可登录，操作留痕",
+          "required": false,
+          "validate": "",
+          "example": "仅授权人员可登录"
+        }
+      ],
+      "notes": "1) Junos 上没有\"明文口令\"参数可安全用于脚本：set ... authentication plain-text-password\n   会交互提示输入两次口令，脚本粘贴进去会停在提示符上不动 —— 现场必须手工敲。\n2) 想在脚本里一次配好，用 encrypted-password 直接贴 $1$/$6$ 加密串\n   （可先在设备上用 plain-text-password 配好，再 show configuration 取出复用）。\n3) root-login deny 是安全基线要求；uid 不要用 0（0 是 root）。\n4) class 决定权限：super-user / operator / read-only，管理用 super-user。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "1838b1c2-bd11-59bb-9b3d-a3f803589144",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX / QFX / SRX 全系列",
+      "category": "密码",
+      "title": "设置 root 口令与登录用户口令（Junos）",
+      "description": "Junos 无独立 console 口令，console 使用 root 或登录用户账号；root 口令必须先设。",
+      "commands": "# ===== root 与用户口令（Junos）=====\nconfigure\n! root 口令：是 commit 的门槛（未设 root 口令时无法提交配置）\nset system root-authentication plain-text-password\n! ↑ 交互提示 Enter new password / Retype new password，必须手工输入\n! ---- 新建或改已有管理用户的口令 ----\nset system login user {{username}} class super-user uid {{uid}}\nset system login user {{username}} authentication plain-text-password\n! ↑ 同样交互输入两次\nset system login password minimum-length {{min_len}}\nset system login password change-type character-sets\nshow | compare\ncommit and-quit\nshow system login",
+      "params": [
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "uid",
+          "label": "用户 UID",
+          "default": "2001",
+          "required": false,
+          "validate": "int:100-64000",
+          "example": "2001"
+        },
+        {
+          "name": "min_len",
+          "label": "口令最小长度",
+          "default": "12",
+          "required": false,
+          "validate": "int:6-20",
+          "example": "6-20，建议 12"
+        }
+      ],
+      "notes": "1) Junos 的 console 没有独立口令：console 登录用 root 或普通用户账号，改口令就是改账号口令。\n2) set system root-authentication plain-text-password 是**交互式**命令：粘贴脚本后会停在\n   \"Enter new password:\" 等待输入，这是 Junos 上最常见的\"脚本卡住\"原因。\n3) 忘记 root 口令的恢复方式：重启，在 loader 提示符下 boot -s 进单用户模式改配置，\n   属破坏性操作，需现场做且建议先导出配置。\n4) 安全基线：口令长度 ≥12、启用复杂度（change-type character-sets）、root-login deny。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "interactive": true
+    },
+    {
+      "uuid": "1f3f324e-2420-5fdc-abd2-ac860cf74997",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX / QFX / SRX 全系列",
+      "category": "SNMP",
+      "title": "配置 SNMP v2c 与 Trap 目标（Junos）",
+      "description": "创建只读/读写团体字、设备位置联系人，并指定 Trap 上报目标。",
+      "commands": "# ===== SNMP 配置（Junos）=====\nconfigure\nset snmp community {{ro_community}} authorization read-only\nset snmp community {{ro_community}} clients {{nms_ip}}/32\nset snmp community {{rw_community}} authorization read-write\nset snmp location \"{{location}}\"\nset snmp contact \"{{contact}}\"\nset snmp description \"{{description}}\"\nset snmp trap-group {{trap_group}} version v2\nset snmp trap-group {{trap_group}} categories link\nset snmp trap-group {{trap_group}} targets {{nms_ip}}\nshow | compare\ncommit and-quit\nshow snmp community\nshow snmp statistics",
+      "params": [
+        {
+          "name": "ro_community",
+          "label": "只读团体字",
+          "default": "RO@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RO@Public1"
+        },
+        {
+          "name": "rw_community",
+          "label": "读写团体字",
+          "default": "RW@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RW@Public1"
+        },
+        {
+          "name": "location",
+          "label": "设备位置",
+          "default": "IDC-A-机柜12",
+          "required": false,
+          "validate": "",
+          "example": "IDC-A-机柜12"
+        },
+        {
+          "name": "contact",
+          "label": "联系人",
+          "default": "网络运维组",
+          "required": false,
+          "validate": "",
+          "example": "网络运维组"
+        },
+        {
+          "name": "nms_ip",
+          "label": "网管服务器 IP",
+          "default": "10.0.0.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.100"
+        },
+        {
+          "name": "description",
+          "label": "设备描述",
+          "default": "SW-CORE-01",
+          "required": false,
+          "validate": "",
+          "example": "SW-CORE-01"
+        },
+        {
+          "name": "trap_group",
+          "label": "Trap 组名",
+          "default": "NMS-TRAP",
+          "required": false,
+          "validate": "",
+          "example": "NMS-TRAP"
+        }
+      ],
+      "notes": "1) 强烈建议给团体字加 clients 限制源地址（set snmp community X clients <网管IP>/32），\n   不加等于对全网开放，安全审计必查。\n2) trap-group 的 targets 逐条设置即可添加多个上报目标。\n3) location/contact/description 都要带引号，含空格也能正常保存。\n4) show snmp statistics 能看收发包计数，判断网管是否真的在采集。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "541581dd-1d5f-59cf-a605-27646f408650",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX / QFX / SRX 全系列",
+      "category": "保存配置",
+      "title": "提交配置、导出备份与 rescue 救命配置（Junos）",
+      "description": "Junos 没有 write memory：配置提交即生效；此处给出导出备份与 rescue 配置做法。",
+      "commands": "# ===== 提交、备份与 rescue 配置（Junos）=====\nconfigure\nshow | compare\ncommit comment \"{{commit_comment}}\"\ncommit and-quit\n! ---- 查看当前生效配置 ----\nshow configuration | display set\n! ---- 导出配置到本地文件（隔离网络下最稳的备份方式）----\nsave /var/tmp/{{backup_name}}\n! ---- 查看已有备份文件 ----\nfile list /var/tmp/\n! ---- rescue 救命配置：出问题时一条命令回到这个状态 ----\nrequest system configuration rescue save\n! 恢复方式：rollback rescue 然后 commit\n! ---- 回滚到上一次提交 ----\n! rollback 1\n! commit",
+      "params": [
+        {
+          "name": "commit_comment",
+          "label": "提交备注",
+          "default": "变更单 CHG-20260920",
+          "required": false,
+          "validate": "",
+          "example": "变更单号，便于事后审计"
+        },
+        {
+          "name": "backup_name",
+          "label": "备份文件名",
+          "default": "SW-CORE-01-20260920.conf",
+          "required": true,
+          "validate": "",
+          "example": "SW-CORE-01-20260920.conf"
+        }
+      ],
+      "notes": "1) Junos 是\"候选配置 + commit\"模型：改完不 commit 不生效，也没有 write memory。\n2) commit comment 会把变更单号写进提交记录，show system commit 可查历史，审计很好用。\n3) request system configuration rescue save 保存\"救命配置\"，现场改坏了 rollback rescue 即可恢复；\n   上生产前建议先做一次 rescue。\n4) 备份文件在 /var/tmp 或 /config 下；要取回本机需用 SCP/USB，隔离网络下建议直接留档在设备上。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f0b04fd6-2368-5c82-a8a8-f2a50d70577e",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "Junos 全系列",
+      "category": "DNS域名解析",
+      "title": "配置 DNS 服务器与域名解析（Junos，含 commit）",
+      "description": "set name-server 指向内网 DNS 并 commit，验证域名可解析（离网内网 DNS 标准动作）。",
+      "commands": "# ===== 配置 DNS 服务器与域名解析（Junos，含 commit）=====\n# ---- 配置段：Junos 是 candidate 模型，改完必须 commit 才生效 ----\nconfigure\nset system name-server {{dns_server_ip}}\ncommit and-quit\n# ---- 验证段 ----\nshow configuration system name-server\nping {{test_domain}}\n",
+      "params": [
+        {
+          "name": "dns_server_ip",
+          "label": "内网 DNS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        },
+        {
+          "name": "test_domain",
+          "label": "验证用内网域名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "gw.corp.local"
+        }
+      ],
+      "notes": "1) 忘记 commit 是 Junos\"配了不生效\"第一名：set 只进候选库，commit and-quit 才落盘并生效。\n2) show system name-server 仅 Junos 17.3+ 支持，通用写法是 show configuration system name-server（本条用后者）。\n3) 重复 set system name-server 可追加备用 DNS；删除用 delete system name-server <IP>。\n验证方法：show configuration system name-server + ping test_domain，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "e713b1cb-7de3-56d3-8f56-dd6dd323b998",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "Junos 全系列",
+      "category": "时间同步",
+      "title": "配置 NTP 服务器与状态验证（Junos，含 commit）",
+      "description": "set system ntp server 指向内网 NTP 并 commit，验证时钟同步。",
+      "commands": "# ===== 配置 NTP 服务器与状态验证（Junos，含 commit）=====\nconfigure\nset system ntp server {{ntp_server_ip}}\ncommit and-quit\n# ---- 验证（收敛需数分钟）----\nshow ntp associations\nshow system uptime\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) 改完必须 commit；Junos 的 NTP 配置在 system 层级。\n2) show ntp associations 输出 ^* = 选中源；show system uptime 的 time 源显示 ntp 即已同步。\n3) 关联不通查 UDP 123 与源端可达性。\n验证方法：show ntp associations 见 ^* + show system uptime 时钟准确，收敛后 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "615b5af2-91e3-5200-a31d-828101ab7c14",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "Junos 全系列",
+      "category": "版本升级",
+      "title": "软件版本查看、备份与升级流程（Junos，含 snapshot 双备份）",
+      "description": "show version → snapshot 双分区快照 → 配置备份 → software add（带 reboot）。",
+      "commands": "# ===== 版本查看、备份与升级流程（Junos）=====\n# ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\nshow version\nshow system storage\n# ---- 1. ★ Junos 特色：系统快照到备用分区（升级失败可回退旧系统）----\nrequest system snapshot media internal slice alternate\n# ---- 2. 备份配置 ----\nshow configuration | save /var/tmp/confg-backup.txt\n# ---- 3. 传输新版本并安装（software add 带 reboot 自动重启）----\nfile copy {{backup_server}}:/var/tmp/<新版本.tgz> /var/tmp/\nrequest system software add /var/tmp/<新版本.tgz> reboot\n# ---- 4. 重启后复核 ----\nshow version\nshow system storage\n",
+      "params": [
+        {
+          "name": "backup_server",
+          "label": "TFTP/备份服务器 IP",
+          "default": "",
+          "required": true,
+          "required_note": "",
+          "validate": "ipv4",
+          "example": "192.168.66.20"
+        }
+      ],
+      "notes": "1) ★ 危险点（变更窗口/回滚点/带外通道三要素先行）：software add 带 reboot 参数会在安装完自动重启——三要素确认后再敲。\n2) Junos 双分区是天生回滚点：snapshot 把当前系统拍到 alternate 分区，升级失败可在 loader 下从备用分区启动回滚；升级成功后建议再做一次 snapshot 把新系统同步到备用区。\n3) <新版本.tgz> 按实际文件名替换；存储不足先 request system storage cleanup。\n验证方法：升级后 show version 新版本 + show system storage 正常 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "eda95c97-842d-55ac-bd16-eb5f4f570402",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "Junos 全系列",
+      "category": "配置回滚",
+      "title": "配置回滚（Junos rollback N + commit）",
+      "description": "Junos 天生多回滚点：rollback N 回到历史候选配置，commit 生效（全库唯一原生回滚模型）。",
+      "commands": "# ===== 配置回滚（Junos rollback N + commit）=====\n# ---- 1. 查看历史回滚点（0 = 当前生效，1-49 = 历史候选）----\nshow system commit\nshow configuration | compare rollback {{rollback_id}}\n# ---- 2. ★ diff 确认回退范围后回滚并生效 ----\nrollback {{rollback_id}}\ncommit and-quit\n# ---- 3. 复核 ----\nshow configuration | compare rollback 0\n",
+      "params": [
+        {
+          "name": "rollback_id",
+          "label": "回滚点编号",
+          "default": "",
+          "required": true,
+          "validate": "int:0-49",
+          "example": "2"
+        }
+      ],
+      "notes": "1) ★ 危险点：rollback 只切候选库，commit 才生效——rollback 后忘 commit 是\"回滚没生效\"第一原因。\n2) ★ 回滚前先 show configuration | compare rollback N 做 diff。\n3) show system commit 列历史提交记录（编号即 rollback 目标）；0 号 = 当前运行配置。\n4) 与《保存配置并备份到本地 flash》分工：Junos 无需手工保存配置，rollback 即回滚体系。\n验证方法：compare 显示差异收敛 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "_file": "seed_data/juniper.json",
+      "uuid": "59a1ea1e-7871-5d55-9a88-935f6d78895f",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "Juniper（EX 系交换）",
+      "category": "环路检测",
+      "title": "环路检测与 STP 状态核查（Junos EX）",
+      "description": "Junos STP 状态与根桥核查（EX 系交换机；commit 模型记得先 commit）。",
+      "commands": "# ===== 环路检测与 STP 状态核查（Junos EX）=====\n# ---- 1. STP 汇总（模式与根桥）----\nshow spanning-tree bridge\n# ---- 2. 端口角色与状态 ----\nshow spanning-tree interface\n# ---- 3. 拓扑变化 ----\nshow spanning-tree statistics\n",
+      "params": [],
+      "notes": "1) Junos STP 默认模式可能为 RSTP/MSTP，show spanning-tree bridge 看 bridge-priority 与根桥。\n2) ★ 危险点：风暴中勿盲目插拔线——先定位环路端口再断开一端。\n3) EX 接入口建议配 bpdu-block-on-edge。\n验证方法：根桥固定在核心 + 端口角色正常；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "327b344d-3a05-5af0-82dc-8328dcc625aa",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "Juniper（Junos）",
+      "category": "AAA认证",
+      "title": "配置 RADIUS 认证与本地兜底（Junos）",
+      "description": "radius-server + authentication-order（先 radius 后 password 本地兜底）+ 验证（先验证后退出）。",
+      "commands": "# ===== RADIUS 认证与本地兜底（Junos）=====\nconfigure\n# ---- 1. RADIUS 服务器 ----\nset system radius-server {{aaa_server_ip}} secret \"{{aaa_shared_key}}\"\n# ---- 2. 认证顺序：先 radius 后本地 password 兜底 ----\nset system authentication-order radius\nset system authentication-order password\n# ---- 3. 本地兜底账号 ----\nset system login user {{local_user}} class super-user\nset system login user {{local_user}} authentication plain-text-password\n# ↑ 交互式输入口令\n# ---- 4. commit（★ 先验证再断当前会话；Junos 有候选模型，错了可 rollback）----\ncommit and-quit\n# ---- 5. 验证：新窗口域账号登录；失败则 rollback 回退 ----\nshow system login\n",
+      "params": [
+        {
+          "name": "aaa_server_ip",
+          "label": "RADIUS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.30"
+        },
+        {
+          "name": "aaa_shared_key",
+          "label": "共享密钥",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强密钥"
+        },
+        {
+          "name": "local_user",
+          "label": "本地兜底账号",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        }
+      ],
+      "notes": "1) ★ 危险点（AAA 第一铁律）：配置 AAA 后**不要退出当前会话**——先用新开窗口验证能登录，确认兜底本地账号可用再断开；配置错误把自己锁外面只能 Console 救。\n2) ★ 保留 Console 通道：AAA 服务器不可达时 Console 是最后生命线（console 上配置本地兜底）。\n3) 本地兜底顺序必须显式配置（radius/tacacs 之后跟 local），服务器全挂时才回落本地账号。\n4) Junos 是候选模型：AAA 配错可 rollback 0 回退——这本身就是兜底优势，但也要新窗口验证后再退会话。\n5) authentication-order 的顺序即兜底顺序。\n验证方法：新窗口域账号登录成功 + 停 RADIUS 后本地账号可登录；（验证人/型号/日期验证通过后回填 verified，属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

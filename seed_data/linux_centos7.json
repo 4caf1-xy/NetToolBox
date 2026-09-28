@@ -1,0 +1,1172 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "linux_centos7.json",
+  "vendor_label": "CentOS 7（RHEL 系）",
+  "vendor_slug": "centos",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 30,
+  "entries": [
+    {
+      "uuid": "887ade2e-5900-5ae2-830f-8fdef988fe9c",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7（openEuler 22.03 基本一致）",
+      "category": "网络配置",
+      "title": "临时配置 IP 地址（ip 命令族）",
+      "description": "用 ip 命令给网卡临时加 IP，立即生效，重启网络或机器后失效。",
+      "commands": "# ⚠ 临时生效：重启网络/机器后失效，持久化见配套条目：《永久配置 IP（ifcfg-* 文件）》\nip addr show\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}\nip link set {{ifname}} up\nip addr show {{ifname}}\n# 验证连通\nping -c 2 {{gateway}}\n# 清除该 IP（需要时）：\n# ip addr del {{ip_addr}}/{{prefix_len}} dev {{ifname}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        }
+      ],
+      "notes": "1) ⚠ 重启后失效：持久化见配套条目：《永久配置 IP（ifcfg-* 文件）》或\n   《nmcli 永久配置 IP（推荐）》。持久化之后再做临时变更两不误。\n2) ip addr add 可以给一块网卡挂多个 IP（辅助地址场景），删掉主 IP 不影响辅助 IP。\n3) 网卡是 DOWN 状态时先 ip link set {{ifname}} up，否则加了 IP 也不通。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "3461989b-84aa-5812-ab2c-cb097a42e289",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "网络配置",
+      "title": "永久配置 IP（ifcfg-* 文件）",
+      "description": "改 ifcfg-* 配置文件实现 IP 持久化，重启后仍生效。",
+      "commands": "# 持久化配置：/etc/sysconfig/network-scripts/ifcfg-{{ifname}}\n# 改之前先备份！\ncp /etc/sysconfig/network-scripts/ifcfg-{{ifname}} /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.bak\nvi /etc/sysconfig/network-scripts/ifcfg-{{ifname}}\n# ---- 文件内容（按现场实际填写）----\n# DEVICE={{ifname}}\n# BOOTPROTO=static\n# ONBOOT=yes\n# IPADDR={{ip_addr}}\n# PREFIX={{prefix_len}}\n# GATEWAY={{gateway}}\n# DNS1={{dns_ip}}\n# ------------------------------------\nsystemctl restart network\nip addr show {{ifname}}\nip route show",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "dns_ip",
+          "label": "DNS 服务器",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        }
+      ],
+      "notes": "1) PREFIX 写掩码长度（24），不要写 255.255.255.0 —— 写点分掩码会不生效。\n2) ONBOOT=no 是\"装完系统网卡不起来\"的头号原因，改成 yes。\n3) systemctl restart network 会瞬断所有网卡连接，远程操作时留一个备用会话。\n4) 想平滑生效可用 nmcli（见配套条目：《nmcli 永久配置 IP（推荐）》）。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "d76cdcfd-93c6-5dd4-9fa0-5781819794e9",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7.3+ / RHEL 7.3+（带 NetworkManager）",
+      "category": "网络配置",
+      "title": "nmcli 永久配置 IP（推荐）",
+      "description": "用 nmcli 修改连接配置：写入持久化配置且立即生效，一条命令两件事都办。",
+      "commands": "nmcli con show\nnmcli con mod \"{{con_name}}\" ipv4.method manual ipv4.addresses {{ip_addr}}/{{prefix_len}}\nnmcli con mod \"{{con_name}}\" ipv4.gateway {{gateway}}\nnmcli con mod \"{{con_name}}\" ipv4.dns {{dns_ip}}\nnmcli con up \"{{con_name}}\"\nnmcli con show \"{{con_name}}\"\nip addr show {{ifname}}",
+      "params": [
+        {
+          "name": "con_name",
+          "label": "连接名",
+          "default": "eth0",
+          "required": false,
+          "validate": "",
+          "example": "nmcli con show 查看，一般等于网卡名"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "dns_ip",
+          "label": "DNS 服务器",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        },
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        }
+      ],
+      "notes": "1) ipv4.method manual 别漏 —— 不改的话还是 DHCP，地址不生效。\n2) 连接名（con_name）用 nmcli con show 查，一般等于网卡名；带空格要加引号。\n3) nmcli con up 会瞬断该网卡，远程操作留备用会话。\n4) 改坏了回滚：nmcli con mod \"{{con_name}}\" ipv4.method auto && nmcli con up \"{{con_name}}\"。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "5061d3b4-37ab-511c-8c02-89606803c0df",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "网络配置",
+      "title": "临时添加静态路由（ip route）",
+      "description": "用 ip route 加静态路由，立即生效，重启后失效。",
+      "commands": "# ⚠ 临时生效：持久化见配套条目：《静态路由持久化（route-* 文件）》\nip route show\nip route add {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nip route show\n# 删除该路由（需要时）：\n# ip route del {{dest_net}}/{{prefix_len}} via {{gateway}}",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "10.20.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.20.0.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        }
+      ],
+      "notes": "1) ⚠ 重启后失效：持久化见配套条目：《静态路由持久化（route-* 文件）》。\n2) via 后面是下一跳，必须是本机同网段可达的地址，写错了路由加得上但不通。\n3) 默认路由：ip route add default via {{gateway}}。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "59e0fb72-e3be-5dd1-8fae-3892931dadec",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "网络配置",
+      "title": "静态路由持久化（route-* 文件）",
+      "description": "用 route-* 配置文件持久化静态路由，重启后仍生效。",
+      "commands": "# 持久化：/etc/sysconfig/network-scripts/route-{{ifname}}\nvi /etc/sysconfig/network-scripts/route-{{ifname}}\n# ---- 文件内容（每行一条路由）----\n# {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nsystemctl restart network\nip route show",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "10.20.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.20.0.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        }
+      ],
+      "notes": "1) 文件名必须与网卡对应（route-eth0 对 eth0），写错网卡名不生效。\n2) 每行一条路由，支持多行；写错格式会导致 network.service 启动报错，改前备份。\n3) 临时验证先用配套条目：《临时添加静态路由（ip route）》，通了再持久化。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "40adf302-ad41-5b58-8862-bfffd543a221",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "网络配置",
+      "title": "临时创建 VLAN 子接口（802.1Q）",
+      "description": "用 ip link 创建 VLAN 子接口，立即生效，重启后失效。",
+      "commands": "# ⚠ 临时生效：持久化见配套条目：《VLAN 子接口持久化（ifcfg 文件）》\n# 前提：交换机侧该口已配 trunk 并放通该 VLAN\nmodprobe 8021q\nip link add link {{ifname}} name {{ifname}}.{{vlan_id}} type vlan id {{vlan_id}}\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}.{{vlan_id}}\nip link set {{ifname}}.{{vlan_id}} up\nip -d link show {{ifname}}.{{vlan_id}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        }
+      ],
+      "notes": "1) ⚠ 重启后失效：持久化见配套条目：《VLAN 子接口持久化（ifcfg 文件）》。\n2) 交换机侧必须是 trunk 且放通了 {{vlan_id}}，否则配了也不通（排查先查对端）。\n3) 8021q 模块一般已编译进内核，modprobe 报 already loaded 属正常。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "d3659ded-f306-5c33-a1ad-445c1b2b848f",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "网络配置",
+      "title": "VLAN 子接口持久化（ifcfg 文件）",
+      "description": "用 ifcfg 持久化 VLAN 子接口，重启后仍生效。",
+      "commands": "# 持久化：/etc/sysconfig/network-scripts/ifcfg-{{ifname}}.{{vlan_id}}\ncat > /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.{{vlan_id}} << 'EOF'\nDEVICE={{ifname}}.{{vlan_id}}\nBOOTPROTO=static\nONBOOT=yes\nVLAN=yes\nPHYSDEV={{ifname}}\nIPADDR={{ip_addr}}\nPREFIX={{prefix_len}}\nEOF\nsystemctl restart network\nip -d link show {{ifname}}.{{vlan_id}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        }
+      ],
+      "notes": "1) VLAN=yes 让 network 服务自动创建子接口，不要手写 8021q 相关行。\n2) 母接口（PHYSDEV）自身的 ifcfg 里不要写 VLAN=yes，否则行为混乱。\n3) 验证 VLAN 标签：cat /proc/net/vlan/{{ifname}}.{{vlan_id}}。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "1670a689-4336-5726-a418-df3f14f19035",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "网络配置",
+      "title": "双网卡绑定 bond（nmcli 方式）",
+      "description": "把两块网卡绑成一个 bond 口做链路冗余/带宽，配置持久化。",
+      "commands": "nmcli con add type bond con-name bond0 ifname bond0 \\\n  bond.options \"mode=active-backup,miimon=100\"\nnmcli con add type bond-slave con-name slave-{{ifname}} ifname {{ifname}} master bond0\nnmcli con add type bond-slave con-name slave-{{ifname2}} ifname {{ifname2}} master bond0\nnmcli con mod bond0 ipv4.method manual ipv4.addresses {{ip_addr}}/{{prefix_len}} \\\n  ipv4.gateway {{gateway}}\nnmcli con up bond0\ncat /proc/net/bonding/bond0",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "ifname2",
+          "label": "第二块网卡",
+          "default": "eth1",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth1"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        }
+      ],
+      "notes": "1) mode=active-backup 是主备（最常用）；负载均衡用 mode=802.3ad（需交换机配 LACP）。\n2) 两块 slave 网卡的原 ifcfg 配置要先清掉（或由 NM 接管），否则冲突。\n3) 验证看 /proc/net/bonding/bond0：当前活动网卡与 miimon 状态都在里面。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "5ca5ddd1-6be9-5069-b81d-52f1c7183b87",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "网络配置",
+      "title": "DNS 配置（临时 + 持久化）",
+      "description": "临时改 /etc/resolv.conf 立即生效；持久化走 nmcli 或 ifcfg 的 DNS 字段。",
+      "commands": "# ---- 临时：直接改 resolv.conf（NetworkManager 管理时重启网络会被覆盖）----\necho \"nameserver {{dns_ip}}\" >> /etc/resolv.conf\ncat /etc/resolv.conf\n# 验证\ndig @{{dns_ip}} {{domain}} +short\n# ---- 持久化（推荐 nmcli）----\nnmcli con mod \"{{con_name}}\" ipv4.dns \"{{dns_ip}}\"\nnmcli con up \"{{con_name}}\"",
+      "params": [
+        {
+          "name": "dns_ip",
+          "label": "DNS 服务器",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        },
+        {
+          "name": "domain",
+          "label": "域名",
+          "default": "www.example.com",
+          "required": true,
+          "validate": "",
+          "example": "www.example.com"
+        },
+        {
+          "name": "con_name",
+          "label": "连接名",
+          "default": "eth0",
+          "required": false,
+          "validate": "",
+          "example": "nmcli con show 查看，一般等于网卡名"
+        }
+      ],
+      "notes": "1) 有 NetworkManager 时直接改 resolv.conf 是临时的，会被 NM 用连接配置覆盖回去。\n2) 持久化二选一：nmcli con mod（推荐）或 ifcfg-{{ifname}} 里加 DNS1={{dns_ip}}。\n3) 多个 DNS 用空格分隔：nmcli con mod \"{{con_name}}\" ipv4.dns \"8.8.8.8 114.114.114.114\"。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "86214216-5e00-5e49-954b-5a369f2587d7",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "服务管理",
+      "title": "systemctl 服务管理五件套",
+      "description": "启动/停止/重启/查状态/开机自启，含查看为什么起不来。",
+      "commands": "systemctl start {{service_name}}\nsystemctl stop {{service_name}}\nsystemctl restart {{service_name}}\nsystemctl status {{service_name}} --no-pager\nsystemctl is-enabled {{service_name}}\n# 开机自启 / 取消自启\nsystemctl enable {{service_name}}\nsystemctl disable {{service_name}}\n# 起不来时看细节\nsystemctl status {{service_name}} -l --no-pager\njournalctl -u {{service_name}} -n 50 --no-pager",
+      "params": [
+        {
+          "name": "service_name",
+          "label": "服务名",
+          "default": "sshd",
+          "required": true,
+          "validate": "",
+          "example": "sshd / firewalld / NetworkManager"
+        }
+      ],
+      "notes": "1) start/restart 是\"现在跑起来\"，enable 是\"开机自启\"—— 两个独立，新装服务要都做。\n2) status 里 Active: failed 时先看 journalctl -u 的最后几行，八成是配置文件或端口被占。\n3) 改了 unit 文件（/usr/lib/systemd/system/*.service）要 systemctl daemon-reload。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "5f774ec6-2019-5172-9c27-3e75d51e260f",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "服务管理",
+      "title": "开机自启排查",
+      "description": "查某个服务会不会开机自启、哪些服务在自启列表里。",
+      "commands": "systemctl is-enabled {{service_name}}\nsystemctl list-unit-files --type=service --state=enabled --no-pager\nsystemctl list-unit-files --type=service --state=disabled --no-pager | head -20\n# 某服务开机自启被谁依赖/依赖谁\nsystemctl list-dependencies {{service_name}}",
+      "params": [
+        {
+          "name": "service_name",
+          "label": "服务名",
+          "default": "sshd",
+          "required": true,
+          "validate": "",
+          "example": "sshd / firewalld / NetworkManager"
+        }
+      ],
+      "notes": "1) is-enabled 输出 enabled/static/indirect/disabled：static 表示被其它服务拉着启动。\n2) 排查\"为什么开机没起\"：先 is-enabled，再 status 看 Active，最后 journalctl 看日志。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "ab2aaeca-7569-53f4-8296-062b9a2faf2e",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "防火墙",
+      "title": "firewalld 放行端口与服务",
+      "description": "用 firewall-cmd 永久放行端口/服务，含验证与排错。",
+      "commands": "firewall-cmd --state\nfirewall-cmd --get-active-zones\n# 永久放行端口\nfirewall-cmd --permanent --add-port={{port}}/tcp\nfirewall-cmd --permanent --add-service=https\nfirewall-cmd --reload\nfirewall-cmd --list-all\n# 验证（本机监听 + 远端 telnet）\nss -tlnp | grep :{{port}}",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        }
+      ],
+      "notes": "1) ★ 不加 --permanent 只改运行时，reload/重启后丢失；加了 --permanent 必须 --reload 才生效。\n2) 端口没起来是应用没监听（ss 查），端口起了但不通才是防火墙 —— 别上来就关防火墙。\n3) 应急放通 SSH：firewall-cmd --permanent --add-service=ssh && firewall-cmd --reload。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "8dc510d6-bd40-5600-bda8-6818e38d9b00",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "防火墙",
+      "title": "firewalld 富规则（只放行指定源 IP）",
+      "description": "用富规则实现「只允许某网段访问某端口」，比全开放安全。",
+      "commands": "firewall-cmd --permanent --add-rich-rule='rule family=\"ipv4\" \\\n  source address=\"{{src_net}}/{{prefix_len}}\" \\\n  port protocol=\"tcp\" port=\"{{port}}\" accept'\nfirewall-cmd --permanent --add-rich-rule='rule family=\"ipv4\" \\\n  source address=\"0.0.0.0/0\" \\\n  port protocol=\"tcp\" port=\"{{port}}\" drop'\nfirewall-cmd --reload\nfirewall-cmd --list-rich-rules",
+      "params": [
+        {
+          "name": "src_net",
+          "label": "允许的源网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "源掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24"
+        },
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        }
+      ],
+      "notes": "1) 先放行白名单网段（accept），再放行全网段拒绝（drop）—— 富规则按顺序匹配。\n2) 引号嵌套：外层单引号、内层双引号，写错会报 syntax error。\n3) 等价图形化思路：放行 22/管理口给运维网段，业务端口按需白名单。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "33be5cc9-2510-5d74-abd9-f2bf9190d431",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "防火墙",
+      "title": "iptables 基础（临时规则）",
+      "description": "查看与添加 iptables 规则；与 firewalld 同时用会打架，二选一。",
+      "commands": "iptables -L -n -v --line-numbers\n# 放行端口（插到最前面）\niptables -I INPUT 1 -p tcp --dport {{port}} -j ACCEPT\n# 只放行指定网段\niptables -A INPUT -p tcp -s {{src_net}}/{{prefix_len}} --dport {{port}} -j ACCEPT\n# 拒绝其它\niptables -A INPUT -p tcp --dport {{port}} -j DROP\n# 保存（重启后仍生效，需要 iptables-services 包）\niptables-save > /etc/sysconfig/iptables",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "源掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24"
+        }
+      ],
+      "notes": "1) ⚠ 直接加的规则重启后失效；持久化要 iptables-save 或装 iptables-services。\n2) ★ RHEL7 默认用 firewalld，iptables 与 firewalld 同时改规则会互相覆盖，二选一。\n3) -I INPUT 1 是插到第 1 条（优先匹配），-A 是追加到末尾 —— 顺序错了 DROP 会挡掉 ACCEPT。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "7ddb249b-4d42-5f56-b592-36c2cc4b595c",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "排查命令",
+      "title": "查端口监听与占用（ss/netstat）",
+      "description": "确认服务是否在监听端口、被哪个进程占用。",
+      "commands": "ss -tlnp | grep :{{port}}\nss -tlnp\nss -s\n# netstat 用法相同（需 yum install net-tools）\nnetstat -tlnp | grep :{{port}}\n# 查某进程占了哪些端口\nss -tlnp | grep {{pid}}",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        },
+        {
+          "name": "pid",
+          "label": "进程号",
+          "default": "1234",
+          "required": true,
+          "validate": "int:1-4194304",
+          "example": "1234"
+        }
+      ],
+      "notes": "1) -t TCP、-l 监听、-n 不解析域名（快）、-p 显示进程 —— 记住 tlnp 四件套。\n2)LISTEN 都没有 → 服务没起或起在别的端口（先 systemctl status）；LISTEN 有但不通 → 查防火墙。\n3) 老脚本用 netstat 的话装 net-tools 包，新排查一律用 ss（更快更全）。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "65715bad-f12c-56fa-9179-3acb7dee7506",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "排查命令",
+      "title": "tcpdump 抓包入门五式",
+      "description": "五个最常用的抓包姿势：按主机、按端口、按网段、落盘、抓 ARP。",
+      "commands": "tcpdump -i {{ifname}} -nn host {{peer_ip}} -c 100\ntcpdump -i {{ifname}} -nn port {{port}} -c 100\ntcpdump -i {{ifname}} -nn src net {{src_net}}/24 -c 100\ntcpdump -i {{ifname}} -nn -w /tmp/capture.pcap -c 1000\ntcpdump -i any -nn arp -c 50\n# 只看不抓自己 SSH 的流量（远程排查必备）\ntcpdump -i {{ifname}} -nn not port 22 -c 100",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "peer_ip",
+          "label": "对端 IP",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        }
+      ],
+      "notes": "1) -nn 不解析域名端口（速度快、输出干净）；-c 限制包数防止刷屏。\n2) 远程排查一定加 not port 22，否则自己的 SSH 流量把输出淹了。\n3) -w 落盘的 pcap 拷回本机用 Wireshark 分析；-i any 抓所有网卡（VLAN 场景好用）。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "ba83f283-c390-5fb6-ad71-14e03f1b62f4",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "排查命令",
+      "title": "ethtool 网卡与光模块诊断",
+      "description": "查网卡速率、双工、链路状态与驱动信息。",
+      "commands": "ethtool {{ifname}}\nethtool -i {{ifname}}\nethtool -S {{ifname}} | grep -iE \"error|drop|crc\" | head\nip -s link show {{ifname}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        }
+      ],
+      "notes": "1) Link detected: yes 才有物理链路；no 先查线缆/光模块/对端端口。\n2) Speed: 1000Mb/s 与对端不一致（一边 100M）就是双工/速率协商问题。\n3) CRC/error 计数持续增长 → 大概率光模块或线缆质量差，换线换模块。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "edc961f1-86cc-59d5-9958-7569af10034c",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "排查命令",
+      "title": "连通性排查三连（ping/traceroute/dig）",
+      "description": "从链路层到应用层快速定位网络不通的点。",
+      "commands": "ping -c 4 {{peer_ip}}\ntraceroute {{peer_ip}}\ndig @{{dns_ip}} {{domain}} +short\n# 指定出口网卡 ping（多网卡/策略路由场景）\nping -I {{ifname}} -c 4 {{peer_ip}}\n# 端口级连通（比 telnet 直观）\ncurl -v telnet://{{peer_ip}}:{{port}} --connect-timeout 3",
+      "params": [
+        {
+          "name": "peer_ip",
+          "label": "对端 IP",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "dns_ip",
+          "label": "DNS 服务器",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        },
+        {
+          "name": "domain",
+          "label": "域名",
+          "default": "www.example.com",
+          "required": true,
+          "validate": "",
+          "example": "www.example.com"
+        },
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        }
+      ],
+      "notes": "1) ping 通但端口不通 → 防火墙或服务没监听；ping 不通 → 先看 ARP（ip neigh）。\n2) traceroute 中间 * 号不一定是断点（路由器可以禁 ICMP），看最后一跳在哪。\n3) dig +short 只出结果行；排查解析问题加 @ 指定 DNS 服务器对比。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "e2da85a1-b6a5-54d7-8909-edba295ead46",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "日志",
+      "title": "journalctl 日志过滤",
+      "description": "按服务、时间窗、级别过滤 systemd 日志。",
+      "commands": "journalctl -u {{service_name}} -n 100 --no-pager\njournalctl -xe\njournalctl -u {{service_name}} --since \"2026-09-21 10:00\" --until \"2026-09-21 11:00\" --no-pager\njournalctl -p err -b --no-pager\njournalctl --disk-usage",
+      "params": [
+        {
+          "name": "service_name",
+          "label": "服务名",
+          "default": "sshd",
+          "required": true,
+          "validate": "",
+          "example": "sshd / firewalld / NetworkManager"
+        }
+      ],
+      "notes": "1) -xe 的 x 是补全上下文、e 是跳到最后 —— 服务起不来先看这个。\n2) -b 只看本次开机以来的日志；-p err 只看 err 及以上级别。\n3) 日志占满磁盘：journalctl --vacuum-size=500M 直接缩到指定大小。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "89838bc5-9518-52f4-8d28-b6527c30a560",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "日志",
+      "title": "日志 grep + tail 组合排查",
+      "description": "传统文本日志的快速过滤姿势。",
+      "commands": "tail -n 100 /var/log/messages\ngrep -iE \"error|fail\" /var/log/messages | tail -20\ngrep -C 3 \"{{keyword}}\" /var/log/messages\ntail -f /var/log/messages\ntail -f /var/log/messages | grep --line-buffered -i \"{{keyword}}\"",
+      "params": [
+        {
+          "name": "keyword",
+          "label": "关键字",
+          "default": "eth0",
+          "required": true,
+          "validate": "",
+          "example": "eth0 / dhcp / sshd"
+        }
+      ],
+      "notes": "1) grep -C 3 显示命中行前后各 3 行，排障时上下文很重要。\n2) tail -f 跟踪时 Ctrl+C 退出；管道里 grep 要加 --line-buffered 否则缓冲会卡输出。\n3) 关键字先小写 + -i 忽略大小写，避免 \"Error\"/\"ERROR\" 漏匹配。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f5d0e9fa-80fb-5cb3-bada-272cb72a1f12",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "本地源",
+      "title": "本地 yum 源（ISO 挂载）★ 离网特供",
+      "description": "用 ISO 镜像搭本地 yum 源，完全离线装包——隔离网最高频场景。",
+      "commands": "mkdir -p /mnt/cdrom\nmount -o loop {{iso_path}} /mnt/cdrom\n# 物理光驱则：mount /dev/cdrom /mnt/cdrom\ncat > /etc/yum.repos.d/local.repo << 'EOF'\n[local-iso]\nname=Local ISO Repo\nbaseurl=file:///mnt/cdrom\nenabled=1\ngpgcheck=0\nEOF\nyum clean all\nyum makecache\nyum repolist\nyum install {{pkg_name}} -y",
+      "params": [
+        {
+          "name": "iso_path",
+          "label": "ISO 文件路径",
+          "default": "/opt/CentOS-7-x86_64-DVD-2009.iso",
+          "required": true,
+          "validate": "path",
+          "example": "/opt/CentOS-7-x86_64-DVD-2009.iso"
+        },
+        {
+          "name": "pkg_name",
+          "label": "软件包名",
+          "default": "createrepo",
+          "required": true,
+          "validate": "",
+          "example": "createrepo"
+        }
+      ],
+      "notes": "1) ★ 离网装包第一选择；gpgcheck=0 免去导 key 的麻烦。\n2) 开机自动挂载：echo \"{{iso_path}} /mnt/cdrom iso9660 loop,defaults 0 0\" >> /etc/fstab\n3) repolist 显示 0 个包 → baseurl 指错层级，要指向含 repodata/ 目录的那一层。\n4) 多台机器共用：把 ISO 目录用 NFS/HTTP 发出去，baseurl 改成 http://内网IP/centos7/。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "ee15bcb0-dab7-55da-9adf-67a0c085f5c9",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "本地源",
+      "title": "createrepo 自建 yum 源",
+      "description": "把收集来的 rpm 做成正式 yum 源，供本机或内网其它机器使用。",
+      "commands": "mkdir -p /opt/local-repo\ncp ./*.rpm /opt/local-repo/\ncreaterepo /opt/local-repo\ncat > /etc/yum.repos.d/local-repo.repo << 'EOF'\n[local-repo]\nname=Local Created Repo\nbaseurl=file:///opt/local-repo\nenabled=1\ngpgcheck=0\nEOF\nyum clean all\nyum makecache\nyum repolist",
+      "params": [],
+      "notes": "1) ★ 每次往目录里加了新 rpm 都要重新 createrepo /opt/local-repo，否则 yum 看不到。\n2) createrepo 命令本身没装：从 ISO 的 Packages 里找出\n   createrepo / deltarpm / python-deltarpm 三个包 rpm -Uvh 安装。\n3) 给内网其它机器用：/opt/local-repo 用 HTTP 发出去（python -m http.server 8000 也行）。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "1a839752-cb50-5611-aac4-b1752232be03",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "本地源",
+      "title": "离线 rpm 安装（含依赖处理）",
+      "description": "没有 yum 源时用 rpm 直接装，重点是如何处理依赖。",
+      "commands": "# 查这个包装不装得上、缺什么依赖\nrpm -ivh --test {{pkg_name}}.rpm\nrpm -qpR {{pkg_name}}.rpm\n# ★ 推荐姿势：把依赖包都放进同一目录，一次性装（rpm 自动排顺序）\nrpm -Uvh ./*.rpm\n# 验证\nrpm -q {{pkg_name}}\nrpm -ql {{pkg_name}} | head",
+      "params": [
+        {
+          "name": "pkg_name",
+          "label": "软件包名",
+          "default": "createrepo",
+          "required": true,
+          "validate": "",
+          "example": "createrepo"
+        }
+      ],
+      "notes": "1) ★ rpm 不会自动下载依赖 —— 先用 rpm -qpR 看缺什么，把依赖包一起拷过来。\n2) yum localinstall {{pkg_name}}.rpm 会自动找依赖（前提是有可用源，见本地源条目）。\n3) 已装同版本再装报\"已安装\"是正常的；降级用 rpm -Uvh --oldpackage。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "a3d432c9-5bc7-5b62-a099-eb37fb106890",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "磁盘",
+      "title": "磁盘空间排查（df/du/deleted 句柄）",
+      "description": "定位磁盘被什么占满，含「df 满但 du 找不到」的经典坑。",
+      "commands": "df -h\ndu -sh /* 2>/dev/null | sort -rh | head -10\ndu -sh /var/log/* | sort -rh | head -10\n# df 满、du 找不到大文件 → 八成是被删文件还被进程占着\nlsof | grep deleted | head\n# 找到进程后重启它释放空间，或：\n: > /var/log/bigfile.log",
+      "params": [],
+      "notes": "1) df 满、du 加起来不大 → 查 lsof | grep deleted：日志被删了但进程还握着句柄。\n2) 清理正在写的日志用 : > 文件（截断），不要 rm —— rm 了空间不会立刻释放。\n3) inode 用满也是 \"No space left on device\"：df -i 看节点数，海量小文件场景。\n4) ★ 截断文件（: > 大文件）前先确认属主与进程占用：lsof | grep 文件名；正在被进程写入的日志直接清空可能导致句柄错乱，优先用 journalctl --vacuum-size 等正规收缩手段。\n",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "b4c04b67-0ce8-5209-826f-0c1f9b892e7b",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "磁盘",
+      "title": "文件句柄不足排查（Too many open files）",
+      "description": "查系统与进程的句柄使用，定位并临时调大限制。",
+      "commands": "cat /proc/sys/fs/file-nr\nulimit -n\ncat /proc/{{pid}}/limits | grep \"open files\"\nlsof -p {{pid}} | wc -l\n# 临时调大（重启失效，持久化改 /etc/security/limits.conf）\nulimit -n 65535",
+      "params": [
+        {
+          "name": "pid",
+          "label": "进程号",
+          "default": "1234",
+          "required": true,
+          "validate": "int:1-4194304",
+          "example": "1234"
+        }
+      ],
+      "notes": "1) 持久化：/etc/security/limits.conf 加 \"* soft nofile 65535 / * hard nofile 65535\"，\n   systemd 服务的限制要在 unit 文件里加 LimitNOFILE=65535，改完 daemon-reload。\n2) /proc/sys/fs/file-nr 三个数：已分配 / 已分配未使用 / 上限。\n3) 报 Too many open files 先看报错进程的 limits，而不是系统的。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "2af0330b-0b4f-58a3-8e6d-b841777ac249",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "系统资源",
+      "title": "CPU / 内存资源判读（top/free）",
+      "description": "快速看谁在吃资源，并正确解读 free 的输出。",
+      "commands": "top -b -n 1 | head -20\nfree -h\ncat /proc/meminfo | head -5\nps aux --sort=-%mem | head -10\nps aux --sort=-%cpu | head -10",
+      "params": [],
+      "notes": "1) free 里看 available 才是真实可用；buff/cache 是系统缓存，不算\"被占用\"。\n2) top 里 %wa 高说明 IO 等待严重（磁盘瓶颈），%us 高是应用吃 CPU。\n3) 交互模式 top 里按 1 展开每颗 CPU，按 M 按内存排序、按 P 按 CPU 排序。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "c1eb0f12-9b7a-5a8e-85c2-2c87e9a35b49",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7（RHEL 系通用）",
+      "category": "时间同步",
+      "title": "配置 chrony 时间同步（CentOS 7）",
+      "description": "chronyd 指向内网 NTP 并开机自启；证书/日志/数据库全依赖时间，部署应用前先对表。",
+      "commands": "# ===== 配置 chrony 时间同步（CentOS 7，指向内网 NTP）=====\n# ---- 0. 备份配置 ----\ncp /etc/chrony.conf /etc/chrony.conf.bak.$(date +%Y%m%d)\n# ---- 1. 注释掉原 server 行（离网防连公网超时），追加内网 NTP ----\nsed -i 's/^server /#&/' /etc/chrony.conf\necho 'server {{ntp_server_ip}} iburst' >> /etc/chrony.conf\n# ---- 2. 重启并设开机自启 ----\nsystemctl restart chronyd && systemctl enable chronyd\n# ---- 3. 验证（^* = 已同步，^? = 未同步上）----\nchronyc sources -v\nchronyc tracking\ndate\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) chronyc sources 输出 MS 列为 ^* 才是真同步；^? 是没同步上——先查防火墙有没有放行 UDP 123、NTP 服务器侧 chrony 有没有配 allow 网段。\n2) chronyc tracking 看 Stratum 与系统时间偏差（System time 那行）；date 应与标准时间一致。\n3) 内网没有 NTP 源时，选一台服务器做源：chrony.conf 里 server 用自身/上级，另加 allow <网段>，其余机器都指向它。\n验证方法：chronyc sources 见 ^* + date 与标准时间一致，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "cda05342-8fe9-58c0-ae88-7d95a6f84d4f",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7",
+      "category": "进程管理",
+      "title": "进程排查与安全终止（ps/top/kill，CentOS 7）",
+      "description": "CPU/内存 TOP 定位、进程树确认、TERM→KILL 两级终止、OOM 判读。",
+      "commands": "# ===== 进程排查与安全终止（ps/top/kill）=====\n# ---- 1. CPU / 内存占用 TOP10（快照）----\nps aux --sort=-%cpu | head -11\nps aux --sort=-%mem | head -11\n# ---- 2. 动态判读（交互式 top：P 按CPU M 按内存，1 展开各核，q 退出）----\ntop -b -n 1 | head -15\n# ---- 3. 锁定目标进程：确认 PID、属主、父进程（别误杀子进程/服务拉起的守护）----\nps -ef | grep <关键字>\nsystemctl status <服务名> 2>/dev/null | head -8\n# ---- 4. 终止：先 TERM（15，给收尾机会），无效再 KILL（9）----\n# kill <PID>\n# kill -9 <PID>        # ★ 最后手段：不给收尾机会，可能丢数据/留共享内存段\n# ---- 5. OOM 判读（进程莫名消失先查这里）----\ndmesg | grep -i \"out of memory\" | tail -5\njournalctl -k --no-pager | grep -i -E \"oom|killed process\" | tail -5\n",
+      "params": [],
+      "notes": "1) ★ 危险点：kill -9 是最后手段——先 TERM 等几秒观察，数据库/中间件进程被 -9 可能丢数据或下次起不来；杀前用 ps -ef | grep 核对 PID 与属主，别按记忆敲 PID。\n2) 进程\"莫名消失\"九成是 OOM：dmesg/journalctl 里 Killed process 一行带 PID 与 oom_score，处理思路是限内存或加内存，不是重启了事。\n3) 僵尸进程（STAT=Z）杀不掉是父进程没回收：找到 PPID 处理父进程，kill 僵尸本身无效。\n4) top -b -n 1 是快照；交互式直接敲 top，P/M 排序、1 看各核。\n验证方法：ps aux --sort=-%cpu 出 TOP10 + dmesg 无 OOM 记录（或定位到消失进程），60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "0de70374-6aeb-50a8-bdc0-a8c9d2ffb068",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7",
+      "category": "审计日志",
+      "title": "登录痕迹与审计排查（CentOS 7）",
+      "description": "last/w/lastlog 登录痕迹 + 失败登录爆破特征 + auditd 服务状态（账号治理与取证常用）。",
+      "commands": "# ===== 登录痕迹与审计排查（CentOS 7）=====\n# ---- 1. 最近登录记录（来源 IP/端口/时段）----\nlast -n 15\n# 当前在线：\nw\n# 从未登录过的账号（排查僵尸账号）：\nlastlog | grep -v \"Never logged in\" | head -10\n# ---- 2. 失败登录（爆破特征：同一来源连续 Failed）----\ngrep -c \"Failed password\" /var/log/secure\ngrep \"Failed password\" /var/log/secure | tail -8\n# ---- 3. 审计服务状态（auditd 在跑才有审计事件）----\nsystemctl status auditd --no-pager | head -5\n# auditctl -l        <- 当前审计规则（为空 = 只记系统默认）\n",
+      "params": [],
+      "notes": "1) 登录痕迹三件套：last（历史登录，含来源 IP）、w（当前在线）、lastlog（各账号最后一次登录——长期 Never 的账号是清理对象）。\n2) 失败登录看 secure：同一来源 IP 连续 Failed password 是爆破特征，配合防火墙封禁来源 IP。\n3) secure 日志为 /var/log/secure（sshd 登录成败都在这里）。\n4) auditd 规则为空不代表没日志，只是没自定义审计规则；现场取证需求再按需加规则（-w 监控关键文件）。\n验证方法：last/w 有记录、grep 失败登录有计数、auditd running，三条命令 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "61e15da3-ac08-5eda-aa0b-b04c9382a405",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7（光口服务器）",
+      "category": "排查命令",
+      "title": "光模块读数与网卡错包判读（ethtool -m，CentOS 7）",
+      "description": "DOM 光功率读数与网卡错包统计判读，清计数前先留存基线。",
+      "commands": "# ===== 光模块读数与网卡错包判读（ethtool -m，CentOS 7）=====\n# ---- 1. 光模块 DOM 读数（Rx/Tx 功率；不支持 DOM 的电口模块无输出）----\nethtool -m <网卡名>\n# ---- 2. 错包统计基线（留存本输出再观察增量）----\nip -s link show <网卡名>\nethtool -S <网卡名> | head -20\n# ---- 3. 判读口径见 notes；CRC 持续增长 = 光衰/模块/对端问题 ----\n",
+      "params": [],
+      "notes": "1) ethtool -m 输出 RX Power/TX Power 判读口径与网络侧一致（-5 ~ -15 dBm 健康区，低于 -20 告警）。\n2) ethtool -S 的 rx_crc_errors / rx_no_buffer 持续增长：CRC 查光衰与模块，no_buffer 查 CPU 负载与缓冲。\n3) 判读口径以网卡/模块厂商 datasheet 为准；先留存基线再观察增量。\n验证方法：ethtool -m 读数健康 + 基线后 CRC 不再增长；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

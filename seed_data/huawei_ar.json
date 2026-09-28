@@ -1,0 +1,582 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "huawei_ar.json",
+  "vendor_label": "华为（AR 系列路由器 / VRP8）",
+  "vendor_slug": "huawei",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-21",
+  "count": 10,
+  "entries": [
+    {
+      "uuid": "12605808-caf7-58e7-955e-dc39d38b11c0",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "huawei",
+      "os_family": "vrp8",
+      "models": "AR6000 / AR6500（V300R 版本）",
+      "category": "VLAN",
+      "title": "路由器以太口转二层并划入 VLAN（AR 系列）",
+      "description": "AR 路由器默认是三层口，用 portswitch 切成二层口后再划 access VLAN。",
+      "commands": "# ===== 以太口转二层并划 VLAN（华为 AR 路由器）=====\nsystem-view\nvlan {{vlan_id}}\n description {{vlan_name}}\n quit\ninterface GigabitEthernet {{port}}\n portswitch\n port link-type access\n port default vlan {{vlan_id}}\n quit\ndisplay port vlan\nsave\ny",
+      "params": [
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_name",
+          "label": "VLAN 名称",
+          "default": "OFFICE",
+          "required": false,
+          "validate": "",
+          "example": "OFFICE"
+        },
+        {
+          "name": "port",
+          "label": "端口",
+          "default": "0/0/1",
+          "required": true,
+          "validate": "port",
+          "example": "0/0/1"
+        }
+      ],
+      "notes": "1) AR 的以太口默认是三层口，必须先 portswitch 才能配 switchport 类命令；\n   执行 portswitch 会清掉该口已有的 IP 地址配置，配之前先确认口上没有业务。\n2) 路由器上通常只用少数交换口做管理接入，业务互联仍用三层口 + 子接口。\n3) 要恢复三层口用 undo portswitch（同样会清掉二层配置）。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "3229bce8-fa65-5d77-b957-37a746e398ad",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "huawei",
+      "os_family": "vrp8",
+      "models": "AR6000 / AR6500",
+      "category": "Trunk",
+      "title": "AR 交换口配置 Trunk 上联",
+      "description": "把 portswitch 后的交换口配成 trunk，放通 VLAN 并设 PVID。",
+      "commands": "# ===== Trunk 上联（华为 AR 路由器）=====\nsystem-view\ninterface GigabitEthernet {{port}}\n portswitch\n port link-type trunk\n port trunk allow-pass vlan {{vlan_list}}\n port trunk pvid vlan {{pvid}}\n quit\nsave\ny",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口",
+          "default": "0/0/9",
+          "required": true,
+          "validate": "port",
+          "example": "0/0/9"
+        },
+        {
+          "name": "vlan_list",
+          "label": "放通 VLAN 列表",
+          "default": "10 20 30",
+          "required": true,
+          "validate": "",
+          "example": "10 20 30 或 10 to 20"
+        },
+        {
+          "name": "pvid",
+          "label": "PVID / Native VLAN",
+          "default": "1",
+          "required": false,
+          "validate": "vlan",
+          "example": "1"
+        }
+      ],
+      "notes": "1) 只有 portswitch 过的口才能配 link-type trunk，忘了会提示命令不存在。\n2) allow-pass 的写法与 S 系列交换机完全一致（\"vlan 10 to 20\" 或 \"vlan 10 20 30\"）。\n3) AR 交换口数量少（常见 8-9 口），上联口占满时优先考虑用交换机做汇聚。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "fe970fdd-6f42-5133-bbbe-c467b36da1e2",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "huawei",
+      "os_family": "vrp8",
+      "models": "AR6000 / AR6500",
+      "category": "静态路由",
+      "title": "配置静态路由、缺省路由与备份路由（AR 系列）",
+      "description": "配置明细静态路由、缺省路由，并用 preference 做双出口浮动备份。",
+      "commands": "# ===== 静态路由（华为 AR 路由器）=====\nsystem-view\nip route-static {{dest_net}} {{mask}} {{next_hop}}\nip route-static 0.0.0.0 0.0.0.0 {{next_hop}}\n! 双出口浮动备份：主出口 preference 默认 60，备份口设 70\nip route-static 0.0.0.0 0.0.0.0 {{backup_hop}} preference {{preference}}\ndisplay ip routing-table\ndisplay ip routing-table 0.0.0.0\nsave\ny",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "192.168.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.20.0"
+        },
+        {
+          "name": "mask",
+          "label": "掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "24 或 255.255.255.0"
+        },
+        {
+          "name": "next_hop",
+          "label": "下一跳地址",
+          "default": "10.0.0.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.2"
+        },
+        {
+          "name": "backup_hop",
+          "label": "备份下一跳",
+          "default": "10.1.1.2",
+          "required": false,
+          "validate": "ipv4",
+          "example": "10.1.1.2"
+        },
+        {
+          "name": "preference",
+          "label": "备份优先级",
+          "default": "70",
+          "required": false,
+          "validate": "int:1-255",
+          "example": "默认 60，备份 70"
+        }
+      ],
+      "notes": "1) 双出口用 preference 做浮动备份最简单；要求链路探测可结合 NQA\n   （ip route-static ... track nqa），断线能自动切换。\n2) 路由器上更常用\"出接口 + 下一跳\"的写法：ip route-static 0.0.0.0 0 <接口> <下一跳>。\n3) display ip routing-table 0.0.0.0 可直接查缺省路由的下一跳，排查上网不通最快。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "e4ec7c22-a0d8-5428-b0d9-0ff763aa8de6",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "huawei",
+      "os_family": "vrp8",
+      "models": "AR6000 / AR6500",
+      "category": "OSPF",
+      "title": "配置 OSPF 并引入静态路由（AR 系列）",
+      "description": "开启 OSPF 组网、宣告网段，并把静态路由引入 OSPF 域内。",
+      "commands": "# ===== OSPF + 引入静态路由（华为 AR 路由器）=====\nsystem-view\nospf {{process_id}} router-id {{router_id}}\n area {{area_id}}\n  network {{network}} {{wildcard}}\n  quit\n import-route static\n silent-interface GigabitEthernet{{silent_port}}\n quit\ndisplay ospf peer\ndisplay ospf lsdb\nsave\ny",
+      "params": [
+        {
+          "name": "process_id",
+          "label": "进程号",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "1"
+        },
+        {
+          "name": "router_id",
+          "label": "Router ID",
+          "default": "2.2.2.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "2.2.2.2"
+        },
+        {
+          "name": "area_id",
+          "label": "区域号",
+          "default": "0",
+          "required": false,
+          "validate": "",
+          "example": "0 或 0.0.0.1"
+        },
+        {
+          "name": "network",
+          "label": "宣告网段",
+          "default": "10.1.1.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.1.1.0"
+        },
+        {
+          "name": "wildcard",
+          "label": "反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "silent_port",
+          "label": "静默接口",
+          "default": "0/0/0",
+          "required": false,
+          "validate": "port",
+          "example": "0/0/0"
+        }
+      ],
+      "notes": "1) import-route static 会把静态路由全部引入（可用 route-policy 过滤）；\n   不加过滤可能把不该发布的私网段泄露出去。\n2) AR 与 S 系列交换机的 OSPF 语法一致，差异主要在接口命名（AR 多为 0/0/x 两段式）。\n3) 引入后在域内其他设备上用 display ospf lsdb 看 5 类 LSA，确认引入成功。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "3279c706-6c8e-575d-823b-ca7c59d0d39c",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "huawei",
+      "os_family": "vrp8",
+      "models": "AR6000 / AR6500",
+      "category": "ACL",
+      "title": "配置基本 ACL 与接口流量过滤",
+      "description": "用基本 ACL 圈定内网网段供 NAT 使用，并用高级 ACL 过滤接口流量。",
+      "commands": "# ===== 基本 ACL + 接口过滤（华为 AR 路由器）=====\nsystem-view\nacl number {{acl_number}}\n rule 5 permit source {{src_net}} {{src_wild}}\n quit\n! 接口双向过滤（inbound / outbound）\ninterface GigabitEthernet {{port}}\n traffic-filter inbound acl {{acl_number}}\n traffic-filter outbound acl {{acl_number}}\n quit\ndisplay acl {{acl_number}}\nsave\ny",
+      "params": [
+        {
+          "name": "acl_number",
+          "label": "ACL 编号",
+          "default": "2000",
+          "required": true,
+          "validate": "int:1-3999",
+          "example": "2000-2999 基本 / 3000-3999 高级"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "port",
+          "label": "应用端口",
+          "default": "0/0/0",
+          "required": true,
+          "validate": "port",
+          "example": "0/0/0"
+        }
+      ],
+      "notes": "1) 路由器上 ACL 常被 NAT、策略路由、接口过滤复用，命名时写明用途（如 ACL-NAT-INSIDE）。\n2) 修改 ACL 是\"整条规则替换\"，不要试图只改一个字段，先 display acl 再改。\n3) 同时配 inbound/outbound 过滤会造成双向拦截，确认业务方向后再加第二条。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "5e4c16e2-7840-5c40-88d9-eb5a6b179169",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "huawei",
+      "os_family": "vrp8",
+      "models": "AR6000 / AR6500",
+      "category": "NAT",
+      "title": "配置 Easy IP 与地址池 PAT（AR 系列）",
+      "description": "内网通过出接口地址做 Easy IP 转换，或使用公网地址池做 PAT；附端口映射写法。",
+      "commands": "# ===== NAT / Easy IP + 地址池（华为 AR 路由器）=====\nsystem-view\nacl number {{acl_number}}\n rule 5 permit source {{src_net}} {{src_wild}}\n quit\n! ---- 方案A：Easy IP（借用出接口地址，最常用）----\nnat outbound {{acl_number}}\n! ---- 方案B：公网地址池 PAT ----\n! nat address-group {{group_id}}\n!  section {{section_start}} {{section_end}}\n! nat outbound {{acl_number}} address-group {{group_id}}\n! ---- 服务器端口映射（公网 8080 → 内网 80）----\n! nat server protocol tcp global {{public_ip}} {{public_port}} inside {{inside_server}} {{inside_port}}\ndisplay nat outbound\ndisplay nat session all\nsave\ny",
+      "params": [
+        {
+          "name": "acl_number",
+          "label": "ACL 编号",
+          "default": "2000",
+          "required": true,
+          "validate": "int:1-3999",
+          "example": "2000-2999"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "group_id",
+          "label": "地址池编号",
+          "default": "1",
+          "required": false,
+          "validate": "int:0-7",
+          "example": "0-7"
+        },
+        {
+          "name": "section_start",
+          "label": "地址池起始",
+          "default": "200.1.1.10",
+          "required": false,
+          "validate": "ipv4",
+          "example": "200.1.1.10"
+        },
+        {
+          "name": "section_end",
+          "label": "地址池结束",
+          "default": "200.1.1.20",
+          "required": false,
+          "validate": "ipv4",
+          "example": "200.1.1.20"
+        },
+        {
+          "name": "public_ip",
+          "label": "公网映射 IP",
+          "default": "200.1.1.30",
+          "required": false,
+          "validate": "ipv4",
+          "example": "200.1.1.30"
+        },
+        {
+          "name": "public_port",
+          "label": "公网端口",
+          "default": "8080",
+          "required": false,
+          "validate": "int:1-65535",
+          "example": "8080"
+        },
+        {
+          "name": "inside_server",
+          "label": "内网服务器",
+          "default": "192.168.10.100",
+          "required": false,
+          "validate": "ipv4",
+          "example": "192.168.10.100"
+        },
+        {
+          "name": "inside_port",
+          "label": "内网端口",
+          "default": "80",
+          "required": false,
+          "validate": "int:1-65535",
+          "example": "80"
+        }
+      ],
+      "notes": "1) 端口映射写的是 protocol tcp global 公网IP 端口 inside 私网IP 端口，\n   端口号顺序极易写反，配完必须从外网实测。\n2) 多内网口 + 多外网口的场景要确认 NAT 是\"出接口方向\"还是\"全局 NAT\"，配错方向不通。\n3) display nat session all 看会话表是排查 NAT 最快的手段（有会话说明转换生效）。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "fdddca04-3f13-51f9-a287-59b9c32c75b3",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "huawei",
+      "os_family": "vrp8",
+      "models": "AR6000 / AR6500",
+      "category": "SSH管理",
+      "title": "开启 SSH 并创建本地管理用户（AR 系列）",
+      "description": "生成 RSA 密钥、启用 stelnet、建 AAA 本地管理员并限制 vty 登录协议。",
+      "commands": "# ===== 开启 SSH + 本地用户（华为 AR 路由器）=====\nsystem-view\nsysname {{hostname}}\nrsa local-key-pair create\n! 提示输入密钥位数，建议 2048\nstelnet server enable\nssh server cipher aes256_ctr aes128_ctr\nssh server hmac sha2_256\naaa\n local-user {{username}} password irreversible-cipher {{password}}\n local-user {{username}} privilege level 15\n local-user {{username}} service-type ssh\n quit\nuser-interface vty 0 4\n authentication-mode aaa\n protocol inbound ssh\n idle-timeout {{timeout_min}} 0\n quit\nsave\ny",
+      "params": [
+        {
+          "name": "hostname",
+          "label": "设备名",
+          "default": "SW-CORE-01",
+          "required": false,
+          "validate": "",
+          "example": "SW-CORE-01"
+        },
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) ssh server cipher / hmac 用来收紧加密算法（等保与漏扫常要求）；\n   老版本可能不支持这两条，报错就删掉。\n2) 先 rsa local-key-pair create 再 stelnet server enable，顺序反了会报错。\n3) 生产上建议再配 ACL 限制允许登录的源地址（并 ssh server acl <编号> 引用）。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "7d9ce289-0814-5fd1-b8ac-ef1c65102e9b",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "huawei",
+      "os_family": "vrp8",
+      "models": "AR6000 / AR6500",
+      "category": "密码",
+      "title": "修改 Console 口令并绑定用户级别",
+      "description": "设置 console 认证方式与口令、用户级别及空闲超时。",
+      "commands": "# ===== Console 口令（华为 AR 路由器）=====\nsystem-view\nuser-interface console 0\n authentication-mode password\n set authentication password cipher {{console_password}}\n user privilege level {{privilege}}\n idle-timeout {{timeout_min}}\n quit\nsave\ny",
+      "params": [
+        {
+          "name": "console_password",
+          "label": "Console 口令",
+          "default": "C0nsole@123",
+          "required": true,
+          "validate": "",
+          "example": "C0nsole@123"
+        },
+        {
+          "name": "privilege",
+          "label": "用户级别",
+          "default": "15",
+          "required": false,
+          "validate": "int:0-15",
+          "example": "0-15，管理用 15"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) 若已配置 authentication-mode aaa，console 登录要输用户名+口令，改口令要改 local-user。\n2) cipher 是密文存储；配置文件被别人拿到时，明文口令（simple）等于泄露。\n3) 现场忘记口令需要重启并在启动阶段按 Ctrl+B 进 BootROM 清空配置，属破坏性操作。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f9ffa9c8-9d71-52d2-b18e-5f5de03746b8",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "huawei",
+      "os_family": "vrp8",
+      "models": "AR6000 / AR6500",
+      "category": "SNMP",
+      "title": "配置 SNMP v2c 与 Trap 上报（AR 系列）",
+      "description": "开启 SNMP、设置团体字与设备信息，并指定 Trap 上报目标与源接口。",
+      "commands": "# ===== SNMP 配置（华为 AR 路由器）=====\nsystem-view\nsnmp-agent\nsnmp-agent sys-info version v2c\nsnmp-agent community read cipher {{ro_community}}\nsnmp-agent community write cipher {{rw_community}}\nsnmp-agent sys-info location {{location}}\nsnmp-agent sys-info contact {{contact}}\nsnmp-agent target-host trap address udp-domain {{nms_ip}} params securityname cipher {{ro_community}} v2c\nsnmp-agent trap enable\nsnmp-agent trap source GigabitEthernet{{trap_source_port}}\ndisplay snmp-agent sys-info\nsave\ny",
+      "params": [
+        {
+          "name": "ro_community",
+          "label": "只读团体字",
+          "default": "RO@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RO@Public1"
+        },
+        {
+          "name": "rw_community",
+          "label": "读写团体字",
+          "default": "RW@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RW@Public1"
+        },
+        {
+          "name": "location",
+          "label": "设备位置",
+          "default": "IDC-A-机柜12",
+          "required": false,
+          "validate": "",
+          "example": "IDC-A-机柜12"
+        },
+        {
+          "name": "contact",
+          "label": "联系人",
+          "default": "网络运维组",
+          "required": false,
+          "validate": "",
+          "example": "网络运维组"
+        },
+        {
+          "name": "nms_ip",
+          "label": "网管服务器 IP",
+          "default": "10.0.0.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.100"
+        },
+        {
+          "name": "trap_source_port",
+          "label": "Trap 源接口",
+          "default": "0/0/0",
+          "required": false,
+          "validate": "port",
+          "example": "0/0/0"
+        }
+      ],
+      "notes": "1) 双出口设备一定要配 snmp-agent trap source，否则 Trap 源地址是出接口地址，\n   网管侧可能收不到或被防火墙丢弃。\n2) 团体字要和网管平台注册的一致，区分大小写。\n3) 安全基线要求：删掉默认团体字；v2c 仅内网采集使用，能上 v3 就上 v3。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "76acfad9-7a89-5147-83e4-4faabf14425b",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "huawei",
+      "os_family": "vrp8",
+      "models": "AR6000 / AR6500",
+      "category": "保存配置",
+      "title": "保存配置并备份到本地存储",
+      "description": "保存配置到 vrpcfg.zip，并在 flash 里留一份可回滚的备份。",
+      "commands": "# ===== 保存与本地备份（华为 AR 路由器）=====\nsave\ny\ndisplay saved-configuration\ndir flash:/\ncopy flash:/vrpcfg.zip flash:/vrpcfg-{{backup_tag}}.zip\ndir flash:/\n! 回滚：指定下次启动使用的配置文件（重启后生效）\n! startup saved-configuration vrpcfg-{{backup_tag}}.zip",
+      "params": [
+        {
+          "name": "backup_tag",
+          "label": "备份标记",
+          "default": "20260920",
+          "required": false,
+          "validate": "",
+          "example": "20260920 或变更单号"
+        }
+      ],
+      "notes": "1) save 跟 y 确认，或直接 save force。\n2) 备份文件名带日期或变更单号，现场多版本并存时才分得清。\n3) startup saved-configuration 指定的是\"下次启动\"用的配置，改错了重启后设备会变样，务必确认。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

@@ -1,0 +1,154 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "trouble_trees_ops.json",
+  "vendor_label": "通用/混合排查树（ops + 网络组）",
+  "count": 1,
+  "trouble_trees": [
+    {
+      "tree_id": "dhcp-no-ip",
+      "symptom": "客户端拿不到 IP / 拿到错误网段（DHCP 异常）",
+      "category": "地址分配",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ops"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "DHCP 服务端状态与分配记录检查",
+          "observe": "地址池利用率、分配记录、冲突表",
+          "explain": "先看服务端有没有池、有没有分配过——池打满是最常见原因",
+          "cmd_ref": {
+            "vendor_category": "地址分配",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "363a555a-9b11-5baf-9dbd-7e1a5c85c880",
+                "title": "DHCP 服务端状态与分配记录（Cisco IOS）"
+              },
+              "huawei": {
+                "uuid": "b01593bf-7830-5072-b8a8-7002dc7358d4",
+                "title": "DHCP 地址池状态检查（华为 VRP5）"
+              },
+              "h3c": {
+                "uuid": "58ade87b-9247-52a9-bc83-29ccd1790ff6",
+                "title": "DHCP 服务端统计与缺池排查（H3C Comware7）"
+              },
+              "ops": {
+                "uuid": "250cdf66-7530-5c2c-8143-5d294078d57e",
+                "title": "DHCP 客户端取址与服务端排查（Linux 通用）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "池打满/无空闲",
+              "goto": "s4"
+            },
+            {
+              "when": "池充足但客户端没拿到",
+              "goto": "s2"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "客户端与服务端之间的链路核查",
+          "observe": "DISCOVER 是否到达服务端（抓包/统计计数）",
+          "explain": "跨网段必查中继（ip helper/dhcp relay）与 VLAN 广播隔离",
+          "cmd_ref": {
+            "vendor_category": "地址分配",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "363a555a-9b11-5baf-9dbd-7e1a5c85c880",
+                "title": "DHCP 服务端状态与分配记录（Cisco IOS）"
+              },
+              "huawei": {
+                "uuid": "b01593bf-7830-5072-b8a8-7002dc7358d4",
+                "title": "DHCP 地址池状态检查（华为 VRP5）"
+              },
+              "h3c": {
+                "uuid": "58ade87b-9247-52a9-bc83-29ccd1790ff6",
+                "title": "DHCP 服务端统计与缺池排查（H3C Comware7）"
+              },
+              "ops": {
+                "uuid": "250cdf66-7530-5c2c-8143-5d294078d57e",
+                "title": "DHCP 客户端取址与服务端排查（Linux 通用）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "DISCOVER 没到服务端",
+              "goto": "s4"
+            },
+            {
+              "when": "DISCOVER 到了但无 OFFER",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "title": "客户端侧复核",
+          "observe": "客户端地址状态（169.254 特征）与重新取址结果",
+          "explain": "服务端正常时回到客户端：网卡/驱动/本地服务",
+          "cmd_ref": {
+            "vendor_category": "地址分配",
+            "by_vendor": {
+              "ops": {
+                "uuid": "250cdf66-7530-5c2c-8143-5d294078d57e",
+                "title": "DHCP 客户端取址与服务端排查（Linux 通用）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "客户端侧问题已定位",
+            "actions": [
+              "重取地址/重连",
+              "核对客户端 VLAN 接入端口",
+              "核对静态配置残留"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "池扩容与服务恢复",
+          "observe": "扩池/缩租期/清过期租约/补中继",
+          "explain": "按前序分支结论处理服务端或中继",
+          "cmd_ref": {
+            "vendor_category": "地址分配",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "363a555a-9b11-5baf-9dbd-7e1a5c85c880",
+                "title": "DHCP 服务端状态与分配记录（Cisco IOS）"
+              },
+              "huawei": {
+                "uuid": "b01593bf-7830-5072-b8a8-7002dc7358d4",
+                "title": "DHCP 地址池状态检查（华为 VRP5）"
+              },
+              "h3c": {
+                "uuid": "58ade87b-9247-52a9-bc83-29ccd1790ff6",
+                "title": "DHCP 服务端统计与缺池排查（H3C Comware7）"
+              },
+              "ops": {
+                "uuid": "250cdf66-7530-5c2c-8143-5d294078d57e",
+                "title": "DHCP 客户端取址与服务端排查（Linux 通用）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "DHCP 恢复分配",
+            "actions": [
+              "客户端重新取址验证",
+              "观察租约表新增记录"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    }
+  ]
+}

@@ -1,0 +1,855 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "sangfor_cli.json",
+  "vendor_label": "深信服（AF CLI 骨架，待真机核对）",
+  "vendor_slug": "sangfor",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 18,
+  "entries": [
+    {
+      "uuid": "fd9c5add-d84f-5923-8fee-c430aca0b146",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF-1000 / AF-2000 / AF-8000 系列",
+      "category": "VLAN",
+      "title": "创建 VLAN 子接口（CLI 骨架 + Web 对照）",
+      "description": "在物理口上创建 VLAN 子接口并配 IP；CLI 为通用骨架，Web 路径可直接照做。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\ninterface eth{{parent_port_no}}.{{vlan_id}}\n ip address {{vlan_ip}} {{vlan_mask}}\n description {{vlan_desc}}\n no shutdown\n exit\nexit\nwrite\nshow interface\nshow running-config\n#\n# ---- Web 控制台路径（可直接照做）----\n# 网络 → 接口/区域 → 选物理接口 → 新增 → 子接口(VLAN)\n#   VLAN ID {{vlan_id}} / IP {{vlan_ip}} / 掩码 {{vlan_mask}} / 所属区域 {{zone_name}}",
+      "params": [
+        {
+          "name": "parent_port_no",
+          "label": "父接口序号",
+          "default": "2",
+          "required": true,
+          "validate": "int:0-63",
+          "example": "物理口 eth2 就填 2"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_ip",
+          "label": "接口 IP",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "vlan_mask",
+          "label": "子网掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "vlan_desc",
+          "label": "描述",
+          "default": "VLAN10-OFFICE",
+          "required": false,
+          "validate": "",
+          "example": "VLAN10-OFFICE"
+        },
+        {
+          "name": "zone_name",
+          "label": "所属区域",
+          "default": "内网区域",
+          "required": false,
+          "validate": "",
+          "example": "内网区域 / 外网区域 / DMZ"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：深信服 AF 的策略类配置以 Web 控制台为主，CLI 开放程度有限，\n   上面的命令是通用骨架，**执行前必须先用 ? 确认当前版本是否支持**。\n2) 若 CLI 不支持，直接走 Web 路径（下半部分），这是现场最快的方式。\n3) 子接口的父物理口 IP 若已被占用要先处理；区域（内网/外网/DMZ）决定策略方向，配错会\"策略写了不通\"。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "fe0e1ef5-52d5-5c32-8794-7f9e27bc5a36",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 多口型号",
+      "category": "Trunk",
+      "title": "配置链路聚合上联（CLI 骨架 + Web 对照）",
+      "description": "把多个物理口聚合成逻辑口用于上联，模式需与对端交换机一致。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\ninterface aggregate {{agg_name}}\n member eth{{member1_no}} eth{{member2_no}}\n mode {{lacp_mode}}\n exit\nexit\nwrite\nshow interface aggregate\n#\n# ---- Web 控制台路径（可直接照做）----\n# 网络 → 接口/区域 → 新增 → 聚合接口：名称 {{agg_name}} / 成员 eth1 eth2 / 模式 {{lacp_mode}}\n# 再在聚合口下\"新增子接口(VLAN)\"放通业务 VLAN",
+      "params": [
+        {
+          "name": "agg_name",
+          "label": "聚合口名",
+          "default": "AGG-UPLINK",
+          "required": true,
+          "validate": "",
+          "example": "AGG-UPLINK"
+        },
+        {
+          "name": "member1_no",
+          "label": "成员口1序号",
+          "default": "1",
+          "required": true,
+          "validate": "int:0-63",
+          "example": "eth1 填 1"
+        },
+        {
+          "name": "member2_no",
+          "label": "成员口2序号",
+          "default": "2",
+          "required": true,
+          "validate": "int:0-63",
+          "example": "eth2 填 2"
+        },
+        {
+          "name": "lacp_mode",
+          "label": "聚合模式",
+          "default": "lacp",
+          "required": false,
+          "validate": "enum:lacp|static",
+          "example": "lacp / static"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：聚合命令关键字各版本差异大，先 ? 确认。\n2) 聚合模式必须与对端交换机一致：对端 LACP 主动就选 lacp，否则用 static。\n3) 成员口加入聚合后会继承聚合口配置，原成员口 IP 失效，规划要提前做。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "3a88643e-d412-50a7-a7a2-1427f1d523f2",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "静态路由",
+      "title": "配置静态路由与默认路由（CLI 骨架 + Web 对照）",
+      "description": "新增明细路由与默认路由，指定网关与出接口。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nip route {{dest_net}} {{dest_mask}} {{next_hop}}\nip route 0.0.0.0 0.0.0.0 {{next_hop}}\nexit\nwrite\nshow ip route\n#\n# ---- Web 控制台路径（可直接照做）----\n# 网络 → 路由 → 静态路由 → 新增\n#   目的网段 {{dest_net}} / 掩码 {{dest_mask}} / 下一跳 {{next_hop}} / 出接口 eth{{out_no}}",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "192.168.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.20.0"
+        },
+        {
+          "name": "dest_mask",
+          "label": "子网掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "next_hop",
+          "label": "下一跳地址",
+          "default": "10.0.0.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.2"
+        },
+        {
+          "name": "out_no",
+          "label": "出接口序号",
+          "default": "2",
+          "required": false,
+          "validate": "int:0-63",
+          "example": "出接口 eth2 填 2"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：不同 AF 版本的 ip route 参数顺序可能不同，报错按 ? 调整。\n2) 网关与出接口建议都指定，链路 down 时路由能及时失效。\n3) 有 NAT 的场景，\"路由可达\"与\"地址转换\"是两件事，缺一不通。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "7523771d-9bbd-5282-a7b6-f059da6b507e",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 支持动态路由版本",
+      "category": "OSPF",
+      "title": "配置 OSPF 动态路由（CLI 骨架 + Web 对照）",
+      "description": "开启 OSPF、指定 router-id 与区域，把接口加入 OSPF。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nrouter ospf {{process_id}}\n router-id {{router_id}}\n network {{network}} {{wildcard}} area {{area_id}}\n exit\nexit\nwrite\nshow ip ospf neighbor\n#\n# ---- Web 控制台路径（可直接照做）----\n# 网络 → 路由 → 动态路由 → OSPF：Router ID {{router_id}} / 区域 {{area_id}} / 参与接口 eth{{ospf_no}}",
+      "params": [
+        {
+          "name": "process_id",
+          "label": "进程号",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "1"
+        },
+        {
+          "name": "router_id",
+          "label": "Router ID",
+          "default": "8.8.8.8",
+          "required": true,
+          "validate": "ipv4",
+          "example": "8.8.8.8"
+        },
+        {
+          "name": "area_id",
+          "label": "区域号",
+          "default": "0",
+          "required": false,
+          "validate": "",
+          "example": "0 或 0.0.0.0"
+        },
+        {
+          "name": "network",
+          "label": "宣告网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "wildcard",
+          "label": "反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "ospf_no",
+          "label": "参与接口序号",
+          "default": "2",
+          "required": false,
+          "validate": "int:0-63",
+          "example": "eth2 填 2"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：先确认版本/授权支持动态路由（部分中低端型号不开放）。\n2) 邻居卡 ExStart/Exchange 多为 MTU 或认证不匹配；卡 Init 多为单向可达。\n3) 业务接入口建议设为被动/静默，避免向终端发 Hello。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "dc32258c-f7d3-559b-b682-d6ffb5367fba",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "ACL",
+      "title": "配置访问控制策略（CLI 骨架 + Web 对照）",
+      "description": "用地址对象 + 访问控制策略控制区域间互访，开启日志。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\naddress-object {{src_obj}} {{src_net}} {{src_mask}}\npolicy name {{policy_name}} from {{src_zone}} to {{dst_zone}}  source {{src_obj}} destination any action permit log enable\nexit\nwrite\nshow policy\n#\n# ---- Web 控制台路径（可直接照做）----\n# 对象 → 地址：新增 {{src_obj}} = {{src_net}} / {{src_mask}}\n# 策略 → 访问控制策略 → 新增：源区域 {{src_zone}} → 目的区域 {{dst_zone}}，\n#   源地址 {{src_obj}}，服务 {{service}}，动作允许，勾选记录日志",
+      "params": [
+        {
+          "name": "src_obj",
+          "label": "源地址对象名",
+          "default": "OBJ-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "OBJ-OFFICE"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_mask",
+          "label": "源掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "policy_name",
+          "label": "策略名",
+          "default": "OFFICE-to-SERVER",
+          "required": true,
+          "validate": "",
+          "example": "OFFICE-to-SERVER"
+        },
+        {
+          "name": "src_zone",
+          "label": "源区域",
+          "default": "内网区域",
+          "required": true,
+          "validate": "",
+          "example": "内网区域"
+        },
+        {
+          "name": "dst_zone",
+          "label": "目的区域",
+          "default": "DMZ",
+          "required": true,
+          "validate": "",
+          "example": "DMZ"
+        },
+        {
+          "name": "service",
+          "label": "服务",
+          "default": "HTTPS",
+          "required": false,
+          "validate": "",
+          "example": "HTTP / HTTPS / Any"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：策略类命令的 CLI 支持情况最少，优先用 Web（下半部分）。\n2) AF 策略是\"区域对区域\"，先建地址对象再写策略，否则下拉框选不到。\n3) 策略自上而下匹配；调整管理类放通策略时注意别把自己挡在外面。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "a5cf9c48-dc8f-529f-b612-d12c200902b0",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "NAT",
+      "title": "配置源 NAT 与目的 NAT 映射（CLI 骨架 + Web 对照）",
+      "description": "内网出网做源 NAT（PAT），服务器对外发布做目的 NAT（端口映射）。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nnat source {{src_net}} {{src_mask}} outbound-interface eth{{out_no}} mode pat\nnat destination {{public_ip}} {{public_port}} to {{inside_ip}} {{inside_port}} protocol tcp\nexit\nwrite\nshow nat\n#\n# ---- Web 控制台路径（可直接照做）----\n# 策略 → NAT → 源地址转换：源 {{src_net}}/{{src_mask}}，转换方式\"使用出接口地址\"(PAT)\n# 策略 → NAT → 目的地址转换：公网 {{public_ip}}:{{public_port}} → 内网 {{inside_ip}}:{{inside_port}}\n# ★ 之后必须在\"访问控制策略\"里放行对应流量才真正生效",
+      "params": [
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_mask",
+          "label": "源掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "out_no",
+          "label": "出接口序号",
+          "default": "1",
+          "required": false,
+          "validate": "int:0-63",
+          "example": "eth1 填 1"
+        },
+        {
+          "name": "public_ip",
+          "label": "公网 IP",
+          "default": "200.1.1.30",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.30"
+        },
+        {
+          "name": "public_port",
+          "label": "公网端口",
+          "default": "8443",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8443"
+        },
+        {
+          "name": "inside_ip",
+          "label": "内网服务器",
+          "default": "192.168.10.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.100"
+        },
+        {
+          "name": "inside_port",
+          "label": "内网端口",
+          "default": "8443",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8443"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：NAT 命令关键字各版本差异大，务必先 ? 确认或用 Web。\n2) ★ 只配 NAT 不配访问控制策略，流量不会通过 —— 这是 AF 上最常见的\"配了不通\"。\n3) 端口映射的公网/内网端口别写反，配完必须从外部实测。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "7a83cce4-1ca0-5f52-add6-16646c5b1ef8",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "SSH管理",
+      "title": "创建管理员并限制登录来源（CLI 骨架 + Web 对照）",
+      "description": "新建管理员账号、分配角色并限定登录来源 IP。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nadmin user {{username}} password {{password}} role {{role}} trusthost {{trust_ip}} {{trust_mask}}\nexit\nwrite\nshow admin user\n#\n# ---- Web 控制台路径（可直接照做）----\n# 系统 → 管理员/权限管理 → 新增：用户名 {{username}}，角色 {{role}}，\n#   允许登录来源 {{trust_ip}} / {{trust_mask}}，允许方式 HTTPS + SSH（不用 Telnet）",
+      "params": [
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "role",
+          "label": "角色",
+          "default": "administrator",
+          "required": false,
+          "validate": "enum:administrator|auditor|readonly",
+          "example": "administrator / auditor / readonly"
+        },
+        {
+          "name": "trust_ip",
+          "label": "允许登录网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "trust_mask",
+          "label": "网段掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：管理员相关命令优先走 Web（下半部分），CLI 支持有限。\n2) 登录来源限制（trusthost）必须配，不配等于管理面暴露给全网。\n3) 按角色分权：日常监控用只读/审计，超级管理员只在变更时使用。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "c010213b-00d1-5868-91d1-8736a8b14961",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "密码",
+      "title": "修改管理员密码与口令策略（CLI 骨架 + Web 对照）",
+      "description": "修改管理员密码，并配置口令复杂度与有效期。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nadmin user {{username}} password {{password}}\nexit\nwrite\n#\n# ---- Web 控制台路径（可直接照做）----\n# 系统 → 管理员/权限管理 → 选中账号 → 修改密码：{{password}}\n# 系统 → 安全设置：最小长度 {{min_len}} / 有效期 {{change_days}} 天 / 失败锁定 {{lock_times}} 次",
+      "params": [
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "min_len",
+          "label": "口令最小长度",
+          "default": "12",
+          "required": false,
+          "validate": "int:8-32",
+          "example": "建议 12 以上"
+        },
+        {
+          "name": "change_days",
+          "label": "口令有效期（天）",
+          "default": "90",
+          "required": false,
+          "validate": "int:0-365",
+          "example": "90"
+        },
+        {
+          "name": "lock_times",
+          "label": "失败锁定次数",
+          "default": "5",
+          "required": false,
+          "validate": "int:1-20",
+          "example": "5"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：console 与 Web/SSH 共用管理员账号密码，无独立 console 口令。\n2) 忘记超级管理员口令需走串口+厂商恢复流程，成本很高 —— 口令务必纳入密码管理系统。\n3) 安全基线：长度 ≥12、复杂度达标、有效期 ≤90 天、失败锁定 ≤5 次。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "201cd5ee-7298-52e3-ba1d-8860b3b62176",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "SNMP",
+      "title": "配置 SNMP 团体字与 Trap（CLI 骨架 + Web 对照）",
+      "description": "开启 SNMP、配置团体字并限定网管主机，设置 Trap 上报。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nsnmp enable\nsnmp community {{ro_community}} read-only host {{nms_ip}} {{nms_mask}}\nsnmp trap host {{nms_ip}} community {{ro_community}}\nexit\nwrite\nshow snmp\n#\n# ---- Web 控制台路径（可直接照做）----\n# 系统 → SNMP：启用，只读团体字 {{ro_community}}，允许访问主机 {{nms_ip}}/{{nms_mask}}，\n#   Trap 接收地址 {{nms_ip}}，位置 {{location}}，联系人 {{contact}}",
+      "params": [
+        {
+          "name": "ro_community",
+          "label": "只读团体字",
+          "default": "RO@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RO@Public1"
+        },
+        {
+          "name": "nms_ip",
+          "label": "网管服务器 IP",
+          "default": "10.0.0.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.100"
+        },
+        {
+          "name": "nms_mask",
+          "label": "网管掩码",
+          "default": "255.255.255.0",
+          "required": false,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "location",
+          "label": "设备位置",
+          "default": "IDC-A-机柜12",
+          "required": false,
+          "validate": "",
+          "example": "IDC-A-机柜12"
+        },
+        {
+          "name": "contact",
+          "label": "联系人",
+          "default": "网络运维组",
+          "required": false,
+          "validate": "",
+          "example": "网络运维组"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：SNMP 命令关键字先 ? 确认；Web 路径（下半部分）更可靠。\n2) 团体字不用 public/private；\"允许访问主机\"必须限定为网管地址。\n3) Trap 走 UDP 162，确认中间链路放通；Trap 源地址通常是管理口地址。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "0d183a0c-3ab1-5232-bb68-c713aa54c555",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "保存配置",
+      "title": "保存配置与备份（CLI 骨架 + Web 对照）",
+      "description": "落盘当前配置并导出备份文件归档。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nwrite\nshow running-config\nexit\n#\n# ---- Web 控制台路径（可直接照做）----\n# 系统 → 配置备份/恢复 → 导出配置文件：AF-EDGE-01-{{backup_tag}}.conf\n# ★ 恢复会覆盖当前全部配置，执行前先备份当前的，并确认无人正在操作设备",
+      "params": [
+        {
+          "name": "backup_tag",
+          "label": "备份标记",
+          "default": "20260920",
+          "required": false,
+          "validate": "",
+          "example": "20260920 或变更单号"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：AF 多数版本改动即时生效，但仍建议显式备份一次。\n2) 变更前后各导出一次配置，形成\"变更前基线 + 变更后结果\"两份归档。\n3) 配置文件含口令密文，归档位置的访问权限要控制。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "987ac13d-39d8-5898-a417-1640e9c1180b",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "深信服 AF 全系列",
+      "category": "DNS域名解析",
+      "title": "配置 DNS 服务器与域名解析（深信服 AF，CLI 骨架 + Web 对照）",
+      "description": "指向内网 DNS 服务器并验证解析；AF 的 DNS 属系统级配置，CLI 骨架待真机核对，Web 路径可直接照做。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n#\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\n# system\n# network\n# dns server {{dns_server_ip}}\n# exit\n# ping {{test_domain}}\n#\n# ---- Web 控制台路径（可直接照做）----\n# 系统 → 网络 → DNS 服务：首选 DNS 服务器填 {{dns_server_ip}}，保存；\n# 系统 → 网络诊断工具 → ping {{test_domain}}，能解析出 IP 即生效。\n",
+      "params": [
+        {
+          "name": "dns_server_ip",
+          "label": "内网 DNS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        },
+        {
+          "name": "test_domain",
+          "label": "验证用内网域名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "gw.corp.local"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：DNS 命令关键字各 AF 版本差异大，优先走 Web 控制台路径（下半部分）。\n2) AF 的 ping 诊断在 Web 的网络诊断工具里也有入口，不必强求 CLI。\n3) 与策略类配置不同，DNS 是系统级配置，通常 CLI 开放——现场以 ? 实测为准，核对后回填本条目并升 exec_level。\n验证方法：Web 保存 DNS 后 ping test_domain 看解析；CLI 侧核对 ? 输出后补录真机命令；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "150b25e1-fdc7-5d68-a7dd-d05cec3f15c4",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "深信服 AF 全系列",
+      "category": "时间同步",
+      "title": "配置 NTP 时间同步（深信服 AF，CLI 骨架 + Web 对照）",
+      "description": "指向内网 NTP 服务器；AF 时间同步以 Web 配置为主，CLI 骨架待真机核对。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n#\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\n# system\n# time\n# ntp server {{ntp_server_ip}}\n# exit\n# date\n#\n# ---- Web 控制台路径（可直接照做）----\n# 系统 → 系统时间/NTP 设置：启用 NTP 同步，服务器填 {{ntp_server_ip}}，应用；\n# 同页面查看同步状态，时间与标准时间一致即生效。\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：AF 的 NTP 配置入口各版本不同，优先走 Web 控制台路径。\n2) AF 的 Web 登录/日志时序依赖时间，对表后复核设备时间与 NTP 源偏差。\n3) 核对通过后回填本条目并升 exec_level 为 verified-cli。\n验证方法：Web 应用 NTP 后系统时间页显示同步状态；CLI 以 ? 实测为准；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "d1c22fa0-93bc-5794-bf0f-f5940aa107e9",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "深信服 AF 全系列",
+      "category": "版本升级",
+      "title": "软件版本查看、备份与升级流程（深信服 AF，骨架 + Web 升级页）",
+      "description": "AF 升级走 Web 系统升级页（上传升级包→升级→自动重启）；CLI 骨架待真机核对。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n#\n# ---- Web 控制台路径（标准做法）----\n# 0. ★ 三要素确认：变更窗口 / 回滚点（升级前系统自动保留回退）/ 带外 Console\n# 1. 系统 → 系统状态：记录当前版本；\n# 2. 系统 → 配置备份：导出全量配置到本地；\n# 3. 系统 → 系统升级：上传官方升级包 → 校验 → 升级（设备自动重启）；\n# 4. 重启后：系统状态核对版本 + Web 登录 + 策略抽测。\n#\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\n# show version\n# date\n",
+      "params": [
+        {
+          "name": "backup_server",
+          "label": "TFTP/备份服务器 IP",
+          "default": "",
+          "required": true,
+          "required_note": "",
+          "validate": "ipv4",
+          "example": "192.168.66.20"
+        }
+      ],
+      "notes": "1) ★ 危险点：升级自动重启断业务，变更窗口内执行；升级前全量配置备份是回滚底线。\n2) 升级包必须来自官方渠道并核对校验值；跨大版本按官方升级路径逐级升。\n3) 核对通过后回填本条目并升 exec_level 为 verified-cli。\n验证方法：升级后系统状态页新版本 + Web 登录 + 策略抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "b263ec23-b9b5-52d1-a9bc-86afe438219b",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "防火墙全系列",
+      "category": "防火墙诊断",
+      "title": "会话与策略命中诊断（深信服 AF，CLI 骨架 + Web 对照）",
+      "description": "按目的地址查会话与策略命中；AF 以 Web 会话排查为主，CLI 骨架待真机核对。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n#\n# ---- Web 控制台路径（标准做法）----\n# 1. 策略 → 会话管理/诊断工具 → 会话查询：按目的地址 {{target_ip}} 过滤；\n# 2. 看会话归属策略名与动作（允许/拒绝）；\n# 3. 无会话：先网络诊断 → 路由/连通测试；有会话被拒：回策略列表核对该源目的+端口是否被前面的策略拦截。\n#\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\n# diagnose / show session 相关命令按 ? 实测\n# 目标：{{target_ip}}\n",
+      "params": [
+        {
+          "name": "target_ip",
+          "label": "排查目标 IP（内网服务器/公网映射地址）",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.100"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：AF 会话诊断 CLI 各版本差异大，优先走 Web 会话查询页。\n2) 判读口径与通用一致：无会话查路由、有会话被拒查策略顺序。\n3) 核对通过后回填本条目并升 exec_level 为 verified-cli。\n验证方法：Web 会话查询对已知通/不通 IP 各跑一遍可复现；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "0b0cf093-0646-5a8e-8b5b-ca508d97b500",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "防火墙全系列",
+      "category": "防火墙诊断",
+      "title": "NAT 会话诊断（深信服 AF，CLI 骨架 + Web 对照）",
+      "description": "端口映射/NAT 不通排查；AF 以 Web 为主，CLI 骨架待真机核对。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n#\n# ---- Web 控制台路径（标准做法）----\n# 1. 策略 → NAT/端口映射：核对映射表（公网 IP:端口 → 内网 IP:端口、协议）；\n# 2. 策略 → 会话查询：按公网地址 {{target_ip}} 过滤，看转换与会话动作；\n# 3. 网络诊断 → 连通测试：从外网侧实测端口。\n#\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\n# show nat / session 相关命令按 ? 实测\n# 目标：{{target_ip}}\n",
+      "params": [
+        {
+          "name": "target_ip",
+          "label": "排查目标 IP（内网服务器/公网映射地址）",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.100"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：AF NAT 诊断以 Web 为准；映射表/会话/外部实测三方对照定位。\n2) 核对通过后回填本条目并升 exec_level 为 verified-cli。\n验证方法：外部实测端口 + Web 会话转换字段一致即通过；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "318680d4-6762-5dfc-98cb-1755a48f5936",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "深信服 AF 全系列（双机热备）",
+      "category": "HA/双机",
+      "title": "HA 双机热备状态检查（深信服 AF，骨架 + Web 对照）",
+      "description": "双机热备主备角色、心跳与配置同步检查；以 Web 为主，CLI 骨架待真机核对。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n#\n# ---- Web 控制台路径（标准做法）----\n# 1. 系统 → 双机热备：查看本机角色（主机/备机）、对端状态、心跳口状态；\n# 2. 核对配置同步状态（是否一致/最近同步时间）；\n# 3. 切换演练：变更窗口内停主机心跳或点主动切换，观察备机接管。\n#\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\n# show ha / show dual 相关命令按 ? 实测\n",
+      "params": [],
+      "notes": "1) ★ 待真机核对：AF 双机热备 CLI 各版本差异大，优先走 Web 双机热备页。\n2) 巡检三看：主备角色、心跳口 up、配置同步一致——任何一项异常都会在切换时掉业务。\n3) 核对通过后回填本条目并升 exec_level 为 verified-cli。\n验证方法：Web 双机页三要素正常 + 模拟切换接管成功；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "e6fdd21a-28f6-5404-a08c-36ce3dfba37f",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "深信服 AF 全系列",
+      "category": "配置回滚",
+      "title": "配置回滚（深信服 AF，骨架 + Web 配置恢复）",
+      "description": "改动前导出全量配置，改坏后 Web 导入恢复（AF 标准回滚路径），CLI 骨架待真机核对。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n#\n# ---- Web 控制台路径（标准做法）----\n# 0. 改动前：系统 → 配置备份/导出：全量配置导出到本地（回滚点）；\n# 1. 改动出问题后：diff 当前与备份（导出两份对比或按变更记录核对）；\n# 2. 系统 → 配置恢复/导入：选择备份文件导入（设备按提示处理，可能要求重启）；\n# 3. 复核：登录确认 + 策略抽测。\n#\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\n# show version / date\n",
+      "params": [],
+      "notes": "1) ★ 待真机核对：AF 配置恢复以 Web 导入为准；恢复可能伴随重启，变更窗口内做。\n2) ★ 回滚前先 diff（导出当前与备份对比），确认回退范围。\n3) 与《保存配置并备份到本地 flash》分工：那条是备份动作，本条是恢复动作。\n4) 核对通过后回填本条目并升 exec_level 为 verified-cli。\n验证方法：恢复后版本/配置复核 + 策略抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "_file": "seed_data/sangfor_cli.json",
+      "uuid": "a0619cd2-8bc1-5665-bc1d-f09392141490",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "深信服 AF",
+      "category": "环路检测",
+      "title": "环路风险核查（深信服 AF，骨架 + Web 对照）",
+      "description": "AF 防环墙内以广播风暴防护/环路检测特性为主，Web 路径对照；CLI 骨架待真机核对。",
+      "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n#\n# ---- Web 控制台路径（标准做法）----\n# 1. 网络 → 接口：核查各口环路检测/风暴抑制配置；\n# 2. 系统告警：广播风暴告警记录（发生时间/端口）；\n# 3. 流量统计：按端口看广播包占比。\n#\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\n# show interface / loopback-detect 相关命令按 ? 实测\n",
+      "params": [],
+      "notes": "1) ★ 待真机核对：AF 环路防护以 Web 特性为准。\n2) ★ 危险点：风暴中勿盲目插拔线——先定位环路端口再断开一端。\n3) 核对通过后回填本条目并升 exec_level 为 verified-cli。\n验证方法：Web 告警无风暴记录 + 端口抑制配置生效；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    }
+  ]
+}

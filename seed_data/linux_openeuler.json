@@ -1,0 +1,699 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "linux_openeuler.json",
+  "vendor_label": "openEuler 22.03 LTS",
+  "vendor_slug": "openeuler",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 19,
+  "entries": [
+    {
+      "uuid": "54f524f2-7b5d-5c92-899e-a2bd2fb92df5",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "网络配置",
+      "title": "nmcli 配置 IP（openEuler 22.03）",
+      "description": "openEuler 用 NetworkManager/dnf 体系，nmcli 配置即持久化。",
+      "commands": "nmcli con show\nnmcli con mod \"{{con_name}}\" ipv4.method manual ipv4.addresses {{ip_addr}}/{{prefix_len}}\nnmcli con mod \"{{con_name}}\" ipv4.gateway {{gateway}}\nnmcli con mod \"{{con_name}}\" ipv4.dns {{dns_ip}}\nnmcli con up \"{{con_name}}\"\nip addr show {{ifname}}",
+      "params": [
+        {
+          "name": "con_name",
+          "label": "连接名",
+          "default": "eth0",
+          "required": false,
+          "validate": "",
+          "example": "nmcli con show 查看，一般等于网卡名"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "dns_ip",
+          "label": "DNS 服务器",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        },
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        }
+      ],
+      "notes": "1) openEuler 22.03 网络管理与 RHEL8 一致（NM + ifcfg 兼容）。\n2) ipv4.method manual 别漏；openEuler 也有 ifcfg-* 兼容层，两种方式别混用同一网卡。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "fa212d5e-ea27-5b74-8eb6-9e8276749e9a",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "本地源",
+      "title": "本地 dnf/yum 源（openEuler ISO 挂载）★ 离网特供",
+      "description": "openEuler ISO 挂载做本地源，完全离线装包。",
+      "commands": "mkdir -p /mnt/cdrom\nmount -o loop {{iso_path}} /mnt/cdrom\ncat > /etc/yum.repos.d/local.repo << 'EOF'\n[local-iso]\nname=Local openEuler ISO\nbaseurl=file:///mnt/cdrom\nenabled=1\ngpgcheck=0\nEOF\ndnf clean all\ndnf makecache\ndnf repolist\ndnf install {{pkg_name}} -y",
+      "params": [
+        {
+          "name": "iso_path",
+          "label": "ISO 文件路径",
+          "default": "/opt/CentOS-7-x86_64-DVD-2009.iso",
+          "required": true,
+          "validate": "path",
+          "example": "/opt/CentOS-7-x86_64-DVD-2009.iso"
+        },
+        {
+          "name": "pkg_name",
+          "label": "软件包名",
+          "default": "createrepo",
+          "required": true,
+          "validate": "",
+          "example": "createrepo"
+        }
+      ],
+      "notes": "1) ★ openEuler 的 dnf 与 yum 命令等价（dnf 是 yum 的软链）。\n2) baseurl 要指向含 repodata/ 的目录；开机自动挂载写 /etc/fstab。\n3) 若同时存在其它 repo 报错，可先在 /etc/yum.repos.d/ 里把 openEuler 官方源改名 .bak。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f6ca4000-a13a-5700-897c-4dd2bdbf0566",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "防火墙",
+      "title": "firewalld 放行端口（openEuler）",
+      "description": "firewall-cmd 永久放行并验证。",
+      "commands": "firewall-cmd --permanent --add-port={{port}}/tcp\nfirewall-cmd --reload\nfirewall-cmd --list-all\nss -tlnp | grep :{{port}}",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        }
+      ],
+      "notes": "1) 与 RHEL 用法一致：--permanent + --reload 成对；先 ss 确认应用在监听。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "ad4beaf0-8bed-5dde-891e-4050ac2b5b14",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "网络配置",
+      "title": "静态路由（临时 + 持久化，openEuler）",
+      "description": "ip route 临时 + nmcli 持久化。",
+      "commands": "# ---- 临时 ----\nip route add {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nip route show\n# ---- 持久化（nmcli）----\nnmcli con mod \"{{con_name}}\" +ipv4.routes \"{{dest_net}}/{{prefix_len}} {{gateway}}\"\nnmcli con up \"{{con_name}}\"\nip route show",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "10.20.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.20.0.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "con_name",
+          "label": "连接名",
+          "default": "eth0",
+          "required": false,
+          "validate": "",
+          "example": "nmcli con show 查看，一般等于网卡名"
+        }
+      ],
+      "notes": "1) nmcli 加路由用 +ipv4.routes（加号是追加，不加号是整表覆盖）。\n2) 多条路由重复执行 +ipv4.routes 即可；验证 ip route show。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "69ec3d06-b392-5bd2-9938-778699a23fbc",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "服务管理",
+      "title": "systemctl 服务管理（openEuler）",
+      "description": "服务五件套与自启。",
+      "commands": "systemctl status {{service_name}} --no-pager\nsystemctl restart {{service_name}}\nsystemctl enable --now {{service_name}}\njournalctl -u {{service_name}} -n 50 --no-pager",
+      "params": [
+        {
+          "name": "service_name",
+          "label": "服务名",
+          "default": "sshd",
+          "required": true,
+          "validate": "",
+          "example": "sshd / firewalld / NetworkManager"
+        }
+      ],
+      "notes": "1) enable --now 一步到位；起不来先看 journalctl。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "42512d69-fe4f-5f7c-8ef4-143b6818b227",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "排查命令",
+      "title": "网络排查三件套（ss / tcpdump / journalctl）",
+      "description": "端口监听、抓包、日志一次看全。",
+      "commands": "ss -tlnp | grep :{{port}}\ntcpdump -i {{ifname}} -nn host {{peer_ip}} -c 100\njournalctl -u {{service_name}} -n 50 --no-pager\njournalctl -p err -b --no-pager",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        },
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "peer_ip",
+          "label": "对端 IP",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "service_name",
+          "label": "服务名",
+          "default": "sshd",
+          "required": true,
+          "validate": "",
+          "example": "sshd / firewalld / NetworkManager"
+        }
+      ],
+      "notes": "1) 排查顺序：ss 看监听 → tcpdump 看包到没到 → journalctl 看服务日志。\n2) 包到了但服务没响应 → 应用层问题；包没到 → 链路/防火墙问题。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "1ed5f55d-7153-5cce-ab6f-efcb4c1cc0bb",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "网络配置",
+      "title": "VLAN 子接口（临时 + 持久化，openEuler）",
+      "description": "ip link 临时 + nmcli 持久化。",
+      "commands": "# ---- 临时 ----\nip link add link {{ifname}} name {{ifname}}.{{vlan_id}} type vlan id {{vlan_id}}\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}.{{vlan_id}}\nip link set {{ifname}}.{{vlan_id}} up\n# ---- 持久化（nmcli）----\nnmcli con add type vlan con-name vlan{{vlan_id}} ifname {{ifname}}.{{vlan_id}} \\\n  dev {{ifname}} id {{vlan_id}} ipv4.method manual ipv4.addresses {{ip_addr}}/{{prefix_len}}\nnmcli con up vlan{{vlan_id}}\nip -d link show {{ifname}}.{{vlan_id}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        }
+      ],
+      "notes": "1) nmcli con add type vlan 一步建好持久化子接口；con-name 自定义。\n2) 交换机侧 trunk + 放通该 VLAN；验证 cat /proc/net/vlan/config。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "ad5c54d1-9082-5807-a29b-a3b1864914e2",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "磁盘",
+      "title": "磁盘与资源排查（openEuler）",
+      "description": "df/du/deleted 句柄 + top/free。",
+      "commands": "df -h\ndf -i\ndu -sh /* 2>/dev/null | sort -rh | head\nlsof | grep deleted | head\ntop -b -n 1 | head -15\nfree -h",
+      "params": [],
+      "notes": "1) df -i 查 inode；df 满 du 不大 → deleted 句柄；free 看 available。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "e3503861-efdd-4784-a1f7-ab673a55f8c0",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "网络配置",
+      "title": "临时配置 IP 地址（openEuler）",
+      "description": "不重启生效的临时地址配置；持久化走 nmcli（见配套条目）。",
+      "commands": "# 临时生效：重启后丢失（持久化见 notes 里的配套条目）\nip link set {{ifname}} up\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}\nip addr show {{ifname}}\nip route get {{ip_addr}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": false,
+          "validate": "ifname",
+          "example": "eth0"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.1.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.1.100"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "masklen",
+          "example": "24"
+        }
+      ],
+      "notes": "1) 临时生效，重启即失效；持久化改用配套条目。\n2) PREFIX 是掩码**长度**（24），不是点分掩码（255.255.255.0）。\n3) 配套条目：《nmcli 配置 IP（openEuler 22.03）》",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "740d2afe-319f-4dd6-9255-9db73a6e531a",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "网络配置",
+      "title": "临时添加静态路由（openEuler）",
+      "description": "临时加一条静态路由并给出 nmcli 持久化写法。",
+      "commands": "# 1) 临时生效（重启失效）\nip route add {{dest_net}}/{{prefix_len}} via {{gateway}}\nip route show\n# 2) 持久化（NetworkManager 连接级追加路由）\nnmcli con mod \"{{con_name}}\" +ipv4.routes \"{{dest_net}}/{{prefix_len}} {{gateway}}\"\nnmcli con up \"{{con_name}}\"\n# 3) 复核（重启后再看一次这条还在不在）\nip route show | grep {{dest_net}}",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "8",
+          "required": true,
+          "validate": "masklen",
+          "example": "8"
+        },
+        {
+          "name": "gateway",
+          "label": "下一跳网关",
+          "default": "192.168.1.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.1.1"
+        },
+        {
+          "name": "con_name",
+          "label": "nmcli 连接名",
+          "default": "eth0",
+          "required": false,
+          "validate": "",
+          "example": "eth0"
+        }
+      ],
+      "notes": "1) 本条目同时给出**临时**与**持久化**两套做法，按现场需要取用。\n2) 只配去程不够：对端也要有回程路由，否则单向不通。\n3) 临时路由重启必丢，做变更请用第 2) 段的 nmcli 方式。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "58291a7c-89c8-4fb7-bb8d-58fc3fa75b93",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "网络配置",
+      "title": "DNS 配置（openEuler 22.03）",
+      "description": "先写临时 resolv.conf 快速验证，再用 nmcli 做持久化。",
+      "commands": "# 1) 临时生效（重启/重启网络后会丢）\nprintf 'nameserver {{dns1}}\\nnameserver {{dns2}}\\n' > /etc/resolv.conf\n# 2) 持久化（NetworkManager 连接级）\nnmcli con mod \"{{con_name}}\" ipv4.dns \"{{dns1}} {{dns2}}\"\nnmcli con up \"{{con_name}}\"\n# 3) 复核\ncat /etc/resolv.conf\ngetent hosts {{dns1}}",
+      "params": [
+        {
+          "name": "dns1",
+          "label": "首选 DNS",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        },
+        {
+          "name": "dns2",
+          "label": "备用 DNS",
+          "default": "114.114.114.114",
+          "required": false,
+          "validate": "ipv4",
+          "example": "114.114.114.114"
+        },
+        {
+          "name": "con_name",
+          "label": "nmcli 连接名",
+          "default": "eth0",
+          "required": false,
+          "validate": "",
+          "example": "eth0"
+        }
+      ],
+      "notes": "1) 只写 /etc/resolv.conf 在 openEuler 上也**会丢**（NM 会覆盖），必须走 nmcli。\n2) 内外网域名要按需分别指向内网/公网 DNS，别只写一个。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "7f6a6110-984f-490a-b1d2-fa4a6efb4ed1",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "系统资源",
+      "title": "CPU / 内存资源判读（openEuler）",
+      "description": "top / uptime / free / vmstat 四件套判断 CPU 与内存是否真吃紧。",
+      "commands": "top -bn1 | head -15\nuptime\nfree -h\nvmstat 1 5",
+      "params": [],
+      "notes": "1) load average 要换算成核数看（> 核数才是排队）。\n2) free 看 available，不要看 free 那一列；swap 频繁使用说明内存不足。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "25c1903c-f12c-4200-bc5d-ad4010f460ee",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "日志",
+      "title": "系统日志过滤（openEuler）",
+      "description": "journalctl 按时间窗与优先级过滤，快速定位报错上下文。",
+      "commands": "journalctl -xe --no-pager | tail -60\njournalctl --since \"-30 min\" --no-pager | tail -80\njournalctl -p err -b --no-pager | tail -40",
+      "params": [],
+      "notes": "1) -p err 只看错误级；排查服务问题再加 -u 服务名。\n2) 日志占用大时用 journalctl --vacuum-size=500M 缩容。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "1fa91158-9d79-5dd0-bde7-af5c56c2d77c",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "本地源",
+      "duration": "perm",
+      "title": "createrepo 自建 dnf 源（openEuler RPM 目录）",
+      "description": "把零散 RPM 收进目录做成持久本地源；与《本地 dnf/yum 源（openEuler ISO 挂载）》互补——ISO 源解决装包环境，本条解决自定义包集合分发。",
+      "commands": "# ===== createrepo 自建 dnf 源（openEuler RPM 目录）=====\n# ---- 0. ★ 改仓库结构前先备份既有 repo（dnf 报错随时可回滚）----\ncp -r /etc/yum.repos.d /etc/yum.repos.d.bak.$(date +%Y%m%d)\n# ---- 1. 装 createrepo_c：离网侧先按《本地 dnf/yum 源（openEuler ISO 挂载）》挂好 ISO 源再装 ----\ndnf install createrepo_c -y\n# ---- 2. 把 RPM 收进目录（U 盘/scp 均可，见传输工具条目；下面一行按实际介质路径执行）----\nmkdir -p {{repo_dir}}\n# cp /mnt/usb/*.rpm {{repo_dir}}/\ncreaterepo_c {{repo_dir}}\n# ---- 3. 写 repo 文件（gpgcheck=0：自建目录无签名，内网可控可接受）----\ncat > /etc/yum.repos.d/local-dir.repo << 'EOF'\n[local-dir]\nname=Local RPM Directory\nbaseurl=file://{{repo_dir}}\nenabled=1\ngpgcheck=0\nEOF\n# ---- 4. 刷新缓存 + 验证性安装 ----\ndnf clean all\ndnf makecache\ndnf repolist\ndnf install {{pkg_name}} -y\n",
+      "params": [
+        {
+          "name": "repo_dir",
+          "label": "RPM 目录",
+          "default": "/opt/local-repo",
+          "required": false,
+          "validate": "path",
+          "example": "/opt/local-repo"
+        },
+        {
+          "name": "pkg_name",
+          "label": "验证性安装的包名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "createrepo_c 自带则换其他包"
+        }
+      ],
+      "notes": "1) ★ 易错点：改 /etc/yum.repos.d 前必须整目录备份（第 0 步）；openEuler 官方 repo 文件保留原名共存即可，冲突报错时再把官方源改名 .bak。\n2) baseurl 必须指向含 repodata/ 的目录——createrepo_c 跑完目录里才会生成 repodata，顺序不能反。\n3) GPG 校验取舍：自建目录没有签名仓库，gpgcheck=0 是通行做法；有安全要求时用 gpg 签名 + 本地导入 key，别简单改 gpgcheck。\n4) 目录源是本地盘路径，无需 fstab 挂载；repo 文件落盘即持久化。\n验证方法：dnf repolist 出现 local-dir + dnf install {{pkg_name}} 成功，两条命令 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）"
+    },
+    {
+      "uuid": "751441e5-b7a4-58ea-9705-1a1568adb5fa",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS（RHEL 系通用）",
+      "category": "本地源",
+      "duration": "temp",
+      "title": "pip 离线安装（download → --no-index --find-links）",
+      "description": "有网侧 pip download 带全依赖，离网侧 --no-index 从本地目录安装；Python 包离网部署标准流程。",
+      "commands": "# ===== pip 离线安装 =====\n# ---- 1.【有网侧】下载包及其全部依赖到目录（★ 必须与离网侧同 python 大版本 + 同平台架构）----\npip download {{pkg_name}} -d {{src_path}}\nls {{src_path}}\n# ---- 2. 把整个 {{src_path}} 目录拷到离网机器（U 盘/内网，见传输工具条目）----\n# ---- 3.【离网侧】本地目录安装（--no-index 禁用一切在线源）----\npip install --no-index --find-links {{src_path}} {{pkg_name}}\n# ---- 4. 验证（import 名与包名可能不同，按实际包替换）----\npip show {{pkg_name}}\npython3 -c \"import <模块名>; print('OK')\"\n",
+      "params": [
+        {
+          "name": "pkg_name",
+          "label": "包名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "requests"
+        },
+        {
+          "name": "src_path",
+          "label": "离线包目录",
+          "default": "/opt/pkgs",
+          "required": false,
+          "validate": "path",
+          "example": "/opt/pkgs"
+        }
+      ],
+      "notes": "1) ★ 易错点：有网侧与离网侧的 python 大版本（3.9 vs 3.11）和架构（x86_64 vs aarch64）不一致，download 下来的 wheel 装不上——离网侧先 python3 --version + uname -m，跨机下载补 --platform manylinux2014_x86_64 --python-version 39 --only-binary=:all:。\n2) pip download 默认连带全部依赖（这正是要的）；离网侧 --no-index 保证绝不偷连公网源，漏写则报错前先卡半分钟超时。\n3) 源码包（tar.gz）安装需离网机有 gcc/python3-devel；离网优先 --only-binary 收 wheel。\n4) 缺依赖报 No matching distribution：回有网侧对同版本环境重新 download，别在离网侧猜。\n验证方法：pip show 出包信息 + import 成功两条命令 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）"
+    },
+    {
+      "uuid": "23379895-06ce-5721-9792-3ec24e5c482b",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "时间同步",
+      "title": "配置 chrony 时间同步（openEuler 22.03）",
+      "description": "chronyd 指向内网 NTP 并开机自启；现场主力系统对表标准动作。",
+      "commands": "# ===== 配置 chrony 时间同步（openEuler 22.03）=====\n# ---- 0. 备份配置 ----\ncp /etc/chrony.conf /etc/chrony.conf.bak.$(date +%Y%m%d)\n# ---- 1. 注释掉原 server 行，追加内网 NTP ----\nsed -i 's/^server /#&/' /etc/chrony.conf\necho 'server {{ntp_server_ip}} iburst' >> /etc/chrony.conf\n# ---- 2. 重启并设开机自启 ----\nsystemctl restart chronyd && systemctl enable chronyd\n# ---- 3. 验证 ----\nchronyc sources -v\nchronyc tracking\ndate\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) openEuler 22.03 默认 chrony，/etc/chrony.conf 同 RHEL 系；DAS-OS-M 等交付机部署产品前先完成对表（证书校验/日志时序全依赖）。\n2) sources 见 ^* 才是真同步；^? 查 UDP 123 与服务端 allow。\n3) 内网无 NTP 源时，选一台常开机服务器做源（chrony server + allow 网段）。\n验证方法：chronyc sources 见 ^* + date 一致，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "771f9895-c1c6-5d20-8a31-0353f1ae9cf5",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03",
+      "category": "进程管理",
+      "title": "进程排查与安全终止（ps/top/kill，openEuler 22.03）",
+      "description": "CPU/内存 TOP 定位、进程树确认、TERM→KILL 两级终止、OOM 判读。",
+      "commands": "# ===== 进程排查与安全终止（ps/top/kill）=====\n# ---- 1. CPU / 内存占用 TOP10（快照）----\nps aux --sort=-%cpu | head -11\nps aux --sort=-%mem | head -11\n# ---- 2. 动态判读（交互式 top：P 按CPU M 按内存，1 展开各核，q 退出）----\ntop -b -n 1 | head -15\n# ---- 3. 锁定目标进程：确认 PID、属主、父进程（别误杀子进程/服务拉起的守护）----\nps -ef | grep <关键字>\nsystemctl status <服务名> 2>/dev/null | head -8\n# ---- 4. 终止：先 TERM（15，给收尾机会），无效再 KILL（9）----\n# kill <PID>\n# kill -9 <PID>        # ★ 最后手段：不给收尾机会，可能丢数据/留共享内存段\n# ---- 5. OOM 判读（进程莫名消失先查这里）----\ndmesg | grep -i \"out of memory\" | tail -5\njournalctl -k --no-pager | grep -i -E \"oom|killed process\" | tail -5\n",
+      "params": [],
+      "notes": "1) ★ 危险点：kill -9 是最后手段——先 TERM 等几秒观察，数据库/中间件进程被 -9 可能丢数据或下次起不来；杀前用 ps -ef | grep 核对 PID 与属主，别按记忆敲 PID。\n2) 进程\"莫名消失\"九成是 OOM：dmesg/journalctl 里 Killed process 一行带 PID 与 oom_score，处理思路是限内存或加内存，不是重启了事。\n3) 僵尸进程（STAT=Z）杀不掉是父进程没回收：找到 PPID 处理父进程，kill 僵尸本身无效。\n4) top -b -n 1 是快照；交互式直接敲 top，P/M 排序、1 看各核。\n验证方法：ps aux --sort=-%cpu 出 TOP10 + dmesg 无 OOM 记录（或定位到消失进程），60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "e96db3d7-6997-5e2f-8aff-565932cda622",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03",
+      "category": "审计日志",
+      "title": "登录痕迹与审计排查（openEuler 22.03）",
+      "description": "last/w/lastlog 登录痕迹 + 失败登录爆破特征 + auditd 服务状态（账号治理与取证常用）。",
+      "commands": "# ===== 登录痕迹与审计排查（openEuler 22.03）=====\n# ---- 1. 最近登录记录（来源 IP/端口/时段）----\nlast -n 15\n# 当前在线：\nw\n# 从未登录过的账号（排查僵尸账号）：\nlastlog | grep -v \"Never logged in\" | head -10\n# ---- 2. 失败登录（爆破特征：同一来源连续 Failed）----\ngrep -c \"Failed password\" /var/log/secure\ngrep \"Failed password\" /var/log/secure | tail -8\n# ---- 3. 审计服务状态（auditd 在跑才有审计事件）----\nsystemctl status auditd --no-pager | head -5\n# auditctl -l        <- 当前审计规则（为空 = 只记系统默认）\n",
+      "params": [],
+      "notes": "1) 登录痕迹三件套：last（历史登录，含来源 IP）、w（当前在线）、lastlog（各账号最后一次登录——长期 Never 的账号是清理对象）。\n2) 失败登录看 secure：同一来源 IP 连续 Failed password 是爆破特征，配合防火墙封禁来源 IP。\n3) openEuler 同 RHEL 系，secure 日志为 /var/log/secure。\n4) auditd 规则为空不代表没日志，只是没自定义审计规则；现场取证需求再按需加规则（-w 监控关键文件）。\n验证方法：last/w 有记录、grep 失败登录有计数、auditd running，三条命令 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "40831742-9954-5eba-b3ae-603cc8355950",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03（光口服务器）",
+      "category": "排查命令",
+      "title": "光模块读数与网卡错包判读（ethtool -m，openEuler 22.03）",
+      "description": "DOM 光功率读数与网卡错包统计判读，清计数前先留存基线。",
+      "commands": "# ===== 光模块读数与网卡错包判读（ethtool -m，openEuler 22.03）=====\n# ---- 1. 光模块 DOM 读数（Rx/Tx 功率；不支持 DOM 的电口模块无输出）----\nethtool -m <网卡名>\n# ---- 2. 错包统计基线（留存本输出再观察增量）----\nip -s link show <网卡名>\nethtool -S <网卡名> | head -20\n# ---- 3. 判读口径见 notes；CRC 持续增长 = 光衰/模块/对端问题 ----\n",
+      "params": [],
+      "notes": "1) ethtool -m 输出 RX Power/TX Power 判读口径与网络侧一致（-5 ~ -15 dBm 健康区，低于 -20 告警）。\n2) ethtool -S 的 rx_crc_errors / rx_no_buffer 持续增长：CRC 查光衰与模块，no_buffer 查 CPU 负载与缓冲。\n3) 判读口径以网卡/模块厂商 datasheet 为准；先留存基线再观察增量。\n验证方法：ethtool -m 读数健康 + 基线后 CRC 不再增长；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

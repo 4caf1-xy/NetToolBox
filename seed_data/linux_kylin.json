@@ -1,0 +1,834 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "linux_kylin.json",
+  "vendor_label": "银河麒麟 V10（国产化，待真机核对）",
+  "vendor_slug": "kylin",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 23,
+  "entries": [
+    {
+      "uuid": "0026be66-e1db-5eea-a9c0-8393c59ce9ef",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10（SP1/SP2/SP3）",
+      "category": "网络配置",
+      "title": "nmcli 配置 IP（麒麟 V10）",
+      "description": "麒麟 V10 用 NetworkManager 管网络，nmcli 配置即持久化。",
+      "commands": "nmcli con show\nnmcli con mod \"{{con_name}}\" ipv4.method manual ipv4.addresses {{ip_addr}}/{{prefix_len}}\nnmcli con mod \"{{con_name}}\" ipv4.gateway {{gateway}}\nnmcli con mod \"{{con_name}}\" ipv4.dns {{dns_ip}}\nnmcli con up \"{{con_name}}\"\nnmcli con show \"{{con_name}}\"",
+      "params": [
+        {
+          "name": "con_name",
+          "label": "连接名",
+          "default": "eth0",
+          "required": false,
+          "validate": "",
+          "example": "nmcli con show 查看，一般等于网卡名"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "dns_ip",
+          "label": "DNS 服务器",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：麒麟 V10 基于 RHEL 8 系（部分包混合 7 系），命令未经真机验证，\n   现场先 nmcli --version 确认。\n2) ipv4.method manual 别漏；连接名用 nmcli con show 查。\n3) 部分麒麟版本网络服务叫 network 而不是 NetworkManager，systemctl list-unit-files |\n   grep -i network 确认。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "8f5b8f09-cdf9-5560-a732-998f8e0359f0",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "网络配置",
+      "title": "ifcfg 文件永久配置 IP（麒麟 V10）",
+      "description": "ifcfg-* 文件方式持久化，与 RHEL 系写法一致。",
+      "commands": "cp /etc/sysconfig/network-scripts/ifcfg-{{ifname}} /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.bak\nvi /etc/sysconfig/network-scripts/ifcfg-{{ifname}}\n# DEVICE={{ifname}}\n# BOOTPROTO=static\n# ONBOOT=yes\n# IPADDR={{ip_addr}}\n# PREFIX={{prefix_len}}\n# GATEWAY={{gateway}}\n# DNS1={{dns_ip}}\nsystemctl restart NetworkManager\nnmcli con show",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "dns_ip",
+          "label": "DNS 服务器",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：麒麟 V10 重启网络用 systemctl restart NetworkManager，\n   老版本可能是 network 服务，systemctl list-unit-files 确认。\n2) PREFIX 写掩码长度；ONBOOT=yes。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "ffce042b-9b01-52ec-bfeb-55d64719143c",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "网络配置",
+      "title": "静态路由（临时 + 持久化，麒麟 V10）",
+      "description": "ip route 临时加路由，route-* 文件持久化。",
+      "commands": "# ---- 临时 ----\nip route add {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nip route show\n# ---- 持久化：/etc/sysconfig/network-scripts/route-{{ifname}} ----\nvi /etc/sysconfig/network-scripts/route-{{ifname}}\n# {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nsystemctl restart NetworkManager\nip route show",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "10.20.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.20.0.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：route-* 文件格式与 RHEL 一致，服务名按实际版本确认。\n2) 临时验证通过后再持久化，改文件前备份。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "269bd02e-c85d-5e39-af7c-c9f1387770b0",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "网络配置",
+      "title": "VLAN 子接口（临时 + 持久化，麒麟 V10）",
+      "description": "ip link 临时建 VLAN 子接口，ifcfg 持久化。",
+      "commands": "# ---- 临时 ----\nip link add link {{ifname}} name {{ifname}}.{{vlan_id}} type vlan id {{vlan_id}}\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}.{{vlan_id}}\nip link set {{ifname}}.{{vlan_id}} up\n# ---- 持久化 ----\ncat > /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.{{vlan_id}} << 'EOF'\nDEVICE={{ifname}}.{{vlan_id}}\nBOOTPROTO=static\nONBOOT=yes\nVLAN=yes\nPHYSDEV={{ifname}}\nIPADDR={{ip_addr}}\nPREFIX={{prefix_len}}\nEOF\nsystemctl restart NetworkManager\nip -d link show {{ifname}}.{{vlan_id}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：ifcfg 的 VLAN 字段与 RHEL 一致，重启服务名按版本确认。\n2) 交换机侧 trunk + 放通该 VLAN；验证 cat /proc/net/vlan/config。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "b3c063a9-ab25-57bb-b25f-69c7580ea5b1",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "防火墙",
+      "title": "firewalld 放行端口（麒麟 V10）",
+      "description": "firewall-cmd 永久放行端口并验证。",
+      "commands": "firewall-cmd --state\nfirewall-cmd --permanent --add-port={{port}}/tcp\nfirewall-cmd --reload\nfirewall-cmd --list-all\nss -tlnp | grep :{{port}}",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：麒麟 V10 默认带 firewalld，用法与 RHEL 一致。\n2) --permanent 与 --reload 成对出现；应用没监听（ss 查）不是防火墙问题。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "c3e92b08-ff00-5a63-8b52-8bb753e99a32",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "服务管理",
+      "title": "systemctl 服务管理（麒麟 V10）",
+      "description": "服务五件套与开机自启。",
+      "commands": "systemctl start {{service_name}}\nsystemctl enable --now {{service_name}}\nsystemctl status {{service_name}} -l --no-pager\nsystemctl is-enabled {{service_name}}\njournalctl -u {{service_name}} -n 50 --no-pager",
+      "params": [
+        {
+          "name": "service_name",
+          "label": "服务名",
+          "default": "sshd",
+          "required": true,
+          "validate": "",
+          "example": "sshd / firewalld / NetworkManager"
+        }
+      ],
+      "notes": "1) enable --now 一步到位；起不来先看 journalctl 最后几行。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "d40a0c2a-30bb-5772-a68d-afc439cb8710",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "本地源",
+      "title": "本地 yum 源（麒麟 ISO 挂载）★ 离网特供",
+      "description": "用麒麟 ISO 搭本地源，完全离线装包。",
+      "commands": "mkdir -p /mnt/cdrom\nmount -o loop {{iso_path}} /mnt/cdrom\ncat > /etc/yum.repos.d/kylin-local.repo << 'EOF'\n[kylin-local]\nname=Kylin Local ISO\nbaseurl=file:///mnt/cdrom\nenabled=1\ngpgcheck=0\nEOF\nyum clean all\nyum makecache\nyum repolist\nyum install {{pkg_name}} -y",
+      "params": [
+        {
+          "name": "iso_path",
+          "label": "ISO 文件路径",
+          "default": "/opt/CentOS-7-x86_64-DVD-2009.iso",
+          "required": true,
+          "validate": "path",
+          "example": "/opt/CentOS-7-x86_64-DVD-2009.iso"
+        },
+        {
+          "name": "pkg_name",
+          "label": "软件包名",
+          "default": "createrepo",
+          "required": true,
+          "validate": "",
+          "example": "createrepo"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：麒麟 ISO 的 repo 目录层级可能与 CentOS 不同，\n   挂载后先 ls /mnt/cdrom 找到含 repodata/ 的目录再写 baseurl。\n2) 开机自动挂载写 /etc/fstab；gpgcheck=0 免导 key。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "a83df474-c651-5ae8-93b6-ae5e82c0b285",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "本地源",
+      "title": "createrepo 自建源（麒麟 V10）",
+      "description": "把收集的 rpm 做成正式源。",
+      "commands": "mkdir -p /opt/local-repo\ncp ./*.rpm /opt/local-repo/\ncreaterepo /opt/local-repo\ncat > /etc/yum.repos.d/local-repo.repo << 'EOF'\n[local-repo]\nname=Local Repo\nbaseurl=file:///opt/local-repo\nenabled=1\ngpgcheck=0\nEOF\nyum clean all && yum makecache && yum repolist",
+      "params": [],
+      "notes": "1) ★ 待真机核对；加新 rpm 后要重新 createrepo。\n2) createrepo 未装时可从麒麟 ISO 的 Packages 里找。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "2c2e2aa3-1757-5898-b2f4-97de9084879b",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "本地源",
+      "title": "离线 rpm 安装（麒麟 V10）",
+      "description": "rpm 直接装 + 依赖处理。",
+      "commands": "rpm -qpR {{pkg_name}}.rpm\nrpm -Uvh ./*.rpm\nrpm -q {{pkg_name}}",
+      "params": [
+        {
+          "name": "pkg_name",
+          "label": "软件包名",
+          "default": "createrepo",
+          "required": true,
+          "validate": "",
+          "example": "createrepo"
+        }
+      ],
+      "notes": "1) ★ 待真机核对；rpm -qpR 查依赖，依赖包放同目录一起 rpm -Uvh ./*.rpm。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "1cb28e42-18a9-5228-bf0a-5ebd5f4c74e0",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "网络配置",
+      "title": "DNS 配置（麒麟 V10）",
+      "description": "临时改 resolv.conf + nmcli 持久化。",
+      "commands": "echo \"nameserver {{dns_ip}}\" >> /etc/resolv.conf\ndig @{{dns_ip}} {{domain}} +short\nnmcli con mod \"{{con_name}}\" ipv4.dns \"{{dns_ip}}\"\nnmcli con up \"{{con_name}}\"",
+      "params": [
+        {
+          "name": "dns_ip",
+          "label": "DNS 服务器",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        },
+        {
+          "name": "domain",
+          "label": "域名",
+          "default": "www.example.com",
+          "required": true,
+          "validate": "",
+          "example": "www.example.com"
+        },
+        {
+          "name": "con_name",
+          "label": "连接名",
+          "default": "eth0",
+          "required": false,
+          "validate": "",
+          "example": "nmcli con show 查看，一般等于网卡名"
+        }
+      ],
+      "notes": "1) ★ 待真机核对；有 NM 时 resolv.conf 是临时的，持久化走 nmcli/ifcfg。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "5a93bc67-7a4b-5315-a2e8-609ad4d648e1",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "排查命令",
+      "title": "查端口监听（麒麟 V10）",
+      "description": "ss 查监听与占用。",
+      "commands": "ss -tlnp | grep :{{port}}\nss -tlnp",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        }
+      ],
+      "notes": "1) LISTEN 没有 → 服务没起；有但不通 → 查 firewalld。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "901a57f9-b93f-5bc3-8dfb-9c4895a93c9b",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "排查命令",
+      "title": "tcpdump 抓包（麒麟 V10）",
+      "description": "抓包五式精简版。",
+      "commands": "tcpdump -i {{ifname}} -nn host {{peer_ip}} -c 100\ntcpdump -i {{ifname}} -nn port {{port}} -c 100\ntcpdump -i {{ifname}} -nn not port 22 -c 200",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "peer_ip",
+          "label": "对端 IP",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：tcpdump 未装时从麒麟 ISO 找包安装。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "450bf945-3420-5ff0-8ffd-954757f2e67f",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "日志",
+      "title": "journalctl 日志过滤（麒麟 V10）",
+      "description": "按服务/级别过滤。",
+      "commands": "journalctl -u {{service_name}} -n 100 --no-pager\njournalctl -xe\njournalctl -p err -b --no-pager",
+      "params": [
+        {
+          "name": "service_name",
+          "label": "服务名",
+          "default": "sshd",
+          "required": true,
+          "validate": "",
+          "example": "sshd / firewalld / NetworkManager"
+        }
+      ],
+      "notes": "1) 用法与 RHEL 一致。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "0836ad94-f869-5d7f-bc04-77ffbdbc05ee",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "磁盘",
+      "title": "磁盘与句柄排查（麒麟 V10）",
+      "description": "df/du/deleted 句柄 + Too many open files。",
+      "commands": "df -h\ndu -sh /* 2>/dev/null | sort -rh | head\nlsof | grep deleted | head\ncat /proc/{{pid}}/limits | grep \"open files\"\nulimit -n",
+      "params": [
+        {
+          "name": "pid",
+          "label": "进程号",
+          "default": "1234",
+          "required": true,
+          "validate": "int:1-4194304",
+          "example": "1234"
+        }
+      ],
+      "notes": "1) 持久化调大句柄：/etc/security/limits.conf + systemd unit 的 LimitNOFILE。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "c5d4578b-0130-5091-9e0b-ebc41f7d249e",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "系统资源",
+      "title": "CPU / 内存判读（麒麟 V10）",
+      "description": "top/free 快速判读。",
+      "commands": "top -b -n 1 | head -20\nfree -h\nps aux --sort=-%mem | head -10",
+      "params": [],
+      "notes": "1) free 看 available；%wa 高是磁盘瓶颈。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f6ce82c6-888f-4ee4-97a9-cec04bf931a3",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "网络配置",
+      "title": "临时配置 IP 地址（麒麟 V10）",
+      "description": "不重启生效的临时地址配置，用于排查期快速验证；持久化走 ifcfg。",
+      "commands": "# 临时生效：重启后丢失（持久化见 notes 里的配套条目）\nip link set {{ifname}} up\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}\nip addr show {{ifname}}\nip route get {{ip_addr}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": false,
+          "validate": "ifname",
+          "example": "eth0"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.1.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.1.100"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "masklen",
+          "example": "24"
+        }
+      ],
+      "notes": "1) 临时生效，重启即失效；持久化改用配套条目。\n2) PREFIX 是掩码**长度**（24），不是点分掩码（255.255.255.0）。\n3) 配套条目：《ifcfg 文件永久配置 IP（麒麟 V10）》",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "b9650b64-8067-4611-a92a-bf37739f072c",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "网络配置",
+      "title": "临时添加静态路由（麒麟 V10）",
+      "description": "临时加一条静态路由并给出 nmcli 持久化写法。",
+      "commands": "# 1) 临时生效（重启失效）\nip route add {{dest_net}}/{{prefix_len}} via {{gateway}}\nip route show\n# 2) 持久化（NetworkManager 连接级追加路由）\nnmcli con mod \"{{con_name}}\" +ipv4.routes \"{{dest_net}}/{{prefix_len}} {{gateway}}\"\nnmcli con up \"{{con_name}}\"\n# 3) 复核（重启后再看一次这条还在不在）\nip route show | grep {{dest_net}}",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "8",
+          "required": true,
+          "validate": "masklen",
+          "example": "8"
+        },
+        {
+          "name": "gateway",
+          "label": "下一跳网关",
+          "default": "192.168.1.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.1.1"
+        },
+        {
+          "name": "con_name",
+          "label": "nmcli 连接名",
+          "default": "eth0",
+          "required": false,
+          "validate": "",
+          "example": "eth0"
+        }
+      ],
+      "notes": "1) 本条目同时给出**临时**与**持久化**两套做法，按现场需要取用。\n2) 只配去程不够：对端也要有回程路由，否则单向不通。\n3) 临时路由重启必丢，做变更请用第 2) 段的 nmcli 方式。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "8126eb73-bc96-46f9-931e-b020f8e9eb38",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "排查命令",
+      "title": "ethtool 网卡链路诊断（麒麟 V10）",
+      "description": "用 ethtool 判断物理层是否 Link detected、速率双工是否协商正常。",
+      "commands": "ethtool {{ifname}}\nethtool -S {{ifname}} | head -40\nip -s link show {{ifname}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": false,
+          "validate": "ifname",
+          "example": "eth0"
+        }
+      ],
+      "notes": "1) Link detected: no 说明物理层没起来（线缆/网口/对端）。\n2) 协商速率与预期不符时先查线缆等级与对端配置。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "2691e845-28c0-4392-93ca-1684af6a9386",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "排查命令",
+      "title": "连通性排查三连（麒麟 V10）",
+      "description": "ping / traceroute / dig 三连，覆盖二层可达、路径与 DNS 解析。",
+      "commands": "ping -c 4 {{target}}\ntraceroute -n {{target}}\ndig +short {{domain}}",
+      "params": [
+        {
+          "name": "target",
+          "label": "目标地址",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        },
+        {
+          "name": "domain",
+          "label": "待解析域名",
+          "default": "www.baidu.com",
+          "required": false,
+          "validate": "",
+          "example": "www.baidu.com"
+        }
+      ],
+      "notes": "1) 能 ping 通 IP 但 dig 不通 → 查 DNS 配置（不是连通性问题）。\n2) traceroute 卡在某跳 → 从那一跳往两边查。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "7af976e7-bc40-5885-ac88-1b0db0a8f9f9",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "时间同步",
+      "title": "配置 chrony 时间同步（麒麟 V10）",
+      "description": "chronyd 指向内网 NTP 并开机自启；国产化环境对表同 RHEL 系。",
+      "commands": "# ===== 配置 chrony 时间同步（麒麟 V10）=====\n# ---- 0. 备份配置 ----\ncp /etc/chrony.conf /etc/chrony.conf.bak.$(date +%Y%m%d)\n# ---- 1. 注释掉原 server 行，追加内网 NTP ----\nsed -i 's/^server /#&/' /etc/chrony.conf\necho 'server {{ntp_server_ip}} iburst' >> /etc/chrony.conf\n# ---- 2. 重启并设开机自启 ----\nsystemctl restart chronyd && systemctl enable chronyd\n# ---- 3. 验证 ----\nchronyc sources -v\nchronyc tracking\ndate\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) 麒麟 V10 的 chrony 与 RHEL 系完全同构（/etc/chrony.conf、chronyc 命令一致）。\n2) sources 见 ^* 才是真同步；^? 先查 UDP 123 与 NTP 服务端 allow 配置。\n3) 若系统用 ntpd 而非 chrony（少数老装机构建）：systemctl status ntpd 区分，别混配。\n验证方法：chronyc sources 见 ^* + date 一致，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "e7e0e777-1cb0-5861-b2bb-8a3b204175f9",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "麒麟 V10",
+      "category": "进程管理",
+      "title": "进程排查与安全终止（ps/top/kill，麒麟 V10）",
+      "description": "CPU/内存 TOP 定位、进程树确认、TERM→KILL 两级终止、OOM 判读。",
+      "commands": "# ===== 进程排查与安全终止（ps/top/kill）=====\n# ---- 1. CPU / 内存占用 TOP10（快照）----\nps aux --sort=-%cpu | head -11\nps aux --sort=-%mem | head -11\n# ---- 2. 动态判读（交互式 top：P 按CPU M 按内存，1 展开各核，q 退出）----\ntop -b -n 1 | head -15\n# ---- 3. 锁定目标进程：确认 PID、属主、父进程（别误杀子进程/服务拉起的守护）----\nps -ef | grep <关键字>\nsystemctl status <服务名> 2>/dev/null | head -8\n# ---- 4. 终止：先 TERM（15，给收尾机会），无效再 KILL（9）----\n# kill <PID>\n# kill -9 <PID>        # ★ 最后手段：不给收尾机会，可能丢数据/留共享内存段\n# ---- 5. OOM 判读（进程莫名消失先查这里）----\ndmesg | grep -i \"out of memory\" | tail -5\njournalctl -k --no-pager | grep -i -E \"oom|killed process\" | tail -5\n",
+      "params": [],
+      "notes": "1) ★ 危险点：kill -9 是最后手段——先 TERM 等几秒观察，数据库/中间件进程被 -9 可能丢数据或下次起不来；杀前用 ps -ef | grep 核对 PID 与属主，别按记忆敲 PID。\n2) 进程\"莫名消失\"九成是 OOM：dmesg/journalctl 里 Killed process 一行带 PID 与 oom_score，处理思路是限内存或加内存，不是重启了事。\n3) 僵尸进程（STAT=Z）杀不掉是父进程没回收：找到 PPID 处理父进程，kill 僵尸本身无效。\n4) top -b -n 1 是快照；交互式直接敲 top，P/M 排序、1 看各核。\n验证方法：ps aux --sort=-%cpu 出 TOP10 + dmesg 无 OOM 记录（或定位到消失进程），60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "9794adfc-ecad-5515-aacb-8ad7b34cf1a0",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "麒麟 V10",
+      "category": "审计日志",
+      "title": "登录痕迹与审计排查（麒麟 V10）",
+      "description": "last/w/lastlog 登录痕迹 + 失败登录爆破特征 + auditd 服务状态（账号治理与取证常用）。",
+      "commands": "# ===== 登录痕迹与审计排查（麒麟 V10）=====\n# ---- 1. 最近登录记录（来源 IP/端口/时段）----\nlast -n 15\n# 当前在线：\nw\n# 从未登录过的账号（排查僵尸账号）：\nlastlog | grep -v \"Never logged in\" | head -10\n# ---- 2. 失败登录（爆破特征：同一来源连续 Failed）----\ngrep -c \"Failed password\" /var/log/secure\ngrep \"Failed password\" /var/log/secure | tail -8\n# ---- 3. 审计服务状态（auditd 在跑才有审计事件）----\nsystemctl status auditd --no-pager | head -5\n# auditctl -l        <- 当前审计规则（为空 = 只记系统默认）\n",
+      "params": [],
+      "notes": "1) 登录痕迹三件套：last（历史登录，含来源 IP）、w（当前在线）、lastlog（各账号最后一次登录——长期 Never 的账号是清理对象）。\n2) 失败登录看 secure：同一来源 IP 连续 Failed password 是爆破特征，配合防火墙封禁来源 IP。\n3) 麒麟 V10 同 RHEL 系，secure 日志为 /var/log/secure。\n4) auditd 规则为空不代表没日志，只是没自定义审计规则；现场取证需求再按需加规则（-w 监控关键文件）。\n验证方法：last/w 有记录、grep 失败登录有计数、auditd running，三条命令 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "57a77321-ebde-537b-8f65-25e1c5840629",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "麒麟 V10（光口服务器）",
+      "category": "排查命令",
+      "title": "光模块读数与网卡错包判读（ethtool -m，麒麟 V10）",
+      "description": "DOM 光功率读数与网卡错包统计判读，清计数前先留存基线。",
+      "commands": "# ===== 光模块读数与网卡错包判读（ethtool -m，麒麟 V10）=====\n# ---- 1. 光模块 DOM 读数（Rx/Tx 功率；不支持 DOM 的电口模块无输出）----\nethtool -m <网卡名>\n# ---- 2. 错包统计基线（留存本输出再观察增量）----\nip -s link show <网卡名>\nethtool -S <网卡名> | head -20\n# ---- 3. 判读口径见 notes；CRC 持续增长 = 光衰/模块/对端问题 ----\n",
+      "params": [],
+      "notes": "1) ethtool -m 输出 RX Power/TX Power 判读口径与网络侧一致（-5 ~ -15 dBm 健康区，低于 -20 告警）。\n2) ethtool -S 的 rx_crc_errors / rx_no_buffer 持续增长：CRC 查光衰与模块，no_buffer 查 CPU 负载与缓冲。\n3) 判读口径以网卡/模块厂商 datasheet 为准；先留存基线再观察增量。\n验证方法：ethtool -m 读数健康 + 基线后 CRC 不再增长；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

@@ -1,0 +1,797 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "h3c.json",
+  "vendor_label": "H3C（新华三 / Comware7）",
+  "vendor_slug": "h3c",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 16,
+  "entries": [
+    {
+      "uuid": "ed4efc39-7d65-5f6b-84fd-db4df71f2a63",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / S6520 / MSR 系列",
+      "category": "VLAN",
+      "title": "创建 VLAN 并把端口划入 Access（Comware7）",
+      "description": "新建业务 VLAN，用 interface range 批量把端口划为 access。",
+      "commands": "# ===== 创建 VLAN 并划入端口（H3C Comware7）=====\nsystem-view\nvlan {{vlan_id}}\n name {{vlan_name}}\n quit\ninterface range GigabitEthernet {{port_start}} to GigabitEthernet {{port_end}}\n port link-type access\n port access vlan {{vlan_id}}\n undo shutdown\n quit\nsave force",
+      "params": [
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_name",
+          "label": "VLAN 名称",
+          "default": "OFFICE",
+          "required": false,
+          "validate": "",
+          "example": "OFFICE"
+        },
+        {
+          "name": "port_start",
+          "label": "起始端口",
+          "default": "1/0/1",
+          "required": true,
+          "validate": "port",
+          "example": "1/0/1"
+        },
+        {
+          "name": "port_end",
+          "label": "结束端口",
+          "default": "1/0/10",
+          "required": true,
+          "validate": "port",
+          "example": "1/0/10"
+        }
+      ],
+      "notes": "1) Comware7 支持 interface range；Comware5 不支持，老设备只能逐口配。\n2) H3C 端口默认带堆叠成员号，单机也是 Gi1/0/1（不是 Gi0/1），按设备实际提示敲。\n3) save force 免交互直接落盘；save 会问是否保存，脚本里容易卡住。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "e95c9d0a-855c-5e6f-8d3d-3460f2b15107",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / S6520",
+      "category": "Trunk",
+      "title": "配置 Trunk 口并放通 VLAN（Comware7）",
+      "description": "把级联口配成 trunk，用 permit vlan 放通 VLAN 并设置 PVID。",
+      "commands": "# ===== 配置 Trunk 口（H3C Comware7）=====\nsystem-view\ninterface GigabitEthernet {{port}}\n port link-type trunk\n port trunk permit vlan {{vlan_list}}\n port trunk pvid vlan {{pvid}}\n undo shutdown\n quit\nsave force\ndisplay interface GigabitEthernet {{port}} brief",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口",
+          "default": "1/0/24",
+          "required": true,
+          "validate": "port",
+          "example": "1/0/24"
+        },
+        {
+          "name": "vlan_list",
+          "label": "放通 VLAN 列表",
+          "default": "10 20 30",
+          "required": true,
+          "validate": "",
+          "example": "10 20 30 或 10 to 20"
+        },
+        {
+          "name": "pvid",
+          "label": "PVID / Native VLAN",
+          "default": "1",
+          "required": false,
+          "validate": "vlan",
+          "example": "1"
+        }
+      ],
+      "notes": "1) H3C 用 permit vlan（不是思科的 allowed、华为的 allow-pass），三家动词都不同。\n2) port trunk permit vlan all 放通全部 VLAN，生产上慎用。\n3) 放通列表支持 \"vlan 10 20 30\" 与 \"vlan 10 to 20\"，混写会报语法错误。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "MSR830 / MSR2600 / MSR3600",
+      "category": "静态路由",
+      "title": "配置静态路由、缺省路由与浮动备份",
+      "description": "配置明细静态路由与缺省路由，用 preference 做备份路由。",
+      "commands": "# ===== 静态路由（H3C Comware7）=====\nsystem-view\nip route-static {{dest_net}} {{masklen}} {{next_hop}}\nip route-static 0.0.0.0 0 {{next_hop}}\nip route-static {{dest_net}} {{masklen}} {{backup_hop}} preference {{preference}}\ndisplay ip routing-table {{dest_net}}\nsave force",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "192.168.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.20.0"
+        },
+        {
+          "name": "masklen",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "masklen",
+          "example": "24 或 255.255.255.0"
+        },
+        {
+          "name": "next_hop",
+          "label": "下一跳地址",
+          "default": "10.0.0.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.2"
+        },
+        {
+          "name": "backup_hop",
+          "label": "备份下一跳",
+          "default": "10.0.0.3",
+          "required": false,
+          "validate": "ipv4",
+          "example": "10.0.0.3"
+        },
+        {
+          "name": "preference",
+          "label": "优先级",
+          "default": "70",
+          "required": false,
+          "validate": "int:1-255",
+          "example": "默认 60，备份用 70"
+        }
+      ],
+      "notes": "1) preference 越小越优先（默认 60）；写 1 会让静态路由抢走 OSPF 的路由。\n2) 掩码可写长度（24）也可写点分（255.255.255.0），但同一条命令里风格要统一。\n3) description 描述里不能带空格，用连字符或下划线，否则报语法错误。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "51c3dd16-1788-50d8-8c03-6156bd3c832d",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5560 / S6520 三层 / MSR 系列",
+      "category": "OSPF",
+      "title": "配置 OSPF 基本组网（Comware7）",
+      "description": "开启 OSPF 进程、设 router-id、按区域宣告网段并静默业务口。",
+      "commands": "# ===== OSPF 基本配置（H3C Comware7）=====\nsystem-view\nospf {{process_id}} router-id {{router_id}}\n area {{area_id}}\n  network {{network}} {{wildcard}}\n  quit\n silent-interface GigabitEthernet{{silent_port}}\n quit\ndisplay ospf peer\ndisplay ospf routing\nsave force",
+      "params": [
+        {
+          "name": "process_id",
+          "label": "进程号",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "1"
+        },
+        {
+          "name": "router_id",
+          "label": "Router ID",
+          "default": "3.3.3.3",
+          "required": true,
+          "validate": "ipv4",
+          "example": "3.3.3.3"
+        },
+        {
+          "name": "area_id",
+          "label": "区域号",
+          "default": "0",
+          "required": false,
+          "validate": "",
+          "example": "0 或 0.0.0.1"
+        },
+        {
+          "name": "network",
+          "label": "宣告网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "wildcard",
+          "label": "反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "silent_port",
+          "label": "静默接口",
+          "default": "1/0/1",
+          "required": false,
+          "validate": "port",
+          "example": "1/0/1"
+        }
+      ],
+      "notes": "1) 与华为语法高度相似（都是 进程→区域→network 嵌套），主要差异在提示符与保存命令。\n2) network 用反掩码；宣告错网段会出现接口 UP 但邻居起不来，先看 display ospf peer。\n3) silent-interface 接口段写紧凑格式 GigabitEthernet1/0/1，带空格会解析失败。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "1f0a05fb-4b66-50cc-b2ef-106387f3eb68",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "MSR 系列 / S 系列三层",
+      "category": "ACL",
+      "title": "配置高级 ACL 并应用到接口",
+      "description": "创建高级 ACL 控制网段互访，用 packet-filter 绑到接口方向。",
+      "commands": "# ===== ACL 配置与下发（H3C Comware7）=====\nsystem-view\nacl advanced {{acl_number}}\n rule 5 permit ip source {{src_net}} {{src_wild}} destination {{dst_net}} {{dst_wild}}\n rule 10 deny ip\n quit\ninterface GigabitEthernet {{port}}\n packet-filter {{acl_number}} inbound\n quit\ndisplay acl {{acl_number}}\nsave force",
+      "params": [
+        {
+          "name": "acl_number",
+          "label": "ACL 编号",
+          "default": "3000",
+          "required": true,
+          "validate": "int:1-3999",
+          "example": "2000-2999 基本 / 3000-3999 高级"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "dst_net",
+          "label": "目的网段",
+          "default": "10.10.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.10.0.0"
+        },
+        {
+          "name": "dst_wild",
+          "label": "目的反掩码",
+          "default": "0.0.255.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.255.255"
+        },
+        {
+          "name": "port",
+          "label": "应用端口",
+          "default": "1/0/1",
+          "required": true,
+          "validate": "port",
+          "example": "1/0/1"
+        }
+      ],
+      "notes": "1) Comware7 用 acl basic / acl advanced 创建；直接写 acl number 2000 在新版本会提示改用 basic。\n2) 应用到接口用 packet-filter（华为是 traffic-filter），方向参数写 inbound/outbound。\n3) 规则序号步长 5，插入用中间号（rule 6）；自上而下匹配，末尾隐含拒绝。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "fd36e60b-fa43-599d-866a-0d31fcbecc95",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "MSR830 / MSR2600 / MSR3600",
+      "category": "NAT",
+      "title": "配置出接口 NAT（Easy IP / 地址池 PAT）",
+      "description": "在内网口用 ACL 匹配源网段，出接口做 nat outbound 实现地址转换。",
+      "commands": "# ===== NAT / Easy IP（H3C Comware7）=====\nsystem-view\nacl basic {{acl_number}}\n rule 5 permit source {{src_net}} {{src_wild}}\n quit\ninterface GigabitEthernet {{outside_port}}\n ip address {{outside_ip}} {{outside_mask}}\n nat outbound {{acl_number}}\n quit\n! 使用公网地址池做 PAT：\n! nat address-group {{group_id}}\n!  address {{pool_start}} {{pool_end}}\n!  quit\n! interface GigabitEthernet {{outside_port}}\n!  nat outbound {{acl_number}} address-group {{group_id}}\ndisplay nat outbound\ndisplay nat session verbose\nsave force",
+      "params": [
+        {
+          "name": "acl_number",
+          "label": "ACL 编号",
+          "default": "2000",
+          "required": true,
+          "validate": "int:1-3999",
+          "example": "2000-2999"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "outside_port",
+          "label": "出接口",
+          "default": "0/1",
+          "required": true,
+          "validate": "port",
+          "example": "0/1"
+        },
+        {
+          "name": "outside_ip",
+          "label": "出接口 IP",
+          "default": "200.1.1.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.2"
+        },
+        {
+          "name": "outside_mask",
+          "label": "出接口掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "group_id",
+          "label": "地址池编号",
+          "default": "1",
+          "required": false,
+          "validate": "int:0-7",
+          "example": "0-7"
+        },
+        {
+          "name": "pool_start",
+          "label": "地址池起始",
+          "default": "200.1.1.10",
+          "required": false,
+          "validate": "ipv4",
+          "example": "200.1.1.10"
+        },
+        {
+          "name": "pool_end",
+          "label": "地址池结束",
+          "default": "200.1.1.20",
+          "required": false,
+          "validate": "ipv4",
+          "example": "200.1.1.20"
+        }
+      ],
+      "notes": "1) H3C 是\"出接口 NAT\"模型：nat outbound 配在出接口视图下，不是全局视图。\n2) nat outbound 不带 address-group 即 Easy IP（借用出接口地址）。\n3) display nat session verbose 看端口复用情况与命中的 ACL 规则，是排查首选。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "de093fea-fd7e-58c0-a310-9a839cff8917",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / MSR 系列",
+      "category": "SSH管理",
+      "title": "开启 SSH 并创建管理员账号（Comware7）",
+      "description": "生成 RSA 密钥、启用 SSH 服务、创建 manage 类管理员并限制 vty。",
+      "commands": "# ===== 开启 SSH + 管理员账号（H3C Comware7）=====\nsystem-view\nsysname {{hostname}}\npublic-key local create rsa\n! 提示输入密钥模数，建议 2048\nssh server enable\nlocal-user {{username}} class manage\n password simple {{password}}\n service-type ssh\n authorization-attribute user-role network-admin\n quit\nline vty 0 4\n authentication-mode scheme\n protocol inbound ssh\n idle-timeout {{timeout_min}} 0\n quit\nsave force\ndisplay ssh server status",
+      "params": [
+        {
+          "name": "hostname",
+          "label": "设备名",
+          "default": "SW-CORE-01",
+          "required": false,
+          "validate": "",
+          "example": "SW-CORE-01"
+        },
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) 必须先用 public-key local create rsa 生成密钥，否则 ssh server enable 报错。\n2) Comware7 的本地用户分 manage（管理类）与 network（网络接入类），SSH 登录用 class manage；\n   权限靠 authorization-attribute user-role network-admin 给（不是 privilege level）。\n3) password 支持 simple / hash 两种存储，生产建议 hash；改完先验证能登录再关 Telnet。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n5) ★ 本条含交互式输入（RSA 密钥模数需手工键入），不适合脚本渲染/批量粘贴；逐条手工执行。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "interactive": true
+    },
+    {
+      "uuid": "e06208c2-ed72-56d8-a381-d7a353aa0b0f",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / MSR 系列",
+      "category": "密码",
+      "title": "修改 Console 口令与用户角色",
+      "description": "设置 console 认证口令、用户角色与空闲超时。",
+      "commands": "# ===== Console 口令（H3C Comware7）=====\nsystem-view\nline console 0\n authentication-mode password\n set authentication password simple {{console_password}}\n user-role network-admin\n idle-timeout {{timeout_min}} 0\n quit\nsave force",
+      "params": [
+        {
+          "name": "console_password",
+          "label": "Console 口令",
+          "default": "C0nsole@123",
+          "required": true,
+          "validate": "",
+          "example": "C0nsole@123"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) Comware7 用 user-role（如 network-admin）授权，不再用 level 15。\n2) set authentication password 后面的参数决定存储方式：simple 明文可见、hash 单向哈希。\n3) 忘记 console 口令需进 BootROM 跳过配置启动，属破坏性操作，口令一定要留档。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "056a903f-ba41-5748-b870-498b341e9e25",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / MSR 系列",
+      "category": "SNMP",
+      "title": "配置 SNMP v2c 与 Trap 上报（Comware7）",
+      "description": "开启 SNMP 代理、设置团体字与设备信息，并指定 Trap 目标。",
+      "commands": "# ===== SNMP 配置（H3C Comware7）=====\nsystem-view\nsnmp-agent\nsnmp-agent sys-info version v2c\nsnmp-agent community read {{ro_community}}\nsnmp-agent community write {{rw_community}}\nsnmp-agent sys-info location {{location}}\nsnmp-agent sys-info contact {{contact}}\nsnmp-agent target-host trap address udp-domain {{nms_ip}} params securityname {{ro_community}} v2c\nsnmp-agent trap enable\ndisplay snmp-agent community\nsave force",
+      "params": [
+        {
+          "name": "ro_community",
+          "label": "只读团体字",
+          "default": "RO@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RO@Public1"
+        },
+        {
+          "name": "rw_community",
+          "label": "读写团体字",
+          "default": "RW@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RW@Public1"
+        },
+        {
+          "name": "location",
+          "label": "设备位置",
+          "default": "IDC-A-机柜12",
+          "required": false,
+          "validate": "",
+          "example": "IDC-A-机柜12"
+        },
+        {
+          "name": "contact",
+          "label": "联系人",
+          "default": "网络运维组",
+          "required": false,
+          "validate": "",
+          "example": "网络运维组"
+        },
+        {
+          "name": "nms_ip",
+          "label": "网管服务器 IP",
+          "default": "10.0.0.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.100"
+        }
+      ],
+      "notes": "1) 团体字不用 public/private，也不要与主机名/项目名雷同，安全审计会抽查。\n2) Trap 目标必须带 udp-domain 与 params securityname，只给 IP 不生效。\n3) 采集只需要 read 团体字；write 团体字用完建议直接删掉。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "abbb4612-7dac-58fb-8f3e-b02b5c3afb21",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / MSR 系列",
+      "category": "保存配置",
+      "title": "保存配置并备份到本地存储",
+      "description": "用 save force 落盘，并把启动配置文件复制一份到 flash 作为回滚点。",
+      "commands": "# ===== 保存与本地备份（H3C Comware7）=====\nsave force\ndisplay saved-configuration\ndir flash:/\ncopy startup.cfg startup-{{backup_tag}}.cfg\ndir flash:/",
+      "params": [
+        {
+          "name": "backup_tag",
+          "label": "备份标记",
+          "default": "20260920",
+          "required": false,
+          "validate": "",
+          "example": "20260920 或变更单号"
+        }
+      ],
+      "notes": "1) save force 免交互；只用 save 会被问 \"Are you sure? [Y/N]\"，脚本里会卡住。\n2) Comware7 的启动配置文件通常叫 startup.cfg，先 dir 确认实际文件名再 copy。\n3) 回滚方式：把备份文件改名回 startup.cfg，或用 startup-configuration 指定，再重启生效。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "e5cdb683-3772-5ed0-a5b0-bcb4249401ff",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "H3C Comware7 全系列",
+      "category": "DNS域名解析",
+      "title": "配置 DNS 服务器与域名解析（H3C Comware7）",
+      "description": "指向内网 DNS 服务器，验证域名可解析（离网内网 DNS 标准动作）。",
+      "commands": "# ===== 配置 DNS 服务器与域名解析（H3C Comware7）=====\n# ---- 配置段 ----\nsystem-view\ndns server {{dns_server_ip}}\nquit\n# ---- 验证段 ----\ndisplay dns server\nping {{test_domain}}\n",
+      "params": [
+        {
+          "name": "dns_server_ip",
+          "label": "内网 DNS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        },
+        {
+          "name": "test_domain",
+          "label": "验证用内网域名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "gw.corp.local"
+        }
+      ],
+      "notes": "1) Comware7 配好静态 DNS 服务器即自动具备域名解析，没有华为式的 dns resolve 总开关（与华为的最大差异）。\n2) 若本机还要给内网终端做 DNS 代理，另配 dns proxy enable——本条只做客户端解析，不含该命令。\n3) 报错前缀是 %（华为是 Error:），别混淆；可用备用 DNS 同华为一样重复执行追加。\n验证方法：display dns server + ping test_domain，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "57b08fae-acdc-5707-8500-6acf03a65885",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "H3C Comware7 全系列",
+      "category": "时间同步",
+      "title": "配置 NTP 服务器与状态验证（H3C Comware7）",
+      "description": "ntp-service unicast-server 指向内网 NTP 并验证时钟同步。",
+      "commands": "# ===== 配置 NTP 服务器与状态验证（H3C Comware7）=====\nsystem-view\nntp-service unicast-server {{ntp_server_ip}}\nquit\n# ---- 验证 ----\ndisplay ntp-service status\ndisplay ntp-service sessions\ndisplay clock\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) Comware7 与华为 VRP 命令同名但报错前缀不同（% vs Error:）；clock status: synchronized 才算同步。\n2) 更细偏移/抖动用 display ntp-service sessions verbose。\n3) 确认配置已下发：display current-configuration | include ntp。\n验证方法：display ntp-service status synchronized + display clock，收敛后 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "048dca85-b2e0-540f-8cc5-ab66d808e838",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "H3C Comware7 全系列",
+      "category": "版本升级",
+      "title": "软件版本查看、备份与升级流程（H3C Comware7）",
+      "description": "display version → 备份 → 传输 .ipe → boot-loader 指定 → reboot。",
+      "commands": "# ===== 版本查看、备份与升级流程（H3C Comware7）=====\n# ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\ndisplay version\ndisplay boot-loader\n# ---- 1. 备份配置与当前启动文件 ----\nsave\nbackup startup-configuration to {{backup_server}}\n# tftp {{backup_server}} put flash:/<当前.ipe 或 .bin>     ← 按 dir flash: 实际文件名执行\n# ---- 2. 传输新版本 .ipe ----\n# tftp {{backup_server}} get <新版本.ipe> flash:/<新版本.ipe>\n# ---- 3. 指定主用启动文件（回滚点：旧文件保留）----\nboot-loader file flash:/<新版本.ipe> main\ndisplay boot-loader\n# ---- 4. ★ 重启生效 ----\nreboot\n# ---- 5. 重启后复核 ----\ndisplay version\ndisplay boot-loader\n",
+      "params": [
+        {
+          "name": "backup_server",
+          "label": "TFTP/备份服务器 IP",
+          "default": "",
+          "required": true,
+          "required_note": "",
+          "validate": "ipv4",
+          "example": "192.168.66.20"
+        }
+      ],
+      "notes": "1) ★ 危险点：含 reboot——变更窗口内执行；回滚点 = 旧 .ipe/.bin 保留 + boot-loader 指回旧文件。\n2) Comware7 升级文件通常是 .ipe（一体化包）；.bin 单文件场景用 install activate（ISSU 流程），本条是常规重启升级。\n3) <新版本.ipe> 等尖括号段按 dir flash: 实际文件名替换后再执行。\n验证方法：升级后 display version 新版本 + display boot-loader 指向新文件 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "58ade87b-9247-52a9-bc83-29ccd1790ff6",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "H3C Comware7（作 DHCP 服务端）",
+      "category": "地址分配",
+      "title": "DHCP 服务端统计与缺池排查（H3C Comware7）",
+      "description": "DHCP 服务统计、地址池空闲检查（办公网 DHCP 异常第一排查动作）。",
+      "commands": "# ===== DHCP 服务端统计与缺池排查（H3C Comware7）=====\n# ---- 1. 服务统计（报文计数）----\ndisplay dhcp server statistics\n# ---- 2. 地址池与空闲地址 ----\ndisplay dhcp server pool\ndisplay dhcp server free-ip\n# ---- 3. 冲突记录 ----\ndisplay dhcp server conflict\n",
+      "params": [],
+      "notes": "1) free-ip 为空 = 池打满：扩池/缩租期/清理过期租约三选一。\n2) statistics 里 DISCOVER 收到但 OFFER 未发 = 池空或池网段与收接口不匹配（核对 dhcp select 与池网段）。\n3) Comware7 的全局池与接口池分属两种模式，混配时以 display dhcp server pool 实际输出为准。\n验证方法：free-ip 充足 + statistics 计数正常，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "adcbbf79-f438-5478-bcf3-393d03adf44d",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "H3C Comware7 全系列",
+      "category": "配置回滚",
+      "title": "配置回滚（H3C Comware7，archive/replace）",
+      "description": "archive configuration 建回滚点，改坏后 configuration replace 整体回退。",
+      "commands": "# ===== 配置回滚（H3C Comware7）=====\n# ---- 0. 改动前：开启配置归档（一次性配置）----\nsystem-view\narchive configuration location flash:/archive\narchive configuration interval 1440\nquit\narchive configuration\n# ---- 1. 改动出问题后：先 diff 再回退 ----\ndisplay archive configuration\nconfiguration replace file flash:/archive/{{backup_file}}\n# ---- 2. 复核 ----\ndisplay current-configuration | include <核对关键字>\n",
+      "params": [
+        {
+          "name": "backup_file",
+          "label": "备份配置文件名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "confg-bak-20260928.cfg"
+        }
+      ],
+      "notes": "1) ★ 危险点：configuration replace 整体替换运行配置——先 display archive configuration 看 diff。\n2) archive location 首次配置后才有回滚点；interval 是自动归档周期（分钟），手动敲 archive configuration 立即存一份。\n3) 与《保存配置并备份到本地 flash》分工：保存 = 固化当前，回滚 = 回退到历史归档。\n验证方法：replace 后 display current-configuration 复核 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "d032d4e5-5468-5897-b459-60ca37796f0a",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "H3C Comware7",
+      "category": "AAA认证",
+      "title": "配置 AAA 认证与本地兜底（H3C Comware7）",
+      "description": "RADIUS 方案 + ISP 域 + 本地兜底 + test-aaa 验证（先验证后退出，见 notes 铁律）。",
+      "commands": "# ===== AAA 认证与本地兜底（H3C Comware7）=====\nsystem-view\n# ---- 1. RADIUS 方案 ----\nradius scheme RD1\n primary authentication {{aaa_server_ip}}\n key authentication cipher {{aaa_shared_key}}\nquit\n# ---- 2. ISP 域：先 radius 后 local 兜底 ----\ndomain dm1\n authentication login radius-scheme RD1 local\nquit\n# ---- 3. VTY 引用该域 ----\nline vty 0 4\n authentication-mode scheme\n quit\n# ---- 4. 本地兜底账号 ----\nlocal-user {{local_user}} class manage\n password cipher {{local_password}}\n service-type ssh\n authorization-attribute user-role network-admin\n quit\n# ---- 5. ★ 验证（勿退当前会话）----\ntest-aaa {{test_user}} {{test_password}} radius-scheme RD1\n",
+      "params": [
+        {
+          "name": "aaa_server_ip",
+          "label": "RADIUS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.30"
+        },
+        {
+          "name": "aaa_shared_key",
+          "label": "共享密钥",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强密钥"
+        },
+        {
+          "name": "test_user",
+          "label": "验证用域账号",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "test_password",
+          "label": "验证用口令",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强口令"
+        },
+        {
+          "name": "local_user",
+          "label": "本地兜底账号",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "local_password",
+          "label": "本地兜底口令",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强口令"
+        }
+      ],
+      "notes": "1) ★ 危险点（AAA 第一铁律）：配置 AAA 后**不要退出当前会话**——先用新开窗口验证能登录，确认兜底本地账号可用再断开；配置错误把自己锁外面只能 Console 救。\n2) ★ 保留 Console 通道：AAA 服务器不可达时 Console 是最后生命线（console 上配置本地兜底）。\n3) 本地兜底顺序必须显式配置（radius/tacacs 之后跟 local），服务器全挂时才回落本地账号。\n4) test-aaa 在 Comware7 是诊断命令，返回认证成功才算通。\n5) ISP 域里 authentication login radius-scheme RD1 local 的 local 即兜底。\n验证方法：test-aaa 成功 + 新窗口域账号登录 + 断服务器后本地账号可登录；（验证人/型号/日期验证通过后回填 verified，属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

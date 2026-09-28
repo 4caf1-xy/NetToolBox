@@ -1,0 +1,2049 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "err_dict.json",
+  "count": 82,
+  "err_dict": [
+    {
+      "err_id": "f1204b1c-e3f1-5186-b85b-8f63dde2b333",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "Invalid input detected",
+      "category": "语法",
+      "cause": "命令在 '^' 指向的位置开始无法识别——通常是拼写错误、该视图下不存在此命令，或参数不对。",
+      "solution_steps": [
+        {
+          "text": "按 '^' 所指的位置检查拼写（往往是错一两个字母）"
+        },
+        {
+          "text": "用 Tab 补全 / 命令后跟 ? 查看当前视图可用的关键字"
+        },
+        {
+          "text": "确认当前模式：用户视图敲配置命令、config 模式敲接口命令都会报这个错"
+        },
+        {
+          "text": "确认该型号/版本是否支持此命令（用 ? 对比）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Invalid input detected at '^' marker.",
+        "sw1(config)#interfac gig0/1\n                 ^\n% Invalid input detected at '^' marker."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "17b82f47-5cf0-5d0f-ac19-251ff3f3cfc1",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "Ambiguous command",
+      "category": "语法",
+      "cause": "命令缩写对应多个命令，设备无法确定你要哪个。",
+      "solution_steps": [
+        {
+          "text": "把缩写补全到能唯一区分（如 show co → show clock / show conf）"
+        },
+        {
+          "text": "先敲命令的前几个字母再按 Tab 看候选"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "sw1#show c\n% Ambiguous command:  show c",
+        "core#sh int stat\n% Ambiguous command:  sh int stat"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "c579936d-effc-5e3b-a544-09ac4f7a8283",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "Incomplete command",
+      "category": "语法",
+      "cause": "命令没敲完整——缺少必填参数。",
+      "solution_steps": [
+        {
+          "text": "命令末尾加 ? 查看缺哪些参数"
+        },
+        {
+          "text": "按提示把参数补齐"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "sw1(config)#vlan name\n% Incomplete command.",
+        "rt1#ping\n% Incomplete command."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "f5dbd363-9067-574d-82af-6c82fe2802bb",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "Command rejected:",
+      "category": "模式",
+      "cause": "命令被设备拒绝——通常是接口类型/状态与命令不匹配（如对路由口敲交换命令、VLAN 接口未建立）。",
+      "solution_steps": [
+        {
+          "text": "看 Command rejected 后面的具体原因文字",
+          "ref_entry_uuid": "a88980b9-2830-5411-a556-1bacd821b23c"
+        },
+        {
+          "text": "核对接口类型：no switchport 的三层口不能敲 switchport access"
+        },
+        {
+          "text": "先创建/激活关联对象（如先 vlan {{vlan_id}} 再划端口）"
+        },
+        {
+          "text": "引用《接口状态诊断》条目确认接口当前状态"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Command rejected: The interface does not support the configured switchport mode.",
+        "% Command rejected: An interface whose trunk encapsulation is 'Auto' cannot be configured to 'trunk' mode."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "af7aa384-c3b9-597c-8ddb-8d3a357f3b2c",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "Authentication failed",
+      "category": "管理认证",
+      "cause": "登录认证失败——口令错、认证方式不匹配或本地用户不存在。",
+      "solution_steps": [
+        {
+          "text": "核对用户名/口令（注意大小写与键盘布局）",
+          "ref_entry_uuid": "c51d45e0-bfe2-531c-9db4-2debdb2dba00"
+        },
+        {
+          "text": "核对 line vty / 本地用户的认证方式（login local / aaa）"
+        },
+        {
+          "text": "口令遗忘按管理流程重置（引用《修改 Console 口令与特权密码》条目）"
+        },
+        {
+          "text": "连续失败可能触发锁定，稍后再试"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Authentication failed",
+        "User Access Verification\nPassword:\n% Authentication failed"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "bea6ba29-7d38-54ed-a779-a0bc93054a5e",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "Login invalid",
+      "category": "管理认证",
+      "cause": "登录用户名或口令无效。",
+      "solution_steps": [
+        {
+          "text": "核对账号是否存在于本地用户库（show running-config | include username）",
+          "ref_entry_uuid": "c51d45e0-bfe2-531c-9db4-2debdb2dba00"
+        },
+        {
+          "text": "核对 AAA 配置（若启用了 aaa authentication login）"
+        },
+        {
+          "text": "重置口令后重试"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "User Access Verification\n\nUsername: netadmin\nPassword:\n% Login invalid",
+        "telnet 10.0.0.1\nUser Access Verification\nPassword:\n% Login invalid"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "5a804300-8fcd-536b-ac92-af92f94728ea",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "Please define a domain-name first",
+      "category": "依赖",
+      "cause": "生成 RSA 密钥前没有先配置 ip domain-name —— SSH 依赖域名生成密钥。",
+      "solution_steps": [
+        {
+          "text": "先配置 ip domain-name，再重新生成 RSA 密钥"
+        },
+        {
+          "text": "完整步骤见 SSH 管理条目（生成密钥→开 SSH→建用户→限制 vty）",
+          "ref_entry_uuid": "c51d45e0-bfe2-531c-9db4-2debdb2dba00"
+        }
+      ],
+      "fix_template": "ip domain-name {{domain}}\ncrypto key generate rsa modulus 2048",
+      "examples": [
+        "% Please define a domain-name first.",
+        "sw1(config)#crypto key generate rsa\n% Please define a domain-name first."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "b34ac09e-1d43-5a36-94ac-f40b40d14c43",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "Error opening nvram",
+      "category": "保存系统",
+      "cause": "写 NVRAM 失败——启动配置无法保存，重启会丢配置。",
+      "solution_steps": [
+        {
+          "text": "先 show startup-config 确认现有启动配置是否可读",
+          "ref_entry_uuid": "70a2b9cc-3149-5a63-a48f-b07aea7946db"
+        },
+        {
+          "text": "检查 NVRAM 空间（dir nvram:），过满时删旧文件"
+        },
+        {
+          "text": "仍失败按硬件故障流程报修（重启前务必收集 running-config）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Error opening nvram:ifIndex-table (No such file or directory)",
+        "% Error opening nvram:startup-config (Permission denied)"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "5f2e7279-9065-5345-9f26-5b5dce69a3a3",
+      "vendor": "huawei",
+      "os_family": "vrp5|vrp8",
+      "pattern": "Error: Unrecognized command found at '\\^' position|错误[:：]\\s*未知命令",
+      "category": "语法",
+      "cause": "命令无法识别——拼写错误或当前视图下不存在此命令（'^' 指向出错位置）。",
+      "solution_steps": [
+        {
+          "text": "按 '^' 位置检查拼写"
+        },
+        {
+          "text": "命令后加 ? 查看当前视图可用命令"
+        },
+        {
+          "text": "确认视图层级：用户视图 > 系统视图(system-view) > 接口/协议视图"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Error: Unrecognized command found at '^' position.",
+        "错误：未知命令，位于'^'位置。"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "5206d3b7-9ece-5b41-8593-96ce553dc0bc",
+      "vendor": "huawei",
+      "os_family": "vrp5|vrp8",
+      "pattern": "Incomplete command found at '\\^' position|错误[:：]\\s*命令不完整",
+      "category": "语法",
+      "cause": "命令不完整——缺必填参数。",
+      "solution_steps": [
+        {
+          "text": "命令后加 ? 逐段补全参数"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Error: Incomplete command found at '^' position.",
+        "错误：命令不完整，位于'^'位置。"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "b919516b-bb16-5a86-8c37-572542f34322",
+      "vendor": "huawei",
+      "os_family": "vrp5|vrp8",
+      "pattern": "Too many parameters found at '\\^' position|错误[:：]\\s*参数过多",
+      "category": "语法",
+      "cause": "参数比命令支持的多——多半是照抄了别的版本的命令。",
+      "solution_steps": [
+        {
+          "text": "删掉多余的参数；用 ? 核对本版本支持的参数列表"
+        },
+        {
+          "text": "确认软件版本（display version），不同 VRP 版本参数集不同"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Error: Too many parameters found at '^' position.",
+        "错误：参数过多，位于'^'位置。"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "16e16b99-5cee-5a92-9377-4fb5e43dfd75",
+      "vendor": "huawei",
+      "os_family": "vrp5|vrp8",
+      "pattern": "Wrong parameter found at '\\^' position|错误[:：]\\s*参数错误",
+      "category": "语法",
+      "cause": "参数取值/格式不对。",
+      "solution_steps": [
+        {
+          "text": "按 ? 提示核对参数取值范围与格式"
+        },
+        {
+          "text": "数值型参数确认是否超出上限（如 VLAN 1-4094）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Error: Wrong parameter found at '^' position.",
+        "错误：参数错误，位于'^'位置。"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "c2a0e3ff-0ba5-50de-9c64-a8f5d0b3bbde",
+      "vendor": "huawei",
+      "os_family": "vrp5|vrp8",
+      "pattern": "Error: The VLAN does not exist",
+      "category": "依赖",
+      "cause": "VLAN 还没创建就引用了它——先把 VLAN 建出来。",
+      "solution_steps": [
+        {
+          "text": "先 vlan {{vlan_id}} 创建，再回接口视图引用"
+        },
+        {
+          "text": "创建 VLAN 并划端口的完整命令见 VLAN 条目",
+          "ref_entry_uuid": "fc982ad5-2758-5749-9f78-a5b2b52e41db"
+        }
+      ],
+      "fix_template": "vlan {{vlan_id}}\nquit",
+      "examples": [
+        "Error: The VLAN does not exist.",
+        "Error: The VLAN does not exist.（vlan batch 建好后再回接口视图重敲）"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "cf5f2919-e39b-5f5a-8ac7-e91aab64ed0c",
+      "vendor": "huawei",
+      "os_family": "vrp5|vrp8",
+      "pattern": "Error: Authentication failed",
+      "category": "管理认证",
+      "cause": "登录认证失败——本地用户口令错或认证方式不匹配。",
+      "solution_steps": [
+        {
+          "text": "核对 local-user 配置（口令/服务类型 ssh / 级别）",
+          "ref_entry_uuid": "db7e7679-a4e4-51cc-ba17-156b1d8e98eb"
+        },
+        {
+          "text": "核对 vty 的 authentication-mode 是否 aaa"
+        },
+        {
+          "text": "引用《开启 SSH 并创建本地管理用户》条目核对全流程"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Error: Authentication failed.",
+        "Login authentication\nError: Authentication failed."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "c66b395a-f103-5518-b23c-61336beb8784",
+      "vendor": "huawei",
+      "os_family": "vrp8",
+      "pattern": "error-down",
+      "category": "模式",
+      "cause": "端口进入 error-down 状态——设备因异常自动关闭了端口（环路检测/安全策略触发）。",
+      "solution_steps": [
+        {
+          "text": "display error-down recovery 查看原因与自动恢复倒计时",
+          "ref_entry_uuid": "bb912f63-35b2-5e31-80ab-2c627341e639"
+        },
+        {
+          "text": "处理根因（环路/攻击）后手动恢复：interface 下 undo shutdown"
+        },
+        {
+          "text": "配置自动恢复：error-down auto-recovery cause xxx interval 60"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "GigabitEthernet0/0/1 error-down",
+        "The port GigabitEthernet0/0/2 is in error-down state"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "3ddb3399-52b7-5b3f-9a6e-4f3839d0fc2e",
+      "vendor": "huawei",
+      "os_family": "vrp5|vrp8",
+      "pattern": "Error: Failed to save the configuration",
+      "category": "保存系统",
+      "cause": "保存配置失败——配置不会持久化，重启丢失。",
+      "solution_steps": [
+        {
+          "text": "检查 flash 剩余空间（dir flash:/）",
+          "ref_entry_uuid": "66071ff1-752e-55a0-9a7b-fa0caaaa1c96"
+        },
+        {
+          "text": "确认当前用户级别是否足够（save 需要管理级）"
+        },
+        {
+          "text": "改用 save force 重试，仍失败联系厂商"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Error: Failed to save the configuration.",
+        "Error: Failed to save the configuration. (The device is busy)"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "2dd38828-d0e4-5382-a134-c0ef14e47e33",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "pattern": "% Unrecognized command found at '\\^' position",
+      "category": "语法",
+      "cause": "命令无法识别——注意 H3C 用 % 前缀（华为用 Error:），'^' 指向出错位置。",
+      "solution_steps": [
+        {
+          "text": "按 '^' 位置检查拼写"
+        },
+        {
+          "text": "Comware7 用 acl basic/advanced 建_ACL、packet-filter 应用——与华为 traffic-filter 不同"
+        },
+        {
+          "text": "? 查看当前视图可用命令"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Unrecognized command found at '^' position.",
+        "sysname H3C-Core\n            ^\n% Unrecognized command found at '^' position."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "953e042a-a509-550a-8ed7-0e43e873bf71",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "pattern": "% Incomplete command found at '\\^' position",
+      "category": "语法",
+      "cause": "命令不完整——缺必填参数。",
+      "solution_steps": [
+        {
+          "text": "命令后加 ? 逐段补全"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Incomplete command found at '^' position.",
+        "display interface GigabitEthernet\n% Incomplete command found at '^' position."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "539eaf23-c0d6-5235-bf55-b6ab5f5dd92d",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "pattern": "% Wrong parameter found at '\\^' position",
+      "category": "语法",
+      "cause": "参数取值/格式不对。",
+      "solution_steps": [
+        {
+          "text": "按 ? 核对参数格式；Comware7 的掩码支持 24 或 255.255.255.0 两种写法"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Wrong parameter found at '^' position.",
+        "port trunk permit vlan 5000\n% Wrong parameter found at '^' position."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "afa1d279-d3a6-53f9-bd87-de5d304f7476",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "pattern": "% Too many parameters found at '\\^' position",
+      "category": "语法",
+      "cause": "参数过多——照抄了其它厂商/版本的命令。",
+      "solution_steps": [
+        {
+          "text": "删掉多余参数，用 ? 核对本版本参数集"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Too many parameters found at '^' position.",
+        "display interface g1/0/1 description long-text\n% Too many parameters found at '^' position."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "9e356f80-b453-59d8-a8e9-99f80d16b15b",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "pattern": "% Ambiguous command found at '\\^' position",
+      "category": "语法",
+      "cause": "命令缩写歧义。",
+      "solution_steps": [
+        {
+          "text": "补全到能唯一区分"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Ambiguous command found at '^' position.",
+        "dis ver\n% Ambiguous command found at '^' position."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "e0aaee84-043f-5d97-a6fd-cc5f9e9e78ad",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "command not found",
+      "category": "依赖",
+      "cause": "命令不存在——三种可能：拼错了 / 没安装 / 不在 PATH 里。",
+      "solution_steps": [
+        {
+          "text": "先查拼写（Linux 命令全小写、区分大小写）",
+          "fix_template": "# 命令排查：PATH 里有没有、包装没装（自行替换 <命令>/<包名>）\necho $PATH; command -v <命令>\nrpm -qa | grep <包名>   # Debian/Ubuntu: dpkg -l | grep <包名>"
+        },
+        {
+          "text": "确认是否安装：which {{pkg_name}} 或 rpm -q {{pkg_name}} / dpkg -l | grep {{pkg_name}}"
+        },
+        {
+          "text": "没装：有源就直接装；完全离网走《本地 yum 源》或《本地 apt 源》条目"
+        },
+        {
+          "text": "装了还不行：echo $PATH 看路径，或用绝对路径执行"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "bash: ifconfi: command not found...",
+        "-bash: tcpdump: command not found"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "0d3a026f-fd63-5f32-9ac7-ad7092288aef",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Permission denied",
+      "category": "管理认证",
+      "cause": "权限不足——三类原因：不是 owner、目录没有执行位、被 sudo 规则限制。",
+      "solution_steps": [
+        {
+          "text": "看文件属主与权限：ls -l 目标",
+          "fix_template": "# 权限排查：看自身身份 + 逐级目录权限（namei 最直观，<路径> 自行替换）\nid\nnamei -l <路径>"
+        },
+        {
+          "text": "需要提权：sudo 命令（确认账号在 sudoers/wheel 组）"
+        },
+        {
+          "text": "对脚本：chmod +x 脚本名（没有执行位也会报这个错）"
+        },
+        {
+          "text": "SELinux 系统先 getenforce 看是否 Enforcing（setenforce 0 临时验证）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "-bash: /opt/app/start.sh: Permission denied",
+        "cat: /etc/shadow: Permission denied"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "4f4a07b3-2d84-520e-b5db-d2127a95dc3a",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "No such file or directory",
+      "category": "语法",
+      "cause": "路径不存在——多半是路径敲错、大小写不对或当前目录不对。",
+      "solution_steps": [
+        {
+          "text": "ls 逐级确认路径（Linux 区分大小写）"
+        },
+        {
+          "text": "用 pwd 确认当前目录，绝对路径更稳"
+        },
+        {
+          "text": "软链接失效也会报这个错：ls -l 看链接指向"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "cat: /etc/sysconfig/network-script/ifcfg-eth0: No such file or directory",
+        "ls: cannot access '/var/log/secure': No such file or directory"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "d032be5a-8fb9-5656-839f-492bc8f259a4",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Address already in use",
+      "category": "资源冲突",
+      "cause": "端口已被占用——服务起不来时先看谁占着端口。",
+      "solution_steps": [
+        {
+          "text": "ss -tlnp | grep :{{port}} 找占用进程",
+          "fix_template": "# 端口占用排查（<端口> 自行替换；拿到 pid 后 ps -fp <pid> 看是谁）\nss -tlnp | grep <端口>"
+        },
+        {
+          "text": "停掉占用进程或改本服务端口"
+        },
+        {
+          "text": "TIME_WAIT 状态导致：等 1-2 分钟或改用 SO_REUSEADDR"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "bind(): Address already in use",
+        "OSError: [Errno 98] Address already in use"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "a6147e47-4e86-52b3-bc74-7715d5285247",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Connection refused",
+      "category": "依赖",
+      "cause": "连接被拒——目标端口没有服务在监听（服务没起/起在别的端口/只监听 127.0.0.1）。",
+      "solution_steps": [
+        {
+          "text": "对端机上 ss -tlnp | grep :{{port}} 确认在监听",
+          "fix_template": "# 端口/服务排查：服务在不在、监听在哪个地址（自行替换 <端口>/<服务名>）\nss -tlnp | grep <端口>\nsystemctl status <服务名> --no-pager"
+        },
+        {
+          "text": "确认监听地址是 0.0.0.0 而不是 127.0.0.1"
+        },
+        {
+          "text": "服务起不来看配套 systemctl 条目"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "curl: (7) Failed to connect to 192.168.10.100 port 8080: Connection refused",
+        "ftp: connect: Connection refused"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "a3c5dd45-fb39-5bff-98b1-33d476b700a2",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Connection timed out|Connection attempt failed",
+      "category": "依赖",
+      "cause": "连接超时——包发出去没有回应，通常是防火墙或链路问题（区别于 refused 的「明确拒绝」）。",
+      "solution_steps": [
+        {
+          "text": "先 ping 对端确认链路",
+          "fix_template": "# 连通性排查：小包通不通、路径走到哪一跳（<目标IP> 自行替换）\nping -c 3 <目标IP>\ntraceroute -n <目标IP>"
+        },
+        {
+          "text": "查对端防火墙（firewalld/ufw/安全组）"
+        },
+        {
+          "text": "中间网络抓包（tcpdump）确认包到没到"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "ssh: connect to host 10.0.0.2 port 22: Connection timed out",
+        "curl: (28) Connection timed out after 30001 milliseconds"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "0775f4c8-da8c-5ef1-89ca-1939b07d40af",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Network is unreachable",
+      "category": "依赖",
+      "cause": "没有路由可达目标——缺默认路由或明细路由。",
+      "solution_steps": [
+        {
+          "text": "ip route 看路由表",
+          "fix_template": "# 路由排查：确认有没有到目标网段的路由（<网关IP> 自行替换）\nip route show\nip route add default via <网关IP>"
+        },
+        {
+          "text": "补默认路由：ip route add default via {{gateway}}（临时）"
+        },
+        {
+          "text": "持久化见网络配置条目（ifcfg/netplan/nmcli）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "ping: connect: Network is unreachable",
+        "connect: Network is unreachable (www.example.com)"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "575d5488-8cd9-5f79-b0ca-afec7c1fa205",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "not in the sudoers file",
+      "category": "管理认证",
+      "cause": "账号不在 sudoers 列表，没有 sudo 权限。",
+      "solution_steps": [
+        {
+          "text": "让管理员把账号加入 wheel（RHEL 系）或 sudo 组（Ubuntu）：usermod -aG wheel 账号",
+          "fix_template": "# sudo 权限排查（需 root 或已有 sudo 权限的账号执行）\nid; groups\nvisudo -c"
+        },
+        {
+          "text": "或 visudo 里显式授权"
+        },
+        {
+          "text": "普通用户无法自己解决，找管理员"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "netadmin is not in the sudoers file.  This incident will be reported.",
+        "ops is not in the sudoers file.  This incident will be reported."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "9dacad48-5fbd-5bb9-bd0b-bdc6d848dcc4",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Failed to start",
+      "category": "服务",
+      "cause": "systemd 服务启动失败——看 journalctl 找根因，别盲目 restart 循环。",
+      "solution_steps": [
+        {
+          "text": "systemctl status {{service_name}} -l --no-pager 看状态与最后几行",
+          "fix_template": "# 服务启动失败：状态 + 最近 100 行日志最有用（自行替换 <服务名>）\nsystemctl status <服务名> -l --no-pager\njournalctl -u <服务名> -n 100 --no-pager"
+        },
+        {
+          "text": "journalctl -u {{service_name}} -n 100 --no-pager 看完整日志"
+        },
+        {
+          "text": "常见根因：配置文件语法错 / 端口被占 / 依赖服务没起"
+        },
+        {
+          "text": "改完配置先 daemon-reload 再 restart"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Failed to start nginx.service - A high performance web server.",
+        "systemd[1]: Failed to start My App Service."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "09aa2565-b1b4-555a-a865-95b0b6fe5e50",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "No space left on device",
+      "category": "磁盘",
+      "cause": "磁盘空间或 inode 用尽——两种原因都要查。",
+      "solution_steps": [
+        {
+          "text": "df -h 查空间；df -i 查 inode（海量小文件会打满 inode）",
+          "fix_template": "# 空间排查：先看空间、再看 inode、最后看被删但仍被进程占用的文件\ndf -h; df -i\ndu -sh /* 2>/dev/null | sort -h | tail -20\nlsof 2>/dev/null | grep deleted"
+        },
+        {
+          "text": "du -sh /* | sort -rh 定位大目录"
+        },
+        {
+          "text": "df 满、du 找不到大文件 → lsof | grep deleted（被删文件还被进程占着）"
+        },
+        {
+          "text": "清理：journalctl --vacuum-size=500M / 截断日志 : > 大文件"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "OSError: [Errno 28] No space left on device",
+        "cp: writing `/tmp/a.iso': No space left on device"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "d714fa15-348e-528d-87d8-82fc682b34b8",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Read-only file system",
+      "category": "磁盘",
+      "cause": "文件系统被挂成只读——磁盘错误保护或挂载参数就是 ro。",
+      "solution_steps": [
+        {
+          "text": "mount | grep 目标路径 看挂载参数",
+          "fix_template": "# 只读挂载排查：是挂载参数 ro 还是磁盘错误后的保护性只读\nmount | grep \" ro,\"\ndmesg | tail -30"
+        },
+        {
+          "text": "磁盘出错被内核转只读：先收集 /var/log/messages 再考虑重启"
+        },
+        {
+          "text": "重新挂载：mount -o remount,rw /目标（确认底层没坏再做）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "touch: cannot touch '/data/a.txt': Read-only file system",
+        "cp: cannot create regular file '/mnt/usb/a.conf': Read-only file system"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "0e5fb740-e537-5846-a27b-4b8687c7403a",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Too many open files",
+      "category": "磁盘",
+      "cause": "文件句柄用尽——查进程限制并调大。",
+      "solution_steps": [
+        {
+          "text": "cat /proc/{{pid}}/limits | grep open files 看进程当前上限",
+          "fix_template": "# 句柄排查：进程限制 / 全局上限（<pid> 自行替换）\nulimit -n\ncat /proc/<pid>/limits | grep \"open files\"\nsysctl fs.file-max"
+        },
+        {
+          "text": "lsof -p {{pid}} | wc -l 看实际占用"
+        },
+        {
+          "text": "临时调大 ulimit -n 65535；持久化改 limits.conf 与 systemd LimitNOFILE"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "OSError: [Errno 24] Too many open files",
+        "accept(): Too many open files"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "03a606ae-d4bd-5d02-a960-8bd27b428d97",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Could not resolve host|Temporary failure in name resolution",
+      "category": "依赖",
+      "cause": "DNS 解析失败——/etc/resolv.conf 配置问题或网络不通。",
+      "solution_steps": [
+        {
+          "text": "cat /etc/resolv.conf 看当前 DNS",
+          "fix_template": "# DNS 排查：先看配置，再验连通与解析（<域名> 自行替换）\ncat /etc/resolv.conf\ngetent hosts <域名>"
+        },
+        {
+          "text": "dig @223.5.5.5 {{domain}} +short 用指定 DNS 验证（区分是解析问题还是网络问题）"
+        },
+        {
+          "text": "改 DNS：Ubuntu 走 netplan/systemd-resolved；RHEL 走 nmcli（见网络配置条目）"
+        },
+        {
+          "text": "解析正常但网络不通则是另一类问题"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "curl: (6) Could not resolve host: mirrors.aliyun.com",
+        "Temporary failure in name resolution"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "ad4f039b-2de2-5453-b783-fb720bd5cebc",
+      "vendor": "linux",
+      "os_family": "centos7",
+      "pattern": "Cannot find a valid baseurl|Could not resolve host: mirrorlist",
+      "category": "本地源",
+      "cause": "yum 源不可用——离网环境的典型报错：默认源指向公网。",
+      "solution_steps": [
+        {
+          "text": "★ 按本地源条目搭 ISO/目录源（离网标准做法）",
+          "fix_template": "# yum/dnf 源排查：默认源指向公网，离网环境要改成本地源\ngrep -rE \"baseurl|mirrorlist\" /etc/yum.repos.d/ 2>/dev/null\nlsblk; mount | grep -i -E \"iso|sr0\""
+        },
+        {
+          "text": "把 /etc/yum.repos.d/ 里的公网源改名 .bak 避免反复超时"
+        },
+        {
+          "text": "yum clean all && yum makecache 后 yum repolist 验证"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Cannot find a valid baseurl for repo: base/7/x86_64",
+        "Could not resolve host: mirrorlist.centos.org"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "0d93b8cc-56c1-51ce-8051-bc66e7acb7e4",
+      "vendor": "linux",
+      "os_family": "ubuntu2204",
+      "pattern": "Failed to fetch|Unable to locate package",
+      "category": "本地源",
+      "cause": "apt 源不可用或包不在源里——离网环境需先搭本地 deb 源。",
+      "solution_steps": [
+        {
+          "text": "★ 按本地 apt 源条目搭本地 deb 目录源",
+          "fix_template": "# 源排查：确认源指向与本地源是否挂载（离网环境默认源指向公网必失败）\ncat /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null\nlsblk; mount | grep -i -E \"iso|sr0\""
+        },
+        {
+          "text": "Unable to locate package = 源里没有这个包（本地源要重新 dpkg-scanpackages）"
+        },
+        {
+          "text": "apt-get update 报错时看具体是哪个 repo 失败，必要时注释掉"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "E: Unable to locate package createrepo",
+        "Err:1 http://archive.ubuntu.com/ubuntu focal InRelease  Failed to fetch"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "8bca3b5a-19b9-5d6c-999b-2ea814c965b0",
+      "vendor": "linux",
+      "os_family": "centos7",
+      "pattern": "Another app is currently holding the yum lock",
+      "category": "资源冲突",
+      "cause": "yum 被其它进程占用（自动更新/yum 进程残留）。",
+      "solution_steps": [
+        {
+          "text": "ps aux | grep yum 找占用进程，等它结束",
+          "fix_template": "# yum/dnf 锁排查：确认没有在跑的 yum，再清残留锁\nps aux | grep -E \"[y]um|[d]nf\"\nrm -f /var/run/yum.pid"
+        },
+        {
+          "text": "确认无 yum 进程后：rm -f /var/run/yum.pid"
+        },
+        {
+          "text": "长期方案：关闭自动更新（systemctl disable yum-cron）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Existing lock /var/run/yum.pid: another copy is running as pid 2381.\nAnother app is currently holding the yum lock; waiting for it to exit...",
+        "Another app is currently holding the yum lock; waiting for it to exit..."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "8ab457b1-d86a-5cb3-9376-c1f0e5f26a72",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "pattern": "syntax error",
+      "category": "语法",
+      "cause": "Junos 语法错误——命令在当前位置不认识，或缺参数。",
+      "solution_steps": [
+        {
+          "text": "命令后加 ? 看当前位置的候选"
+        },
+        {
+          "text": "核对层级：Junos 是 set 与逐层编辑两种风格，别混写"
+        },
+        {
+          "text": "拼写核对（Junos 命令区分大小写风格与 IOS/VRP 不同）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "syntax error, expecting <command>.",
+        "error: syntax error"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "8e4f74d8-9916-5443-9ab8-bcde20af60f2",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "pattern": "unknown command",
+      "category": "语法",
+      "cause": "命令不存在——该 Junos 版本没有这个命令，或操作模式不对。",
+      "solution_steps": [
+        {
+          "text": "确认操作模式：operational（>）还是 configuration（#）"
+        },
+        {
+          "text": "set cli ... 与 show ... 属于不同模式"
+        },
+        {
+          "text": "用 ? 列出当前模式可用命令"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "unknown command: show interface terse.",
+        "error: unknown command"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "55af08bc-524c-5691-abb9-901fbf22073b",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "pattern": "statement not found",
+      "category": "模式",
+      "cause": "配置语句不存在——delete 或 modify 了一个没配过的节点（多半是层级写错）。",
+      "solution_steps": [
+        {
+          "text": "先 show 确认该节点是否真的存在（show | display set | match 关键字）",
+          "ref_entry_uuid": "541581dd-1d5f-59cf-a605-27646f408650"
+        },
+        {
+          "text": "delete 不存在的节点会报这个错；层级写错也会"
+        },
+        {
+          "text": "要新增用 set，要删除用 delete，别对不存在的节点 delete"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "error: statement not found",
+        "warning: statement not found"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "fea3a300-3de2-5900-b3cb-8ea9a621fbc2",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "pattern": "configuration database locked",
+      "category": "资源冲突",
+      "cause": "配置库被别的会话锁着——多人同时改配置，或上次会话异常退出没释放锁。",
+      "solution_steps": [
+        {
+          "text": "show system commit 确认是否有异常中断的提交",
+          "ref_entry_uuid": "541581dd-1d5f-59cf-a605-27646f408650"
+        },
+        {
+          "text": "确认无人操作后撤销锁：configure exclusive 后 rollback / 或在 configuration 模式 clear"
+        },
+        {
+          "text": "正常退出配置模式会自动释放锁（exit 而不是直接断线）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "error: configuration database locked by:",
+        "configuration database locked by another user"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "b5692876-d9a9-5761-82fc-f05b554cd6ed",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "pattern": "commit failed|commit check.*fail",
+      "category": "保存系统",
+      "cause": "commit 失败——配置没有生效，也不会写入候选库。",
+      "solution_steps": [
+        {
+          "text": "先 commit check 只做语法与语义检查，看具体报哪一行",
+          "ref_entry_uuid": "541581dd-1d5f-59cf-a605-27646f408650"
+        },
+        {
+          "text": "按提示修正后再 commit"
+        },
+        {
+          "text": "★ Junos 是 candidate 模型：改完必须 commit 才生效（这点与 IOS/VRP 不同）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "error: commit failed: (statements constraint check failed)",
+        "commit failed"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "f1a2e3c7-e3da-592b-9d6e-214ed179c393",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "pattern": "Permission denied",
+      "category": "管理认证",
+      "cause": "权限不足——登录用户 class（权限等级）不够，或认证失败。",
+      "solution_steps": [
+        {
+          "text": "核对用户 class（super-user / operator / read-only）",
+          "ref_entry_uuid": "7a6092d4-a515-5f25-9af1-0550a38f8ec1"
+        },
+        {
+          "text": "需要配置权限的用 super-user 或对应 class 账号"
+        },
+        {
+          "text": "SSH 侧同样报 Permission denied 时先查口令与账号是否存在"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Permission denied, please try again.",
+        "error: permission denied"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "f37a25d5-6195-507f-a3d6-d756da1bab82",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "pattern": "Invalid input detected",
+      "category": "语法",
+      "cause": "命令无法识别——'^' 指向出错位置（锐捷 RGOS 与 IOS 风格接近但不完全等同）。",
+      "solution_steps": [
+        {
+          "text": "按 '^' 位置检查拼写与参数"
+        },
+        {
+          "text": "用 ? 看当前模式可用命令"
+        },
+        {
+          "text": "注意锐捷特有命令与 IOS 的差异（如保存为 write，ACL 关键字略有不同）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Invalid input detected at '^' marker.",
+        "RG-S5750#show interfac status\n                        ^\n% Invalid input detected at '^' marker."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "bd573f57-b9bc-5809-948f-b43687e2fe42",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "pattern": "Ambiguous command",
+      "category": "语法",
+      "cause": "命令缩写有歧义。",
+      "solution_steps": [
+        {
+          "text": "补全到能唯一区分；按 Tab 看候选"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Ambiguous command:  show c",
+        "RG-S2910#sh ip in\n% Ambiguous command:  sh ip in"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "9ebe9576-1c42-59cd-99f9-b5b67db64e53",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "pattern": "Incomplete command",
+      "category": "语法",
+      "cause": "命令不完整——缺必填参数。",
+      "solution_steps": [
+        {
+          "text": "命令末尾加 ? 查看缺什么参数"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Incomplete command.",
+        "RG-S2910(config)#vlan name\n% Incomplete command."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "398efa8e-bfa9-5555-877a-118eeccc98c6",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "pattern": "Login invalid|Authentication failed",
+      "category": "管理认证",
+      "cause": "登录认证失败——口令错或认证方式不匹配。",
+      "solution_steps": [
+        {
+          "text": "核对用户名口令与 line vty 的认证方式（login local / aaa）",
+          "ref_entry_uuid": "294982b2-6cad-5377-87ff-033423a38030"
+        },
+        {
+          "text": "确认本地用户是否存在：show running-config | include username"
+        },
+        {
+          "text": "连续失败注意是否触发锁定"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Login invalid",
+        "% Authentication failed"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "1c563087-d798-5bf9-95fd-766fc4b97e24",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "pattern": "Command fail\\.\\s*Return code",
+      "category": "语法",
+      "cause": "FortiOS 命令执行失败——返回码指出失败类型（-3 参数类型/取值不对较常见）。",
+      "solution_steps": [
+        {
+          "text": "核对命令的取值类型与范围（FortiOS 对类型很严格，数字与字符串不能混）"
+        },
+        {
+          "text": "在对应层级下重新敲命令（edit/set 的层级顺序不能错）"
+        },
+        {
+          "text": "get 看当前对象实际内容，与要 set 的字段比对"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Command fail. Return code -3",
+        "Command fail. Return code -1"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "be4eeaa8-2669-5de8-8151-ededc19b85ae",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "pattern": "Unknown action 0",
+      "category": "语法",
+      "cause": "命令语法不被识别——多是把别家（IOS/VRP）的命令风格敲进来了。",
+      "solution_steps": [
+        {
+          "text": "FortiOS 是 config 下 edit/set/next/end 结构，没有 IOS 式的 interface xxx 逐行配置"
+        },
+        {
+          "text": "确认当前层级：config system interface 下才能 edit port1"
+        },
+        {
+          "text": "用 ? 查看当前层级可用命令"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Unknown action 0",
+        "config system interface\nUnknown action 0"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "d5f83877-d2bd-535e-83c9-7d02a6c44354",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "pattern": "command parse error",
+      "category": "语法",
+      "cause": "命令解析失败——参数位置或格式不对。",
+      "solution_steps": [
+        {
+          "text": "按报错里指出的位置核对参数"
+        },
+        {
+          "text": "注意 FortiOS 参数用空格分隔的 key value 形式，不是 IOS 的连写"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "command parse error before 'status'",
+        "command parse error before ''"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "ec3ddda7-e410-5337-922c-1ed0b80dd6c0",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "pattern": "object set operator error",
+      "category": "依赖",
+      "cause": "设置对象属性失败——属性类型不匹配或依赖对象不存在（如引用了未定义的地址对象）。",
+      "solution_steps": [
+        {
+          "text": "先确认被引用的对象存在：show firewall address <名称>",
+          "ref_entry_uuid": "1f331c90-7694-5387-a322-91e70a2e2fd8"
+        },
+        {
+          "text": "属性类型要与对象定义一致（ipmask / fqdn / geography 等）"
+        },
+        {
+          "text": "引用不存在的对象会直接报这个错"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "object set operator error, -3 discard the setting",
+        "object set operator error, -10 discard the setting"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "dd61e944-a571-53ef-b415-4774682d525f",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "pattern": "entry not found",
+      "category": "依赖",
+      "cause": "要操作的表项不存在——edit 前没有 add，或对象名写错。",
+      "solution_steps": [
+        {
+          "text": "先看有哪些表项：show firewall address / show system interface 等",
+          "ref_entry_uuid": "1f331c90-7694-5387-a322-91e70a2e2fd8"
+        },
+        {
+          "text": "新增用 edit（edit 不存在会自动新建）或先 delete 再 edit"
+        },
+        {
+          "text": "核对对象名大小写（FortiOS 对象名区分大小写）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "entry not found",
+        "entry not found in table"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "4a2da5c6-1d96-5ee3-94ff-99b88bbab53e",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "pattern": "commit (?:job [^\\s]+ )?failed",
+      "category": "保存系统",
+      "cause": "PAN-OS commit 失败——候选配置没有生效，也不会写入运行配置；报错正文指出违反的检查项。",
+      "solution_steps": [
+        {
+          "text": "看 commit failed 后面的具体原因（constraint check / invalid reference 等），按行修正",
+          "ref_entry_uuid": "24feb9c8-bdf3-54e9-8291-cf5462701e46"
+        },
+        {
+          "text": "先 commit check 只做校验不改运行配置，缩小报错范围"
+        },
+        {
+          "text": "拿不准就回退候选配置：配置页 rollback，或 CLI 下重新 load"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "error: commit failed: (statements constraint check failed)",
+        "commit job TEP_1.2 failed"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "7ef49549-6b0d-543f-86dc-80bd963b6f61",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "pattern": "[Aa]uthentication failed",
+      "category": "管理认证",
+      "cause": "管理面登录认证失败——用户名/口令错误、账号被锁，或认证 Profile 配置有误。",
+      "solution_steps": [
+        {
+          "text": "核对用户名口令（区分大小写）；连续失败注意账号锁定策略"
+        },
+        {
+          "text": "口令遗忘走管理口令重置流程（Web 密码找回或 Console 重置）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Authentication failed: Invalid username or password",
+        "User authentication failed for user admin"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "f5bf147d-c632-5dbe-ae85-37a8644060de",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "pattern": "[Ii]nvalid syntax",
+      "category": "语法",
+      "cause": "CLI 语法错误——PAN-OS 是 set 系 + 层级命令风格，照抄 IOS/VRP 命令会报这个。",
+      "solution_steps": [
+        {
+          "text": "命令后加 ? 查看当前位置可用关键字；set/delete/show 各自成体系"
+        },
+        {
+          "text": "核对层级：deviceconfig/system 等前缀不能少（参考库内 PAN-OS 条目写法）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Invalid syntax.",
+        "Invalid syntax: unknown command 'shwo version'"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "62f49ac0-1e52-5570-92df-b75ae0b233f5",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "pattern": "denied by|action[:=] ?deny",
+      "category": "模式",
+      "cause": "会话被安全策略拒绝——不是设备故障，是策略命中了 deny/默认拒绝。",
+      "solution_steps": [
+        {
+          "text": "show running security-policy 找到命中的 deny 规则，确认排位",
+          "ref_entry_uuid": "24feb9c8-bdf3-54e9-8291-cf5462701e46"
+        },
+        {
+          "text": "在 deny 规则之前加放行策略（PAN-OS 从上到下第一条命中即止）并 commit"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "session denied by policy Deny-Web-01",
+        "action: deny"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "1af0fc39-9d5f-5e41-abd7-b55aa21ff685",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "pattern": "(?:锁定|locked)",
+      "category": "管理认证",
+      "cause": "★ 待真机核对：管理账号连续失败触发锁定——等锁定窗口过后用正确口令登录，或由其他管理员解锁。",
+      "solution_steps": [
+        {
+          "text": "等待锁定窗口（通常 10 分钟）后重试；期间勿继续试错延长锁定"
+        },
+        {
+          "text": "口令遗忘走管理员重置流程（Web 找回或 Console）",
+          "ref_entry_uuid": "987ac13d-39d8-5898-a417-1640e9c1180b"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "密码连续错误次数过多，账号已被锁定，请10分钟后重试",
+        "This account is locked, please retry later"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "a90e3e90-3cd8-5a48-a03f-93c9b106b1b2",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "pattern": "(?:配置[^，。]*)?未(?:保存|下发|应用)|not (?:been )?(?:saved|applied)",
+      "category": "保存系统",
+      "cause": "★ 待真机核对：策略改动处于\"测试/未下发\"状态——AF 的策略调整要先下发才生效，这是\"配了不通\"的高频原因。",
+      "solution_steps": [
+        {
+          "text": "策略页确认点击『下发/应用』；Web 有未下发提醒横幅时先处理"
+        },
+        {
+          "text": "下发后用会话查询复核策略命中",
+          "ref_entry_uuid": "b263ec23-b9b5-52d1-a9bc-86afe438219b"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "检测到配置变更未下发，当前处于测试状态",
+        "Configuration has not been applied"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "6e77366e-a24a-5bef-95c7-047086ae4210",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "pattern": "[Ll]icense|授权",
+      "category": "依赖",
+      "cause": "★ 待真机核对：授权（License）到期或校验失败——AF 部分功能随授权失效停用。",
+      "solution_steps": [
+        {
+          "text": "系统 → 授权/License 页核对有效期与功能授权项"
+        },
+        {
+          "text": "到期前向官方渠道申请续期授权文件，导入后复核功能恢复"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "License 将于 15 天后到期",
+        "授权文件导入失败：License 文件与设备序列号不匹配"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "7f66b223-7743-5f2b-ba54-c11322fe5cde",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "pattern": "证书|certificate",
+      "category": "依赖",
+      "cause": "★ 待真机核对：HTTPS 管理证书不受信任/校验失败——浏览器告警，属管理证书问题而非网络不通。",
+      "solution_steps": [
+        {
+          "text": "确认是浏览器证书告警（可点继续访问），不是连接被拒"
+        },
+        {
+          "text": "有域名与内部 CA 时换成正式证书；临时环境可替换自签证书消除告警"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "浏览器提示证书不受信任：HTTPS 管理证书未受信",
+        "certificate verification failed"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "75cbc271-9f7d-5cca-9b54-422af4278be9",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "pattern": "(?:锁定|locked)",
+      "category": "管理认证",
+      "cause": "★ 待真机核对：管理账号连续失败触发锁定。",
+      "solution_steps": [
+        {
+          "text": "等待锁定窗口后重试；或由其他管理员账号解锁"
+        },
+        {
+          "text": "口令遗忘走管理员重置流程"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "连续登录失败，账号已锁定，请稍后再试",
+        "account locked due to 5 failed attempts"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "aa96b4ae-8339-5a75-b661-45f8d0e590cf",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "pattern": "未(?:保存|应用|生效)|not (?:been )?(?:saved|applied)",
+      "category": "保存系统",
+      "cause": "★ 待真机核对：配置改动未应用/未保存——TopOS 策略要先应用才生效。",
+      "solution_steps": [
+        {
+          "text": "策略页确认『应用/生效』已点击"
+        },
+        {
+          "text": "应用后复核会话命中",
+          "ref_entry_uuid": "b6b66a97-c09f-55af-bdc1-2fc5fbfff6ce"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "配置尚未应用，重启后将丢失",
+        "configuration has not been applied yet"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "30c4aa4c-70e0-5740-814c-52cfaaaaf2fe",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "pattern": "授权|[Ll]icense",
+      "category": "依赖",
+      "cause": "★ 待真机核对：系统授权到期/校验失败，部分功能停用。",
+      "solution_steps": [
+        {
+          "text": "系统页核对授权状态与有效期"
+        },
+        {
+          "text": "向官方渠道续期授权文件并导入"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "系统授权即将到期，请及时续期",
+        "License expired, some features are disabled"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "db056b66-c87b-5816-a2c7-45f935bd0011",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "pattern": "(?:被拒绝|denied)",
+      "category": "模式",
+      "cause": "★ 待真机核对：连接被策略拒绝（默认拒绝/显式 deny）。",
+      "solution_steps": [
+        {
+          "text": "会话/日志定位命中的拒绝策略",
+          "ref_entry_uuid": "b6b66a97-c09f-55af-bdc1-2fc5fbfff6ce"
+        },
+        {
+          "text": "在其之前加放行策略并应用"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "匹配默认拒绝策略，连接被拒绝",
+        "connection denied by default policy"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "584610b6-bb1f-522e-b1ca-682b3f819ada",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "pattern": "Login failed|登录失败",
+      "category": "管理认证",
+      "cause": "★ 待真机核对：登录认证失败——口令错或认证方式不匹配。",
+      "solution_steps": [
+        {
+          "text": "核对用户名口令与登录方式（SSH/Console）",
+          "ref_entry_uuid": "174b1a16-198f-5013-8eed-b1b400861cdf"
+        },
+        {
+          "text": "连续失败注意锁定窗口"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "%Login failed",
+        "登录失败：用户名或密码错误"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "47507cfe-b149-554a-aa7c-d555f69099d9",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "pattern": "configur\\w*\\s+(?:is\\s+)?(?:locked|busy)|配置[^，。]*(?:锁|占用)",
+      "category": "资源冲突",
+      "cause": "★ 待真机核对：配置库被其他会话占用——多人同时改配置或异常会话未释放。",
+      "solution_steps": [
+        {
+          "text": "确认无人操作后重试；异常会话用 who/display users 找到并清除"
+        },
+        {
+          "text": "规范退出配置模式（exit/quit），避免直接断线留锁"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Error: configuration is locked by another user",
+        "配置被其他用户占用，请稍后再试"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "8c64a76b-cc22-524b-ba99-ca231181782f",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "pattern": "[Ll]icense|授权",
+      "category": "依赖",
+      "cause": "★ 待真机核对：授权到期/导入失败，特性功能停用。",
+      "solution_steps": [
+        {
+          "text": "show license（或 ? 确认查看命令）核对授权状态"
+        },
+        {
+          "text": "向官方渠道申请授权文件导入"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "License file import failed: serial mismatch",
+        "授权即将到期，请及时续期"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "659a5fe3-ae76-5adc-b73c-26cc2e5c486c",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "pattern": "[Ii]nvalid input",
+      "category": "语法",
+      "cause": "★ 待真机核对：命令无法识别——拼写错误或该视图/版本不支持，'^' 指向出错位置。",
+      "solution_steps": [
+        {
+          "text": "按 '^' 位置检查拼写；命令后加 ? 看当前视图可用命令"
+        },
+        {
+          "text": "ZXR10 各版本命令集差异较大，以 ? 实测为准",
+          "ref_entry_uuid": "174b1a16-198f-5013-8eed-b1b400861cdf"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Invalid input detected at '^' marker.",
+        "Invalid input!"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "1a5cd9b7-92bd-5668-872f-ba778216b9f5",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "[Nn]o (?:free )?leases|[Dd]HCPDISCOVER",
+      "category": "依赖",
+      "cause": "DHCP 客户端拿不到租约——DISCOVER 发出但无 OFFER：服务端池空、服务挂了、或广播被隔离/中继缺失。",
+      "solution_steps": [
+        {
+          "text": "客户端侧 dhclient -v 重取，观察交互停在 DISCOVER 还是收到 OFFER",
+          "ref_entry_uuid": "250cdf66-7530-5c2c-8143-5d294078d57e"
+        },
+        {
+          "text": "服务端侧查地址池空闲与统计计数（DISCOVER 进没进来）",
+          "ref_entry_uuid": "363a555a-9b11-5baf-9dbd-7e1a5c85c880"
+        },
+        {
+          "text": "跨网段场景核对中继 ip helper-address / dhcp relay 配置"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "dhclient: DHCPDISCOVER on eth0 to 255.255.255.255 port 67 interval 8",
+        "dhcp.c: no free leases on subnet 192.168.10.0"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "c7e18433-5dca-5b1d-b038-45661397dd85",
+      "vendor": "ops",
+      "os_family": "linux",
+      "pattern": "DHCPDISCOVER|no OFFER|池(?:已满|耗尽)",
+      "category": "依赖",
+      "cause": "★ 待真机核对：DHCP 请求无应答/池耗尽——通用排查骨架：池容量、服务存活、中继链路三段定位。",
+      "solution_steps": [
+        {
+          "text": "服务端查池容量与使用率（对照库内 DHCP 服务端条目）",
+          "ref_entry_uuid": "363a555a-9b11-5baf-9dbd-7e1a5c85c880"
+        },
+        {
+          "text": "服务端抓包确认 DISCOVER 是否到达（tcpdump port 67）",
+          "ref_entry_uuid": "250cdf66-7530-5c2c-8143-5d294078d57e"
+        },
+        {
+          "text": "池耗尽则扩池/缩租期/清过期租约"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "DHCPDISCOVER from 00:50:56:aa:bb:cc via Vlan10: network 192.168.10.0/24: no free leases",
+        "DHCP 池已满，无法分配新地址"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "c7b85fb5-caf9-5de9-9950-9b023aec36e3",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "[Ll]ogin invalid|LOGIN_FAILED|attempts exceeded",
+      "category": "管理认证",
+      "cause": "登录失败/失败次数超限——口令错或触发了本地账号锁定策略（aaa local authentication attempts max-fail）。",
+      "solution_steps": [
+        {
+          "text": "等待锁定窗口或由其他管理员清零：clear aaa local user lockout（配置了锁定策略时）",
+          "ref_entry_uuid": "ef5e0a8b-63b4-512a-a975-c44f65020f13"
+        },
+        {
+          "text": "口令遗忘按《修改 Console 口令与特权密码》条目重置",
+          "ref_entry_uuid": "ef5e0a8b-63b4-512a-a975-c44f65020f13"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Login invalid",
+        "%SEC_LOGIN-4-LOGIN_FAILED: Login failed [user:netadmin] [Source:10.0.0.8] [attempts exceeded]"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "2921aab5-a6ad-50a2-933b-9b2b3a906688",
+      "vendor": "huawei",
+      "os_family": "vrp5|vrp8",
+      "pattern": "lock(?:ed)?|密码错误次数|失败次数",
+      "category": "管理认证",
+      "cause": "★ 待真机核对：本地账号锁定/失败次数超限——VRP 账号锁定策略（local-aaa-user / unlock）触发。",
+      "solution_steps": [
+        {
+          "text": "等待锁定窗口或由管理员解锁：local-aaa-user 视图下 undo lock / display local-aaa-user 查状态"
+        },
+        {
+          "text": "口令遗忘按《开启 SSH 并创建本地管理用户》重置",
+          "ref_entry_uuid": "1d371020-3fbe-564d-9854-30eb2fb9b756"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Error: The account has been locked because the password has expired",
+        "登录失败次数超限，账号已锁定"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "91253b3a-6948-5be0-8391-ab958bbfe7a4",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "pattern": "lock(?:ed)?|失败次数|attempts",
+      "category": "管理认证",
+      "cause": "★ 待真机核对：登录失败次数超限触发锁定（Comware7 password-control 的 login-attempt 策略）。",
+      "solution_steps": [
+        {
+          "text": "等待自动解锁或由管理员撤销锁定：按 display password-control 查锁定策略"
+        },
+        {
+          "text": "口令遗忘按《开启 SSH 并创建管理员账号》重置",
+          "ref_entry_uuid": "e5cdb683-3772-5ed0-a5b0-bcb4249401ff"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Failed to login because of too many failed attempts, account is locked",
+        "登录失败次数超限，账号被锁定"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "a0d022e0-f0df-57c9-addb-3c7f79d47234",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "pattern": "[Ll]ogin invalid|lock(?:ed)?",
+      "category": "管理认证",
+      "cause": "★ 待真机核对：登录失败/账号锁定——RGOS 与 IOS 同源，本地用户锁定策略触发。",
+      "solution_steps": [
+        {
+          "text": "等待锁定窗口或重置本地用户口令",
+          "ref_entry_uuid": "7ba70204-4b1f-500d-9fad-638eb2ec00ae"
+        },
+        {
+          "text": "核对 line vty 认证方式与本地用户配置"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Login invalid",
+        "Account locked due to repeated login failures"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "5b35a1f6-61a6-5a2c-9927-6949e8213afa",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "ExStart|Exchange|MTU mismatch",
+      "category": "模式",
+      "cause": "OSPF 邻居卡在 ExStart/Exchange——最大特征是 MTU 不匹配：DD 报文互相不接受，永远到不了 Full。（样例为特征词口径，非完整日志行；实际命中后以设备真实输出修正 pattern）",
+      "solution_steps": [
+        {
+          "text": "先比两端接口 MTU（show interface | include MTU）；一端 1500 一端 9000 就卡死在这",
+          "ref_entry_uuid": "28250c48-48c3-50ee-b4d7-3b12495327e8"
+        },
+        {
+          "text": "临时绕过：在 MTU 大的一侧 ip ospf mtu-ignore（确认链路无分片风险再用）"
+        },
+        {
+          "text": "也查两端 OSPF 是否同一网段/掩码一致"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "neighbor 10.1.1.2 stuck in ExStart/Exchange",
+        "OSPF: MTU mismatch detected"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "513f932f-ed7c-52fb-924c-27cd876ac423",
+      "vendor": "huawei",
+      "os_family": "vrp5|vrp8",
+      "pattern": "ADJCHG|邻居状态|neighbor state changed",
+      "category": "模式",
+      "cause": "★ 待真机核对：OSPF 邻居反复震荡（ADJCHG 是华为状态变化特征词）——链路抖动/CPU 过高/定时器不一致逐项排。（样例为特征词口径，非完整日志行；实际命中后以设备真实输出修正 pattern）",
+      "solution_steps": [
+        {
+          "text": "看震荡时间规律：固定间隔=链路抖动，随机=CPU/资源",
+          "ref_entry_uuid": "e4ec7c22-a0d8-5428-b0d9-0ff763aa8de6"
+        },
+        {
+          "text": "核对两端 hello/dead 定时器一致"
+        },
+        {
+          "text": "链路质量判读（错包/CRC）用光功率条目",
+          "ref_entry_uuid": "bb912f63-35b2-5e31-80ab-2c627341e639"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "OSPF/6/ADJCHG: neighbor state changed Full to Down",
+        "邻居状态频繁变化：Full -> Down -> Full"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "4773c461-66c3-59cf-87e0-a4541ba4f415",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "pattern": "\\bInit\\b",
+      "category": "模式",
+      "cause": "★ 待真机核对：OSPF 邻居卡在 Init——本端收到对方 Hello 但对方收不到我的（单向通信），典型原因：单通链路/ACL 拦了组播 224.0.0.5。（样例为特征词口径，非完整日志行；实际命中后以设备真实输出修正 pattern）",
+      "solution_steps": [
+        {
+          "text": "查中间链路是否单通（对端能 ping 我、我不能 ping 对端）"
+        },
+        {
+          "text": "查两端接口 ACL 是否拦了 OSPF 组播 224.0.0.5/224.0.0.6"
+        },
+        {
+          "text": "确认两端网络类型一致（broadcast vs P2P）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "OSPF neighbor 1.1.1.1 stuck in Init state",
+        "neighbor state: Init (no hello received back)"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "74096e00-5734-5b87-9eca-cb524af186eb",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "pattern": "[Hh]old [Tt]imer.*expire|HoldTimerExpire|\\bIdle\\b.*BGP|BGP.*\\bIdle\\b",
+      "category": "模式",
+      "cause": "BGP hold timer 超时回 Idle——keepalive 没按时到：链路质量差、对端 CPU 卡、或定时器两端不一致。（样例为特征词口径，非完整日志行；实际命中后以设备真实输出修正 pattern）",
+      "solution_steps": [
+        {
+          "text": "核对两端 hold/keepalive 定时器一致（Junos 默认 hold 90s）",
+          "ref_entry_uuid": "8fe8f10d-ee6a-5b19-bbe3-51096df96a7b"
+        },
+        {
+          "text": "查链路质量（错包/丢包）与对端 CPU"
+        },
+        {
+          "text": "回到 Idle 后按《BGP 邻居状态诊断》复核建连参数"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "BGP neighbor 10.0.0.2: HoldTimerExpire Error",
+        "Peer 10.0.0.2 state changed to Idle (hold timer expired)"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "f2161300-34bb-5fb7-a23a-0b667d373429",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "\\bActive\\b",
+      "category": "模式",
+      "cause": "BGP 邻居卡 Active——TCP 179 建不上：地址不可达/ACL 拦 TCP/对端没配 neighbor 或 passive。（样例为特征词口径，非完整日志行；实际命中后以设备真实输出修正 pattern）",
+      "solution_steps": [
+        {
+          "text": "先 ping 对端建连地址（update-source 地址），通了再查 TCP 179",
+          "ref_entry_uuid": "7d6820f7-2739-5e11-9dbc-6b9b3f3a504a"
+        },
+        {
+          "text": "核对两端 neighbor 指向是否互为对方的 update-source 地址"
+        },
+        {
+          "text": "查中间 ACL/防火墙是否放行 TCP 179"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "BGP neighbor 10.1.1.2 stuck in Active",
+        "*Mar 1 00:00:00: %BGP-5-ADJCHANGE: neighbor 10.1.1.2 Down BGP Notification Sent ( Active)"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "544ca1dd-6409-5201-99ab-370dddfa7771",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "pattern": "area mismatch|authentication (?:type )?mismatch|Area .* mismatch",
+      "category": "模式",
+      "cause": "★ 待真机核对：OSPF 区域 ID / 认证类型不匹配——两端 area 号、认证方式与口令必须一致。（样例为特征词口径，非完整日志行；实际命中后以设备真实输出修正 pattern）",
+      "solution_steps": [
+        {
+          "text": "核对两端 area ID 与网络类型",
+          "ref_entry_uuid": "51ce7f24-f3b5-5056-b442-e2f713666fae"
+        },
+        {
+          "text": "核对认证类型（none/plain/md5）与口令逐字一致"
+        },
+        {
+          "text": "改完 reset ospf process 重试（注意进程重置影响）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "OSPF: area mismatch with neighbor 10.1.1.2",
+        "OSPF: authentication type mismatch"
+      ],
+      "verified": 0,
+      "exec_level": ""
+    },
+    {
+      "err_id": "adae8785-7525-5e57-9c2c-5712d6d6e0eb",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "RADIUS[-_ ][4D].*DEAD|RADIUS server[^\\n]*not (?:responding|reachable)|RADIUS.*fail(?:ed)?",
+      "category": "依赖",
+      "cause": "★ 待真机核对：RADIUS 服务器不可达——authentication-order 配了 local 兜底时会自动回落本地账号。（样例为特征词口径，非完整日志行；实际命中后以设备真实输出修正 pattern）",
+      "solution_steps": [
+        {
+          "text": "确认配置了 local 兜底（用本地账号先登录）",
+          "ref_entry_uuid": "9c901a97-f2b6-54aa-bdd0-5187f3aa42eb"
+        },
+        {
+          "text": "查 RADIUS 服务器存活/密钥一致/UDP 1812 放行"
+        },
+        {
+          "text": "恢复服务器后 test aaa 复核"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "%RADIUS-4-RADIUS_DEAD: RADIUS server 192.168.66.30:1812,1813 is not responding",
+        "RADIUS servers are not responding, falling back to local"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "err_id": "25f35014-33bf-5318-9293-d286a4ec67fa",
+      "vendor": "huawei",
+      "os_family": "vrp5|vrp8",
+      "pattern": "(?:RADIUS|radius).{0,20}(?:[Tt]imeout|超时)|回退.*本地|fallback.*local",
+      "category": "依赖",
+      "cause": "★ 待真机核对：RADIUS 超时自动回退本地认证—— authentication-mode radius local 兜底生效的表现。（样例为特征词口径，非完整日志行；实际命中后以设备真实输出修正 pattern）",
+      "solution_steps": [
+        {
+          "text": "本地账号能登录 = 兜底已生效，先保业务",
+          "ref_entry_uuid": "c3ddd6bb-ba13-5ff4-a613-fbd819b891ef"
+        },
+        {
+          "text": "查 RADIUS 服务器存活/共享密钥/UDP 1812 连通"
+        },
+        {
+          "text": "恢复后 test-aaa 复核域账号"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "RADIUS: authentication timeout, fallback to local authentication",
+        "RADIUS 服务器超时，已回退本地认证"
+      ],
+      "verified": 0,
+      "exec_level": "skeleton"
+    }
+  ],
+  "generated_at": "2026-09-28"
+}

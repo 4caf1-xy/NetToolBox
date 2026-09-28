@@ -1,0 +1,874 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "cisco.json",
+  "vendor_label": "Cisco（思科）",
+  "vendor_slug": "cisco",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 17,
+  "entries": [
+    {
+      "uuid": "e3971cfc-1d22-5542-89d5-7b72b2c3ee6a",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960 / 3560 / 3750 / 9300",
+      "category": "VLAN",
+      "title": "创建 VLAN 并把端口划入 Access",
+      "description": "新建业务 VLAN 并命名，把一批物理端口批量划为 access 口加入该 VLAN。",
+      "commands": "! ===== 创建 VLAN 并划入端口（Cisco IOS）=====\nenable\nconfigure terminal\nvlan {{vlan_id}}\n name {{vlan_name}}\n exit\ninterface range {{port_range}}\n switchport mode access\n switchport access vlan {{vlan_id}}\n no shutdown\n exit\nend\nwrite memory",
+      "params": [
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_name",
+          "label": "VLAN 名称",
+          "default": "OFFICE",
+          "required": false,
+          "validate": "",
+          "example": "OFFICE"
+        },
+        {
+          "name": "port_range",
+          "label": "端口范围",
+          "default": "0/1-0/10",
+          "required": true,
+          "validate": "port_range",
+          "example": "0/1-0/10 或 Gi0/1-0/10",
+          "expand": "port"
+        }
+      ],
+      "notes": "1) interface range 语法 IOS 12.2(55)SE 之后才支持，更老的版本要逐口敲。\n2) 端口短写 Gi0/1 与全写 GigabitEthernet0/1 等价；堆叠机框写 1/0/1。\n3) 只 end 不 write memory，重启后配置全丢，务必保存。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "b765a2c0-303b-57ed-a232-61e19288b059",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960 / 3560 / 3750 / 9300",
+      "category": "Trunk",
+      "title": "配置 Trunk 口并放通指定 VLAN",
+      "description": "把上行/级联口配成 802.1Q trunk，放通允许通过的 VLAN 并设置 native VLAN。",
+      "commands": "! ===== 配置 Trunk 口（Cisco IOS）=====\nenable\nconfigure terminal\ninterface {{port}}\n switchport trunk encapsulation dot1q\n switchport mode trunk\n switchport trunk allowed vlan {{vlan_list}}\n switchport trunk native vlan {{native_vlan}}\n no shutdown\n exit\nend\nwrite memory\nshow interfaces trunk",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口",
+          "default": "0/24",
+          "required": true,
+          "validate": "port",
+          "example": "0/24 或 1/0/24"
+        },
+        {
+          "name": "vlan_list",
+          "label": "放通 VLAN",
+          "default": "10,20,30",
+          "required": true,
+          "validate": "",
+          "example": "10,20,30 或 10-20"
+        },
+        {
+          "name": "native_vlan",
+          "label": "Native VLAN",
+          "default": "1",
+          "required": false,
+          "validate": "vlan",
+          "example": "1"
+        }
+      ],
+      "notes": "1) switchport trunk encapsulation dot1q 只有 3560/3750 这类支持多封装的老平台需要；\n   2960/9300 敲了会报 Invalid input，直接跳过这条即可。\n2) allowed vlan 用逗号列举(10,20,30)、短横线区间(10-20)，两者可混写(10,20-25,30)。\n3) 两端 native VLAN 必须一致，否则会报 native vlan mismatch 且生成树异常。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "eac547bb-4688-5afa-82cc-cd39cc580518",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "ISR 1900/2900/4300 / ASR1000",
+      "category": "静态路由",
+      "title": "配置静态路由与浮动静态路由",
+      "description": "新增静态路由指定目的网段与下一跳；用管理距离做浮动备份路由。",
+      "commands": "! ===== 配置静态路由（Cisco IOS）=====\nenable\nconfigure terminal\nip route {{dest_net}} {{mask}} {{next_hop}}\n! 浮动静态路由：管理距离设大（默认 1），主路由失效时才生效\nip route {{dest_net}} {{mask}} {{backup_hop}} 200\n! 默认路由\nip route 0.0.0.0 0.0.0.0 {{next_hop}}\nend\nwrite memory\nshow ip route {{dest_net}}",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "192.168.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.20.0"
+        },
+        {
+          "name": "mask",
+          "label": "掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "24 或 255.255.255.0"
+        },
+        {
+          "name": "next_hop",
+          "label": "下一跳地址",
+          "default": "10.0.0.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.2"
+        },
+        {
+          "name": "backup_hop",
+          "label": "备份下一跳",
+          "default": "10.0.0.3",
+          "required": false,
+          "validate": "ipv4",
+          "example": "10.0.0.3"
+        }
+      ],
+      "notes": "1) 管理距离（最后那个数字）越小越优先：直连 0、静态 1、EIGRP 90、OSPF 110、RIP 120。\n2) 跟踪接口状态的写法要加出接口：ip route 0.0.0.0 0.0.0.0 Gi0/0 10.0.0.2，\n   这样出接口 down 时路由自动撤销；只写下一跳则不会。\n3) show ip route 里 S 表示静态路由、S* 表示默认路由，排查时先看这两行。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "28250c48-48c3-50ee-b4d7-3b12495327e8",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "ISR 2900 / ASR1000 / Catalyst 三层",
+      "category": "OSPF",
+      "title": "配置 OSPF 基本组网",
+      "description": "开启 OSPF 进程、设 router-id、宣告参与组网的网段，并把业务口设为被动接口。",
+      "commands": "! ===== OSPF 基本配置（Cisco IOS）=====\nenable\nconfigure terminal\nrouter ospf {{process_id}}\n router-id {{router_id}}\n network {{network}} {{wildcard}} area {{area_id}}\n passive-interface default\n no passive-interface {{uplink_port}}\n exit\nend\nwrite memory\nshow ip ospf neighbor\nshow ip route ospf",
+      "params": [
+        {
+          "name": "process_id",
+          "label": "进程号",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "1"
+        },
+        {
+          "name": "router_id",
+          "label": "Router ID",
+          "default": "1.1.1.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "1.1.1.1"
+        },
+        {
+          "name": "network",
+          "label": "宣告网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "wildcard",
+          "label": "反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "area_id",
+          "label": "区域号",
+          "default": "0",
+          "required": false,
+          "validate": "",
+          "example": "0 或 0.0.0.1"
+        },
+        {
+          "name": "uplink_port",
+          "label": "上行接口（非被动）",
+          "default": "0/0",
+          "required": false,
+          "validate": "port",
+          "example": "0/0"
+        }
+      ],
+      "notes": "1) network 后面跟的是反掩码（wildcard）：24 位网段写 0.0.0.255，别写 255.255.255.0。\n2) 改 router-id 后必须 clear ip ospf process 才生效，会短暂中断邻居，别在业务高峰期做。\n3) passive-interface default + no passive-interface 上行口最省事，比逐个口 passive 不易漏。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "4302cef5-db24-5403-8143-72038ad1fb23",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst / ISR 全系列",
+      "category": "ACL",
+      "title": "配置扩展 ACL 并应用到接口",
+      "description": "创建命名扩展 ACL 限制网段互访，并绑定到接口的 in 方向。",
+      "commands": "! ===== 扩展 ACL 配置与下发（Cisco IOS）=====\nenable\nconfigure terminal\nip access-list extended {{acl_name}}\n permit ip {{src_net}} {{src_wild}} {{dst_net}} {{dst_wild}}\n deny   ip any any log\n exit\ninterface {{port}}\n ip access-group {{acl_name}} in\n exit\n! 只放通管理网段 SSH 登录 vty\nline vty 0 4\n access-class {{acl_name}} in\n exit\nend\nwrite memory\nshow ip access-lists {{acl_name}}",
+      "params": [
+        {
+          "name": "acl_name",
+          "label": "ACL 名称",
+          "default": "ACL-MGMT-01",
+          "required": true,
+          "validate": "",
+          "example": "ACL-MGMT-01"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "dst_net",
+          "label": "目的网段",
+          "default": "10.10.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.10.0.0"
+        },
+        {
+          "name": "dst_wild",
+          "label": "目的反掩码",
+          "default": "0.0.255.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.255.255"
+        },
+        {
+          "name": "port",
+          "label": "应用端口",
+          "default": "0/1",
+          "required": true,
+          "validate": "port",
+          "example": "0/1"
+        }
+      ],
+      "notes": "1) 每个 ACL 末尾都隐含 deny any any，看不到但一定生效；要放通必须显式写 permit。\n2) in / out 是\"相对设备\"的方向：in = 从该接口进来的流量，最容易搞反。\n3) 命名 ACL 想插规则要带序号（如 permit 15 ...），直接改文本会整段重排导致序号变化。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "97e11a82-836e-5dd8-91da-db7f5bead11c",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "ISR 1900/2900/4300",
+      "category": "NAT",
+      "title": "配置 NAT 地址转换（PAT 复用）",
+      "description": "内网网段通过出接口地址做端口复用（overload），并给出静态一对一映射写法。",
+      "commands": "! ===== NAT / PAT 配置（Cisco IOS）=====\nenable\nconfigure terminal\ninterface {{inside_port}}\n ip address {{inside_ip}} {{inside_mask}}\n ip nat inside\n exit\ninterface {{outside_port}}\n ip address {{outside_ip}} {{outside_mask}}\n ip nat outside\n exit\naccess-list {{acl_number}} permit {{src_net}} {{src_wild}}\nip nat inside source list {{acl_number}} interface {{outside_port}} overload\n! 静态一对一映射（外网访问内网服务器）\nip nat inside source static {{inside_server}} {{public_ip}}\nend\nwrite memory\nshow ip nat translations\nshow ip nat statistics",
+      "params": [
+        {
+          "name": "inside_port",
+          "label": "内网口",
+          "default": "0/0",
+          "required": true,
+          "validate": "port",
+          "example": "0/0"
+        },
+        {
+          "name": "inside_ip",
+          "label": "内网口 IP",
+          "default": "192.168.1.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.1.1"
+        },
+        {
+          "name": "inside_mask",
+          "label": "内网口掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "outside_port",
+          "label": "外网口",
+          "default": "0/1",
+          "required": true,
+          "validate": "port",
+          "example": "0/1"
+        },
+        {
+          "name": "outside_ip",
+          "label": "外网口 IP",
+          "default": "200.1.1.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.2"
+        },
+        {
+          "name": "outside_mask",
+          "label": "外网口掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "acl_number",
+          "label": "ACL 编号",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-199",
+          "example": "1-99 标准 ACL"
+        },
+        {
+          "name": "inside_server",
+          "label": "内网服务器",
+          "default": "192.168.1.100",
+          "required": false,
+          "validate": "ipv4",
+          "example": "192.168.1.100"
+        },
+        {
+          "name": "public_ip",
+          "label": "公网映射 IP",
+          "default": "200.1.1.3",
+          "required": false,
+          "validate": "ipv4",
+          "example": "200.1.1.3"
+        }
+      ],
+      "notes": "1) ip nat inside / outside 标错接口是 NAT 不生效的头号原因，配完先 show ip nat statistics 看命中。\n2) overload 就是 PAT（端口复用）；不写 overload 则是动态地址池，无法多地址共用。\n3) 静态映射双向生效，私网地址在前、公网地址在后。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "c51d45e0-bfe2-531c-9db4-2debdb2dba00",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960X/9300 / ISR（需 K9 加密镜像）",
+      "category": "SSH管理",
+      "title": "开启 SSH 并创建本地管理用户",
+      "description": "生成 RSA 密钥、限制 vty 只允许 SSH、创建特权 15 的本地用户。",
+      "commands": "! ===== 开启 SSH + 本地用户（Cisco IOS）=====\nenable\nconfigure terminal\nhostname {{hostname}}\nip domain-name {{domain}}\nusername {{username}} privilege 15 secret {{password}}\ncrypto key generate rsa modulus 2048\nip ssh version 2\nip ssh time-out 60\nip ssh authentication-retries 3\nline vty 0 4\n login local\n transport input ssh\n exec-timeout {{timeout_min}} 0\n exit\nend\nwrite memory\nshow ip ssh",
+      "params": [
+        {
+          "name": "hostname",
+          "label": "设备名",
+          "default": "SW-CORE-01",
+          "required": false,
+          "validate": "",
+          "example": "SW-CORE-01"
+        },
+        {
+          "name": "domain",
+          "label": "域名",
+          "default": "corp.local",
+          "required": true,
+          "validate": "",
+          "example": "corp.local"
+        },
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) 必须先生成 RSA 密钥，且要先有 hostname 和 ip domain-name，\n   否则提示 \"% Please define a domain-name first\"。\n2) modulus 低于 768 时 IOS 15 会拒绝启用 SSHv2，建议 2048。\n3) transport input ssh 会一并关掉 Telnet，改之前确认 SSH 已能登录，别把自己锁在外面。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "dd503bcb-810d-58e7-9c2d-8af6903226fc",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "全体 Cisco 设备",
+      "category": "密码",
+      "title": "修改 Console 口令与特权密码",
+      "description": "设置 console 口口令、空闲超时，并改用加密方式保存特权密码。",
+      "commands": "! ===== Console 与特权口令（Cisco IOS）=====\nenable\nconfigure terminal\nline console 0\n password {{console_password}}\n login\n logging synchronous\n exec-timeout {{timeout_min}} 0\n exit\nenable secret {{enable_secret}}\nservice password-encryption\nend\nwrite memory",
+      "params": [
+        {
+          "name": "console_password",
+          "label": "Console 口令",
+          "default": "C0nsole@123",
+          "required": true,
+          "validate": "",
+          "example": "C0nsole@123"
+        },
+        {
+          "name": "enable_secret",
+          "label": "特权密码",
+          "default": "En@ble@12345",
+          "required": true,
+          "validate": "",
+          "example": "En@ble@12345"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) enable secret 用强哈希存储，enable password 是弱加密（7 类），新设备只用 secret；\n   两者同时存在时 secret 优先生效。\n2) console 下只写 login 用的是 line password（权限 1）；要直进特权 15 用 login local + 本地用户。\n3) logging synchronous 防止日志把正在敲的命令冲散，强烈建议加上。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "a372ea5c-0f6e-51b8-b56b-8cc570ebe7cd",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst / ISR 全系列",
+      "category": "SNMP",
+      "title": "配置 SNMP v2c 团体字与 Trap 上报",
+      "description": "配置只读/读写团体字、设备位置联系人，并把 Trap 上报到网管服务器；附 SNMPv3 写法。",
+      "commands": "! ===== SNMP 配置（Cisco IOS）=====\nenable\nconfigure terminal\nsnmp-server community {{ro_community}} RO\nsnmp-server community {{rw_community}} RW\nsnmp-server location {{location}}\nsnmp-server contact {{contact}}\nsnmp-server host {{nms_ip}} version 2c {{ro_community}}\nsnmp-server enable traps\n! ---- 更安全的 SNMPv3（推荐生产使用，按需启用）----\nsnmp-server group {{v3_group}} v3 auth\nsnmp-server user {{v3_user}} {{v3_group}} v3 auth sha {{v3_auth_pass}} priv aes 128 {{v3_priv_pass}}\nsnmp-server host {{nms_ip}} version 3 auth {{v3_user}}\nend\nwrite memory\nshow snmp community",
+      "params": [
+        {
+          "name": "ro_community",
+          "label": "只读团体字",
+          "default": "RO@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RO@Public1"
+        },
+        {
+          "name": "rw_community",
+          "label": "读写团体字",
+          "default": "RW@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RW@Public1"
+        },
+        {
+          "name": "location",
+          "label": "设备位置",
+          "default": "IDC-A-机柜12",
+          "required": false,
+          "validate": "",
+          "example": "IDC-A-机柜12"
+        },
+        {
+          "name": "contact",
+          "label": "联系人",
+          "default": "网络运维组",
+          "required": false,
+          "validate": "",
+          "example": "网络运维组"
+        },
+        {
+          "name": "nms_ip",
+          "label": "网管服务器 IP",
+          "default": "10.0.0.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.100"
+        },
+        {
+          "name": "v3_group",
+          "label": "v3 组名",
+          "default": "NMS-GROUP",
+          "required": false,
+          "validate": "",
+          "example": "NMS-GROUP"
+        },
+        {
+          "name": "v3_user",
+          "label": "v3 用户名",
+          "default": "nmsuser",
+          "required": false,
+          "validate": "",
+          "example": "nmsuser"
+        },
+        {
+          "name": "v3_auth_pass",
+          "label": "v3 认证口令",
+          "default": "Auth@12345",
+          "required": false,
+          "validate": "",
+          "example": "Auth@12345"
+        },
+        {
+          "name": "v3_priv_pass",
+          "label": "v3 加密口令",
+          "default": "Priv@12345",
+          "required": false,
+          "validate": "",
+          "example": "Priv@12345"
+        }
+      ],
+      "notes": "1) 团体字别用 public/private，等保与安全审计会直接判违规；改写后记得同步网管侧。\n2) 只读团体字给网管采集（RO），读写团体字仅在有配置下发需求时开，用完即删。\n3) SNMPv3 的 auth sha + priv aes 128 是常用组合；v2c 团体字在网上是明文传输的。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "70a2b9cc-3149-5a63-a48f-b07aea7946db",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "全体 Cisco 设备",
+      "category": "保存配置",
+      "title": "保存配置并备份到本地 flash",
+      "description": "把运行配置写入启动配置，并在 flash 里留一份带日期的本地备份（不依赖网络）。",
+      "commands": "! ===== 保存与本地备份（Cisco IOS）=====\nenable\nshow clock\nshow running-config\ncopy running-config startup-config\n! 本地 flash 备份（隔离网络下不依赖 TFTP/FTP）\ncopy running-config flash:backup-{{backup_tag}}.cfg\nshow flash:\ndir flash:\n! 需要回滚时（谨慎，会整体替换运行配置）\n! configure replace flash:backup-{{backup_tag}}.cfg force",
+      "params": [
+        {
+          "name": "backup_tag",
+          "label": "备份文件名标记",
+          "default": "20260920",
+          "required": false,
+          "validate": "",
+          "example": "20260920 或变更单号"
+        }
+      ],
+      "notes": "1) copy run start 会二次确认 Destination filename，脚本里直接回车即可。\n2) 隔离网络不要用 copy running-config tftp:，改存 flash: 更稳，配合变更单编号命名。\n3) configure replace 是整段替换（会对比差异）比直接 copy 安全，但执行前务必确认备份可用。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "ef5e0a8b-63b4-512a-a975-c44f65020f13",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "全体 Cisco 设备",
+      "category": "DNS域名解析",
+      "title": "配置 DNS 服务器与域名解析（Cisco IOS）",
+      "description": "指向内网 DNS 服务器并开启域名解析，验证域名可解析（离网内网 DNS 标准动作）。",
+      "commands": "! ===== 配置 DNS 服务器与域名解析（Cisco IOS）=====\n! ---- 配置段：指向内网 DNS，开启域名解析 ----\nenable\nconfigure terminal\nip name-server {{dns_server_ip}}\nip domain-lookup\nend\n! ---- 验证段：ping 域名触发解析 + 看解析缓存 ----\nshow hosts\nping {{test_domain}}\n",
+      "params": [
+        {
+          "name": "dns_server_ip",
+          "label": "内网 DNS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        },
+        {
+          "name": "test_domain",
+          "label": "验证用内网域名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "gw.corp.local"
+        }
+      ],
+      "notes": "1) IOS exec 无 nslookup 子命令（部分新 IOS-XE 才有）：验证解析用 ping 域名，回显 Translating \"xxx\"...domain server (IP) 即 DNS 生效。\n2) show hosts 查看已解析缓存；ping 解析成功后该域名会以临时条目出现在 hosts 表。\n3) ip domain-lookup 默认开启；若历史配置 no 掉过，ping 域名直接报 % Unrecognized host，先补回该命令。\n验证方法：show run | include name-server 确认服务器已写入 + ping test_domain（内网任意域名），60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f6e8ea28-8fe6-5a95-93c5-162e3aac0cf6",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "全体 Cisco 设备",
+      "category": "时间同步",
+      "title": "配置 NTP 服务器与状态验证（Cisco IOS）",
+      "description": "指向内网 NTP 服务器并验证时钟同步（离网统一时基，日志/证书依赖）。",
+      "commands": "! ===== 配置 NTP 服务器与状态验证（Cisco IOS）=====\nenable\nconfigure terminal\nntp server {{ntp_server_ip}}\nend\n! ---- 验证：Clock is synchronized + associations 的 ~* 前缀 ----\nshow ntp status\nshow ntp associations\nshow clock detail\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) show ntp status 里 Clock is synchronized、stratum 有值才算同步——刚配置要等 2-5 分钟收敛，别急着判失败。\n2) associations 输出前缀 ~* = 当前选中的同步源；~x = 该源不可用（地址错/UDP 123 被拦）。\n3) NTP 认证（ntp authenticate）与访问控制本条不含；show clock detail 应显示时间来源为 NTP。\n验证方法：show ntp status synchronized + show clock detail，收敛后 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "6621a79d-127b-5e43-94f8-e4b2f76d792a",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "全体 Cisco 设备（IOS；IOS-XE 见 notes）",
+      "category": "版本升级",
+      "title": "软件版本查看、备份与升级流程（Cisco IOS）",
+      "description": "show version → 配置/镜像双备份 → md5 校验 → 指定启动镜像 → reload → 复核。",
+      "commands": "! ===== 版本查看、备份与升级流程（Cisco IOS）=====\n! ---- 0. ★ 三要素确认：变更窗口 / 回滚点（旧镜像保留）/ 带外 Console 通道 ----\nshow version\n! ---- 1. 备份配置与当前镜像（交互式输入 TFTP 地址与文件名）----\ncopy running-config tftp:\ncopy flash: tftp:\n! ---- 2. 看 flash 空间，传输新镜像（交互式 copy tftp: flash:）----\ndir flash:\ncopy tftp: flash:\n! ---- 3. ★ 校验新镜像（md5 值来自官方下载页；不匹配绝对禁止 reload）----\nverify /md5 flash:{{ios_image}}\n! ---- 4. 指定启动镜像并保存 ----\nconfigure terminal\nboot system flash:{{ios_image}}\nend\nwrite memory\n! ---- 5. 重启加载新版本（★ 备份与回滚方案就绪后再做）----\nreload\n! ---- 6. 重启后复核 ----\nshow version\n",
+      "params": [
+        {
+          "name": "backup_server",
+          "label": "TFTP/备份服务器 IP",
+          "default": "",
+          "required": true,
+          "required_note": "",
+          "validate": "ipv4",
+          "example": "192.168.66.20"
+        },
+        {
+          "name": "ios_image",
+          "label": "新版本镜像文件名",
+          "default": "",
+          "required": true,
+          "required_note": "",
+          "validate": "",
+          "example": "c1100-universalk9.17.06.05.SPA.bin"
+        }
+      ],
+      "notes": "1) ★ 危险点：全流程含 reload（重启断业务）——必须在变更窗口；回滚点 = 旧镜像仍在 flash（空间紧张删最老的，别删当前运行版）；带外 Console 是升级失败唯一救命通道。\n2) IOS-XE 16/17 走 install 模式（request platform software system upgrade / install add file xxx.bin），与本条 boot system 流程不同——先 show version 看清 IOS/XE 再选条目。\n3) verify /md5 不匹配 = 传输损坏，重传，绝不能 reload。\n4) 交互式 copy 会依次询问地址/源/目的文件名，照实回答即可。\n验证方法：升级后 show version 新版本号 + show flash 镜像齐全 + 业务连通抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "de5759f9-5656-55b4-8361-ba0e3d9b5f8e",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "全体 Cisco 设备（HSRP 网关冗余）",
+      "category": "HA/双机",
+      "title": "HSRP 网关冗余状态检查（Cisco IOS）",
+      "description": "HSRP 主备状态、优先级与抢占检查（网关冗余巡检标准动作）。",
+      "commands": "! ===== HSRP 网关冗余状态检查（Cisco IOS）=====\n! ---- 1. 汇总：各组 HSRP 的本机角色 ----\nshow standby brief\n! ---- 2. 详情：状态/优先级/抢占/定时器 ----\nshow standby\n! ---- 3. 统计（状态切换次数异常增多要查链路抖动）----\nshow standby statistics\n",
+      "params": [],
+      "notes": "1) show standby brief 里 Active/Standby 一主一备才正常——双 Active 说明 hello 心跳断（组播 224.0.0.2 不通），双 Standby 说明优先级/track 异常。\n2) 优先级高的设备应持 Active；配置 preempt 才会抢占回切，两台策略要一致。\n3) 回切演练：调低主机优先级→备机接管→恢复优先级观察回切，变更窗口内做。\n验证方法：show standby brief 双机互备 + statistics 切换次数无异常增长；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "363a555a-9b11-5baf-9dbd-7e1a5c85c880",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "全体 Cisco 设备（作 DHCP 服务端）",
+      "category": "地址分配",
+      "title": "DHCP 服务端状态与分配记录（Cisco IOS）",
+      "description": "查看地址池、分配记录与冲突表（办公网\"拿不到 IP/拿错 IP\"第一排查动作）。",
+      "commands": "! ===== DHCP 服务端状态与分配记录（Cisco IOS）=====\n! ---- 1. 地址池概览（利用率/网段/网关）----\nshow ip dhcp pool\n! ---- 2. 分配记录（MAC ↔ IP ↔ 租期）----\nshow ip dhcp binding\n! ---- 3. 冲突表（地址冲突会导致部分终端拿不到地址）----\nshow ip dhcp conflict\n",
+      "params": [],
+      "notes": "1) 拿不到地址先看 pool 的 excluded/已分配数——池子打满是最常见原因（show ip dhcp binding 数一数）。\n2) conflict 表有记录 = 有设备静态配了池内地址：先解决冲突源，再 clear ip dhcp conflict *。\n3) 中继场景（客户端跨网段）：核对网关侧 ip helper-address 指向本机，show run | include helper。\n验证方法：show ip dhcp binding 能看到终端租约 + 空闲地址充足，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "6156cb72-fcd3-5f9f-926a-7b93745d3764",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "全体 Cisco 设备（IOS）",
+      "category": "配置回滚",
+      "title": "配置回滚（Cisco IOS，archive/replace）",
+      "description": "改配置前用 archive 存回滚点，改坏后 configure replace 整体回退（比手工 undo 稳）。",
+      "commands": "! ===== 配置回滚（Cisco IOS）=====\n! ---- 0. 改动前：建立回滚点（archive 方式，先配置 archive 路径）----\nconfigure terminal\narchive\n path flash:archive-config\n write-memory\nexit\narchive config\nexit\n! ---- 1. 改动出问题后：整体回退到备份文件（★ 回滚前先 diff）----\nshow archive config differences nvram:startup-config flash:{{backup_file}}\nconfigure replace flash:{{backup_file}} force\n! ---- 2. 复核 ----\nshow running-config | include <核对关键字>\n",
+      "params": [
+        {
+          "name": "backup_file",
+          "label": "备份配置文件名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "confg-bak-20260928.cfg"
+        }
+      ],
+      "notes": "1) ★ 危险点：configure replace 是整体替换运行配置——替换前先 show archive config differences 做 diff，确认只回退不该回退的没有。\n2) configure replace 需要 archive 配置过；未配 archive 的老平台用 copy flash:xxx running-config 替代（注意是 merge 不是 replace，效果不同）。\n3) 与《保存配置并备份到本地 flash》分工：那条是\"改动后保存\"，本条是\"改坏后回退\"——先有保存的备份才有回滚点。\n4) 回滚后 write memory 与否取决于你要不要把回滚态固化（默认固化）。\n验证方法：diff 确认差异仅目标改动 + replace 后 show running-config 复核 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "9c901a97-f2b6-54aa-bdd0-5187f3aa42eb",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Cisco",
+      "category": "AAA认证",
+      "title": "配置 AAA 认证与本地兜底（Cisco IOS）",
+      "description": "radius/tacacs+ 服务器 + 本地兜底顺序 + test aaa 验证（先验证后退出，见 notes 铁律）。",
+      "commands": "! ===== AAA 认证与本地兜底（Cisco IOS）=====\nenable\nconfigure terminal\n! ---- 1. AAA 总开关 ----\naaa new-model\n! ---- 2. 服务器组（TACACS+ 为例；RADIUS 换 aaa group server radius）----\ntacacs server TAC1\n address ipv4 {{aaa_server_ip}}\n key {{aaa_shared_key}}\nexit\n! ---- 3. 认证顺序：先服务器，本地兜底 ----\naaa authentication login default group tacacs+ local\naaa authorization exec default group tacacs+ local\n! ---- 4. ★ 验证（新开窗口测，勿退当前会话）----\ntest aaa group tacacs+ {{test_user}} {{test_password}} legacy\n! ---- 5. 本地兜底账号确认存在 ----\nusername {{local_user}} privilege 15 secret {{local_password}}\nend\n",
+      "params": [
+        {
+          "name": "aaa_server_ip",
+          "label": "AAA 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.30"
+        },
+        {
+          "name": "aaa_shared_key",
+          "label": "共享密钥",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强密钥"
+        },
+        {
+          "name": "test_user",
+          "label": "验证用域账号",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "test_password",
+          "label": "验证用口令",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强口令"
+        },
+        {
+          "name": "local_user",
+          "label": "本地兜底账号",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "local_password",
+          "label": "本地兜底口令",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强口令"
+        }
+      ],
+      "notes": "1) ★ 危险点（AAA 第一铁律）：配置 AAA 后**不要退出当前会话**——先用新开窗口验证能登录，确认兜底本地账号可用再断开；配置错误把自己锁外面只能 Console 救。\n2) ★ 保留 Console 通道：AAA 服务器不可达时 Console 是最后生命线（console 上配置本地兜底）。\n3) 本地兜底顺序必须显式配置（radius/tacacs 之后跟 local），服务器全挂时才回落本地账号。\n4) test aaa 返回 PASSED 才算服务器侧通；返回 FAIL 要区分口令错还是服务器拒绝。\n5) 与《开启 SSH 并创建本地管理用户》配套：本地兜底账号就是那条建的用户。\n验证方法：test aaa PASSED + 新窗口用域账号登录成功 + 拔服务器线后本地账号仍可登录；（验证人/型号/日期验证通过后回填 verified，属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

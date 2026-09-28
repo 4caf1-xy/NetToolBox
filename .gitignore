@@ -1,0 +1,29 @@
+
+
+# ---- 本地杂项 ----
+# ---- 构建产物 / 临时目录 ----
+# ---- 运行时数据（含密钥/会话，禁止入库）----
+*.bak
+*.bak-*
+*.db
+*.log
+*.pyc
+*.stale-*
+.workbuddy/
+NetToolBox.spec
+NetToolBox.spec.stale-*
+NetToolBox_cli.log
+__pycache__/
+_vendor/
+ai_cases/
+ai_config.json
+build.stale-*/
+build/
+command_lib.db
+dist.stale-*/
+dist/
+dist_package/
+drafts/
+sessions/
+ui_state.json
+审计报告-种子库与主库覆盖度-20260924.md

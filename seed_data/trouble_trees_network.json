@@ -1,0 +1,2736 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "trouble_trees_network.json",
+  "count": 14,
+  "trouble_trees": [
+    {
+      "tree_id": "conn-same-subnet",
+      "symptom": "同网段 ping 不通",
+      "category": "连通性",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "确认本机接口状态",
+          "observe": "接口物理与协议状态是 up/up 还是 down？",
+          "explain": "先看本机这头有没有起来——物理层不通一切免谈。",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "接口 down 或 up/down",
+              "goto": "s2"
+            },
+            {
+              "when": "接口 up/up",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "物理层处理",
+          "observe": "换线/换口后状态是否恢复 up？",
+          "explain": "物理层不通：线缆、光模块、对端端口三选一查。",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "物理链路故障",
+            "actions": [
+              "更换网线/光纤/光模块",
+              "检查对端端口是否 shutdown 或 PoE 供电",
+              "用 ethtool/show interface 核对速率双工协商"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "检查 VLAN 归属与放通",
+          "observe": "端口是否在预期 VLAN？trunk 是否放通？",
+          "explain": "二层通了要看 VLAN 划分：access 划错、trunk 没放通都ping不通。",
+          "cmd_ref": {
+            "vendor_category": "VLAN",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "e3971cfc-1d22-5542-89d5-7b72b2c3ee6a",
+                "title": "创建 VLAN 并把端口划入 Access"
+              },
+              "huawei": {
+                "uuid": "fc982ad5-2758-5749-9f78-a5b2b52e41db",
+                "title": "创建 VLAN 并把端口划入 Access（S 系列）"
+              },
+              "h3c": {
+                "uuid": "ed4efc39-7d65-5f6b-84fd-db4df71f2a63",
+                "title": "创建 VLAN 并把端口划入 Access（Comware7）"
+              },
+              "ruijie": {
+                "uuid": "1c128aa6-de9b-53c7-90de-802fa9aa2e13",
+                "title": "创建 VLAN 并把端口划入 Access（锐捷 RGOS）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "VLAN 不对或没放通",
+              "goto": "s4"
+            },
+            {
+              "when": "VLAN 正确",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "title": "修正 VLAN 配置",
+          "observe": "按条目重配后是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "VLAN",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "e3971cfc-1d22-5542-89d5-7b72b2c3ee6a",
+                "title": "创建 VLAN 并把端口划入 Access"
+              },
+              "huawei": {
+                "uuid": "fc982ad5-2758-5749-9f78-a5b2b52e41db",
+                "title": "创建 VLAN 并把端口划入 Access（S 系列）"
+              },
+              "h3c": {
+                "uuid": "ed4efc39-7d65-5f6b-84fd-db4df71f2a63",
+                "title": "创建 VLAN 并把端口划入 Access（Comware7）"
+              },
+              "ruijie": {
+                "uuid": "1c128aa6-de9b-53c7-90de-802fa9aa2e13",
+                "title": "创建 VLAN 并把端口划入 Access（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "VLAN 配置错误",
+            "actions": [
+              "按 VLAN/Trunk 条目重配 access 或 trunk 放通",
+              "两端都要核对（本端+对端）",
+              "保存配置防止重启丢失"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "检查 ARP 与 MAC 学习",
+          "observe": "ARP/MAC 表里学到了对端吗？",
+          "explain": "二层全对还不通，看三层 ARP 有没有学、MAC 有没有过来。",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "ARP/MAC 都没有对端",
+              "goto": "s6"
+            },
+            {
+              "when": "ARP/MAC 正常",
+              "goto": "s7"
+            }
+          ]
+        },
+        {
+          "id": "s6",
+          "title": "对端核对",
+          "observe": "对端设备接口与 IP 是否正常？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "对端问题",
+            "actions": [
+              "核对对端 IP/掩码是否真在同网段",
+              "核对对端网关与防火墙（Windows 常见：网络位置设了公用）",
+              "在对端 ping 本机做反向验证"
+            ]
+          }
+        },
+        {
+          "id": "s7",
+          "title": "应用层与本地防火墙",
+          "observe": "禁用本机防火墙/杀软后是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "二层三层均正常",
+            "actions": [
+              "查本机防火墙（Windows 防火墙/Linux firewalld）",
+              "查安全软件拦截 ICMP",
+              "用 tcpdump/抓包确认 ICMP 报文到底有没有到"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "conn-cross-subnet",
+      "symptom": "跨网段 ping 不通",
+      "category": "连通性",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "先确认网关可达",
+          "observe": "ping 自己的网关通不通？",
+          "explain": "跨网段流量必过网关，网关不通先回同网段排查。",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "网关不通",
+              "goto": "s2"
+            },
+            {
+              "when": "网关通",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "回退同网段排查",
+          "observe": "按同网段树走完是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "本机到网关链路问题",
+            "actions": [
+              "先走《同网段 ping 不通》树把网关打通",
+              "核对网关 IP 是否填对"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "查路由表有无目的网段",
+          "observe": "路由表里有没有目的网段或默认路由？",
+          "explain": "有网关通只能保证默认路径，特定网段可能需要明细路由。",
+          "cmd_ref": {
+            "vendor_category": "静态路由",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "eac547bb-4688-5afa-82cc-cd39cc580518",
+                "title": "配置静态路由与浮动静态路由"
+              },
+              "huawei": {
+                "uuid": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+                "title": "配置静态路由与缺省路由（三层交换机）"
+              },
+              "h3c": {
+                "uuid": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+                "title": "配置静态路由、缺省路由与浮动备份"
+              },
+              "ruijie": {
+                "uuid": "2e17b383-ad10-533f-9e0f-ab2e4922a845",
+                "title": "配置静态路由与缺省路由（锐捷 RGOS）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "没有该网段路由",
+              "goto": "s4"
+            },
+            {
+              "when": "有路由",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "title": "补路由",
+          "observe": "加完路由是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "静态路由",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "eac547bb-4688-5afa-82cc-cd39cc580518",
+                "title": "配置静态路由与浮动静态路由"
+              },
+              "huawei": {
+                "uuid": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+                "title": "配置静态路由与缺省路由（三层交换机）"
+              },
+              "h3c": {
+                "uuid": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+                "title": "配置静态路由、缺省路由与浮动备份"
+              },
+              "ruijie": {
+                "uuid": "2e17b383-ad10-533f-9e0f-ab2e4922a845",
+                "title": "配置静态路由与缺省路由（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "缺路由",
+            "actions": [
+              "按静态路由条目加明细路由或默认路由",
+              "路由要双向配（去程+回程）",
+              "持久化保存，防止重启丢失"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "查中间设备 ACL",
+          "observe": "中间防火墙/网关 ACL 是否拦截？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "ACL",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "4302cef5-db24-5403-8143-72038ad1fb23",
+                "title": "配置扩展 ACL 并应用到接口"
+              },
+              "huawei": {
+                "uuid": "ea1fe386-ed49-5dd8-bbb4-00b33b0cf500",
+                "title": "配置 ACL 并应用到接口流量过滤"
+              },
+              "h3c": {
+                "uuid": "1f0a05fb-4b66-50cc-b2ef-106387f3eb68",
+                "title": "配置高级 ACL 并应用到接口"
+              },
+              "ruijie": {
+                "uuid": "f83d46d7-f563-5849-8c0c-8d374ee95ed0",
+                "title": "配置扩展 ACL 并应用到接口（锐捷 RGOS）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "有拦截",
+              "goto": "s6"
+            },
+            {
+              "when": "未拦截",
+              "goto": "s7"
+            }
+          ]
+        },
+        {
+          "id": "s6",
+          "title": "调整 ACL",
+          "observe": "放行后是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "ACL",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "4302cef5-db24-5403-8143-72038ad1fb23",
+                "title": "配置扩展 ACL 并应用到接口"
+              },
+              "huawei": {
+                "uuid": "ea1fe386-ed49-5dd8-bbb4-00b33b0cf500",
+                "title": "配置 ACL 并应用到接口流量过滤"
+              },
+              "h3c": {
+                "uuid": "1f0a05fb-4b66-50cc-b2ef-106387f3eb68",
+                "title": "配置高级 ACL 并应用到接口"
+              },
+              "ruijie": {
+                "uuid": "f83d46d7-f563-5849-8c0c-8d374ee95ed0",
+                "title": "配置扩展 ACL 并应用到接口（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "ACL 拦截",
+            "actions": [
+              "按 ACL 条目放行对应源目网段",
+              "注意 ACL 顺序（先匹配先生效）",
+              "保存配置"
+            ]
+          }
+        },
+        {
+          "id": "s7",
+          "title": "查对端回程路由",
+          "observe": "对端有没有回程路由（能 ping 通本机网关吗）？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "静态路由",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "eac547bb-4688-5afa-82cc-cd39cc580518",
+                "title": "配置静态路由与浮动静态路由"
+              },
+              "huawei": {
+                "uuid": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+                "title": "配置静态路由与缺省路由（三层交换机）"
+              },
+              "h3c": {
+                "uuid": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+                "title": "配置静态路由、缺省路由与浮动备份"
+              },
+              "ruijie": {
+                "uuid": "2e17b383-ad10-533f-9e0f-ab2e4922a845",
+                "title": "配置静态路由与缺省路由（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "回程路由缺失",
+            "actions": [
+              "在对端网关/设备加回本网段的路由",
+              "用 traceroute 两头对跑定位断点"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "conn-specific-subnet",
+      "symptom": "特定网段不通",
+      "category": "连通性",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "查本机路由表",
+          "observe": "路由表里有没有该网段？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "静态路由",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "eac547bb-4688-5afa-82cc-cd39cc580518",
+                "title": "配置静态路由与浮动静态路由"
+              },
+              "huawei": {
+                "uuid": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+                "title": "配置静态路由与缺省路由（三层交换机）"
+              },
+              "h3c": {
+                "uuid": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+                "title": "配置静态路由、缺省路由与浮动备份"
+              },
+              "ruijie": {
+                "uuid": "2e17b383-ad10-533f-9e0f-ab2e4922a845",
+                "title": "配置静态路由与缺省路由（锐捷 RGOS）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "没有",
+              "goto": "s2"
+            },
+            {
+              "when": "有",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "补齐静态路由",
+          "observe": "补完是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "静态路由",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "eac547bb-4688-5afa-82cc-cd39cc580518",
+                "title": "配置静态路由与浮动静态路由"
+              },
+              "huawei": {
+                "uuid": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+                "title": "配置静态路由与缺省路由（三层交换机）"
+              },
+              "h3c": {
+                "uuid": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+                "title": "配置静态路由、缺省路由与浮动备份"
+              },
+              "ruijie": {
+                "uuid": "2e17b383-ad10-533f-9e0f-ab2e4922a845",
+                "title": "配置静态路由与缺省路由（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "缺静态路由",
+            "actions": [
+              "按静态路由条目添加并持久化",
+              "确认下一跳可达"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "查 ACL 与策略",
+          "observe": "ACL 是否拦截该网段？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "ACL",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "4302cef5-db24-5403-8143-72038ad1fb23",
+                "title": "配置扩展 ACL 并应用到接口"
+              },
+              "huawei": {
+                "uuid": "ea1fe386-ed49-5dd8-bbb4-00b33b0cf500",
+                "title": "配置 ACL 并应用到接口流量过滤"
+              },
+              "h3c": {
+                "uuid": "1f0a05fb-4b66-50cc-b2ef-106387f3eb68",
+                "title": "配置高级 ACL 并应用到接口"
+              },
+              "ruijie": {
+                "uuid": "f83d46d7-f563-5849-8c0c-8d374ee95ed0",
+                "title": "配置扩展 ACL 并应用到接口（锐捷 RGOS）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "拦截",
+              "goto": "s4"
+            },
+            {
+              "when": "未拦截",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "title": "调整 ACL",
+          "observe": "调整后是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "ACL",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "4302cef5-db24-5403-8143-72038ad1fb23",
+                "title": "配置扩展 ACL 并应用到接口"
+              },
+              "huawei": {
+                "uuid": "ea1fe386-ed49-5dd8-bbb4-00b33b0cf500",
+                "title": "配置 ACL 并应用到接口流量过滤"
+              },
+              "h3c": {
+                "uuid": "1f0a05fb-4b66-50cc-b2ef-106387f3eb68",
+                "title": "配置高级 ACL 并应用到接口"
+              },
+              "ruijie": {
+                "uuid": "f83d46d7-f563-5849-8c0c-8d374ee95ed0",
+                "title": "配置扩展 ACL 并应用到接口（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "ACL 拦截",
+            "actions": [
+              "放行该网段并保存"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "查 NAT 与安全策略",
+          "observe": "流量是否被 NAT/安全策略影响？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "NAT",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "97e11a82-836e-5dd8-91da-db7f5bead11c",
+                "title": "配置 NAT 地址转换（PAT 复用）"
+              },
+              "huawei": {
+                "uuid": "5a9b2932-b97d-50d4-8ab7-2a59c1e65804",
+                "title": "配置 NAT 地址转换（Easy IP）"
+              },
+              "h3c": {
+                "uuid": "fd36e60b-fa43-599d-866a-0d31fcbecc95",
+                "title": "配置出接口 NAT（Easy IP / 地址池 PAT）"
+              },
+              "ruijie": {
+                "uuid": "f3509a0e-7e27-55cb-bc65-94e7c5d38bb0",
+                "title": "配置 NAT 地址转换（PAT 复用 / 静态映射）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "定位为策略问题",
+            "actions": [
+              "核对 NAT 转换与安全策略放行",
+              "两端同时抓包定位丢在哪跳"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "port-down",
+      "symptom": "端口 down",
+      "category": "端口",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "确认端口状态",
+          "observe": "物理层与协议层分别是什么状态？",
+          "explain": "physica down 与 protocol down 是两种完全不同的故障方向。",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "物理 down",
+              "goto": "s2"
+            },
+            {
+              "when": "协议 down（物理 up）",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "物理层处理",
+          "observe": "换线/换口后是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "物理层故障",
+            "actions": [
+              "更换网线/光纤/光模块",
+              "检查对端端口状态与供电",
+              "核对速率双工协商"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "查 err-disable 与错误计数",
+          "observe": "是否 err-disable？错误计数是否增长？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "err-disable",
+              "goto": "s4"
+            },
+            {
+              "when": "无 err-disable",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "title": "err-disable 恢复",
+          "observe": "shutdown/no shutdown 后是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "端口被协议性关闭",
+            "actions": [
+              {
+                "text": "先关闭该端口再重新打开使其恢复（本库暂无端口恢复专用条目）"
+              },
+              "按日志找 err-disable 原因（BPDU 违规/端口安全/风暴控制）",
+              "加固后保存配置"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "查对端与协商",
+          "observe": "对端端口状态与双工协商是否正常？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "对端或协商问题",
+            "actions": [
+              "核对本端与对端速率双工（一端 auto 一端固定必出问题）",
+              "核对对端 VLAN 与封装",
+              "联系对端管理员"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "port-errdisable",
+      "symptom": "端口 err-disable",
+      "category": "端口",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "确认 err-disable 状态",
+          "observe": "状态里是否带 err-disabled 标记？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "是 err-disable",
+              "goto": "s2"
+            },
+            {
+              "when": "不是",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "从日志找原因",
+          "observe": "日志里写的是什么原因？",
+          "explain": "err-disable 一定有原因日志：psecure-violation/bpduguard/loopback/udld。",
+          "cmd_ref": {
+            "vendor_category": "日志",
+            "title_keyword": "系统日志",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "526e648c-b0c2-5029-a9b4-c2d8d1f4119f",
+                "title": "系统日志排查（show logging）"
+              },
+              "huawei": {
+                "uuid": "ed8335ed-fdf5-5bd3-abef-957f25c82dc5",
+                "title": "系统日志排查（display logbuffer）"
+              },
+              "h3c": {
+                "uuid": "20ff35a6-bd75-50e6-ad77-0649bea74203",
+                "title": "系统日志排查（display logbuffer）"
+              },
+              "ruijie": {
+                "uuid": "33307a5b-ecc8-56f3-af5a-4937383919cf",
+                "title": "系统日志排查（show logging）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "原因已定位",
+            "actions": [
+              "先 shutdown 再 no shutdown 恢复端口",
+              "psecure-violation → 核对端口安全 MAC 限制",
+              "bpduguard → 核对是否误接交换机",
+              "loopback/udld → 查环路",
+              "加固后保存配置"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "转端口 down 树",
+          "observe": "按端口 down 树排查是否定位？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "非 err-disable",
+            "actions": [
+              "按《端口 down》树继续排查"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "port-slow-loss",
+      "symptom": "端口慢 / 丢包",
+      "category": "端口",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "查接口错误计数",
+          "observe": "CRC / input errors 是否持续增长？",
+          "explain": "错误计数是物理层质量的直接证据，两次采样对比。",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "错误增长",
+              "goto": "s2"
+            },
+            {
+              "when": "无错误",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "物理层质量",
+          "observe": "更换线缆/模块后错误是否停止？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "物理层质量差",
+            "actions": [
+              "更换网线/光纤/光模块",
+              "清洁光纤接口",
+              "核对光模块与传输距离匹配"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "查双工与速率协商",
+          "observe": "两端双工/速率是否一致？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "不匹配",
+              "goto": "s4"
+            },
+            {
+              "when": "一致",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "title": "固定协商参数",
+          "observe": "固定后是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "双工不匹配",
+            "actions": [
+              "两端统一固定速率双工或统一 auto",
+              "保存配置"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "查拥塞与策略",
+          "observe": "端口利用率与 QoS/风暴控制配置是否异常？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "链路带宽或策略问题",
+            "actions": [
+              "核对端口带宽利用率基线",
+              "检查 QoS/风暴控制阈值",
+              "必要时扩容或做链路聚合"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "port-optical",
+      "symptom": "光模块故障",
+      "category": "端口",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "看光口状态",
+          "observe": "Link detected 与光功率/收发光是否正常？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "无链路",
+              "goto": "s2"
+            },
+            {
+              "when": "有链路但丢包",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "无链路处理",
+          "observe": "清洁/更换后是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "光模块或光纤故障",
+            "actions": [
+              "清洁光纤头（无尘纸+无水酒精）",
+              "更换光模块（注意速率与波长匹配）",
+              "更换光纤跳线",
+              "核对模块兼容性（厂商锁定）"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "误码排查",
+          "observe": "CRC/输入错误是否仍增长？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "光路质量差",
+            "actions": [
+              "更换光模块与跳线",
+              "用光功率计测收发光功率",
+              "核对传输距离（多模 550m/单模 10km 别混用）"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "perf-broadcast-storm",
+      "symptom": "广播风暴疑似环路",
+      "category": "性能",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "确认广播流量异常",
+          "observe": "接口广播包计数是否异常增长？CPU 是否升高？",
+          "explain": "环路最典型的表现：广播包暴涨 + MAC 漂移 + CPU 升高。",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "广播暴涨",
+              "goto": "s2"
+            },
+            {
+              "when": "正常",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "查 MAC 地址漂移",
+          "observe": "同一 MAC 是否在多个端口间来回漂移？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "在漂移",
+              "goto": "s3"
+            },
+            {
+              "when": "无漂移",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "title": "环路应急处理",
+          "observe": "shutdown 嫌疑端口后风暴是否停止？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "确认存在环路",
+            "actions": [
+              "立即 shutdown 嫌疑端口止血",
+              "启用/核对生成树（STP/RSTP/MSTP）",
+              "排查私接 hub/网线自环/双上联",
+              "恢复后做风暴控制加固"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "非环路排查",
+          "observe": "日志里是否有其它异常？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "日志",
+            "title_keyword": "系统日志",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "526e648c-b0c2-5029-a9b4-c2d8d1f4119f",
+                "title": "系统日志排查（show logging）"
+              },
+              "huawei": {
+                "uuid": "ed8335ed-fdf5-5bd3-abef-957f25c82dc5",
+                "title": "系统日志排查（display logbuffer）"
+              },
+              "h3c": {
+                "uuid": "20ff35a6-bd75-50e6-ad77-0649bea74203",
+                "title": "系统日志排查（display logbuffer）"
+              },
+              "ruijie": {
+                "uuid": "33307a5b-ecc8-56f3-af5a-4937383919cf",
+                "title": "系统日志排查（show logging）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "非环路广播源",
+            "actions": [
+              "抓包定位广播源 MAC 与类型（ARP/DHCP/NetBIOS）",
+              "按源 MAC 定位接入端口",
+              "必要时端口隔离或做广播抑制"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "perf-cpu-high",
+      "symptom": "CPU 告警",
+      "category": "性能",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "定位占用进程",
+          "observe": "CPU 排名前三的进程是什么？",
+          "explain": "进程名直接决定排查方向，别急着重启设备。",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "CPU",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "05b4d26e-0618-5558-9dc2-0f0bb94af261",
+                "title": "CPU 与内存诊断（show processes）"
+              },
+              "huawei": {
+                "uuid": "8aa8a79e-97d2-50f7-84f8-61672a4d1a5f",
+                "title": "CPU 与内存诊断（display cpu-usage）"
+              },
+              "h3c": {
+                "uuid": "a9ab37f3-b627-5661-b3a6-1c8c9e7f1d51",
+                "title": "CPU 与内存诊断（display cpu-usage）"
+              },
+              "ruijie": {
+                "uuid": "4ea47e80-9ec3-57f0-a677-ecd637d8e89d",
+                "title": "CPU 与内存诊断（show processes cpu）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "ARP/广播相关",
+              "goto": "s2"
+            },
+            {
+              "when": "路由协议相关",
+              "goto": "s3"
+            },
+            {
+              "when": "其它/不明",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "广播风暴方向",
+          "observe": "结合《广播风暴疑似环路》树是否定位？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "广播流量打 CPU",
+            "actions": [
+              "按《广播风暴疑似环路》树排查",
+              "必要时 ACL 限流或风暴控制"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "路由协议抖动",
+          "observe": "邻居是否反复翻动？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "OSPF",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "28250c48-48c3-50ee-b4d7-3b12495327e8",
+                "title": "配置 OSPF 基本组网"
+              },
+              "huawei": {
+                "uuid": "cbeb3037-d375-599b-bace-3571fd3afee2",
+                "title": "配置 OSPF 基本组网（S 系列）"
+              },
+              "h3c": {
+                "uuid": "51c3dd16-1788-50d8-8c03-6156bd3c832d",
+                "title": "配置 OSPF 基本组网（Comware7）"
+              },
+              "ruijie": {
+                "uuid": "51ce7f24-f3b5-5056-b442-e2f713666fae",
+                "title": "配置 OSPF 基本组网（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "路由协议风暴",
+            "actions": [
+              "查邻居翻动原因（链路抖动/认证/定时器）",
+              " OSPF/BGP 条目里查邻居状态",
+              "必要时临时静默接口"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "持续观察与上报",
+          "observe": "采集基线与日志后是否可定位？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "日志",
+            "title_keyword": "系统日志",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "526e648c-b0c2-5029-a9b4-c2d8d1f4119f",
+                "title": "系统日志排查（show logging）"
+              },
+              "huawei": {
+                "uuid": "ed8335ed-fdf5-5bd3-abef-957f25c82dc5",
+                "title": "系统日志排查（display logbuffer）"
+              },
+              "h3c": {
+                "uuid": "20ff35a6-bd75-50e6-ad77-0649bea74203",
+                "title": "系统日志排查（display logbuffer）"
+              },
+              "ruijie": {
+                "uuid": "33307a5b-ecc8-56f3-af5a-4937383919cf",
+                "title": "系统日志排查（show logging）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "需深入分析",
+            "actions": [
+              "采集 show processes cpu history 基线",
+              "收集日志与 core 文件",
+              "联系厂商分析（离网环境下用 U 盘拷贝）"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "ospf-exstart",
+      "symptom": "OSPF 邻居卡 ExStart",
+      "category": "路由协议",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "确认邻居状态",
+          "observe": "邻居卡在哪个状态（ExStart/Exchange/Init/无邻居）？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "OSPF",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "28250c48-48c3-50ee-b4d7-3b12495327e8",
+                "title": "配置 OSPF 基本组网"
+              },
+              "huawei": {
+                "uuid": "cbeb3037-d375-599b-bace-3571fd3afee2",
+                "title": "配置 OSPF 基本组网（S 系列）"
+              },
+              "h3c": {
+                "uuid": "51c3dd16-1788-50d8-8c03-6156bd3c832d",
+                "title": "配置 OSPF 基本组网（Comware7）"
+              },
+              "ruijie": {
+                "uuid": "51ce7f24-f3b5-5056-b442-e2f713666fae",
+                "title": "配置 OSPF 基本组网（锐捷 RGOS）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "ExStart/Exchange",
+              "goto": "s2"
+            },
+            {
+              "when": "Init",
+              "goto": "s3"
+            },
+            {
+              "when": "无邻居",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "MTU 与 DBD 协商",
+          "observe": "两端接口 MTU 是否一致？中间链路是否透传 DBD 包？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "MTU 不一致",
+            "actions": [
+              "统一两端接口 MTU（ip mtu）",
+              "检查中间传输设备是否截断大包",
+              "必要时配置忽略 MTU 检测（临时）"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "Hello 单向可达",
+          "observe": "本机能看到对方、对方看不到本机？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "单向通信",
+            "actions": [
+              "查组播 224.0.0.5/224.0.0.6 是否被中间设备过滤",
+              "查接口 ACL",
+              "查单播/组播混合组网的 PIM 配置"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "宣告与参数核对",
+          "observe": "两端网段宣告、区域号、Hello/Dead、认证是否一致？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "OSPF",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "28250c48-48c3-50ee-b4d7-3b12495327e8",
+                "title": "配置 OSPF 基本组网"
+              },
+              "huawei": {
+                "uuid": "cbeb3037-d375-599b-bace-3571fd3afee2",
+                "title": "配置 OSPF 基本组网（S 系列）"
+              },
+              "h3c": {
+                "uuid": "51c3dd16-1788-50d8-8c03-6156bd3c832d",
+                "title": "配置 OSPF 基本组网（Comware7）"
+              },
+              "ruijie": {
+                "uuid": "51ce7f24-f3b5-5056-b442-e2f713666fae",
+                "title": "配置 OSPF 基本组网（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "配置不一致",
+            "actions": [
+              "核对 network 反掩码与区域号",
+              "核对 Hello/Dead 定时器与网络类型",
+              "核对认证类型与密钥",
+              "改 router-id 后记得清进程（生产慎用）"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "bgp-idle",
+      "symptom": "BGP 邻居 Idle",
+      "category": "路由协议",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "确认邻居状态",
+          "observe": "邻居状态是 Idle / Active / OpenSent / Established？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "BGP",
+            "title_keyword": "BGP",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "7d6820f7-2739-5e11-9dbc-6b9b3f3a504a",
+                "title": "BGP 邻居状态诊断（show ip bgp）"
+              },
+              "huawei": {
+                "uuid": "fc4207cb-76c4-537e-8d59-e909be3f3074",
+                "title": "BGP 邻居状态诊断（display bgp peer）"
+              },
+              "h3c": {
+                "uuid": "b94b0298-b6ce-50e1-802c-6fce84f7d958",
+                "title": "BGP 邻居状态诊断（display bgp peer）"
+              },
+              "ruijie": {
+                "uuid": "dcfef69e-0633-564d-8d8d-a8e3062911af",
+                "title": "BGP 邻居状态诊断（show ip bgp）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "Idle",
+              "goto": "s2"
+            },
+            {
+              "when": "Active/OpenSent",
+              "goto": "s3"
+            },
+            {
+              "when": "Established",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "底层连通性",
+          "observe": "ping 对端更新源地址是否可达？TCP 179 是否被拦？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "底层不通",
+            "actions": [
+              {
+                "text": "确认到对端 update-source 地址的三层可达性（本库暂无 ping 专用条目）"
+              },
+              "核对 ebgp-multihop 与 TTL",
+              "查中间 ACL 是否放通 TCP 179"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "协商参数核对",
+          "observe": "两端 AS 号、认证、update-source 是否一致？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "BGP",
+            "title_keyword": "BGP",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "7d6820f7-2739-5e11-9dbc-6b9b3f3a504a",
+                "title": "BGP 邻居状态诊断（show ip bgp）"
+              },
+              "huawei": {
+                "uuid": "fc4207cb-76c4-537e-8d59-e909be3f3074",
+                "title": "BGP 邻居状态诊断（display bgp peer）"
+              },
+              "h3c": {
+                "uuid": "b94b0298-b6ce-50e1-802c-6fce84f7d958",
+                "title": "BGP 邻居状态诊断（display bgp peer）"
+              },
+              "ruijie": {
+                "uuid": "dcfef69e-0633-564d-8d8d-a8e3062911af",
+                "title": "BGP 邻居状态诊断（show ip bgp）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "协商失败",
+            "actions": [
+              "核对邻居 AS 号（本端配的是对端 AS）",
+              "核对认证密码两端一致",
+              "核对 update-source / ebgp-multihop",
+              "核对 address-family 是否激活邻居"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "策略与路由",
+          "observe": "到邻居的静态/动态路由是否正常？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "静态路由",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "eac547bb-4688-5afa-82cc-cd39cc580518",
+                "title": "配置静态路由与浮动静态路由"
+              },
+              "huawei": {
+                "uuid": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+                "title": "配置静态路由与缺省路由（三层交换机）"
+              },
+              "h3c": {
+                "uuid": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+                "title": "配置静态路由、缺省路由与浮动备份"
+              },
+              "ruijie": {
+                "uuid": "2e17b383-ad10-533f-9e0f-ab2e4922a845",
+                "title": "配置静态路由与缺省路由（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "路由或策略问题",
+            "actions": [
+              "核对到对端的路由（BGP 建会话要三层可达）",
+              "核对 route-policy 是否误杀"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "正常确认",
+          "observe": "Established 且前缀数量正常？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "BGP",
+            "title_keyword": "BGP",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "7d6820f7-2739-5e11-9dbc-6b9b3f3a504a",
+                "title": "BGP 邻居状态诊断（show ip bgp）"
+              },
+              "huawei": {
+                "uuid": "fc4207cb-76c4-537e-8d59-e909be3f3074",
+                "title": "BGP 邻居状态诊断（display bgp peer）"
+              },
+              "h3c": {
+                "uuid": "b94b0298-b6ce-50e1-802c-6fce84f7d958",
+                "title": "BGP 邻居状态诊断（display bgp peer）"
+              },
+              "ruijie": {
+                "uuid": "dcfef69e-0633-564d-8d8d-a8e3062911af",
+                "title": "BGP 邻居状态诊断（show ip bgp）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "已恢复",
+            "actions": [
+              "记录基线（前缀数/CPU/内存）",
+              "观察一段时间确认稳定"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "route-static-broken",
+      "symptom": "静态路由不生效",
+      "category": "路由协议",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "查路由表",
+          "observe": "路由表里有没有这条静态路由？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "静态路由",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "eac547bb-4688-5afa-82cc-cd39cc580518",
+                "title": "配置静态路由与浮动静态路由"
+              },
+              "huawei": {
+                "uuid": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+                "title": "配置静态路由与缺省路由（三层交换机）"
+              },
+              "h3c": {
+                "uuid": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+                "title": "配置静态路由、缺省路由与浮动备份"
+              },
+              "ruijie": {
+                "uuid": "2e17b383-ad10-533f-9e0f-ab2e4922a845",
+                "title": "配置静态路由与缺省路由（锐捷 RGOS）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "没有",
+              "goto": "s2"
+            },
+            {
+              "when": "有",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "查下一跳可达性",
+          "observe": "下一跳地址当前是否可达？",
+          "explain": "下一跳不可达时，静态路由会从路由表里消失（浮动/带检测的尤其如此）。",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "下一跳不可达",
+              "goto": "s3"
+            },
+            {
+              "when": "下一跳可达",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "title": "修下一跳链路",
+          "observe": "下一跳链路恢复后路由是否回来了？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "下一跳不可达",
+            "actions": [
+              "修复到下一跳的链路",
+              "改写法：带出接口的静态路由（出接口 down 自动失效）",
+              "需要链路检测时结合 NQA/track"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "查管理距离与覆盖",
+          "observe": "是否被 OSPF/BGP 等更优路由覆盖？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "静态路由",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "eac547bb-4688-5afa-82cc-cd39cc580518",
+                "title": "配置静态路由与浮动静态路由"
+              },
+              "huawei": {
+                "uuid": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+                "title": "配置静态路由与缺省路由（三层交换机）"
+              },
+              "h3c": {
+                "uuid": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+                "title": "配置静态路由、缺省路由与浮动备份"
+              },
+              "ruijie": {
+                "uuid": "2e17b383-ad10-533f-9e0f-ab2e4922a845",
+                "title": "配置静态路由与缺省路由（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "被更优路由覆盖",
+            "actions": [
+              {
+                "text": "查看该网段的实际来源与协议优先级",
+                "cmd_ref": {
+                  "vendor_category": "静态路由",
+                  "os_family": "vrp5"
+                }
+              },
+              "调整管理距离/preference",
+              "确认业务意图：本来就该走动态路由就不用静态"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "查掩码与方向",
+          "observe": "掩码与目的网段是否写对？流量方向是否走对了设备？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "静态路由",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "eac547bb-4688-5afa-82cc-cd39cc580518",
+                "title": "配置静态路由与浮动静态路由"
+              },
+              "huawei": {
+                "uuid": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+                "title": "配置静态路由与缺省路由（三层交换机）"
+              },
+              "h3c": {
+                "uuid": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+                "title": "配置静态路由、缺省路由与浮动备份"
+              },
+              "ruijie": {
+                "uuid": "2e17b383-ad10-533f-9e0f-ab2e4922a845",
+                "title": "配置静态路由与缺省路由（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "配置笔误或方向错误",
+            "actions": [
+              "核对目的网段+掩码（0.0.0.0 默认路由）",
+              "核对是去程还是回程缺失（两端都要查）",
+              {
+                "text": "去程与回程分别验证路径（本库暂无 traceroute 专用条目）"
+              }
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "mgmt-ssh-fail",
+      "symptom": "SSH 连不上",
+      "category": "管理面",
+      "vendor_hint": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "确认管理地址可达",
+          "observe": "ping 设备管理 IP 是否通？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "不通",
+              "goto": "s2"
+            },
+            {
+              "when": "通",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "先解决三层可达",
+          "observe": "按连通性树排查后是否可达？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "title_keyword": "接口状态",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "h3c": {
+                "uuid": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+                "title": "接口状态诊断（display interface 族）"
+              },
+              "ruijie": {
+                "uuid": "794b74c5-30f8-5b93-98d7-ba18abeaf547",
+                "title": "接口状态诊断（show interfaces 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "管理地址不可达",
+            "actions": [
+              "先走连通性树打通管理网段",
+              "核对管理 IP/VLAN/带外网线"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "查 SSH 服务与 vty",
+          "observe": "SSH 服务是否开启？vty 是否限制 transport/ACL？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "SSH管理",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "c51d45e0-bfe2-531c-9db4-2debdb2dba00",
+                "title": "开启 SSH 并创建本地管理用户"
+              },
+              "huawei": {
+                "uuid": "db7e7679-a4e4-51cc-ba17-156b1d8e98eb",
+                "title": "开启 SSH 并创建本地管理用户（S 系列）"
+              },
+              "h3c": {
+                "uuid": "de093fea-fd7e-58c0-a310-9a839cff8917",
+                "title": "开启 SSH 并创建管理员账号（Comware7）"
+              },
+              "ruijie": {
+                "uuid": "294982b2-6cad-5377-87ff-033423a38030",
+                "title": "开启 SSH 并创建本地用户（锐捷 RGOS）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "服务未开或 vty 限制",
+              "goto": "s4"
+            },
+            {
+              "when": "配置正常",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "title": "开启 SSH",
+          "observe": "按条目开启后是否能登录？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "SSH管理",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "c51d45e0-bfe2-531c-9db4-2debdb2dba00",
+                "title": "开启 SSH 并创建本地管理用户"
+              },
+              "huawei": {
+                "uuid": "db7e7679-a4e4-51cc-ba17-156b1d8e98eb",
+                "title": "开启 SSH 并创建本地管理用户（S 系列）"
+              },
+              "h3c": {
+                "uuid": "de093fea-fd7e-58c0-a310-9a839cff8917",
+                "title": "开启 SSH 并创建管理员账号（Comware7）"
+              },
+              "ruijie": {
+                "uuid": "294982b2-6cad-5377-87ff-033423a38030",
+                "title": "开启 SSH 并创建本地用户（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "SSH 服务未开启",
+            "actions": [
+              "按 SSH 管理条目生成密钥并开启服务",
+              "核对 vty 的 transport input 与 authentication-mode",
+              "改完先留一个会话再退出验证"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "查账号与认证",
+          "observe": "用户名密码是否正确？认证模式是 local 还是 aaa？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "密码",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "dd503bcb-810d-58e7-9c2d-8af6903226fc",
+                "title": "修改 Console 口令与特权密码"
+              },
+              "huawei": {
+                "uuid": "aec91111-a95a-5257-afc1-fef4195ad322",
+                "title": "修改 Console 口令与用户级别"
+              },
+              "h3c": {
+                "uuid": "e06208c2-ed72-56d8-a381-d7a353aa0b0f",
+                "title": "修改 Console 口令与用户角色"
+              },
+              "ruijie": {
+                "uuid": "f4066cd1-f4ee-5a1a-b7d3-d2d39edd624b",
+                "title": "修改 Console 口令与特权密码（锐捷 RGOS）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "认证失败",
+              "goto": "s6"
+            },
+            {
+              "when": "认证通过但仍断",
+              "goto": "s7"
+            }
+          ]
+        },
+        {
+          "id": "s6",
+          "title": "重置凭据",
+          "observe": "重置后是否可登录？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "密码",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "dd503bcb-810d-58e7-9c2d-8af6903226fc",
+                "title": "修改 Console 口令与特权密码"
+              },
+              "huawei": {
+                "uuid": "aec91111-a95a-5257-afc1-fef4195ad322",
+                "title": "修改 Console 口令与用户级别"
+              },
+              "h3c": {
+                "uuid": "e06208c2-ed72-56d8-a381-d7a353aa0b0f",
+                "title": "修改 Console 口令与用户角色"
+              },
+              "ruijie": {
+                "uuid": "f4066cd1-f4ee-5a1a-b7d3-d2d39edd624b",
+                "title": "修改 Console 口令与特权密码（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "账号或口令问题",
+            "actions": [
+              "重置口令或新建临时管理员",
+              "核对口令有效期/失败锁定",
+              "完成后删除临时账号"
+            ]
+          }
+        },
+        {
+          "id": "s7",
+          "title": "查 ACL 与口令策略",
+          "observe": "管理 ACL 是否含本机？口令是否过期？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "密码",
+            "os_family": "vrp5",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "dd503bcb-810d-58e7-9c2d-8af6903226fc",
+                "title": "修改 Console 口令与特权密码"
+              },
+              "huawei": {
+                "uuid": "aec91111-a95a-5257-afc1-fef4195ad322",
+                "title": "修改 Console 口令与用户级别"
+              },
+              "h3c": {
+                "uuid": "e06208c2-ed72-56d8-a381-d7a353aa0b0f",
+                "title": "修改 Console 口令与用户角色"
+              },
+              "ruijie": {
+                "uuid": "f4066cd1-f4ee-5a1a-b7d3-d2d39edd624b",
+                "title": "修改 Console 口令与特权密码（锐捷 RGOS）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "管理面策略拦截",
+            "actions": [
+              "核对 ssh server acl / vty access-class",
+              "核对口令有效期与复杂度策略",
+              "必要时走 console 兜底"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "mac-flap-suspect",
+      "symptom": "异常流量/端口闪烁——疑似 MAC 漂移",
+      "category": "管理面",
+      "vendor_hint": [
+        "cisco",
+        "huawei"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "MAC 漂移检测与定位",
+          "observe": "漂移 MAC 在两端口间反复迁移的记录",
+          "explain": "先拿到漂移 MAC 与两端口，这是后续所有判断的输入",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "5c692ab8-864a-5a39-8a08-0808085d66b9",
+                "title": "MAC 漂移检测与追踪（Cisco mac notification）"
+              },
+              "huawei": {
+                "uuid": "dc5d2941-927c-5296-aab9-86e920d9174d",
+                "title": "MAC 漂移检测与追踪（华为 mac-flapping）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "漂移 MAC 是网关/虚拟化集群地址（合法漂移）",
+              "goto": "s5"
+            },
+            {
+              "when": "漂移的是普通终端 MAC",
+              "goto": "s2"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "STP 状态与环路核查",
+          "observe": "根桥是否固定、端口角色、广播是否激增",
+          "explain": "普通终端 MAC 漂移 + 广播激增 = 大概率环路（两端口间存在第二路径）",
+          "cmd_ref": {
+            "vendor_category": "环路检测",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "725c7069-a4b9-5a3e-9bd8-05064642c3cb",
+                "title": "环路检测与 STP 状态核查（Cisco）"
+              },
+              "huawei": {
+                "uuid": "60ae5147-49d8-5c02-b3e5-244f52837ebd",
+                "title": "环路检测与 STP 状态核查（华为）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "有环路/STP 异常",
+              "goto": "s3"
+            },
+            {
+              "when": "无环路但漂移持续",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "title": "按环路处置并复核",
+          "observe": "断开环路一端后风暴平息",
+          "explain": "恢复顺序见环路条目 notes：定位→断一端→平息→排查→补防护",
+          "cmd_ref": {
+            "vendor_category": "环路检测",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "725c7069-a4b9-5a3e-9bd8-05064642c3cb",
+                "title": "环路检测与 STP 状态核查（Cisco）"
+              },
+              "huawei": {
+                "uuid": "60ae5147-49d8-5c02-b3e5-244f52837ebd",
+                "title": "环路检测与 STP 状态核查（华为）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "环路导致的 MAC 漂移，已处置",
+            "actions": [
+              "补 STP/环路防护",
+              "排查接线人/接入设备",
+              "观察漂移记录不再增长"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "非环路漂移排查（伪造/接入错位）",
+          "observe": "无环路但 MAC 持续漂移",
+          "explain": "疑似 ARP 欺骗/终端克隆地址/一台设备双上联——按安全事件走",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "疑似伪造或接入错位（安全事件）",
+            "actions": [
+              "漂移端口限速/关闭其一",
+              "按 MAC 定位物理位置（接入交换机逐口排查）",
+              "报安全团队跟进"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "合法漂移确认与记录",
+          "observe": "漂移 MAC 属于 VRRP/HSRP 虚地址或虚拟化集群",
+          "explain": "主备切换/虚拟机迁移造成的短暂漂移是正常现象",
+          "cmd_ref": {
+            "vendor_category": "接口诊断",
+            "by_vendor": {
+              "cisco": {
+                "uuid": "a88980b9-2830-5411-a556-1bacd821b23c",
+                "title": "接口状态诊断（show interfaces 族）"
+              },
+              "huawei": {
+                "uuid": "bb912f63-35b2-5e31-80ab-2c627341e639",
+                "title": "接口状态诊断（display interface 族）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "合法漂移（主备切换/虚拟化迁移），无需处置",
+            "actions": [
+              "记录切换时间点",
+              "若切换过于频繁再回到 s1 排查稳定性"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    }
+  ],
+  "generated_at": "2026-09-28"
+}

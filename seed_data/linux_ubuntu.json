@@ -1,0 +1,890 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "linux_ubuntu.json",
+  "vendor_label": "Ubuntu 22.04（netplan 体系）",
+  "vendor_slug": "ubuntu",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 24,
+  "entries": [
+    {
+      "uuid": "5b094e2d-eb19-5797-8486-e7dcd1b9b4f1",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 20.04 / 22.04 Server",
+      "category": "网络配置",
+      "title": "临时配置 IP 地址（ip 命令族）",
+      "description": "用 ip 命令临时加 IP，立即生效，重启后失效。",
+      "commands": "# ⚠ 临时生效：重启后失效，持久化见配套条目：《netplan 永久配置 IP（Ubuntu）》\nip addr show\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}\nip link set {{ifname}} up\nping -c 2 {{gateway}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        }
+      ],
+      "notes": "1) ⚠ 重启后失效：持久化见配套条目：《netplan 永久配置 IP（Ubuntu）》。\n2) Ubuntu 桌面版由 NetworkManager 管、Server 版由 systemd-networkd 管，\n   但 ip 命令两种都适用（临时调试用）。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "154befa8-8969-5566-8ec7-3711dba0958b",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+ Server",
+      "category": "网络配置",
+      "title": "netplan 永久配置 IP（Ubuntu）",
+      "description": "改 /etc/netplan/*.yaml 实现静态 IP 持久化，重启后仍生效。",
+      "commands": "# 持久化：/etc/netplan/01-netcfg.yaml（文件名随意，必须是 .yaml）\ncp /etc/netplan/00-installer-config.yaml /etc/netplan/00-installer-config.yaml.bak\nvi /etc/netplan/01-netcfg.yaml\n# ---- 文件内容（YAML 缩进用空格，Tab 直接报错）----\n# network:\n#   version: 2\n#   ethernets:\n#     {{ifname}}:\n#       dhcp4: no\n#       addresses: [{{ip_addr}}/{{prefix_len}}]\n#       routes:\n#         - to: default\n#           via: {{gateway}}\n#       nameservers:\n#         addresses: [{{dns_ip}}]\n# ------------------------------------\nchmod 600 /etc/netplan/01-netcfg.yaml\nnetplan try\n# try 120 秒内不确认会自动回滚（远程改网关的救命命令）；确认没问题再：\nnetplan apply\nip addr show {{ifname}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "dns_ip",
+          "label": "DNS 服务器",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        }
+      ],
+      "notes": "1) ★ YAML 缩进必须用空格，Tab 会直接报错；层级错了 netplan apply 会拒绝执行。\n2) ★ netplan try 是远程改网络的救命命令：不确认自动回滚，避免把自己踢下线。\n3) 配置文件建议 chmod 600（里面可能有敏感信息，netplan 会告警）。\n4) 与 RHEL 系完全不同：RHEL 用 ifcfg-*，Ubuntu 用 netplan YAML —— 别混用。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f22a2a84-f838-5d4c-9226-b8b77db77a00",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+ Server",
+      "category": "网络配置",
+      "title": "netplan 配置 VLAN 子接口",
+      "description": "在 netplan 里声明 VLAN 子接口并持久化。",
+      "commands": "vi /etc/netplan/01-vlans.yaml\n# ---- 文件内容 ----\n# network:\n#   version: 2\n#   ethernets:\n#     {{ifname}}: {}\n#   vlans:\n#     {{ifname}}.{{vlan_id}}:\n#       id: {{vlan_id}}\n#       link: {{ifname}}\n#       addresses: [{{ip_addr}}/{{prefix_len}}]\n# ------------------------------------\nnetplan apply\nip -d link show {{ifname}}.{{vlan_id}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        }
+      ],
+      "notes": "1) 母接口 {{ifname}} 必须在 ethernets 里声明（哪怕空配置），否则 vlans 引用不到。\n2) 交换机侧要 trunk + 放通该 VLAN；验证标签：cat /proc/net/vlan/config。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "c167a57b-5b04-52fe-8455-cc416d0ca1dc",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+ Server",
+      "category": "网络配置",
+      "title": "netplan 配置双网卡 bond",
+      "description": "在 netplan 里声明 bond 做链路冗余，配置持久化。",
+      "commands": "vi /etc/netplan/01-bond.yaml\n# ---- 文件内容 ----\n# network:\n#   version: 2\n#   ethernets:\n#     {{ifname}}: {}\n#     {{ifname2}}: {}\n#   bonds:\n#     bond0:\n#       interfaces: [{{ifname}}, {{ifname2}}]\n#       parameters:\n#         mode: active-backup\n#         mii-monitor-interval: 100\n#       addresses: [{{ip_addr}}/{{prefix_len}}]\n#       routes:\n#         - to: default\n#           via: {{gateway}}\n# ------------------------------------\nnetplan apply\ncat /proc/net/bonding/bond0",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "ifname2",
+          "label": "第二块网卡",
+          "default": "eth1",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth1"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        }
+      ],
+      "notes": "1) member 网卡在 ethernets 里要声明为空配置，交给 bonds 接管。\n2) mode 常用 active-backup（主备）与 802.3ad（LACP，需交换机配合）。\n3) 改完先 netplan try 再 apply。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "c0ed7438-d915-58e5-b34b-1b520d3ccc47",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+（systemd-resolved）",
+      "category": "网络配置",
+      "title": "DNS 配置（systemd-resolved）",
+      "description": "Ubuntu 的 /etc/resolv.conf 指向 stub，直接改会被覆盖，要改 resolved 或 netplan。",
+      "commands": "resolvectl status | head -20\n# 方式一：全局 DNS\nvi /etc/systemd/resolved.conf\n# DNS={{dns_ip}}\n# FallbackDNS=\nsystemctl restart systemd-resolved\n# 方式二（推荐）：写在 netplan 的 nameservers 里（见《netplan 永久配置 IP（Ubuntu）》）\nresolvectl status | grep \"DNS Servers\"\ndig @{{dns_ip}} {{domain}} +short",
+      "params": [
+        {
+          "name": "dns_ip",
+          "label": "DNS 服务器",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        },
+        {
+          "name": "domain",
+          "label": "域名",
+          "default": "www.example.com",
+          "required": true,
+          "validate": "",
+          "example": "www.example.com"
+        }
+      ],
+      "notes": "1) ★ /etc/resolv.conf 是指向 127.0.0.53 的软链，手改会被 systemd-resolved 覆盖回去。\n2) netplan 里配 DNS 会下发到 resolved，是最干净的持久化方式。\n3) resolvectl status 能看到每个链路（网卡）各自的 DNS。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "0d3ca58c-9ecd-5bfd-b4d6-505a7e58ae58",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 20.04+（装了 network-manager）",
+      "category": "网络配置",
+      "title": "nmcli 配置 IP（Ubuntu 桌面版/装了 NM 的服务器）",
+      "description": "Ubuntu 装了 NetworkManager 时用 nmcli 配置，写入持久化并立即生效。",
+      "commands": "nmcli con show\nnmcli con mod \"{{con_name}}\" ipv4.method manual ipv4.addresses {{ip_addr}}/{{prefix_len}}\nnmcli con mod \"{{con_name}}\" ipv4.gateway {{gateway}}\nnmcli con mod \"{{con_name}}\" ipv4.dns {{dns_ip}}\nnmcli con up \"{{con_name}}\"",
+      "params": [
+        {
+          "name": "con_name",
+          "label": "连接名",
+          "default": "eth0",
+          "required": false,
+          "validate": "",
+          "example": "nmcli con show 查看，一般等于网卡名"
+        },
+        {
+          "name": "ip_addr",
+          "label": "IP 地址",
+          "default": "192.168.10.50",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.50"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（不是 255.255.255.0）"
+        },
+        {
+          "name": "gateway",
+          "label": "网关",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "dns_ip",
+          "label": "DNS 服务器",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        }
+      ],
+      "notes": "1) Server 默认用 netplan+networkd，没有 nmcli；装了 network-manager 才有。\n2) nmcli 与 netplan 同时管理同一网卡会打架，一个网卡认一个管。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "297246ef-c222-5d30-b76b-d0daaad8b08b",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+",
+      "category": "服务管理",
+      "title": "systemctl 服务管理（Ubuntu）",
+      "description": "启动/停止/重启/状态/自启，Ubuntu 与 Debian 通用。",
+      "commands": "systemctl status {{service_name}} --no-pager\nsystemctl restart {{service_name}}\nsystemctl enable --now {{service_name}}\nsystemctl is-enabled {{service_name}}\njournalctl -u {{service_name}} -n 50 --no-pager",
+      "params": [
+        {
+          "name": "service_name",
+          "label": "服务名",
+          "default": "sshd",
+          "required": true,
+          "validate": "",
+          "example": "sshd / firewalld / NetworkManager"
+        }
+      ],
+      "notes": "1) enable --now 一步到位：设自启并立即启动（等价 enable + start）。\n2) disable --now 反过来：停掉并取消自启。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "baa13814-e05f-5d12-9cd8-4f92aecf28a6",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+",
+      "category": "服务管理",
+      "title": "开机自启排查（Ubuntu）",
+      "description": "查服务自启状态与自启列表。",
+      "commands": "systemctl is-enabled {{service_name}}\nsystemctl list-unit-files --type=service --state=enabled --no-pager\nsystemctl list-dependencies {{service_name}}",
+      "params": [
+        {
+          "name": "service_name",
+          "label": "服务名",
+          "default": "sshd",
+          "required": true,
+          "validate": "",
+          "example": "sshd / firewalld / NetworkManager"
+        }
+      ],
+      "notes": "1) is-enabled 输出 enabled/static/disabled；static 表示被依赖拉起，不是自启失败。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "c728b20c-8028-52e1-bcd2-5e28eb6cfdb4",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+（ufw）",
+      "category": "防火墙",
+      "title": "ufw 防火墙基础（Ubuntu）",
+      "description": "Ubuntu 默认的 ufw 防火墙：放行端口、按源放行、启停。",
+      "commands": "ufw status verbose\n# ★ 先放行 SSH 再 enable，否则会把自己踢下线\nufw allow 22/tcp\nufw allow {{port}}/tcp\nufw allow from {{src_net}}/{{prefix_len}} to any port {{port}} proto tcp\nufw enable\nufw status numbered\n# 删除规则\nufw status numbered\nufw delete 2",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "源掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24"
+        }
+      ],
+      "notes": "1) ★ ufw enable 前必须先 allow 22/tcp，否则远程会话直接断开。\n2) ufw delete 2 删的是 status numbered 里编号为 2 的规则（编号会变，先查再删）。\n3) ufw 不需要 reload，规则即时生效并持久化；与手写 iptables 规则会互相干扰。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "8ec4a39b-6ad4-5b74-806c-70f307f38479",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+",
+      "category": "排查命令",
+      "title": "查端口监听与占用（ss）",
+      "description": "确认服务是否监听、被谁占用。",
+      "commands": "ss -tlnp | grep :{{port}}\nss -tlnp\nss -tlnp | grep {{pid}}",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        },
+        {
+          "name": "pid",
+          "label": "进程号",
+          "default": "1234",
+          "required": true,
+          "validate": "int:1-4194304",
+          "example": "1234"
+        }
+      ],
+      "notes": "1) LISTEN 没有 → 服务没起；LISTEN 有但不通 → ufw/iptables 或对端链路。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "6227b8fd-fb8a-5d72-b3ec-f81f8fed481e",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+",
+      "category": "排查命令",
+      "title": "tcpdump 抓包入门（Ubuntu）",
+      "description": "按主机/端口抓包，远程排查记得排除 SSH 流量。",
+      "commands": "tcpdump -i {{ifname}} -nn host {{peer_ip}} -c 100\ntcpdump -i {{ifname}} -nn port {{port}} -c 100\ntcpdump -i {{ifname}} -nn not port 22 -c 200\ntcpdump -i {{ifname}} -nn -w /tmp/capture.pcap -c 1000",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": true,
+          "validate": "ifname",
+          "example": "eth0 / ens33 / enp3s0 / bond0"
+        },
+        {
+          "name": "peer_ip",
+          "label": "对端 IP",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "port",
+          "label": "端口号",
+          "default": "8080",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8080"
+        }
+      ],
+      "notes": "1) -nn 不解析域名；远程排查加 not port 22。\n2) tcpdump 没装：apt install tcpdump（离线场景见本地源条目）。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "5cb7d2aa-008c-5609-bcdb-5c458adce088",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+",
+      "category": "日志",
+      "title": "journalctl 日志过滤（Ubuntu）",
+      "description": "按服务/时间/级别过滤 systemd 日志。",
+      "commands": "journalctl -u {{service_name}} -n 100 --no-pager\njournalctl -xe\njournalctl -p err -b --no-pager\njournalctl --since \"10 min ago\" --no-pager",
+      "params": [
+        {
+          "name": "service_name",
+          "label": "服务名",
+          "default": "sshd",
+          "required": true,
+          "validate": "",
+          "example": "sshd / firewalld / NetworkManager"
+        }
+      ],
+      "notes": "1) --since \"10 min ago\" 这类相对时间很顺手；也可用具体时间戳。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "c5f087ce-249d-53df-b710-cb956350d397",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+",
+      "category": "本地源",
+      "title": "本地 apt 源（deb 目录）★ 离网特供",
+      "description": "把收集来的 deb 目录做成 apt 源，离线安装。",
+      "commands": "mkdir -p /opt/local-debs\ncp ./*.deb /opt/local-debs/\ncd /opt/local-debs\ndpkg-scanpackages . /dev/null | gzip > Packages.gz\necho \"deb [trusted=yes] file:/opt/local-debs ./\" > /etc/apt/sources.list.d/local.list\napt-get update\napt-get install {{pkg_name}} -y\napt-cache policy {{pkg_name}}",
+      "params": [
+        {
+          "name": "pkg_name",
+          "label": "软件包名",
+          "default": "createrepo",
+          "required": true,
+          "validate": "",
+          "example": "createrepo"
+        }
+      ],
+      "notes": "1) ★ 每次加了新 deb 都要重新 dpkg-scanpackages 生成 Packages.gz，否则 apt 看不到。\n2) [trusted=yes] 免签名校验；内网多机可改用 http 服务共享目录。\n3) apt-get update 报 NO_PUBKEY → 加 [trusted=yes] 或导入 key。",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "8269a8fc-9951-5617-a6a3-c5cb20b54f56",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+",
+      "category": "本地源",
+      "title": "离线 deb 安装（含依赖处理）",
+      "description": "没有源时用 dpkg 直接装，重点是依赖。",
+      "commands": "dpkg -i {{pkg_name}}.deb\ndpkg -i ./*.deb\n# 装完有依赖缺失时（有可用源的情况下）：\napt-get install -f -y\ndpkg -l | grep {{pkg_name}}",
+      "params": [
+        {
+          "name": "pkg_name",
+          "label": "软件包名",
+          "default": "createrepo",
+          "required": true,
+          "validate": "",
+          "example": "createrepo"
+        }
+      ],
+      "notes": "1) dpkg -i 不会自动装依赖 → 把依赖 deb 放同目录一起 dpkg -i ./*.deb。\n2) apt-get install -f 自动补缺失依赖（需要至少一个可用源）。\n3) 查包内容：dpkg -L {{pkg_name}}；查已装版本：dpkg -l | grep {{pkg_name}}。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "466cab9e-536b-5bf4-aea8-2f03676cb2ee",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+",
+      "category": "磁盘",
+      "title": "磁盘空间排查（df/du/deleted 句柄）",
+      "description": "定位磁盘占满，含 deleted 句柄的经典坑。",
+      "commands": "df -h\ndu -sh /* 2>/dev/null | sort -rh | head -10\ndu -sh /var/log/* | sort -rh | head -10\nlsof | grep deleted | head\njournalctl --disk-usage\njournalctl --vacuum-size=500M",
+      "params": [],
+      "notes": "1) df 满、du 不大 → lsof | grep deleted；journalctl 日志可用 --vacuum-size 缩容。\n2) 清理正在写的日志用 : > 文件截断，不要直接 rm。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "62c1bb3c-3721-58ab-a681-2ca3f0965f8b",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 18.04+",
+      "category": "系统资源",
+      "title": "CPU / 内存资源判读（top/free）",
+      "description": "看谁在吃资源，正确解读 free 输出。",
+      "commands": "top -b -n 1 | head -20\nfree -h\nps aux --sort=-%mem | head -10\nps aux --sort=-%cpu | head -10",
+      "params": [],
+      "notes": "1) free 看 available；buff/cache 是缓存不算占用。\n2) %wa 高 = IO 等待（磁盘瓶颈）；%us 高 = 应用吃 CPU。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "dcec3d65-dac4-482a-93fd-a47cb8116871",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 22.04 LTS",
+      "category": "网络配置",
+      "title": "临时添加静态路由（Ubuntu）",
+      "description": "临时加一条静态路由；持久化需写进 netplan 的 routes 段。",
+      "commands": "# 1) 临时生效（重启失效）\nip route add {{dest_net}}/{{prefix_len}} via {{gateway}}\nip route show\n# 2) 持久化：把下面这段加进 /etc/netplan/*.yaml 的 ethernets 对应网卡下，再执行\n#    routes:\n#      - to: {{dest_net}}/{{prefix_len}}\n#        via: {{gateway}}\nnetplan apply\n# 3) 复核\nip route show | grep {{dest_net}}",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "8",
+          "required": true,
+          "validate": "masklen",
+          "example": "8"
+        },
+        {
+          "name": "gateway",
+          "label": "下一跳网关",
+          "default": "192.168.1.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.1.1"
+        }
+      ],
+      "notes": "1) 本条目同时给出**临时**与**持久化**两套做法，按现场需要取用。\n2) 只配去程不够：对端也要有回程路由，否则单向不通。\n3) 临时路由重启必丢，做变更请用第 2) 段的 nmcli 方式。",
+      "duration": "both",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "badd911f-39c1-4ec8-aeb3-55d6a4e52992",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 22.04 LTS",
+      "category": "排查命令",
+      "title": "ethtool 网卡链路诊断（Ubuntu）",
+      "description": "用 ethtool 判断物理层是否 Link detected、速率双工是否协商正常。",
+      "commands": "ethtool {{ifname}}\nethtool -S {{ifname}} | head -40\nip -s link show {{ifname}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "default": "eth0",
+          "required": false,
+          "validate": "ifname",
+          "example": "eth0"
+        }
+      ],
+      "notes": "1) Link detected: no 说明物理层没起来（线缆/网口/对端）。\n2) 虚拟机里还要核对虚拟网卡与桥接网卡是否对应。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "4817095e-4f5c-48ce-a682-4fd496ad3b4e",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 22.04 LTS",
+      "category": "排查命令",
+      "title": "连通性排查三连（Ubuntu）",
+      "description": "ping / traceroute / dig 三连，覆盖二层可达、路径与 DNS 解析。",
+      "commands": "ping -c 4 {{target}}\ntraceroute -n {{target}}\ndig +short {{domain}}",
+      "params": [
+        {
+          "name": "target",
+          "label": "目标地址",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5"
+        },
+        {
+          "name": "domain",
+          "label": "待解析域名",
+          "default": "www.baidu.com",
+          "required": false,
+          "validate": "",
+          "example": "www.baidu.com"
+        }
+      ],
+      "notes": "1) 能 ping 通 IP 但 dig 不通 → 查 DNS 配置（不是连通性问题）。\n2) traceroute 默认走 UDP，被过滤时可加 -I 用 ICMP 再试。",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "230f77a4-2814-528b-a6dc-d8e6e45d889d",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 22.04（含 live-server ISO）",
+      "category": "本地源",
+      "duration": "perm",
+      "title": "本地 apt ISO 源（挂载 + file:/ 源 + fstab 持久化）",
+      "description": "挂载 Ubuntu ISO 作 apt 本地源；与《本地 apt 源（deb 目录）》互补——ISO 源开箱即用免 dpkg-scanpackages。",
+      "commands": "# ===== 本地 apt ISO 源（Ubuntu）=====\n# ---- 0. ★ 备份源配置 ----\ncp /etc/apt/sources.list /etc/apt/sources.list.bak.$(date +%Y%m%d)\n# ---- 1. 挂载 ISO ----\nmkdir -p /mnt/cdrom\nmount -o loop {{iso_path}} /mnt/cdrom\nls /mnt/cdrom/dists\n# ---- 2. 写 file:/ 源（发行代号按上一步 ls 的实际输出填 {{release_name}}）----\necho \"deb [trusted=yes] file:/mnt/cdrom {{release_name}} main universe\" > /etc/apt/sources.list.d/local-iso.list\n# ---- 3. 刷新 + 验证性安装 ----\napt-get update\napt-get install -y {{pkg_name}}\n# ---- 4. 开机自动挂载（fstab）----\necho '{{iso_path}} /mnt/cdrom iso9660 loop,ro 0 0' >> /etc/fstab\nmount -a && mount | grep /mnt/cdrom\n",
+      "params": [
+        {
+          "name": "iso_path",
+          "label": "ISO 文件路径",
+          "default": "",
+          "required": true,
+          "validate": "path",
+          "example": "/opt/iso/ubuntu-22.04.4-live-server-amd64.iso"
+        },
+        {
+          "name": "release_name",
+          "label": "发行代号（ls dists 输出）",
+          "default": "jammy",
+          "required": false,
+          "validate": "",
+          "example": "jammy"
+        },
+        {
+          "name": "pkg_name",
+          "label": "验证性安装的包名",
+          "default": "vim",
+          "required": false,
+          "validate": "",
+          "example": "vim"
+        }
+      ],
+      "notes": "1) ★ 易错点：GPG 校验——file:/ 源没有可校验的 keyring，不加 [trusted=yes] 时 apt-get update 报 NO_PUBKEY/InRelease 校验失败；内网物理介质可控加 trusted=yes 是通行做法，企业有签名要求则导入 ISO 的归档 key 后去掉 trusted。\n2) ★ 易错点：fstab 写错会导致开机卡住——第 4 步追加后必须立刻 mount -a 验证无报错；更稳妥用 blkid 查 ISO 的 UUID 替换路径列。\n3) 发行代号必须与 ISO 一致（22.04 = jammy），代号写错 apt-get update 报 Release 文件不存在；live-server ISO 的 pool 含 main/universe 常用包，桌面版范围更大。\n4) apt-get update 若同时报公网源失败属正常（离网），只看 local-iso 是否 OK。\n验证方法：apt-get update 无 local-iso 报错 + apt-get install -y {{pkg_name}} 成功，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）"
+    },
+    {
+      "uuid": "e28d4a54-7e60-5293-8459-af5c1bb57a71",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 22.04",
+      "category": "时间同步",
+      "title": "配置 systemd-timesyncd 时间同步（Ubuntu 22.04）",
+      "description": "Ubuntu 原生 timesyncd 指向内网 NTP；要 chrony 见 notes（两者别同时跑）。",
+      "commands": "# ===== 配置 systemd-timesyncd 时间同步（Ubuntu 22.04）=====\n# ---- 0. 备份 ----\ncp /etc/systemd/timesyncd.conf /etc/systemd/timesyncd.conf.bak.$(date +%Y%m%d)\n# ---- 1. 指向内网 NTP（NTP= 大写；FallbackNTP 留空防连公网）----\ncat > /etc/systemd/timesyncd.conf << 'EOF'\n[Time]\nNTP={{ntp_server_ip}}\nFallbackNTP=\nEOF\n# ---- 2. 重启并确认 NTP 服务开启 ----\nsystemctl restart systemd-timesyncd\ntimedatectl set-ntp true\n# ---- 3. 验证 ----\ntimedatectl status\ntimedatectl timesync-status\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) Ubuntu 22.04 默认用 systemd-timesyncd（不是 chrony）；若已装 chrony 需先 systemctl disable --now chrony，两个时间服务同时跑会互抢。\n2) timedatectl timesync-status 里 Offset 是偏差、Sync Status 应为 synchronized；NTP 服务没起先看 firewall 是否拦 UDP 123。\n3) 需要 chrony 的高级功能（作为内网 NTP 源对外服务）时：apt install chrony（本地源，见本地源条目）后改用 chrony.conf，并 disable timesyncd。\n验证方法：timedatectl status 显示 synchronized + timesync-status 偏差毫秒级，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "perm",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "e348e7c7-d8be-5c21-92dd-a18c22946754",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 22.04",
+      "category": "进程管理",
+      "title": "进程排查与安全终止（ps/top/kill，Ubuntu 22.04）",
+      "description": "CPU/内存 TOP 定位、进程树确认、TERM→KILL 两级终止、OOM 判读。",
+      "commands": "# ===== 进程排查与安全终止（ps/top/kill）=====\n# ---- 1. CPU / 内存占用 TOP10（快照）----\nps aux --sort=-%cpu | head -11\nps aux --sort=-%mem | head -11\n# ---- 2. 动态判读（交互式 top：P 按CPU M 按内存，1 展开各核，q 退出）----\ntop -b -n 1 | head -15\n# ---- 3. 锁定目标进程：确认 PID、属主、父进程（别误杀子进程/服务拉起的守护）----\nps -ef | grep <关键字>\nsystemctl status <服务名> 2>/dev/null | head -8\n# ---- 4. 终止：先 TERM（15，给收尾机会），无效再 KILL（9）----\n# kill <PID>\n# kill -9 <PID>        # ★ 最后手段：不给收尾机会，可能丢数据/留共享内存段\n# ---- 5. OOM 判读（进程莫名消失先查这里）----\ndmesg | grep -i \"out of memory\" | tail -5\njournalctl -k --no-pager | grep -i -E \"oom|killed process\" | tail -5\n",
+      "params": [],
+      "notes": "1) ★ 危险点：kill -9 是最后手段——先 TERM 等几秒观察，数据库/中间件进程被 -9 可能丢数据或下次起不来；杀前用 ps -ef | grep 核对 PID 与属主，别按记忆敲 PID。\n2) 进程\"莫名消失\"九成是 OOM：dmesg/journalctl 里 Killed process 一行带 PID 与 oom_score，处理思路是限内存或加内存，不是重启了事。\n3) 僵尸进程（STAT=Z）杀不掉是父进程没回收：找到 PPID 处理父进程，kill 僵尸本身无效。\n4) top -b -n 1 是快照；交互式直接敲 top，P/M 排序、1 看各核。\n验证方法：ps aux --sort=-%cpu 出 TOP10 + dmesg 无 OOM 记录（或定位到消失进程），60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "0dbaa58d-6eb5-58e7-9730-2424cbd984a9",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 22.04",
+      "category": "审计日志",
+      "title": "登录痕迹与审计排查（Ubuntu 22.04）",
+      "description": "last/w/lastlog 登录痕迹 + 失败登录爆破特征 + auditd 服务状态（账号治理与取证常用）。",
+      "commands": "# ===== 登录痕迹与审计排查（Ubuntu 22.04）=====\n# ---- 1. 最近登录记录（来源 IP/端口/时段）----\nlast -n 15\n# 当前在线：\nw\n# 从未登录过的账号（排查僵尸账号）：\nlastlog | grep -v \"Never logged in\" | head -10\n# ---- 2. 失败登录（爆破特征：同一来源连续 Failed）----\ngrep -c \"Failed password\" /var/log/auth.log\ngrep \"Failed password\" /var/log/auth.log | tail -8\n# ---- 3. 审计服务状态（auditd 在跑才有审计事件）----\nsystemctl status auditd --no-pager | head -5\n# auditctl -l        <- 当前审计规则（为空 = 只记系统默认）\n",
+      "params": [],
+      "notes": "1) 登录痕迹三件套：last（历史登录，含来源 IP）、w（当前在线）、lastlog（各账号最后一次登录——长期 Never 的账号是清理对象）。\n2) 失败登录看 auth.log：同一来源 IP 连续 Failed password 是爆破特征，配合防火墙封禁来源 IP。\n3) Ubuntu 登录日志在 /var/log/auth.log（RHEL 系才是 secure）。\n4) auditd 规则为空不代表没日志，只是没自定义审计规则；现场取证需求再按需加规则（-w 监控关键文件）。\n验证方法：last/w 有记录、grep 失败登录有计数、auditd running，三条命令 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f6b2836a-54d8-5bb6-9cab-930693555435",
+      "platform": "linux",
+      "device_type": "",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 22.04（光口服务器）",
+      "category": "排查命令",
+      "title": "光模块读数与网卡错包判读（ethtool -m，Ubuntu 22.04）",
+      "description": "DOM 光功率读数与网卡错包统计判读，清计数前先留存基线。",
+      "commands": "# ===== 光模块读数与网卡错包判读（ethtool -m，Ubuntu 22.04）=====\n# ---- 1. 光模块 DOM 读数（Rx/Tx 功率；不支持 DOM 的电口模块无输出）----\nethtool -m <网卡名>\n# ---- 2. 错包统计基线（留存本输出再观察增量）----\nip -s link show <网卡名>\nethtool -S <网卡名> | head -20\n# ---- 3. 判读口径见 notes；CRC 持续增长 = 光衰/模块/对端问题 ----\n",
+      "params": [],
+      "notes": "1) ethtool -m 输出 RX Power/TX Power 判读口径与网络侧一致（-5 ~ -15 dBm 健康区，低于 -20 告警）。\n2) ethtool -S 的 rx_crc_errors / rx_no_buffer 持续增长：CRC 查光衰与模块，no_buffer 查 CPU 负载与缓冲。\n3) 判读口径以网卡/模块厂商 datasheet 为准；先留存基线再观察增量。\n验证方法：ethtool -m 读数健康 + 基线后 CRC 不再增长；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

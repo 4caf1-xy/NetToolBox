@@ -1,0 +1,712 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "trouble_trees_firewall.json",
+  "vendor_label": "防火墙排查树（fortinet/paloalto/sangfor/topsec）",
+  "count": 4,
+  "trouble_trees": [
+    {
+      "tree_id": "fw-policy-deny",
+      "symptom": "防火墙策略不生效（配了策略仍不通）",
+      "category": "策略诊断",
+      "vendor_hint": [
+        "fortinet",
+        "paloalto",
+        "sangfor",
+        "topsec"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "查会话是否建立、命中哪条策略",
+          "observe": "会话查询按目的 IP 过滤",
+          "explain": "会话是判断流量到没到防火墙、被谁处理的分水岭",
+          "cmd_ref": {
+            "vendor_category": "防火墙诊断",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "f0ac2dda-5a37-5070-a367-0026fe7be5a1",
+                "title": "会话表与策略命中诊断（FortiOS）"
+              },
+              "paloalto": {
+                "uuid": "24feb9c8-bdf3-54e9-8291-cf5462701e46",
+                "title": "会话表与策略命中诊断（PAN-OS）"
+              },
+              "sangfor": {
+                "uuid": "b263ec23-b9b5-52d1-a9bc-86afe438219b",
+                "title": "会话与策略命中诊断（深信服 AF，CLI 骨架 + Web 对照）"
+              },
+              "topsec": {
+                "uuid": "b6b66a97-c09f-55af-bdc1-2fc5fbfff6ce",
+                "title": "会话与策略命中诊断（天融信 TopOS，CLI 骨架 + Web 对照）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "无会话（流量没到防火墙）",
+              "goto": "s2"
+            },
+            {
+              "when": "有会话且被策略拒绝（deny）",
+              "goto": "s3"
+            },
+            {
+              "when": "有会话且放行但仍不通",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "路由可达检查",
+          "observe": "核对去程路由与回程路由",
+          "explain": "无会话先怀疑路由：防火墙有没有去目的网段的路由、对端有没有回程",
+          "cmd_ref": {
+            "vendor_category": "静态路由",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "ab1f0f93-02cb-59cf-93b0-c22bfa0a1459",
+                "title": "配置静态路由与默认路由"
+              },
+              "paloalto": {
+                "uuid": "4e21bace-fb13-5c98-a7fe-f74ec449f43a",
+                "title": "配置静态路由与默认路由（PAN-OS）"
+              },
+              "sangfor": {
+                "uuid": "949bc517-781f-54fa-a8c0-aaeda5757c3f",
+                "title": "配置静态路由与默认路由（Web 控制台）"
+              },
+              "topsec": {
+                "uuid": "ba9ca3aa-8942-5f89-8a2a-5f8801975132",
+                "title": "配置静态路由与默认路由（Web 控制台）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "路由缺失或不一致",
+            "actions": [
+              "补静态路由/默认路由",
+              "在相邻设备核对回程路由",
+              "补路由后回到 s1 复测会话"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "策略顺序与拦截点定位",
+          "observe": "会话命中的策略名与动作",
+          "explain": "策略从上到下第一条命中即止，命中的可能是前面更宽的 deny",
+          "cmd_ref": {
+            "vendor_category": "ACL",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "1f331c90-7694-5387-a322-91e70a2e2fd8",
+                "title": "配置地址对象与防火墙策略（ACL 等效）"
+              },
+              "paloalto": {
+                "uuid": "79235f77-4cc9-5b5a-a4db-92fe85549eb0",
+                "title": "配置安全策略与地址对象（ACL 等效）"
+              },
+              "sangfor": {
+                "uuid": "928768c1-2aba-5d17-975a-e105ab99b69a",
+                "title": "配置 ACL 访问控制策略（Web 控制台）"
+              },
+              "topsec": {
+                "uuid": "a21ba346-fe3d-57f0-84e9-c90c2c08a18a",
+                "title": "配置 ACL 访问控制策略（Web 控制台）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "策略顺序/对象问题",
+            "actions": [
+              "在 deny 之前插入放行策略",
+              "核对地址/服务对象定义",
+              "调整后回到 s1 复测"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "NAT 转换检查",
+          "observe": "会话的转换字段（translated/xlate）",
+          "explain": "放行了仍不通，常见是 NAT 没走/转换后地址不对",
+          "cmd_ref": {
+            "vendor_category": "防火墙诊断",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "6091c66c-b763-5bdc-9df0-f37c3e2f7ea3",
+                "title": "NAT 会话与端口映射诊断（FortiOS）"
+              },
+              "paloalto": {
+                "uuid": "23660802-b6e0-50d1-ae24-75fbcbbca2d9",
+                "title": "NAT 会话诊断（PAN-OS）"
+              },
+              "sangfor": {
+                "uuid": "0b0cf093-0646-5a8e-8b5b-ca508d97b500",
+                "title": "NAT 会话诊断（深信服 AF，CLI 骨架 + Web 对照）"
+              },
+              "topsec": {
+                "uuid": "42c761e7-df0f-50d7-963e-95102326bb23",
+                "title": "NAT 会话诊断（天融信 TopOS，CLI 骨架 + Web 对照）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "转换字段缺失或不符合预期",
+              "goto": "s5"
+            },
+            {
+              "when": "转换正确",
+              "goto": "s6"
+            }
+          ]
+        },
+        {
+          "id": "s5",
+          "title": "NAT 配置修正",
+          "observe": "NAT 规则与映射表",
+          "explain": "按诊断结果修正 NAT 规则或映射",
+          "cmd_ref": {
+            "vendor_category": "NAT",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "9c922bf5-6fc8-58f6-9bc5-6db2b916fafe",
+                "title": "配置 SNAT（策略 NAT）与 DNAT（VIP 端口映射）"
+              },
+              "paloalto": {
+                "uuid": "b516d80d-67b1-5549-b7e9-4cf3dc2a471c",
+                "title": "配置源 NAT（SNAT/PAT）与目的 NAT（DNAT 端口映射）"
+              },
+              "sangfor": {
+                "uuid": "77e1fca8-eedd-5ff2-96f2-8c05959c34cb",
+                "title": "配置 NAT 源地址转换与目的地址映射（Web 控制台）"
+              },
+              "topsec": {
+                "uuid": "18a9a17f-7b70-58f5-9086-846929993eff",
+                "title": "配置源 NAT 与目的 NAT 映射（Web 控制台）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "NAT 配置问题已修正",
+            "actions": [
+              "修正 NAT 规则/映射",
+              "回到 s1 复测"
+            ]
+          }
+        },
+        {
+          "id": "s6",
+          "title": "对端与应用层复核",
+          "observe": "会话放行且转换正确",
+          "explain": "防火墙侧已通，问题在路径后段或应用本身",
+          "cmd_ref": {
+            "vendor_category": "防火墙诊断",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "f0ac2dda-5a37-5070-a367-0026fe7be5a1",
+                "title": "会话表与策略命中诊断（FortiOS）"
+              },
+              "paloalto": {
+                "uuid": "24feb9c8-bdf3-54e9-8291-cf5462701e46",
+                "title": "会话表与策略命中诊断（PAN-OS）"
+              },
+              "sangfor": {
+                "uuid": "b263ec23-b9b5-52d1-a9bc-86afe438219b",
+                "title": "会话与策略命中诊断（深信服 AF，CLI 骨架 + Web 对照）"
+              },
+              "topsec": {
+                "uuid": "b6b66a97-c09f-55af-bdc1-2fc5fbfff6ce",
+                "title": "会话与策略命中诊断（天融信 TopOS，CLI 骨架 + Web 对照）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "防火墙已放行，问题在对端服务/中间链路",
+            "actions": [
+              "服务器本地防火墙核查",
+              "中间设备逐跳排查",
+              "业务端口实测"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "fw-nat-fail",
+      "symptom": "NAT/端口映射不通",
+      "category": "策略诊断",
+      "vendor_hint": [
+        "fortinet",
+        "paloalto",
+        "sangfor",
+        "topsec"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "NAT 会话诊断",
+          "observe": "按公网地址过滤会话，看转换字段",
+          "explain": "先确认流量有没有进来、NAT 有没有发生",
+          "cmd_ref": {
+            "vendor_category": "防火墙诊断",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "6091c66c-b763-5bdc-9df0-f37c3e2f7ea3",
+                "title": "NAT 会话与端口映射诊断（FortiOS）"
+              },
+              "paloalto": {
+                "uuid": "23660802-b6e0-50d1-ae24-75fbcbbca2d9",
+                "title": "NAT 会话诊断（PAN-OS）"
+              },
+              "sangfor": {
+                "uuid": "0b0cf093-0646-5a8e-8b5b-ca508d97b500",
+                "title": "NAT 会话诊断（深信服 AF，CLI 骨架 + Web 对照）"
+              },
+              "topsec": {
+                "uuid": "42c761e7-df0f-50d7-963e-95102326bb23",
+                "title": "NAT 会话诊断（天融信 TopOS，CLI 骨架 + Web 对照）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "无会话",
+              "goto": "s2"
+            },
+            {
+              "when": "有会话但转换字段不符",
+              "goto": "s3"
+            },
+            {
+              "when": "转换正确仍不通",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "安全策略核查（映射流量也被策略管）",
+          "observe": "会话/包被谁拒绝",
+          "explain": "很多防火墙 NAT 之后还要过安全策略",
+          "cmd_ref": {
+            "vendor_category": "防火墙诊断",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "f0ac2dda-5a37-5070-a367-0026fe7be5a1",
+                "title": "会话表与策略命中诊断（FortiOS）"
+              },
+              "paloalto": {
+                "uuid": "24feb9c8-bdf3-54e9-8291-cf5462701e46",
+                "title": "会话表与策略命中诊断（PAN-OS）"
+              },
+              "sangfor": {
+                "uuid": "b263ec23-b9b5-52d1-a9bc-86afe438219b",
+                "title": "会话与策略命中诊断（深信服 AF，CLI 骨架 + Web 对照）"
+              },
+              "topsec": {
+                "uuid": "b6b66a97-c09f-55af-bdc1-2fc5fbfff6ce",
+                "title": "会话与策略命中诊断（天融信 TopOS，CLI 骨架 + Web 对照）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "安全策略未放行映射流量",
+            "actions": [
+              "补放行策略（注意放的是转换后目的地址）",
+              "应用/commit 后回 s1 复测"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "端口映射配置核查",
+          "observe": "映射表：公网 IP:端口 → 内网 IP:端口、协议",
+          "explain": "端口写反/协议漏勾/真实服务器配错是三大高频错",
+          "cmd_ref": {
+            "vendor_category": "NAT",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "9c922bf5-6fc8-58f6-9bc5-6db2b916fafe",
+                "title": "配置 SNAT（策略 NAT）与 DNAT（VIP 端口映射）"
+              },
+              "paloalto": {
+                "uuid": "b516d80d-67b1-5549-b7e9-4cf3dc2a471c",
+                "title": "配置源 NAT（SNAT/PAT）与目的 NAT（DNAT 端口映射）"
+              },
+              "sangfor": {
+                "uuid": "77e1fca8-eedd-5ff2-96f2-8c05959c34cb",
+                "title": "配置 NAT 源地址转换与目的地址映射（Web 控制台）"
+              },
+              "topsec": {
+                "uuid": "18a9a17f-7b70-58f5-9086-846929993eff",
+                "title": "配置源 NAT 与目的 NAT 映射（Web 控制台）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "映射配置错误",
+            "actions": [
+              "修正公私网端口对应关系",
+              "补齐 tcp/udp 协议",
+              "核对真实服务器地址可达"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "回程路由与应用层复核",
+          "observe": "转换正确、策略放行仍不通",
+          "explain": "内网服务器网关必须指回防火墙，否则回包走丢",
+          "cmd_ref": {
+            "vendor_category": "静态路由",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "ab1f0f93-02cb-59cf-93b0-c22bfa0a1459",
+                "title": "配置静态路由与默认路由"
+              },
+              "paloalto": {
+                "uuid": "4e21bace-fb13-5c98-a7fe-f74ec449f43a",
+                "title": "配置静态路由与默认路由（PAN-OS）"
+              },
+              "sangfor": {
+                "uuid": "949bc517-781f-54fa-a8c0-aaeda5757c3f",
+                "title": "配置静态路由与默认路由（Web 控制台）"
+              },
+              "topsec": {
+                "uuid": "ba9ca3aa-8942-5f89-8a2a-5f8801975132",
+                "title": "配置静态路由与默认路由（Web 控制台）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "回程路径或应用问题",
+            "actions": [
+              "内网服务器默认网关指向防火墙",
+              "服务器本地防火墙/服务监听核查",
+              "外部实测端口"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "fw-mgmt-lost",
+      "symptom": "防火墙管理面失联（SSH/Web 连不上）",
+      "category": "管理面",
+      "vendor_hint": [
+        "fortinet",
+        "paloalto",
+        "sangfor",
+        "topsec"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "管理服务与登录来源核查",
+          "observe": "SSH/Web 管理是否开启、来源 IP 是否受限",
+          "explain": "trusthost/来源限制没放自己的 IP 是最常见原因",
+          "cmd_ref": {
+            "vendor_category": "SSH管理",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "f112709f-d6eb-5472-b61f-f11f5c36e9e0",
+                "title": "开启 SSH 管理并创建受限管理员"
+              },
+              "paloalto": {
+                "uuid": "367389ae-43d1-5d99-a504-c0fdf0daded4",
+                "title": "开启 SSH 管理并创建管理员账号"
+              },
+              "sangfor": {
+                "uuid": "d988fa9c-1498-5f05-a747-bd61b681c864",
+                "title": "创建 SSH 管理员账号并收紧管理面（Web 控制台）"
+              },
+              "topsec": {
+                "uuid": "d424c561-399b-5ff0-8a61-ee74b3f6e6bc",
+                "title": "创建 SSH 管理员并收紧管理面（Web 控制台）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "服务未开或来源受限",
+              "goto": "s3"
+            },
+            {
+              "when": "服务正常",
+              "goto": "s2"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "账号与锁定核查",
+          "observe": "登录失败提示/账号状态",
+          "explain": "连续失败触发锁定也会表现为'连不上'",
+          "cmd_ref": {
+            "vendor_category": "密码",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "680a2267-bdd2-5f11-a907-9d9026435a04",
+                "title": "修改管理员口令（Console/HTTPS/SSH 共用）"
+              },
+              "paloalto": {
+                "uuid": "3eaf7291-5531-5b2f-a27a-f07ecd4a0f01",
+                "title": "修改管理员口令并设置口令策略"
+              },
+              "sangfor": {
+                "uuid": "95f8f01e-f7ca-5b89-b053-7a89cbaeb700",
+                "title": "修改管理员密码口令与口令策略（Web 控制台）"
+              },
+              "topsec": {
+                "uuid": "a2d86970-c1b5-5e45-bf9c-a4e9faacc300",
+                "title": "修改管理员密码口令与口令策略（Web 控制台）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "账号锁定/口令遗忘",
+              "goto": "s3"
+            },
+            {
+              "when": "账号正常仍连不上",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "title": "口令重置/解锁（走带外 Console）",
+          "observe": "Console 登录本地处理",
+          "explain": "管理面失联时的兜底通道——这也是升级/变更前必须确认 Console 可用的原因",
+          "cmd_ref": {
+            "vendor_category": "密码",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "680a2267-bdd2-5f11-a907-9d9026435a04",
+                "title": "修改管理员口令（Console/HTTPS/SSH 共用）"
+              },
+              "paloalto": {
+                "uuid": "3eaf7291-5531-5b2f-a27a-f07ecd4a0f01",
+                "title": "修改管理员口令并设置口令策略"
+              },
+              "sangfor": {
+                "uuid": "95f8f01e-f7ca-5b89-b053-7a89cbaeb700",
+                "title": "修改管理员密码口令与口令策略（Web 控制台）"
+              },
+              "topsec": {
+                "uuid": "a2d86970-c1b5-5e45-bf9c-a4e9faacc300",
+                "title": "修改管理员密码口令与口令策略（Web 控制台）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "账号/口令问题已处理",
+            "actions": [
+              "重置口令或解锁",
+              "回网络侧复测 SSH/Web 登录"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "管理可达性核查（路由/DNS/证书）",
+          "observe": "ping 管理口、核对管理路由与 DNS",
+          "explain": "跨网段管理要路由可达；Web 域名告警查 DNS/证书",
+          "cmd_ref": {
+            "vendor_category": "DNS域名解析",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "f8f92c67-407f-5f16-8099-f462cef61eb7",
+                "title": "配置 DNS 服务器与域名解析（FortiOS）"
+              },
+              "paloalto": {
+                "uuid": "3542ee8d-c063-5f96-a6a4-d470f3845b2c",
+                "title": "配置 DNS 服务器与域名解析（PAN-OS，set 系）"
+              },
+              "sangfor": {
+                "uuid": "987ac13d-39d8-5898-a417-1640e9c1180b",
+                "title": "配置 DNS 服务器与域名解析（深信服 AF，CLI 骨架 + Web 对照）"
+              },
+              "topsec": {
+                "uuid": "de339731-5a03-5e77-9653-bf5f0e3675a1",
+                "title": "配置 DNS 服务器与域名解析（天融信 TopOS，CLI 骨架 + Web 对照）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "管理可达性/解析问题",
+            "actions": [
+              "补管理路由",
+              "内网 DNS 配置核对",
+              "证书告警确认非连接拒绝"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "fw-upgrade-broken",
+      "symptom": "版本升级后业务异常",
+      "category": "管理面",
+      "vendor_hint": [
+        "fortinet",
+        "paloalto",
+        "sangfor",
+        "topsec"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "版本与启动状态核对",
+          "observe": "当前运行版本是否为目标版本",
+          "explain": "先确认升级到底成没成：版本不对=升级中断，版本对=配置/兼容问题",
+          "cmd_ref": {
+            "vendor_category": "版本升级",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "be6beb84-4667-5a65-bc61-4da109f5fc54",
+                "title": "软件版本查看、备份与升级流程（FortiOS）"
+              },
+              "paloalto": {
+                "uuid": "2e2c7470-dd13-525f-9419-ec95b07b3a0b",
+                "title": "软件版本查看、备份与升级流程（PAN-OS，request 系）"
+              },
+              "sangfor": {
+                "uuid": "d1c22fa0-93bc-5794-bf0f-f5940aa107e9",
+                "title": "软件版本查看、备份与升级流程（深信服 AF，骨架 + Web 升级页）"
+              },
+              "topsec": {
+                "uuid": "39e7712a-4db2-52ad-a436-c60a86210e58",
+                "title": "软件版本查看、备份与升级流程（天融信 TopOS，骨架 + Web 升级页）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "版本不符/升级中断",
+              "goto": "s4"
+            },
+            {
+              "when": "版本正确",
+              "goto": "s2"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "配置完整性核查",
+          "observe": "配置是否丢失/策略是否还在",
+          "explain": "个别升级场景配置结构变更导致部分配置未继承",
+          "cmd_ref": {
+            "vendor_category": "保存配置",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "7a5916ae-41d2-5e90-b128-cfd5b24d8bf4",
+                "title": "查看配置并备份到本地 flash / USB"
+              },
+              "paloalto": {
+                "uuid": "2156ab5b-7fbc-5a1d-9565-b943fd139c1d",
+                "title": "提交配置并导出配置文件归档"
+              },
+              "sangfor": {
+                "uuid": "dbbc27de-359f-5e60-8f70-da621fd41c71",
+                "title": "保存配置：配置备份与恢复（Web 控制台）"
+              },
+              "topsec": {
+                "uuid": "7d530386-0dfd-544f-9a40-24ca9426861c",
+                "title": "保存配置：配置备份与恢复（Web 控制台）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "配置丢失",
+              "goto": "s4"
+            },
+            {
+              "when": "配置在仍异常",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "title": "策略与会话复查",
+          "observe": "策略命中与会话建立",
+          "explain": "升级后策略仍在但行为变化（默认值/引擎更新），用会话诊断复核",
+          "cmd_ref": {
+            "vendor_category": "防火墙诊断",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "f0ac2dda-5a37-5070-a367-0026fe7be5a1",
+                "title": "会话表与策略命中诊断（FortiOS）"
+              },
+              "paloalto": {
+                "uuid": "24feb9c8-bdf3-54e9-8291-cf5462701e46",
+                "title": "会话表与策略命中诊断（PAN-OS）"
+              },
+              "sangfor": {
+                "uuid": "b263ec23-b9b5-52d1-a9bc-86afe438219b",
+                "title": "会话与策略命中诊断（深信服 AF，CLI 骨架 + Web 对照）"
+              },
+              "topsec": {
+                "uuid": "b6b66a97-c09f-55af-bdc1-2fc5fbfff6ce",
+                "title": "会话与策略命中诊断（天融信 TopOS，CLI 骨架 + Web 对照）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "定位到具体策略/会话差异",
+            "actions": [
+              "按诊断结果修正策略",
+              "关注官方升级说明中的行为变更项"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "回退旧版本恢复业务",
+          "observe": "按升级条目的回滚段操作",
+          "explain": "先恢复业务再排因——旧版本/回滚分区是升级前准备的回滚点",
+          "cmd_ref": {
+            "vendor_category": "版本升级",
+            "by_vendor": {
+              "fortinet": {
+                "uuid": "be6beb84-4667-5a65-bc61-4da109f5fc54",
+                "title": "软件版本查看、备份与升级流程（FortiOS）"
+              },
+              "paloalto": {
+                "uuid": "2e2c7470-dd13-525f-9419-ec95b07b3a0b",
+                "title": "软件版本查看、备份与升级流程（PAN-OS，request 系）"
+              },
+              "sangfor": {
+                "uuid": "d1c22fa0-93bc-5794-bf0f-f5940aa107e9",
+                "title": "软件版本查看、备份与升级流程（深信服 AF，骨架 + Web 升级页）"
+              },
+              "topsec": {
+                "uuid": "39e7712a-4db2-52ad-a436-c60a86210e58",
+                "title": "软件版本查看、备份与升级流程（天融信 TopOS，骨架 + Web 升级页）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "已回退，业务恢复",
+            "actions": [
+              "业务抽测确认恢复",
+              "联系厂商分析失败原因后重新规划升级窗口"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    }
+  ]
+}

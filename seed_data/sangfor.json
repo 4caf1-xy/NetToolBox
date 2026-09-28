@@ -1,0 +1,710 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "sangfor.json",
+  "vendor_label": "深信服（AF，Web 控制台操作路径）",
+  "vendor_slug": "sangfor",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-21",
+  "count": 10,
+  "entries": [
+    {
+      "uuid": "7e979831-9ef6-5df8-8df7-f1f4160d3a86",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF-1000 / AF-2000 / AF-8000 系列",
+      "category": "VLAN",
+      "title": "创建 VLAN 子接口（Web 控制台）",
+      "description": "在物理口上创建 VLAN 子接口并配 IP、划入区域，用于多网段接入。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】网络 → 接口/区域 → 选择物理接口 → 新增 → 子接口(VLAN)\n#   子接口名称：{{sub_if_name}}\n#   父接口    ：{{parent_port}}\n#   VLAN ID   ：{{vlan_id}}\n#   IP 地址   ：{{vlan_ip}}\n#   子网掩码  ：{{vlan_mask}}\n#   所属区域  ：{{zone_name}}（内网/外网/DMZ）\n#   管理方式  ：勾选 HTTPS、Ping（按需勾选 SSH）\n#   → 保存后确认接口状态为「已连接」\n#\n# 【验证】网络 → 接口/区域 列表查看该子接口状态与 IP\n#         诊断工具 → Ping 测试（源接口选该子接口）",
+      "params": [
+        {
+          "name": "sub_if_name",
+          "label": "子接口名称",
+          "default": "VLAN10-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "VLAN10-OFFICE"
+        },
+        {
+          "name": "parent_port",
+          "label": "父接口",
+          "default": "eth2",
+          "required": true,
+          "validate": "",
+          "example": "eth2"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_ip",
+          "label": "接口 IP",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "vlan_mask",
+          "label": "子网掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "zone_name",
+          "label": "所属区域",
+          "default": "内网区域",
+          "required": false,
+          "validate": "",
+          "example": "内网区域 / 外网区域 / DMZ"
+        }
+      ],
+      "notes": "1) AF 的 VLAN 是\"物理口上的子接口\"，父接口的 IP 若已被占用需先处理，否则子接口起不来。\n2) 区域（内网/外网/DMZ）决定策略方向，配错区域会出现\"策略写了不通\"。\n3) 接口的\"管理方式\"要按需勾选 HTTPS/Ping/SSH，勾多了等于扩大攻击面，按最小化原则勾。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "5725af8f-d266-5551-8789-380343295b9f",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF-2000 / AF-8000 系列（多口型号）",
+      "category": "Trunk",
+      "title": "配置 Trunk 链路聚合上联（Web 控制台）",
+      "description": "把多个物理口聚合成一个逻辑口用于上联，配合对端做链路捆绑。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】网络 → 接口/区域 → 新增 → 聚合接口（或\"接口聚合\"）\n#   聚合口名称：{{agg_name}}\n#   成员接口  ：{{member_ports}}\n#   工作模式  ：{{lacp_mode}}（静态聚合 / 动态 LACP，需与对端一致）\n#   IP 地址   ：{{agg_ip}}\n#   子网掩码  ：{{agg_mask}}\n#   所属区域  ：{{zone_name}}\n#   → 保存后确认成员口全部 UP，聚合口状态为「已连接」\n#\n# 【验证】网络 → 接口/区域 查看聚合口与成员口状态",
+      "params": [
+        {
+          "name": "agg_name",
+          "label": "聚合口名称",
+          "default": "AGG-WAN",
+          "required": true,
+          "validate": "",
+          "example": "AGG-WAN"
+        },
+        {
+          "name": "member_ports",
+          "label": "成员接口",
+          "default": "eth1、eth2",
+          "required": true,
+          "validate": "",
+          "example": "eth1、eth2"
+        },
+        {
+          "name": "lacp_mode",
+          "label": "工作模式",
+          "default": "动态 LACP",
+          "required": false,
+          "validate": "enum:静态聚合|动态 LACP",
+          "example": "动态 LACP"
+        },
+        {
+          "name": "agg_ip",
+          "label": "IP 地址",
+          "default": "200.1.1.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.2"
+        },
+        {
+          "name": "agg_mask",
+          "label": "子网掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "zone_name",
+          "label": "所属区域",
+          "default": "外网区域",
+          "required": false,
+          "validate": "",
+          "example": "外网区域"
+        }
+      ],
+      "notes": "1) 聚合模式必须与对端交换机一致：对端配 LACP（active）则本端选动态，否则用静态聚合。\n2) 成员口加入聚合后会继承聚合口配置，原成员口上的 IP 会失效，规划要提前做。\n3) 上联核心交换机做双链路时，注意两端都要做聚合，单端做会出现环路或断流。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "949bc517-781f-54fa-a8c0-aaeda5757c3f",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "静态路由",
+      "title": "配置静态路由与默认路由（Web 控制台）",
+      "description": "新增明细路由与默认路由，指定网关与出接口。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】网络 → 路由 → 静态路由 → 新增\n#   目的网段  ：{{dest_net}}\n#   子网掩码  ：{{dest_mask}}\n#   网关/下一跳：{{next_hop}}\n#   出接口    ：{{out_interface}}\n#   优先级    ：{{priority}}（数值越小越优先）\n#   描述      ：{{comment}}\n#   → 默认路由填 目的网段 0.0.0.0 / 掩码 0.0.0.0 / 下一跳为运营商网关\n#\n# 【验证】网络 → 路由 → 路由表（查看是否生效）\n#         诊断工具 → Ping / 路由追踪（源接口选对应接口）",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "192.168.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.20.0"
+        },
+        {
+          "name": "dest_mask",
+          "label": "子网掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "next_hop",
+          "label": "下一跳地址",
+          "default": "10.0.0.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.2"
+        },
+        {
+          "name": "out_interface",
+          "label": "出接口",
+          "default": "eth1",
+          "required": true,
+          "validate": "",
+          "example": "eth1"
+        },
+        {
+          "name": "priority",
+          "label": "优先级",
+          "default": "10",
+          "required": false,
+          "validate": "int:1-255",
+          "example": "越小越优先"
+        },
+        {
+          "name": "comment",
+          "label": "描述",
+          "default": "to-核心交换机",
+          "required": false,
+          "validate": "",
+          "example": "to-核心交换机"
+        }
+      ],
+      "notes": "1) AF 上\"出接口\"与\"网关\"建议都填：只填网关时，出接口链路 down 后路由不会立即失效。\n2) 双出口做备份靠优先级；切换行为受会话保持影响，割接前建议先用诊断工具验证。\n3) 有 NAT 场景时注意：内网出网的路由 + 源地址转换（NAT）是两件事，都要配。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f62afb7e-9710-582e-832e-65efaeecd1ed",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列（支持动态路由的版本）",
+      "category": "OSPF",
+      "title": "配置 OSPF 动态路由（Web 控制台）",
+      "description": "开启 OSPF、指定 router-id 与区域，把接口加入 OSPF 并设置被动接口。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】网络 → 路由 → 动态路由 → OSPF → 启用\n#   Router ID ：{{router_id}}\n#   区域 ID   ：{{area_id}}\n#   参与接口  ：{{ospf_interface}}（宣告该接口所在网段）\n#   被动接口  ：{{passive_interface}}（业务接入口设为被动）\n#   认证      ：按需开启（推荐 MD5）\n#   → 保存后查看 OSPF 邻居状态是否为 Full\n#\n# 【验证】网络 → 路由 → 动态路由 → 邻居表 / 路由表",
+      "params": [
+        {
+          "name": "router_id",
+          "label": "Router ID",
+          "default": "8.8.8.8",
+          "required": true,
+          "validate": "ipv4",
+          "example": "8.8.8.8"
+        },
+        {
+          "name": "area_id",
+          "label": "区域 ID",
+          "default": "0.0.0.0",
+          "required": false,
+          "validate": "",
+          "example": "0.0.0.0"
+        },
+        {
+          "name": "ospf_interface",
+          "label": "参与接口",
+          "default": "eth1",
+          "required": true,
+          "validate": "",
+          "example": "eth1"
+        },
+        {
+          "name": "passive_interface",
+          "label": "被动接口",
+          "default": "eth2",
+          "required": false,
+          "validate": "",
+          "example": "eth2"
+        }
+      ],
+      "notes": "1) 部分 AF 版本默认不开动态路由，需先确认授权/版本是否支持 OSPF。\n2) 邻居起不来先核对：区域 ID、Hello/Dead 定时器、认证方式、MTU（大包丢会卡在 ExStart）。\n3) 业务接入口设为被动接口，避免向终端发 Hello 报文。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "928768c1-2aba-5d17-975a-e105ab99b69a",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "ACL",
+      "title": "配置 ACL 访问控制策略（Web 控制台）",
+      "description": "用地址对象 + 访问控制策略实现网段互访控制，开启日志便于审计。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【第一步】对象 → 地址 → 新增（或\"地址对象\"）\n#   名称：{{src_obj}}    类型：子网   地址：{{src_net}} / {{src_mask}}\n# 【第二步】策略 → 访问控制策略 → 新增\n#   策略名称  ：{{policy_name}}\n#   源区域    ：{{src_zone}}      目的区域：{{dst_zone}}\n#   源地址    ：{{src_obj}}       目的地址：{{dst_obj}}\n#   服务      ：{{service}}（如 HTTP/HTTPS/Any）\n#   动作      ：允许（或拒绝）\n#   日志      ：勾选\"记录日志\"（排障与审计都要）\n#   时间计划  ：全天（或按需）\n#   → 保存后调整策略顺序（自上而下匹配，先匹配生效）\n#\n# 【验证】策略 → 访问控制策略 看命中计数；日志 → 会话日志/策略日志",
+      "params": [
+        {
+          "name": "src_obj",
+          "label": "源地址对象名",
+          "default": "OBJ-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "OBJ-OFFICE"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_mask",
+          "label": "源掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "policy_name",
+          "label": "策略名称",
+          "default": "OFFICE-to-SERVER",
+          "required": true,
+          "validate": "",
+          "example": "OFFICE-to-SERVER"
+        },
+        {
+          "name": "src_zone",
+          "label": "源区域",
+          "default": "内网区域",
+          "required": true,
+          "validate": "",
+          "example": "内网区域"
+        },
+        {
+          "name": "dst_zone",
+          "label": "目的区域",
+          "default": "DMZ",
+          "required": true,
+          "validate": "",
+          "example": "DMZ"
+        },
+        {
+          "name": "dst_obj",
+          "label": "目的地址对象",
+          "default": "OBJ-SERVER",
+          "required": true,
+          "validate": "",
+          "example": "OBJ-SERVER"
+        },
+        {
+          "name": "service",
+          "label": "服务",
+          "default": "HTTPS",
+          "required": false,
+          "validate": "",
+          "example": "HTTP / HTTPS / Any"
+        }
+      ],
+      "notes": "1) AF 的策略是\"区域对区域 + 地址对象\"，先建对象再写策略，否则下拉框里选不到。\n2) 策略自上而下匹配，先匹配生效；新策略默认加在末尾，改管理类放通策略时要特别小心顺序。\n3) 一定要勾选日志，否则排障时没有任何线索可用。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "77e1fca8-eedd-5ff2-96f2-8c05959c34cb",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "NAT",
+      "title": "配置 NAT 源地址转换与目的地址映射（Web 控制台）",
+      "description": "内网出网做源 NAT（PAT），服务器对外发布做目的 NAT（端口映射）。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【源 NAT】策略 → NAT → 源地址转换 → 新增\n#   名称      ：{{snat_name}}\n#   源区域    ：{{src_zone}}       目的区域：{{dst_zone}}\n#   源地址    ：{{src_net}} / {{src_mask}}\n#   转换方式  ：使用出接口地址（PAT）\n# 【目的 NAT】策略 → NAT → 目的地址转换 → 新增\n#   名称      ：{{dnat_name}}\n#   源区域    ：{{untrust_zone}}   目的区域：{{trust_zone}}\n#   目的地址  ：{{public_ip}}      公网端口：{{public_port}}\n#   转换为    ：{{inside_ip}}      内网端口：{{inside_port}}\n#   → 保存后必须在【访问控制策略】里放行对应流量的① 才真正生效\n#\n# 【验证】日志 → 会话日志（确认转换后的源/目的地址）",
+      "params": [
+        {
+          "name": "snat_name",
+          "label": "SNAT 名称",
+          "default": "SNAT-TO-INTERNET",
+          "required": true,
+          "validate": "",
+          "example": "SNAT-TO-INTERNET"
+        },
+        {
+          "name": "src_zone",
+          "label": "源区域",
+          "default": "内网区域",
+          "required": true,
+          "validate": "",
+          "example": "内网区域"
+        },
+        {
+          "name": "dst_zone",
+          "label": "目的区域",
+          "default": "外网区域",
+          "required": true,
+          "validate": "",
+          "example": "外网区域"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_mask",
+          "label": "源掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "dnat_name",
+          "label": "DNAT 名称",
+          "default": "DNAT-WEB-8443",
+          "required": true,
+          "validate": "",
+          "example": "DNAT-WEB-8443"
+        },
+        {
+          "name": "untrust_zone",
+          "label": "外网区域",
+          "default": "外网区域",
+          "required": true,
+          "validate": "",
+          "example": "外网区域"
+        },
+        {
+          "name": "trust_zone",
+          "label": "内网区域",
+          "default": "内网区域",
+          "required": true,
+          "validate": "",
+          "example": "内网区域"
+        },
+        {
+          "name": "public_ip",
+          "label": "公网 IP",
+          "default": "200.1.1.30",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.30"
+        },
+        {
+          "name": "public_port",
+          "label": "公网端口",
+          "default": "8443",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8443"
+        },
+        {
+          "name": "inside_ip",
+          "label": "内网服务器",
+          "default": "192.168.10.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.100"
+        },
+        {
+          "name": "inside_port",
+          "label": "内网端口",
+          "default": "8443",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8443"
+        }
+      ],
+      "notes": "1) ★ 只配 NAT 不配访问控制策略，流量不会通过 —— 这是深信服 AF 上最常见的\"配了不通\"。\n2) 端口映射的公网端口与内网端口容易写反，配完必须从外部网络实测。\n3) 内网用户通过公网地址访问内部服务器（回环）需要额外配置，属常见坑。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "d988fa9c-1498-5f05-a747-bd61b681c864",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "SSH管理",
+      "title": "创建 SSH 管理员账号并收紧管理面（Web 控制台）",
+      "description": "新建管理员、按角色授权、限制登录来源 IP，开启登录审计。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】系统 → 管理员/权限管理 → 管理员 → 新增\n#   用户名    ：{{username}}\n#   密码      ：{{password}}（首次登录强制修改）\n#   角色      ：{{role}}（超级管理员 / 审计员 / 只读）\n#   允许登录来源：{{trust_ip}} / {{trust_mask}}（★ 建议必填）\n#   允许登录方式：HTTPS、SSH（按需勾选，不用 Telnet）\n#   → 系统 → 管理员 → 登录策略：开启登录失败锁定、会话超时 {{timeout_min}} 分钟\n#\n# 【验证】系统 → 日志 → 管理员登录日志",
+      "params": [
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "role",
+          "label": "角色",
+          "default": "超级管理员",
+          "required": false,
+          "validate": "enum:超级管理员|审计员|只读用户",
+          "example": "超级管理员"
+        },
+        {
+          "name": "trust_ip",
+          "label": "允许登录网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "trust_mask",
+          "label": "网段掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) 按最小权限建账号：日常查看用只读/审计员，超级管理员只在变更时使用。\n2) 登录来源限制（trusthost）必须配，不配等于管理面暴露给全网。\n3) 等保要求：管理员账户实名、口令复杂度达标、开启登录失败锁定与操作审计。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。\n5) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "95f8f01e-f7ca-5b89-b053-7a89cbaeb700",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "密码",
+      "title": "修改管理员密码口令与口令策略（Web 控制台）",
+      "description": "修改管理员口令，并配置口令复杂度、有效期与锁定策略。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【改口令】系统 → 管理员/权限管理 → 管理员 → 选中账号 → 修改密码\n#   新口令：{{password}}（需满足复杂度策略）\n# 【口令策略】系统 → 管理员 → 口令策略（或\"安全设置\"）\n#   最小长度      ：{{min_len}}\n#   复杂度        ：必须包含数字 + 字母 + 特殊字符\n#   有效期(天)    ：{{change_days}}\n#   历史口令不可重用：{{history}} 次\n#   连续失败锁定  ：{{lock_times}} 次 / 锁定 {{lock_minutes}} 分钟\n#\n# 【console 说明】设备的 console 口（串口）登录同样使用管理员账号口令，\n#   没有独立 console 口令；忘记口令需现场用串口进入恢复流程（联系厂商支持）。",
+      "params": [
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "min_len",
+          "label": "口令最小长度",
+          "default": "12",
+          "required": false,
+          "validate": "int:8-32",
+          "example": "建议 12 以上"
+        },
+        {
+          "name": "change_days",
+          "label": "口令有效期（天）",
+          "default": "90",
+          "required": false,
+          "validate": "int:0-365",
+          "example": "90"
+        },
+        {
+          "name": "history",
+          "label": "历史口令记录数",
+          "default": "5",
+          "required": false,
+          "validate": "int:0-20",
+          "example": "5"
+        },
+        {
+          "name": "lock_times",
+          "label": "失败锁定次数",
+          "default": "5",
+          "required": false,
+          "validate": "int:1-20",
+          "example": "5"
+        },
+        {
+          "name": "lock_minutes",
+          "label": "锁定时长（分钟）",
+          "default": "30",
+          "required": false,
+          "validate": "int:1-1440",
+          "example": "30"
+        }
+      ],
+      "notes": "1) console 与 Web/SSH 共用管理员账号，改口令是全套生效。\n2) 忘记超级管理员口令时只能走串口 + 厂商恢复流程（可能需要重新部署），\n   所以口令一定要纳入密码管理系统并双人保管。\n3) 安全基线：长度 ≥12、复杂度三选三、有效期 ≤90 天、失败锁定 ≤5 次。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。\n5) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "735e25ab-4733-5f80-97da-036e1448649a",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "SNMP",
+      "title": "配置 SNMP 团体字与 Trap 上报（Web 控制台）",
+      "description": "开启 SNMP、配置只读/读写团体字并限定网管主机，设置 Trap 上报。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】系统 → SNMP（或\"网络管理/SNMP 配置\"）\n#   启用 SNMP     ：是\n#   SNMP 版本     ：v2c（优先用 v3）\n#   只读团体字    ：{{ro_community}}\n#   读写团体字    ：{{rw_community}}（不需要下发配置就别开）\n#   允许访问主机  ：{{nms_ip}} / {{nms_mask}}（★ 必填）\n#   Trap 接收地址 ：{{nms_ip}}\n#   设备位置/联系人：{{location}} / {{contact}}\n#   → 保存后从网管平台测试采集\n#\n# 【验证】诊断工具 → 抓包 / 或直接在网管平台看该设备是否在线",
+      "params": [
+        {
+          "name": "ro_community",
+          "label": "只读团体字",
+          "default": "RO@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RO@Public1"
+        },
+        {
+          "name": "rw_community",
+          "label": "读写团体字",
+          "default": "RW@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RW@Public1"
+        },
+        {
+          "name": "nms_ip",
+          "label": "网管服务器 IP",
+          "default": "10.0.0.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.100"
+        },
+        {
+          "name": "nms_mask",
+          "label": "网管掩码",
+          "default": "255.255.255.0",
+          "required": false,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "location",
+          "label": "设备位置",
+          "default": "IDC-A-机柜12",
+          "required": false,
+          "validate": "",
+          "example": "IDC-A-机柜12"
+        },
+        {
+          "name": "contact",
+          "label": "联系人",
+          "default": "网络运维组",
+          "required": false,
+          "validate": "",
+          "example": "网络运维组"
+        }
+      ],
+      "notes": "1) 团体字不用 public/private；\"允许访问主机\"必须限定为网管服务器地址。\n2) 只做采集时不要开读写团体字，减少被下发配置的风险。\n3) Trap 报文的源地址通常是管理口地址，注意中间防火墙是否放通 UDP 162。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "dbbc27de-359f-5e60-8f70-da621fd41c71",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "保存配置",
+      "title": "保存配置：配置备份与恢复（Web 控制台）",
+      "description": "导出配置文件归档，并说明恢复与回滚的注意事项。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【备份】系统 → 配置备份/恢复（或\"系统维护 → 备份恢复\"）\n#   备份方式：导出配置文件到本机\n#   文件名  ：AF-EDGE-01-{{backup_tag}}.conf\n#   → 文件存到 U 盘 / 内网文件服务器归档，命名带日期与变更单号\n# 【恢复】同一菜单 → 选择配置文件 → 恢复\n#   ★ 恢复会覆盖当前全部配置，执行前先备份当前的，并确认无人正在操作设备\n# 【重启前】确认配置已保存（AF 多数版本改动即时生效，但仍建议显式备份一次）",
+      "params": [
+        {
+          "name": "backup_tag",
+          "label": "备份标记",
+          "default": "20260920",
+          "required": false,
+          "validate": "",
+          "example": "20260920 或变更单号"
+        }
+      ],
+      "notes": "1) 每次变更前后各导出一次配置，形成\"变更前基线 + 变更后结果\"两份归档。\n2) 恢复配置属于破坏性操作：会覆盖当前全部策略、对象、账号，务必双人确认。\n3) 配置文件可能包含口令密文，归档时注意存放位置与权限（不要放共享盘随意存取）。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

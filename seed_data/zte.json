@@ -1,0 +1,792 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "zte.json",
+  "vendor_label": "中兴（ZXR10 / ROS）",
+  "vendor_slug": "zte",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 16,
+  "entries": [
+    {
+      "uuid": "b2f47889-8b45-55e0-8cb6-625459ca06ef",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5250 / 5950 / 6900 系列",
+      "category": "VLAN",
+      "title": "创建 VLAN 并把端口划入 Access（ZXR10）",
+      "description": "新建业务 VLAN，进接口配 access 模式并加入该 VLAN，最后保存。",
+      "commands": "! ===== 创建 VLAN 并划入端口（ZXR10）=====\nenable\nconfigure terminal\nvlan {{vlan_id}}\n name {{vlan_name}}\n exit\ninterface {{port}}\n switchport mode access\n switchport access vlan {{vlan_id}}\n no shutdown\n exit\nexit\nwrite\nshow vlan {{vlan_id}}",
+      "params": [
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_name",
+          "label": "VLAN 名称",
+          "default": "OFFICE",
+          "required": false,
+          "validate": "",
+          "example": "OFFICE"
+        },
+        {
+          "name": "port",
+          "label": "端口",
+          "default": "gei_1/1",
+          "required": true,
+          "validate": "port",
+          "example": "gei_1/1"
+        }
+      ],
+      "notes": "1) ZXR10 接口名形如 gei_1/1（千兆以太网），三段式（gei_1/1/1）在机框式设备上常见，\n   以 show interface 的实际提示为准。\n2) ZXR10 命令体系接近 Cisco（enable / configure terminal / interface / exit），\n   但不同 ROS 版本差异较大，上机前建议先用 ? 确认命令是否存在。\n3) 保存命令为 write（部分版本可用 write memory / save），执行后用 show startup-config 核对。\n4) 批量配口可尝试 interface range（部分型号支持），不支持则逐口配。\n5) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "b8d71d5a-6eaa-538a-b057-788469b38701",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5950 / 6900 系列",
+      "category": "Trunk",
+      "title": "配置 Trunk 口并放通 VLAN（ZXR10）",
+      "description": "把级联口配成 trunk，放通 VLAN 列表并设置 native VLAN。",
+      "commands": "! ===== 配置 Trunk 口（ZXR10）=====\nenable\nconfigure terminal\ninterface {{port}}\n switchport mode trunk\n switchport trunk allowed vlan {{vlan_list}}\n switchport trunk native vlan {{pvid}}\n no shutdown\n exit\nexit\nwrite\nshow interface {{port}} switchport",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口",
+          "default": "gei_1/24",
+          "required": true,
+          "validate": "port",
+          "example": "gei_1/24"
+        },
+        {
+          "name": "vlan_list",
+          "label": "放通 VLAN",
+          "default": "10,20,30",
+          "required": true,
+          "validate": "",
+          "example": "10,20,30 或 10-20"
+        },
+        {
+          "name": "pvid",
+          "label": "PVID / Native VLAN",
+          "default": "1",
+          "required": false,
+          "validate": "vlan",
+          "example": "1"
+        }
+      ],
+      "notes": "1) 部分 ZXR10 版本用 switchport trunk vlan <列表>（不带 allowed），以 ? 提示为准；\n   两者语义相同，只是关键字差异。\n2) 放通全部用 switchport trunk vlan all（慎用）。\n3) native VLAN 两端必须一致，否则会出现跨 VLAN 串流或协议报文异常。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "576c2de4-e491-5985-a776-010da8b274d5",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 路由器 / 三层交换机",
+      "category": "静态路由",
+      "title": "配置静态路由与缺省路由（ZXR10）",
+      "description": "配置明细静态路由、缺省路由与浮动备份路由。",
+      "commands": "! ===== 静态路由（ZXR10）=====\nenable\nconfigure terminal\nip route {{dest_net}} {{mask}} {{next_hop}}\nip route 0.0.0.0 0.0.0.0 {{next_hop}}\n! 浮动备份：最后一位是优先级/距离，越大越不优先\nip route {{dest_net}} {{mask}} {{backup_hop}} {{distance}}\nexit\nwrite\nshow ip route\nshow ip route {{dest_net}}",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "192.168.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.20.0"
+        },
+        {
+          "name": "mask",
+          "label": "掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "24 或 255.255.255.0"
+        },
+        {
+          "name": "next_hop",
+          "label": "下一跳地址",
+          "default": "10.0.0.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.2"
+        },
+        {
+          "name": "backup_hop",
+          "label": "备份下一跳",
+          "default": "10.0.0.3",
+          "required": false,
+          "validate": "ipv4",
+          "example": "10.0.0.3"
+        },
+        {
+          "name": "distance",
+          "label": "距离/优先级",
+          "default": "200",
+          "required": false,
+          "validate": "int:1-255",
+          "example": "默认 1，备份用 200"
+        }
+      ],
+      "notes": "1) 与 Cisco 语法一致：ip route <网段> <掩码> <下一跳> [距离]。\n2) 三层交换机做转发前确认已开启路由功能（部分型号需 ip routing）。\n3) show ip route 中静态路由标记为 S，缺省路由为 S*，排查时先看这两行。\n4) 掩码用点分写法（255.255.255.0）；若要用前缀长度写法，需按版本确认是否支持。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "e79c87d3-4388-54ad-a7bb-d68e89bc5647",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 路由器 / 三层交换机",
+      "category": "OSPF",
+      "title": "配置 OSPF 基本组网（ZXR10）",
+      "description": "开启 OSPF 进程、设 router-id、宣告网段并设置被动接口。",
+      "commands": "! ===== OSPF 基本配置（ZXR10）=====\nenable\nconfigure terminal\nrouter ospf {{process_id}}\n router-id {{router_id}}\n network {{network}} {{wildcard}} area {{area_id}}\n passive-interface {{passive_port}}\n exit\nexit\nwrite\nshow ip ospf neighbor\nshow ip ospf route",
+      "params": [
+        {
+          "name": "process_id",
+          "label": "进程号",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "1"
+        },
+        {
+          "name": "router_id",
+          "label": "Router ID",
+          "default": "7.7.7.7",
+          "required": true,
+          "validate": "ipv4",
+          "example": "7.7.7.7"
+        },
+        {
+          "name": "network",
+          "label": "宣告网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "wildcard",
+          "label": "反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "area_id",
+          "label": "区域号",
+          "default": "0",
+          "required": false,
+          "validate": "",
+          "example": "0 或 0.0.0.1"
+        },
+        {
+          "name": "passive_port",
+          "label": "被动接口",
+          "default": "gei_1/1",
+          "required": false,
+          "validate": "port",
+          "example": "gei_1/1"
+        }
+      ],
+      "notes": "1) ZXR10 的 OSPF 与 Cisco 结构一致（进程 → network + area），改造成本低。\n2) network 用反掩码；router-id 建议显式指定，否则取接口地址，链路抖动会重建邻居。\n3) 被动接口写法在部分版本为 passive-interface <接口名>，也可能只支持在接口下配，\n   上机时用 ? 确认。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "827f9ded-e25d-5194-b0b7-5bdef84ec234",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 全系列",
+      "category": "ACL",
+      "title": "配置 ACL 并应用到接口（ZXR10）",
+      "description": "创建扩展 ACL 限制网段互访，并绑定到接口方向。",
+      "commands": "! ===== ACL 配置与下发（ZXR10）=====\nenable\nconfigure terminal\nacl extend number {{acl_number}}\n rule 1 permit ip {{src_net}} {{src_wild}} {{dst_net}} {{dst_wild}}\n rule 100 deny ip any any\n exit\ninterface {{port}}\n ip access-group {{acl_number}} in\n exit\nexit\nwrite\nshow acl {{acl_number}}",
+      "params": [
+        {
+          "name": "acl_number",
+          "label": "ACL 编号",
+          "default": "100",
+          "required": true,
+          "validate": "int:1-199",
+          "example": "ZXR10 通常 1-99 标准、100-199 扩展"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "dst_net",
+          "label": "目的网段",
+          "default": "10.10.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.10.0.0"
+        },
+        {
+          "name": "dst_wild",
+          "label": "目的反掩码",
+          "default": "0.0.255.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.255.255"
+        },
+        {
+          "name": "port",
+          "label": "应用端口",
+          "default": "gei_1/1",
+          "required": true,
+          "validate": "port",
+          "example": "gei_1/1"
+        }
+      ],
+      "notes": "1) ZXR10 用 acl standard number / acl extend number <编号> 建 ACL，\n   编号段与 Cisco 类似但具体范围需按版本确认（常见 1-99 标准、100-199 扩展）。\n2) 规则用 rule <序号> 定义，序号小的先匹配，末尾隐含拒绝。\n3) 应用到接口用 ip access-group <编号> in/out。\n4) show acl 看规则与命中计数，改完务必核对是否真的生效。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "b51500b7-c1bf-5d04-af3b-0bca78a23562",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 路由器（NAT 型号）",
+      "category": "NAT",
+      "title": "配置 NAT 地址转换（PAT 复用 / 静态映射）",
+      "description": "内网网段通过出接口地址做端口复用，并给出服务器静态映射写法。",
+      "commands": "! ===== NAT / PAT 配置（ZXR10）=====\nenable\nconfigure terminal\ninterface {{inside_port}}\n ip address {{inside_ip}} {{inside_mask}}\n ip nat inside\n exit\ninterface {{outside_port}}\n ip address {{outside_ip}} {{outside_mask}}\n ip nat outside\n exit\nacl standard number {{acl_number}}\n rule 1 permit {{src_net}} {{src_wild}}\n exit\nip nat inside source list {{acl_number}} interface {{outside_port}} overload\n! 静态一对一映射（外网访问内网服务器）\nip nat inside source static {{inside_server}} {{public_ip}}\nexit\nwrite\nshow ip nat translations",
+      "params": [
+        {
+          "name": "inside_port",
+          "label": "内网口",
+          "default": "gei_1/1",
+          "required": true,
+          "validate": "port",
+          "example": "gei_1/1"
+        },
+        {
+          "name": "inside_ip",
+          "label": "内网口 IP",
+          "default": "192.168.1.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.1.1"
+        },
+        {
+          "name": "inside_mask",
+          "label": "内网口掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "outside_port",
+          "label": "外网口",
+          "default": "gei_1/2",
+          "required": true,
+          "validate": "port",
+          "example": "gei_1/2"
+        },
+        {
+          "name": "outside_ip",
+          "label": "外网口 IP",
+          "default": "200.1.1.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.2"
+        },
+        {
+          "name": "outside_mask",
+          "label": "外网口掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "acl_number",
+          "label": "ACL 编号",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-99",
+          "example": "1-99"
+        },
+        {
+          "name": "inside_server",
+          "label": "内网服务器",
+          "default": "192.168.1.100",
+          "required": false,
+          "validate": "ipv4",
+          "example": "192.168.1.100"
+        },
+        {
+          "name": "public_ip",
+          "label": "公网映射 IP",
+          "default": "200.1.1.3",
+          "required": false,
+          "validate": "ipv4",
+          "example": "200.1.1.3"
+        }
+      ],
+      "notes": "1) NAT 语法与 Cisco 一致（ip nat inside/outside + source list ... overload），\n   但只有带 NAT 功能的 ZXR10 型号支持，上机前确认产品形态。\n2) inside/outside 标错接口是 NAT 不生效的头号原因，先用 show ip nat statistics 看命中。\n3) 部分版本用 nat 而非 ip nat 关键字，按 ? 提示调整。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "7bd18367-ba07-55eb-a9ca-882b8963841a",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 全系列",
+      "category": "SSH管理",
+      "title": "开启 SSH 并创建本地用户（ZXR10）",
+      "description": "配置域名、生成 RSA 密钥、创建特权用户并限制 vty 登录协议。",
+      "commands": "! ===== 开启 SSH + 本地用户（ZXR10）=====\nenable\nconfigure terminal\nhostname {{hostname}}\nip domain-name {{domain}}\nusername {{username}} privilege 15 password {{password}}\ncrypto key generate rsa\n! ↑ 部分版本会交互提示输入密钥模数，建议 2048\nip ssh version 2\nline vty 0 4\n login local\n transport input ssh\n exec-timeout {{timeout_min}} 0\n exit\nexit\nwrite\nshow ip ssh",
+      "params": [
+        {
+          "name": "hostname",
+          "label": "设备名",
+          "default": "SW-CORE-01",
+          "required": false,
+          "validate": "",
+          "example": "SW-CORE-01"
+        },
+        {
+          "name": "domain",
+          "label": "域名",
+          "default": "corp.local",
+          "required": true,
+          "validate": "",
+          "example": "corp.local"
+        },
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) 生成 RSA 密钥前必须有 hostname 与 ip domain-name，否则报错。\n2) crypto key generate rsa 在部分版本是交互式（提示输入模数），脚本会停在提示符上，\n   需手工输入 2048 后继续。\n3) transport input ssh 会关掉 Telnet，改之前务必留一个已连通的 SSH 会话。\n4) 特权级别写法与 Cisco 一致（privilege 15）；部分版本用 user privilege level 15。\n5) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "426b9f4e-62ac-5ffc-8cdb-4fe45e3fef3a",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 全系列",
+      "category": "密码",
+      "title": "修改 Console 口令与特权密码（ZXR10）",
+      "description": "设置 console 口令、空闲超时与特权密码。",
+      "commands": "! ===== Console 与特权口令（ZXR10）=====\nenable\nconfigure terminal\nline console 0\n password {{console_password}}\n login\n logging synchronous\n exec-timeout {{timeout_min}} 0\n exit\nenable secret {{enable_secret}}\nexit\nwrite",
+      "params": [
+        {
+          "name": "console_password",
+          "label": "Console 口令",
+          "default": "C0nsole@123",
+          "required": true,
+          "validate": "",
+          "example": "C0nsole@123"
+        },
+        {
+          "name": "enable_secret",
+          "label": "特权密码",
+          "default": "En@ble@12345",
+          "required": true,
+          "validate": "",
+          "example": "En@ble@12345"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) 与 Cisco 一致：enable secret 优先于 enable password 且加密存储，新设备只用 secret。\n2) console 下只写 login 用 line password（权限 1）；要直进特权 15 用 login local + 本地用户。\n3) 部分版本 line console 提示符为 line console 0 或 console 0，按 ? 确认。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "0c99899f-4aa7-5c17-a535-8e9bb24fc930",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 全系列",
+      "category": "SNMP",
+      "title": "配置 SNMP v2c 与 Trap 上报（ZXR10）",
+      "description": "配置只读/读写团体字、设备位置联系人，并把 Trap 上报到网管。",
+      "commands": "! ===== SNMP 配置（ZXR10）=====\nenable\nconfigure terminal\nsnmp-server community {{ro_community}} ro\nsnmp-server community {{rw_community}} rw\nsnmp-server location {{location}}\nsnmp-server contact {{contact}}\nsnmp-server host {{nms_ip}} trap version 2c {{ro_community}}\nsnmp-server enable trap\nexit\nwrite\nshow snmp community",
+      "params": [
+        {
+          "name": "ro_community",
+          "label": "只读团体字",
+          "default": "RO@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RO@Public1"
+        },
+        {
+          "name": "rw_community",
+          "label": "读写团体字",
+          "default": "RW@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RW@Public1"
+        },
+        {
+          "name": "location",
+          "label": "设备位置",
+          "default": "IDC-A-机柜12",
+          "required": false,
+          "validate": "",
+          "example": "IDC-A-机柜12"
+        },
+        {
+          "name": "contact",
+          "label": "联系人",
+          "default": "网络运维组",
+          "required": false,
+          "validate": "",
+          "example": "网络运维组"
+        },
+        {
+          "name": "nms_ip",
+          "label": "网管服务器 IP",
+          "default": "10.0.0.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.100"
+        }
+      ],
+      "notes": "1) 不同 ROS 版本 snmp-server host 的参数顺序差异较大（trap/version/团体字位置），\n   报错时按 ? 逐项确认。\n2) 只用采集时给 ro 即可；rw 有被下发配置的风险，用完及时删除。\n3) 团体字别用 public/private，安全审计会判违规。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "58cfa0cd-0bed-523f-b5f3-22ae605b8843",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 全系列",
+      "category": "保存配置",
+      "title": "保存配置并备份到本地 flash",
+      "description": "用 write 保存运行配置，并复制一份到 flash 作为回滚点。",
+      "commands": "! ===== 保存与本地备份（ZXR10）=====\nenable\nwrite\nshow startup-config\ndir flash:/\ncopy running-config flash:backup-{{backup_tag}}.cfg\ndir flash:/",
+      "params": [
+        {
+          "name": "backup_tag",
+          "label": "备份标记",
+          "default": "20260920",
+          "required": false,
+          "validate": "",
+          "example": "20260920 或变更单号"
+        }
+      ],
+      "notes": "1) ZXR10 保存用 write（等效 write memory）；部分版本为 save，按 ? 确认。\n2) 隔离网络不要用 TFTP 方式备份，直接存 flash: 最稳。\n3) flash 路径可能是 flash:/ 或 cfg/，先用 dir 看现有文件再决定路径。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "174b1a16-198f-5013-8eed-b1b400861cdf",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "中兴 ZXR10 全系列",
+      "category": "DNS域名解析",
+      "title": "配置 DNS 服务器与域名解析（中兴 ZXR10）",
+      "description": "指向内网 DNS 服务器，验证域名可解析（离网内网 DNS 标准动作）。",
+      "commands": "! ===== 配置 DNS 服务器与域名解析（中兴 ZXR10）=====\n! ---- 配置段 ----\nconfigure terminal\nip name-server {{dns_server_ip}}\nend\n! ---- 验证段 ----\nping {{test_domain}}\n",
+      "params": [
+        {
+          "name": "dns_server_ip",
+          "label": "内网 DNS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        },
+        {
+          "name": "test_domain",
+          "label": "验证用内网域名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "gw.corp.local"
+        }
+      ],
+      "notes": "1) ZXR10 ROS 各版本查看 DNS 配置的命令差异较大：新版本支持 show ip name-server；老版本用 show running-config 后人工找 name-server 行，现场以 ? 为准。\n2) ip name-server 与 IOS 同源写法；ping 域名能解析出 IP 即生效。\n验证方法：show running-config 中核对 name-server 行 + ping test_domain，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "94c6b710-35f9-5c30-88b7-89f0fe63d2b1",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "中兴 ZXR10 全系列",
+      "category": "时间同步",
+      "title": "配置 NTP 服务器与状态验证（中兴 ZXR10）",
+      "description": "指向内网 NTP 服务器并验证时钟同步。",
+      "commands": "! ===== 配置 NTP 服务器与状态验证（中兴 ZXR10）=====\nconfigure terminal\nntp server {{ntp_server_ip}}\nend\n! ---- 验证 ----\nshow ntp status\nshow clock\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) ZXR10 ROS 各版本 NTP 命令与查看入口差异较大：show ntp status 不存在时试 show ntp 或 show clock，以 ? 实测为准。\n2) ntp server 为 IOS 系同源写法；同步判据看时钟状态标记 + show clock 与标准时间比对。\n验证方法：show clock 与标准时间一致 + NTP 状态命令按 ? 确认，收敛后 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "6e49eda4-5a60-544c-a395-262128333213",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "中兴 ZXR10 全系列",
+      "category": "版本升级",
+      "title": "软件版本查看、备份与升级流程（中兴 ZXR10）",
+      "description": "版本/文件查看 → 备份 → TFTP 传输新版本 → 指定启动 → 重启。",
+      "commands": "! ===== 版本查看、备份与升级流程（中兴 ZXR10）=====\n! ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\nshow version\ndir flash:\n! ---- 1. 备份配置与当前版本文件（TFTP {{backup_server}}，交互式/命令式因版本而异）----\ncopy flash: tftp:\n! ---- 2. 传输新版本文件 ----\ncopy tftp: flash:\n! ---- 3. 指定下次启动版本（关键字各版本差异以 ? 为准）----\n! config tftp / boot-version / startup 相关命令按 ? 确认后执行\n! ---- 4. ★ 重启生效（备份与回滚方案就绪后再做）----\nreboot\n! ---- 5. 重启后复核 ----\nshow version\n",
+      "params": [
+        {
+          "name": "backup_server",
+          "label": "TFTP/备份服务器 IP",
+          "default": "",
+          "required": true,
+          "required_note": "",
+          "validate": "ipv4",
+          "example": "192.168.66.20"
+        }
+      ],
+      "notes": "1) ★ 危险点（变更窗口/回滚点/带外通道三要素先行）：含 reboot；ZXR10 ROS 各版本升级命令差异大（copy 语法/启动指定关键字），现场以 ? 为准——本条给流程主干，具体关键字核对后回填。\n2) 回滚点 = 旧版本文件保留 + 记录当前启动指定。\n验证方法：升级后 show version 新版本 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "501e1ffe-5ab1-5d70-9d07-6eec9a315864",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "中兴 ZXR10 全系列",
+      "category": "配置回滚",
+      "title": "配置回滚（中兴 ZXR10，备份恢复式，骨架参照）",
+      "description": "改动前备份配置文件，改坏后恢复备份回退；ZXR10 各版本回滚关键字差异大，以 ? 为准。",
+      "commands": "! ===== 配置回滚（中兴 ZXR10）=====\n! ---- 0. 改动前：备份当前配置为独立文件 ----\ncopy running-config flash:/{{backup_file}}\n! ---- 1. 改动出问题后：恢复备份（关键字各版本差异以 ? 实测为准）----\n! copy flash:/{{backup_file}} running-config 后按需重启\n! ---- 2. 复核 ----\nshow running-config\n",
+      "params": [
+        {
+          "name": "backup_file",
+          "label": "备份配置文件名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "confg-bak-20260928.cfg"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：ZXR10 各版本回滚/恢复命令差异大，本条给流程主干，具体关键字以 ? 实测为准后回填。\n2) ★ 回滚前 diff：show running-config 与备份逐段核对；带外通道先确认。\n3) 与《保存配置并备份到本地 flash》分工：保存 = 固化当前，本条 = 回退历史备份。\n验证方法：回滚后 show running-config 复核 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "_file": "seed_data/zte.json",
+      "uuid": "05e3f1f7-1e82-5540-b0db-4518ca8cb903",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "中兴 ZXR10",
+      "category": "环路检测",
+      "title": "环路检测与 STP 状态核查（中兴 ZXR10）",
+      "description": "ZXR10 环路检测/STP 状态；各版本命令差异大，骨架参照以 ? 实测为准。",
+      "commands": "! ===== 环路检测与 STP 状态核查（中兴 ZXR10）=====\n! ---- STP 状态（具体关键字按 ? 实测）----\n! show spanning-tree / show stp\n! ---- 环路检测特性按型号确认（loopback-detect 类）----\n",
+      "params": [],
+      "notes": "1) ★ 待真机核对：ZXR10 环路检测命令差异大，本条为骨架参照。\n2) ★ 危险点：风暴中勿盲目插拔线——先定位环路端口再断开一端，恢复顺序见域内口径。\n3) 核对通过后回填本条目并升 exec_level 为 verified-cli。\n验证方法：STP 状态命令可用 + 端口角色正常；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "e20bf745-603b-5685-bbef-9e397dc5da4d",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "中兴 ZXR10",
+      "category": "AAA认证",
+      "title": "配置 AAA 认证与本地兜底（中兴 ZXR10，骨架参照）",
+      "description": "RADIUS/TACACS 服务器 + aaa authentication 兜底顺序；ZXR10 各版本差异大，骨架以 ? 实测为准。",
+      "commands": "! ===== AAA 认证与本地兜底（中兴 ZXR10）=====\n! ---- 1. RADIUS 服务器（关键字各版本差异以 ? 实测为准）----\n! radius-server authentication {{aaa_server_ip}} 1812 key {{aaa_shared_key}}\n! ---- 2. aaa authentication 登录顺序：先 radius 后 local 兜底 ----\n! aaa authentication login default radius local\n! ---- 3. 本地兜底账号确认存在（参照库内 SSH 条目）----\n! ---- 4. ★ 验证：新开窗口实测域账号，勿退当前会话 ----\n",
+      "params": [
+        {
+          "name": "aaa_server_ip",
+          "label": "RADIUS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.30"
+        },
+        {
+          "name": "aaa_shared_key",
+          "label": "共享密钥",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强密钥"
+        }
+      ],
+      "notes": "1) ★ 待真机核对：ZXR10 AAA 命令各版本差异大，本条为骨架参照；具体关键字以 ? 实测后回填。\n2) ★ 危险点同 AAA 铁律：先验证后退出，保留 Console。\n3) 本地兜底账号见《开启 SSH 并创建本地用户（ZXR10）》。\n验证方法：域账号登录成功 + 断服务器后本地账号可登录；（验证人/型号/日期验证通过后回填 verified，属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    }
+  ]
+}

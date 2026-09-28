@@ -1,0 +1,718 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "topsec.json",
+  "vendor_label": "天融信（TopOS，Web 控制台操作路径）",
+  "vendor_slug": "topsec",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-21",
+  "count": 10,
+  "entries": [
+    {
+      "uuid": "d6b8a812-f4ab-589c-a736-8dfff070b4d9",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "天融信网络卫士 NGFW 系列",
+      "category": "VLAN",
+      "title": "创建 VLAN 子接口（Web 控制台）",
+      "description": "在物理口上创建 VLAN 子接口并配 IP、绑定安全域。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】网络管理 → 接口配置 → 选择物理接口 → 新增子接口(VLAN)\n#   接口名称  ：{{sub_if_name}}\n#   所属物理口：{{parent_port}}\n#   VLAN ID   ：{{vlan_id}}\n#   IP 地址   ：{{vlan_ip}}\n#   子网掩码  ：{{vlan_mask}}\n#   安全域    ：{{zone_name}}\n#   管理权限  ：勾选 Ping、HTTPS（按需勾选 SSH）\n#   → 保存后确认接口状态 UP\n#\n# 【验证】网络管理 → 接口配置（接口列表状态）；诊断工具 → Ping",
+      "params": [
+        {
+          "name": "sub_if_name",
+          "label": "子接口名称",
+          "default": "VLAN10-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "VLAN10-OFFICE"
+        },
+        {
+          "name": "parent_port",
+          "label": "所属物理口",
+          "default": "eth2",
+          "required": true,
+          "validate": "",
+          "example": "eth2"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_ip",
+          "label": "接口 IP",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "vlan_mask",
+          "label": "子网掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "zone_name",
+          "label": "安全域",
+          "default": "内网域",
+          "required": false,
+          "validate": "",
+          "example": "内网域 / 外网域 / DMZ 域"
+        }
+      ],
+      "notes": "1) 天融信防火墙的接口必须绑定\"安全域\"，策略是按安全域之间配置的，漏绑策略无法引用接口。\n2) 父物理口若已在用（有 IP 或已绑策略），建子接口前先确认不会影响现有业务。\n3) 管理权限按最小化原则勾选，只留 Ping + HTTPS 即可，SSH 按需。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f624ab5f-063c-5905-b829-0d402364ba85",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "天融信 NGFW（多口型号）",
+      "category": "Trunk",
+      "title": "配置 Trunk 接口聚合与 VLAN 放通（Web 控制台）",
+      "description": "把多个物理口聚合成聚合口用于上联，并在聚合口上划分 VLAN 子接口。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】网络管理 → 接口配置 → 新增 → 聚合接口\n#   聚合口名称：{{agg_name}}\n#   成员接口  ：{{member_ports}}\n#   聚合模式  ：{{lacp_mode}}（需与对端一致）\n#   安全域    ：{{zone_name}}\n#   → 再在聚合口下继续\"新增子接口(VLAN)\"放通各业务 VLAN：\n#     VLAN ID：{{vlan_id}}   IP：{{agg_ip}} / {{agg_mask}}\n#\n# 【验证】接口列表确认成员口与聚合口状态均为 UP",
+      "params": [
+        {
+          "name": "agg_name",
+          "label": "聚合口名称",
+          "default": "AGG-UPLINK",
+          "required": true,
+          "validate": "",
+          "example": "AGG-UPLINK"
+        },
+        {
+          "name": "member_ports",
+          "label": "成员接口",
+          "default": "eth1、eth2",
+          "required": true,
+          "validate": "",
+          "example": "eth1、eth2"
+        },
+        {
+          "name": "lacp_mode",
+          "label": "聚合模式",
+          "default": "LACP",
+          "required": false,
+          "validate": "enum:静态聚合|LACP",
+          "example": "LACP"
+        },
+        {
+          "name": "zone_name",
+          "label": "安全域",
+          "default": "内网域",
+          "required": false,
+          "validate": "",
+          "example": "内网域"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "agg_ip",
+          "label": "子接口 IP",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "agg_mask",
+          "label": "子网掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        }
+      ],
+      "notes": "1) 聚合模式必须与对端交换机一致，否则链路起不来或只有一条在用。\n2) 天融信防火墙在聚合口上建 VLAN 子接口即可实现 Trunk 上联，无需单独的 trunk 开关。\n3) 安全域要绑定在聚合口/子接口上，绑定错误会出现\"策略命中但流量不过\"。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "ba9ca3aa-8942-5f89-8a2a-5f8801975132",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "天融信 NGFW 全系列",
+      "category": "静态路由",
+      "title": "配置静态路由与默认路由（Web 控制台）",
+      "description": "新增明细路由与默认路由，指定网关、出接口与优先级。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】网络管理 → 路由配置 → 静态路由 → 新增\n#   目的地址  ：{{dest_net}}\n#   子网掩码  ：{{dest_mask}}\n#   下一跳    ：{{next_hop}}\n#   出接口    ：{{out_interface}}\n#   优先级    ：{{priority}}（数值越小越优先）\n#   描述      ：{{comment}}\n#   → 默认路由：目的地址 0.0.0.0 / 掩码 0.0.0.0 / 下一跳为运营商网关\n#\n# 【验证】网络管理 → 路由配置 → 路由表；诊断工具 → 路由追踪",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "192.168.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.20.0"
+        },
+        {
+          "name": "dest_mask",
+          "label": "子网掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "next_hop",
+          "label": "下一跳地址",
+          "default": "10.0.0.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.2"
+        },
+        {
+          "name": "out_interface",
+          "label": "出接口",
+          "default": "eth1",
+          "required": true,
+          "validate": "",
+          "example": "eth1"
+        },
+        {
+          "name": "priority",
+          "label": "优先级",
+          "default": "10",
+          "required": false,
+          "validate": "int:1-255",
+          "example": "越小越优先"
+        },
+        {
+          "name": "comment",
+          "label": "描述",
+          "default": "to-核心交换机",
+          "required": false,
+          "validate": "",
+          "example": "to-核心交换机"
+        }
+      ],
+      "notes": "1) 网关与出接口建议同时指定，链路 down 时路由能及时失效，切换更干净。\n2) 双出口备份靠优先级；切换会影响现有会话，割接窗口内操作。\n3) 配 NAT 的场景里，\"路由可达\"与\"地址转换\"是两件事，缺一不通。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "22460ef6-2956-5b3b-b135-53a88e33fd89",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "天融信 NGFW（支持动态路由版本）",
+      "category": "OSPF",
+      "title": "配置 OSPF 动态路由（Web 控制台）",
+      "description": "开启 OSPF 进程、设置 router-id 与区域，按接口宣告网段。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】网络管理 → 路由配置 → 动态路由 → OSPF → 启用\n#   Router ID ：{{router_id}}\n#   区域 ID   ：{{area_id}}\n#   宣告接口  ：{{ospf_interface}}\n#   被动接口  ：{{passive_interface}}\n#   认证      ：按需开启（MD5）\n#   → 保存后查看邻居状态是否为 Full\n#\n# 【验证】网络管理 → 动态路由 → 邻居表 / OSPF 路由表",
+      "params": [
+        {
+          "name": "router_id",
+          "label": "Router ID",
+          "default": "9.9.9.9",
+          "required": true,
+          "validate": "ipv4",
+          "example": "9.9.9.9"
+        },
+        {
+          "name": "area_id",
+          "label": "区域 ID",
+          "default": "0.0.0.0",
+          "required": false,
+          "validate": "",
+          "example": "0.0.0.0"
+        },
+        {
+          "name": "ospf_interface",
+          "label": "宣告接口",
+          "default": "eth1",
+          "required": true,
+          "validate": "",
+          "example": "eth1"
+        },
+        {
+          "name": "passive_interface",
+          "label": "被动接口",
+          "default": "eth2",
+          "required": false,
+          "validate": "",
+          "example": "eth2"
+        }
+      ],
+      "notes": "1) 先确认版本/授权支持动态路由，部分中低端型号默认不开放。\n2) 邻居卡在 ExStart/Exchange 多为 MTU 不一致或认证不匹配；卡在 Init 多为单向可达或组播被挡。\n3) 业务接入口设被动，减少不必要的 Hello 报文。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "a21ba346-fe3d-57f0-84e9-c90c2c08a18a",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "天融信 NGFW 全系列",
+      "category": "ACL",
+      "title": "配置 ACL 访问控制策略（Web 控制台）",
+      "description": "用地址/服务对象 + 访问控制策略控制安全域之间互访，开启日志。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【第一步】对象管理 → 地址对象 → 新增：{{src_obj}} = {{src_net}} / {{src_mask}}\n# 【第二步】策略管理 → 访问控制策略 → 新增\n#   策略名称  ：{{policy_name}}\n#   源安全域  ：{{src_zone}}     目的安全域：{{dst_zone}}\n#   源地址    ：{{src_obj}}      目的地址：{{dst_obj}}\n#   服务      ：{{service}}\n#   动作      ：允许 / 拒绝（可选\"拒绝并记录日志\"）\n#   日志      ：开启\n#   → 保存后确认策略顺序（自上而下匹配）\n#\n# 【验证】策略管理 看命中计数；日志 → 安全日志/会话日志",
+      "params": [
+        {
+          "name": "src_obj",
+          "label": "源地址对象名",
+          "default": "OBJ-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "OBJ-OFFICE"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_mask",
+          "label": "源掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "policy_name",
+          "label": "策略名称",
+          "default": "OFFICE-to-SERVER",
+          "required": true,
+          "validate": "",
+          "example": "OFFICE-to-SERVER"
+        },
+        {
+          "name": "src_zone",
+          "label": "源安全域",
+          "default": "内网域",
+          "required": true,
+          "validate": "",
+          "example": "内网域"
+        },
+        {
+          "name": "dst_zone",
+          "label": "目的安全域",
+          "default": "DMZ 域",
+          "required": true,
+          "validate": "",
+          "example": "DMZ 域"
+        },
+        {
+          "name": "dst_obj",
+          "label": "目的地址对象",
+          "default": "OBJ-SERVER",
+          "required": true,
+          "validate": "",
+          "example": "OBJ-SERVER"
+        },
+        {
+          "name": "service",
+          "label": "服务",
+          "default": "HTTPS",
+          "required": false,
+          "validate": "",
+          "example": "HTTP / HTTPS / Any"
+        }
+      ],
+      "notes": "1) 天融信策略是基于\"安全域对\"的，接口没绑安全域时策略引用不到，这是最常见的配置卡点。\n2) 策略顺序决定生效结果，调整管理类放通策略前先确认不会把自己挡在外面。\n3) 建议为\"拒绝\"也开日志，攻击溯源时需要拒绝记录。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "18a9a17f-7b70-58f5-9086-846929993eff",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "天融信 NGFW 全系列",
+      "category": "NAT",
+      "title": "配置源 NAT 与目的 NAT 映射（Web 控制台）",
+      "description": "内网出网做源地址转换（PAT），服务器对外发布做目的地址转换（端口映射）。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【源 NAT】NAT 管理 → 源地址转换(SNAT) → 新增\n#   名称      ：{{snat_name}}\n#   源安全域  ：{{src_zone}}   目的安全域：{{dst_zone}}\n#   源地址    ：{{src_net}} / {{src_mask}}\n#   转换类型  ：接口地址转换（PAT）/ 地址池转换\n# 【目的 NAT】NAT 管理 → 目的地址转换(DNAT) → 新增\n#   名称      ：{{dnat_name}}\n#   源安全域  ：{{untrust_zone}}  目的安全域：{{trust_zone}}\n#   公网地址  ：{{public_ip}}     公网端口：{{public_port}}\n#   映射地址  ：{{inside_ip}}     映射端口：{{inside_port}}\n#   → 保存后必须在【访问控制策略】放行 外网域 → 内网域 的对应服务\n#\n# 【验证】日志 → 会话日志（确认转换前后地址）；诊断工具 → 连通性测试",
+      "params": [
+        {
+          "name": "snat_name",
+          "label": "SNAT 名称",
+          "default": "SNAT-TO-INTERNET",
+          "required": true,
+          "validate": "",
+          "example": "SNAT-TO-INTERNET"
+        },
+        {
+          "name": "src_zone",
+          "label": "源安全域",
+          "default": "内网域",
+          "required": true,
+          "validate": "",
+          "example": "内网域"
+        },
+        {
+          "name": "dst_zone",
+          "label": "目的安全域",
+          "default": "外网域",
+          "required": true,
+          "validate": "",
+          "example": "外网域"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_mask",
+          "label": "源掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "dnat_name",
+          "label": "DNAT 名称",
+          "default": "DNAT-WEB-8443",
+          "required": true,
+          "validate": "",
+          "example": "DNAT-WEB-8443"
+        },
+        {
+          "name": "untrust_zone",
+          "label": "外网安全域",
+          "default": "外网域",
+          "required": true,
+          "validate": "",
+          "example": "外网域"
+        },
+        {
+          "name": "trust_zone",
+          "label": "内网安全域",
+          "default": "内网域",
+          "required": true,
+          "validate": "",
+          "example": "内网域"
+        },
+        {
+          "name": "public_ip",
+          "label": "公网地址",
+          "default": "200.1.1.30",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.30"
+        },
+        {
+          "name": "public_port",
+          "label": "公网端口",
+          "default": "8443",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8443"
+        },
+        {
+          "name": "inside_ip",
+          "label": "内网服务器",
+          "default": "192.168.10.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.100"
+        },
+        {
+          "name": "inside_port",
+          "label": "内网端口",
+          "default": "8443",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8443"
+        }
+      ],
+      "notes": "1) ★ 天融信的 NAT 同样需要配套放行策略：只做地址转换不做策略放行，流量过不去。\n2) 端口映射的公网/内网端口别写反，配完从外部实测；内网自测（回环）不通不代表配置错。\n3) 源 NAT 用\"接口地址转换\"即 PAT；需要固定出口 IP 的场景用地址池转换。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "d424c561-399b-5ff0-8a61-ee74b3f6e6bc",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "天融信 NGFW 全系列",
+      "category": "SSH管理",
+      "title": "创建 SSH 管理员并收紧管理面（Web 控制台）",
+      "description": "新建管理员账号、分配角色、限定登录来源并开启登录审计。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】系统管理 → 管理员配置 → 新增\n#   用户名    ：{{username}}\n#   密码      ：{{password}}\n#   角色/权限 ：{{role}}（超级管理员 / 配置管理员 / 审计员）\n#   允许登录来源：{{trust_ip}} / {{trust_mask}}（★ 必填）\n#   允许管理方式：HTTPS、SSH（不用 Telnet）\n#   → 系统管理 → 安全设置：登录失败锁定、会话超时 {{timeout_min}} 分钟\n#\n# 【验证】系统管理 → 日志 → 管理员操作日志",
+      "params": [
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "role",
+          "label": "角色",
+          "default": "超级管理员",
+          "required": false,
+          "validate": "enum:超级管理员|配置管理员|审计员",
+          "example": "超级管理员"
+        },
+        {
+          "name": "trust_ip",
+          "label": "允许登录网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "trust_mask",
+          "label": "网段掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) 按角色分权：日常监控用审计员/只读，避免共用超级管理员。\n2) 登录来源必须限制；不限制的管理面在等保测评中直接扣分。\n3) 开启管理员操作日志，现场多人协作时能追溯到具体操作人。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。\n5) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "a2d86970-c1b5-5e45-bf9c-a4e9faacc300",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "天融信 NGFW 全系列",
+      "category": "密码",
+      "title": "修改管理员密码口令与口令策略（Web 控制台）",
+      "description": "修改管理员口令，配置口令复杂度、有效期与失败锁定。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【改口令】系统管理 → 管理员配置 → 选中账号 → 修改密码\n#   新口令：{{password}}\n# 【口令策略】系统管理 → 安全设置 / 口令策略\n#   最小长度    ：{{min_len}}\n#   复杂度      ：数字 + 字母 + 特殊字符\n#   有效期(天)  ：{{change_days}}\n#   历史口令不可重用：{{history}} 次\n#   失败锁定    ：{{lock_times}} 次 / 锁定 {{lock_minutes}} 分钟\n#\n# 【console 说明】console（串口）登录使用管理员账号，无独立串口口令；\n#   忘记口令需现场用串口进入恢复流程（联系厂商支持）。",
+      "params": [
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "min_len",
+          "label": "口令最小长度",
+          "default": "12",
+          "required": false,
+          "validate": "int:8-32",
+          "example": "建议 12 以上"
+        },
+        {
+          "name": "change_days",
+          "label": "口令有效期（天）",
+          "default": "90",
+          "required": false,
+          "validate": "int:0-365",
+          "example": "90"
+        },
+        {
+          "name": "history",
+          "label": "历史口令记录数",
+          "default": "5",
+          "required": false,
+          "validate": "int:0-20",
+          "example": "5"
+        },
+        {
+          "name": "lock_times",
+          "label": "失败锁定次数",
+          "default": "5",
+          "required": false,
+          "validate": "int:1-20",
+          "example": "5"
+        },
+        {
+          "name": "lock_minutes",
+          "label": "锁定时长（分钟）",
+          "default": "30",
+          "required": false,
+          "validate": "int:1-1440",
+          "example": "30"
+        }
+      ],
+      "notes": "1) console 与 Web/SSH 共用管理员账号口令，改一处全套生效。\n2) 口令必须纳入密码管理系统：现场忘记超级管理员口令的恢复成本很高。\n3) 安全基线：长度 ≥12、复杂度达标、有效期 ≤90 天、失败锁定 ≤5 次。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。\n5) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "ba1e498b-67b3-51de-8975-71078a92f343",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "天融信 NGFW 全系列",
+      "category": "SNMP",
+      "title": "配置 SNMP 团体字与 Trap（Web 控制台）",
+      "description": "开启 SNMP、配置团体字并限定网管主机，设置 Trap 上报目标。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】系统管理 → SNMP 配置\n#   启用 SNMP    ：是\n#   版本          ：v2c（优先 v3）\n#   只读团体字    ：{{ro_community}}\n#   读写团体字    ：{{rw_community}}（不需要下行配置就别开）\n#   允许访问主机  ：{{nms_ip}} / {{nms_mask}}（★ 必填）\n#   Trap 接收地址 ：{{nms_ip}}\n#   位置 / 联系人 ：{{location}} / {{contact}}\n#   → 保存后在网管平台验证采集",
+      "params": [
+        {
+          "name": "ro_community",
+          "label": "只读团体字",
+          "default": "RO@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RO@Public1"
+        },
+        {
+          "name": "rw_community",
+          "label": "读写团体字",
+          "default": "RW@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RW@Public1"
+        },
+        {
+          "name": "nms_ip",
+          "label": "网管服务器 IP",
+          "default": "10.0.0.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.100"
+        },
+        {
+          "name": "nms_mask",
+          "label": "网管掩码",
+          "default": "255.255.255.0",
+          "required": false,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "location",
+          "label": "设备位置",
+          "default": "IDC-A-机柜12",
+          "required": false,
+          "validate": "",
+          "example": "IDC-A-机柜12"
+        },
+        {
+          "name": "contact",
+          "label": "联系人",
+          "default": "网络运维组",
+          "required": false,
+          "validate": "",
+          "example": "网络运维组"
+        }
+      ],
+      "notes": "1) 团体字不用 public/private；允许访问主机必须限定为网管地址。\n2) 只做采集不开读写团体字；Trap 用的 UDP 162 要确认中间链路放通。\n3) Trap 源地址一般是管理口地址，双出口设备要确认网管侧路由可达。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "7d530386-0dfd-544f-9a40-24ca9426861c",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "天融信 NGFW 全系列",
+      "category": "保存配置",
+      "title": "保存配置：配置备份与恢复（Web 控制台）",
+      "description": "导出配置文件归档；说明恢复操作的破坏性与注意事项。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径 + 界面字段取值建议】，\n# ★ 请勿直接粘贴到 Xshell 执行 ★  仅作现场对照操作与变更记录使用。\n# 若设备型号确实开放了 CLI，请先用 ? 查看当前版本支持的命令再操作。\n\n# ===== Web 控制台操作路径 =====\n# 【备份】系统管理 → 配置管理 → 配置备份 → 导出\n#   文件名：TOPSEC-EDGE-01-{{backup_tag}}.conf\n#   → 归档到 U 盘 / 内网文件服务器，命名带日期与变更单号\n# 【恢复】系统管理 → 配置管理 → 配置恢复 → 选择文件 → 恢复\n#   ★ 会覆盖当前全部配置，执行前先备份当前的\n# 【重启】设备 → 重启（部分配置需重启生效，重启前确认配置已保存）",
+      "params": [
+        {
+          "name": "backup_tag",
+          "label": "备份标记",
+          "default": "20260920",
+          "required": false,
+          "validate": "",
+          "example": "20260920 或变更单号"
+        }
+      ],
+      "notes": "1) 变更前导出基线、变更后再导出一份，形成可追溯的两份归档。\n2) 恢复配置属破坏性操作，且可能要求重启，务必安排在变更窗口并双人确认。\n3) 配置文件含口令密文，归档位置的访问权限要控制。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

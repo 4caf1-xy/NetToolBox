@@ -1,0 +1,810 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "ruijie.json",
+  "vendor_label": "锐捷（RGOS）",
+  "vendor_slug": "ruijie",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 15,
+  "entries": [
+    {
+      "uuid": "1c128aa6-de9b-53c7-90de-802fa9aa2e13",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / S6220",
+      "category": "VLAN",
+      "title": "创建 VLAN 并把端口划入 Access（锐捷 RGOS）",
+      "description": "新建业务 VLAN，用 interface range 批量把端口划为 access 并加入 VLAN。",
+      "commands": "! ===== 创建 VLAN 并划入端口（锐捷 RGOS）=====\nenable\nconfigure terminal\nvlan {{vlan_id}}\n name {{vlan_name}}\n exit\ninterface range GigabitEthernet {{port_range}}\n switchport mode access\n switchport access vlan {{vlan_id}}\n no shutdown\n exit\nend\nwrite\nshow vlan",
+      "params": [
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_name",
+          "label": "VLAN 名称",
+          "default": "OFFICE",
+          "required": false,
+          "validate": "",
+          "example": "OFFICE"
+        },
+        {
+          "name": "port_range",
+          "label": "端口范围",
+          "default": "0/1-0/10",
+          "required": true,
+          "validate": "port_range",
+          "example": "0/1-0/10",
+          "expand": "port"
+        }
+      ],
+      "notes": "1) 锐捷接口名按机型不同：独立式多为 Gi0/1，盒式/机框式为 Gi0/0/1，以 show interface 实际提示为准。\n2) 锐捷支持 interface range 且支持逗号列表，与思科写法一致。\n3) 保存命令是 write（等价 write memory），部分版本会二次确认。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "b664366d-7fb6-5ed7-a4e2-452a87d051f2",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / S6220",
+      "category": "Trunk",
+      "title": "配置 Trunk 口并放通 VLAN（锐捷 RGOS）",
+      "description": "把级联口配成 trunk，用 allowed vlan add 追加放通 VLAN，并设置 native VLAN。",
+      "commands": "! ===== 配置 Trunk 口（锐捷 RGOS）=====\nenable\nconfigure terminal\ninterface GigabitEthernet {{port}}\n switchport mode trunk\n switchport trunk allowed vlan add {{vlan_list}}\n switchport trunk native vlan {{pvid}}\n no shutdown\n exit\nend\nwrite\nshow interfaces GigabitEthernet {{port}} switchport",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口",
+          "default": "0/24",
+          "required": true,
+          "validate": "port",
+          "example": "0/24"
+        },
+        {
+          "name": "vlan_list",
+          "label": "放通 VLAN 列表",
+          "default": "10 20 30",
+          "required": true,
+          "validate": "",
+          "example": "10 20 30 或 10 to 20"
+        },
+        {
+          "name": "pvid",
+          "label": "PVID / Native VLAN",
+          "default": "1",
+          "required": false,
+          "validate": "vlan",
+          "example": "1"
+        }
+      ],
+      "notes": "1) 锐捷用 allowed vlan add 追加；不带 add 是覆盖式设置，会把原有放通列表冲掉。\n2) 取消放通用 switchport trunk allowed vlan remove <vlan>。\n3) native VLAN 两端必须一致，否则会出现跨 VLAN 串流或协议报文异常。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "2e17b383-ad10-533f-9e0f-ab2e4922a845",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-RSR 系列 / 三层交换机",
+      "category": "静态路由",
+      "title": "配置静态路由与缺省路由（锐捷 RGOS）",
+      "description": "配置明细静态路由、缺省路由与浮动备份路由。",
+      "commands": "! ===== 静态路由（锐捷 RGOS）=====\nenable\nconfigure terminal\nip route {{dest_net}} {{mask}} {{next_hop}}\nip route 0.0.0.0 0.0.0.0 {{next_hop}}\nip route {{dest_net}} {{mask}} {{backup_hop}} {{distance}}\nend\nwrite\nshow ip route",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "192.168.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.20.0"
+        },
+        {
+          "name": "mask",
+          "label": "掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "24 或 255.255.255.0"
+        },
+        {
+          "name": "next_hop",
+          "label": "下一跳地址",
+          "default": "10.0.0.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.2"
+        },
+        {
+          "name": "backup_hop",
+          "label": "备份下一跳",
+          "default": "10.0.0.3",
+          "required": false,
+          "validate": "ipv4",
+          "example": "10.0.0.3"
+        },
+        {
+          "name": "distance",
+          "label": "管理距离",
+          "default": "200",
+          "required": false,
+          "validate": "int:1-255",
+          "example": "默认 1，备份用 200"
+        }
+      ],
+      "notes": "1) 最后一位是管理距离（distance），越大越不优先，浮动备份就靠它。\n2) 锐捷三层交换机做路由转发前要确认已开启路由功能（部分型号需 ip routing）。\n3) show ip route 中 S 为静态、S* 为缺省路由；直接 ping 验证比看表更快。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "51ce7f24-f3b5-5056-b442-e2f713666fae",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-RSR 系列 / 三层交换机",
+      "category": "OSPF",
+      "title": "配置 OSPF 基本组网（锐捷 RGOS）",
+      "description": "开启 OSPF 进程、设 router-id、宣告网段并静默业务口。",
+      "commands": "! ===== OSPF 基本配置（锐捷 RGOS）=====\nenable\nconfigure terminal\nrouter ospf {{process_id}}\n router-id {{router_id}}\n network {{network}} {{wildcard}} area {{area_id}}\n passive-interface {{passive_port}}\n exit\nend\nwrite\nshow ip ospf neighbor\nshow ip route ospf",
+      "params": [
+        {
+          "name": "process_id",
+          "label": "进程号",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "1"
+        },
+        {
+          "name": "router_id",
+          "label": "Router ID",
+          "default": "4.4.4.4",
+          "required": true,
+          "validate": "ipv4",
+          "example": "4.4.4.4"
+        },
+        {
+          "name": "network",
+          "label": "宣告网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "wildcard",
+          "label": "反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "area_id",
+          "label": "区域号",
+          "default": "0",
+          "required": false,
+          "validate": "",
+          "example": "0 或 0.0.0.1"
+        },
+        {
+          "name": "passive_port",
+          "label": "被动接口",
+          "default": "0/1",
+          "required": false,
+          "validate": "port",
+          "example": "0/1"
+        }
+      ],
+      "notes": "1) 锐捷命令与思科几乎一致，现场可以套思科经验，但保存命令是 write。\n2) network 用反掩码；router-id 建议显式指定，否则取接口地址，链路抖动会重建邻居。\n3) passive-interface 加在业务接入口，能明显减少不必要报文与日志。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f83d46d7-f563-5849-8c0c-8d374ee95ed0",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / RSR 系列",
+      "category": "ACL",
+      "title": "配置扩展 ACL 并应用到接口（锐捷 RGOS）",
+      "description": "创建命名扩展 ACL 限制网段互访，并绑定到接口 in 方向。",
+      "commands": "! ===== 扩展 ACL 配置与下发（锐捷 RGOS）=====\nenable\nconfigure terminal\nip access-list extended {{acl_name}}\n permit ip {{src_net}} {{src_wild}} {{dst_net}} {{dst_wild}}\n deny ip any any\n exit\ninterface GigabitEthernet {{port}}\n ip access-group {{acl_name}} in\n exit\nend\nwrite\nshow ip access-lists {{acl_name}}",
+      "params": [
+        {
+          "name": "acl_name",
+          "label": "ACL 名称",
+          "default": "ACL-OFFICE-01",
+          "required": true,
+          "validate": "",
+          "example": "ACL-OFFICE-01"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "dst_net",
+          "label": "目的网段",
+          "default": "10.10.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.10.0.0"
+        },
+        {
+          "name": "dst_wild",
+          "label": "目的反掩码",
+          "default": "0.0.255.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.255.255"
+        },
+        {
+          "name": "port",
+          "label": "应用端口",
+          "default": "0/1",
+          "required": true,
+          "validate": "port",
+          "example": "0/1"
+        }
+      ],
+      "notes": "1) 锐捷 ACL 语法与思科高度一致（含隐含 deny any any），但部分版本不支持 log 关键字。\n2) in/out 是相对本设备的方向，别把出方向当入方向配。\n3) 改完用 show ip access-lists 看命中计数验证是否生效。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f3509a0e-7e27-55cb-bc65-94e7c5d38bb0",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-RSR 系列（NAT 网关型号）",
+      "category": "NAT",
+      "title": "配置 NAT 地址转换（PAT 复用 / 静态映射）",
+      "description": "内网网段通过出接口地址做端口复用，并给出服务器静态映射写法。",
+      "commands": "! ===== NAT / PAT 配置（锐捷 RGOS）=====\nenable\nconfigure terminal\ninterface GigabitEthernet {{inside_port}}\n ip address {{inside_ip}} {{inside_mask}}\n ip nat inside\n exit\ninterface GigabitEthernet {{outside_port}}\n ip address {{outside_ip}} {{outside_mask}}\n ip nat outside\n exit\naccess-list {{acl_number}} permit {{src_net}} {{src_wild}}\nip nat inside source list {{acl_number}} interface GigabitEthernet {{outside_port}} overload\n! 静态一对一映射\nip nat inside source static {{inside_server}} {{public_ip}}\nend\nwrite\nshow ip nat translations",
+      "params": [
+        {
+          "name": "inside_port",
+          "label": "内网口",
+          "default": "0/0",
+          "required": true,
+          "validate": "port",
+          "example": "0/0"
+        },
+        {
+          "name": "inside_ip",
+          "label": "内网口 IP",
+          "default": "192.168.1.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.1.1"
+        },
+        {
+          "name": "inside_mask",
+          "label": "内网口掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "outside_port",
+          "label": "外网口",
+          "default": "0/1",
+          "required": true,
+          "validate": "port",
+          "example": "0/1"
+        },
+        {
+          "name": "outside_ip",
+          "label": "外网口 IP",
+          "default": "200.1.1.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.2"
+        },
+        {
+          "name": "outside_mask",
+          "label": "外网口掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "acl_number",
+          "label": "ACL 编号",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-199",
+          "example": "1-99"
+        },
+        {
+          "name": "inside_server",
+          "label": "内网服务器",
+          "default": "192.168.1.100",
+          "required": false,
+          "validate": "ipv4",
+          "example": "192.168.1.100"
+        },
+        {
+          "name": "public_ip",
+          "label": "公网映射 IP",
+          "default": "200.1.1.3",
+          "required": false,
+          "validate": "ipv4",
+          "example": "200.1.1.3"
+        }
+      ],
+      "notes": "1) 只有带 NAT 功能的锐捷路由器/网关型号支持，纯交换型号没有 nat 命令。\n2) inside/outside 标错接口是最常见故障，先用 show ip nat statistics 看是否命中。\n3) 端口映射（入方向 PAT）各版本写法有差异，上机前先用 ? 查看当前版本支持的命令形式。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "294982b2-6cad-5377-87ff-033423a38030",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750",
+      "category": "SSH管理",
+      "title": "开启 SSH 并创建本地用户（锐捷 RGOS）",
+      "description": "配置域名、生成 RSA 密钥、创建特权 15 用户并限制 vty 只用 SSH。",
+      "commands": "! ===== 开启 SSH + 本地用户（锐捷 RGOS）=====\nenable\nconfigure terminal\nhostname {{hostname}}\nip domain-name {{domain}}\nusername {{username}} privilege 15 password {{password}}\ncrypto key generate rsa\n! 提示输入密钥模数，建议 2048\nip ssh version 2\nline vty 0 4\n login local\n transport input ssh\n exec-timeout {{timeout_min}} 0\n exit\nend\nwrite\nshow ip ssh",
+      "params": [
+        {
+          "name": "hostname",
+          "label": "设备名",
+          "default": "SW-CORE-01",
+          "required": false,
+          "validate": "",
+          "example": "SW-CORE-01"
+        },
+        {
+          "name": "domain",
+          "label": "域名",
+          "default": "corp.local",
+          "required": true,
+          "validate": "",
+          "example": "corp.local"
+        },
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) 必须先配 hostname 和 ip domain-name，再生成 RSA 密钥。\n2) 部分版本的 crypto key generate rsa 不接受 modulus 参数，会直接提示输入位数，按提示录入即可。\n3) transport input ssh 会关掉 Telnet，务必留一个已连通的 SSH 会话再执行。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "f4066cd1-f4ee-5a1a-b7d3-d2d39edd624b",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / RSR 系列",
+      "category": "密码",
+      "title": "修改 Console 口令与特权密码（锐捷 RGOS）",
+      "description": "设置 console 口令、空闲超时与特权密码。",
+      "commands": "! ===== Console 与特权口令（锐捷 RGOS）=====\nenable\nconfigure terminal\nline console 0\n password {{console_password}}\n login\n logging synchronous\n exec-timeout {{timeout_min}} 0\n exit\nenable secret {{enable_secret}}\nend\nwrite",
+      "params": [
+        {
+          "name": "console_password",
+          "label": "Console 口令",
+          "default": "C0nsole@123",
+          "required": true,
+          "validate": "",
+          "example": "C0nsole@123"
+        },
+        {
+          "name": "enable_secret",
+          "label": "特权密码",
+          "default": "En@ble@12345",
+          "required": true,
+          "validate": "",
+          "example": "En@ble@12345"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) 与思科一样，enable secret 优先于 enable password，且是加密存储，新设备只用 secret。\n2) console 下只写 login 用 line password（权限 1）；要直进特权 15 用 login local + 本地用户。\n3) logging synchronous 防止日志打断命令行输入。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "7d2f4189-56c9-5318-9860-b00f9386d016",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / RSR 系列",
+      "category": "SNMP",
+      "title": "配置 SNMP v2c 与 Trap 上报（锐捷 RGOS）",
+      "description": "配置只读/读写团体字、设备位置联系人，并把 Trap 上报到网管。",
+      "commands": "! ===== SNMP 配置（锐捷 RGOS）=====\nenable\nconfigure terminal\nsnmp-server community {{ro_community}} ro\nsnmp-server community {{rw_community}} rw\nsnmp-server location {{location}}\nsnmp-server contact {{contact}}\nsnmp-server host {{nms_ip}} version 2c {{ro_community}}\nsnmp-server enable traps\nend\nwrite\nshow snmp community",
+      "params": [
+        {
+          "name": "ro_community",
+          "label": "只读团体字",
+          "default": "RO@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RO@Public1"
+        },
+        {
+          "name": "rw_community",
+          "label": "读写团体字",
+          "default": "RW@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RW@Public1"
+        },
+        {
+          "name": "location",
+          "label": "设备位置",
+          "default": "IDC-A-机柜12",
+          "required": false,
+          "validate": "",
+          "example": "IDC-A-机柜12"
+        },
+        {
+          "name": "contact",
+          "label": "联系人",
+          "default": "网络运维组",
+          "required": false,
+          "validate": "",
+          "example": "网络运维组"
+        },
+        {
+          "name": "nms_ip",
+          "label": "网管服务器 IP",
+          "default": "10.0.0.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.100"
+        }
+      ],
+      "notes": "1) 锐捷的 ro/rw 关键字会原样存储（不做大小写转换），大小写写错会导致权限不符预期。\n2) 只用采集时给 ro 即可；rw 有被下发配置的风险，用完及时删除。\n3) 部分版本 snmp-server host 需要显式加 traps 关键字，报错时按 ? 提示调整。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "8e954d9d-a0de-52d3-986a-ce93474207ef",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / RSR 系列",
+      "category": "保存配置",
+      "title": "保存配置并备份到本地 flash",
+      "description": "用 write 保存运行配置，并复制一份到 flash 作为回滚点。",
+      "commands": "! ===== 保存与本地备份（锐捷 RGOS）=====\nenable\nwrite\nshow startup-config\ndir flash:/\ncopy running-config flash:backup-{{backup_tag}}.cfg\ndir flash:/",
+      "params": [
+        {
+          "name": "backup_tag",
+          "label": "备份标记",
+          "default": "20260920",
+          "required": false,
+          "validate": "",
+          "example": "20260920 或变更单号"
+        }
+      ],
+      "notes": "1) 锐捷保存用 write（部分版本有 write memory 等价形式），执行后用 show startup-config 核对。\n2) 隔离网络不要用 TFTP 方式备份，直接存 flash: 最稳。\n3) 备份文件带日期或变更单号，多版本并存才好回滚。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "7ba70204-4b1f-500d-9fad-638eb2ec00ae",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "锐捷 RGOS 全系列",
+      "category": "DNS域名解析",
+      "title": "配置 DNS 服务器与域名解析（锐捷 RGOS）",
+      "description": "指向内网 DNS 服务器，验证域名可解析（离网内网 DNS 标准动作）。",
+      "commands": "! ===== 配置 DNS 服务器与域名解析（锐捷 RGOS）=====\n! ---- 配置段 ----\nenable\nconfigure terminal\nip name-server {{dns_server_ip}}\nend\n! ---- 验证段 ----\nshow hosts\nping {{test_domain}}\n",
+      "params": [
+        {
+          "name": "dns_server_ip",
+          "label": "内网 DNS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        },
+        {
+          "name": "test_domain",
+          "label": "验证用内网域名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "gw.corp.local"
+        }
+      ],
+      "notes": "1) RGOS 与 IOS 同源：ip name-server 写法一致，domain-lookup 默认开启。\n2) ip name-server 可重复执行追加备用 DNS（最多 6 个），验证同思科用 show hosts + ping 域名。\n验证方法：show run | include name-server + ping test_domain，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "10f38c42-b923-50d5-bf00-5e689aa0f2a6",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "锐捷 RGOS 全系列",
+      "category": "时间同步",
+      "title": "配置 NTP 服务器与状态验证（锐捷 RGOS）",
+      "description": "ntp server 指向内网 NTP 并验证时钟同步（IOS 系同源写法）。",
+      "commands": "! ===== 配置 NTP 服务器与状态验证（锐捷 RGOS）=====\nenable\nconfigure terminal\nntp server {{ntp_server_ip}}\nend\n! ---- 验证 ----\nshow ntp status\nshow ntp associations\nshow clock detail\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) RGOS 与 IOS 同源：ntp server / show ntp status 写法一致，Clock is synchronized 判据相同。\n2) 部分盒式版本 show ntp status 输出项较少，以 associations 的 ~* 标记 + show clock detail 为准。\n验证方法：show ntp status synchronized + show clock detail，收敛后 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "14f6d356-c4e7-5af0-9bc7-64924b5fc9a3",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "锐捷 RGOS 全系列",
+      "category": "版本升级",
+      "title": "软件版本查看、备份与升级流程（锐捷 RGOS）",
+      "description": "show version → 备份 → 传输新镜像 → boot system 指定 → reload。",
+      "commands": "! ===== 版本查看、备份与升级流程（锐捷 RGOS）=====\n! ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\nshow version\ndir flash:\n! ---- 1. 备份配置与当前镜像（交互式输入 TFTP 地址与文件名）----\ncopy running-config tftp:\ncopy flash: tftp:\n! ---- 2. 传输新镜像并校验（交互式；md5 值来自官方下载页）----\ncopy tftp: flash:\nverify /md5 flash:{{rgos_image}}\n! ---- 3. 指定启动镜像并保存 ----\nconfigure terminal\nboot system flash:{{rgos_image}}\nend\nwrite memory\n! ---- 4. ★ 重启生效（备份与回滚方案就绪后再做）----\nreload\n! ---- 5. 重启后复核 ----\nshow version\n",
+      "params": [
+        {
+          "name": "backup_server",
+          "label": "TFTP/备份服务器 IP",
+          "default": "",
+          "required": true,
+          "required_note": "",
+          "validate": "ipv4",
+          "example": "192.168.66.20"
+        },
+        {
+          "name": "rgos_image",
+          "label": "新版本镜像文件名",
+          "default": "",
+          "required": true,
+          "required_note": "",
+          "validate": "",
+          "example": "RGOS 11.x 镜像文件名"
+        }
+      ],
+      "notes": "1) ★ 危险点（变更窗口/回滚点/带外通道三要素先行）：含 reload；回滚点 = 旧镜像保留，回滚 = boot system 指回旧镜像再 reload。\n2) RGOS 与 IOS 系流程同源；部分型号 boot system 关键字为 boot config/bootfile 差异以 ? 为准。\n验证方法：升级后 show version 新版本 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "a77b2d1c-b32a-595e-a3dc-e383154ff91b",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "锐捷 RGOS 全系列",
+      "category": "配置回滚",
+      "title": "配置回滚（锐捷 RGOS，备份恢复式）",
+      "description": "改动前备份配置文件，改坏后恢复备份并重启回退（RGOS 路径，各型号关键字以 ? 为准）。",
+      "commands": "! ===== 配置回滚（锐捷 RGOS）=====\n! ---- 0. 改动前：备份当前配置为独立文件 ----\ncopy running-config flash:/{{backup_file}}\n! ---- 1. 改动出问题后：diff ----\nshow running-config\n! ---- 2. 恢复备份为启动配置 ----\ncopy flash:/{{backup_file}} running-config\nwrite memory\n! ---- 3. ★ 部分型号需 reload 生效（确认备份与带外通道后再做）----\nreload\n! ---- 4. 复核 ----\nshow running-config | include <核对关键字>\n",
+      "params": [
+        {
+          "name": "backup_file",
+          "label": "备份配置文件名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "confg-bak-20260928.cfg"
+        }
+      ],
+      "notes": "1) ★ 危险点：copy 备份到 running-config 是 merge 语义，个别改动 undo 不干净时需 reload 恢复——以 ? 实测本型号回滚命令。\n2) 与《保存配置并备份到本地 flash》分工：保存 = 固化当前，本条 = 回退到历史备份。\n3) 回滚前 diff：show running-config 与备份内容逐段核对。\n验证方法：回滚后 show running-config 复核 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "ef722cfe-dd1c-5ff1-9d23-bd057a43e0ad",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "锐捷 RGOS",
+      "category": "AAA认证",
+      "title": "配置 AAA 认证与本地兜底（锐捷 RGOS）",
+      "description": "RADIUS/TACACS 服务器组 + 登录认证顺序 + 本地兜底（先验证后退出，见 notes 铁律）。",
+      "commands": "! ===== AAA 认证与本地兜底（锐捷 RGOS）=====\nenable\nconfigure terminal\n! ---- 1. RADIUS 服务器 ----\nradius-server host {{aaa_server_ip}} key {{aaa_shared_key}}\n! ---- 2. 认证顺序：先 radius 后 local 兜底 ----\naaa authentication login default radius local\n! ---- 3. 本地兜底账号 ----\nusername {{local_user}} privilege 15 secret {{local_password}}\nend\n! ---- 4. ★ 验证（新开窗口测，勿退当前会话）----\ntest aaa group radius {{test_user}} {{test_password}}\n! 部分版本无 test aaa：用新窗口实登验证\n",
+      "params": [
+        {
+          "name": "aaa_server_ip",
+          "label": "RADIUS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.30"
+        },
+        {
+          "name": "aaa_shared_key",
+          "label": "共享密钥",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强密钥"
+        },
+        {
+          "name": "test_user",
+          "label": "验证用域账号",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "test_password",
+          "label": "验证用口令",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强口令"
+        },
+        {
+          "name": "local_user",
+          "label": "本地兜底账号",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "local_password",
+          "label": "本地兜底口令",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强口令"
+        }
+      ],
+      "notes": "1) ★ 危险点（AAA 第一铁律）：配置 AAA 后**不要退出当前会话**——先用新开窗口验证能登录，确认兜底本地账号可用再断开；配置错误把自己锁外面只能 Console 救。\n2) ★ 保留 Console 通道：AAA 服务器不可达时 Console 是最后生命线（console 上配置本地兜底）。\n3) 本地兜底顺序必须显式配置（radius/tacacs 之后跟 local），服务器全挂时才回落本地账号。\n4) 无 test aaa 的版本必须新开窗口实测域账号登录成功后再继续。\n验证方法：域账号登录成功 + 断服务器后本地账号可登录；（验证人/型号/日期验证通过后回填 verified，属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

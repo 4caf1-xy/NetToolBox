@@ -1,0 +1,958 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "paloalto.json",
+  "vendor_label": "Palo Alto Networks（PAN-OS）",
+  "vendor_slug": "paloalto",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 18,
+  "entries": [
+    {
+      "uuid": "050e539a-7623-530e-8b25-bb9a7d72796f",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220 / VM 系列",
+      "category": "VLAN",
+      "title": "创建 VLAN 子接口并划入安全区域",
+      "description": "在物理口上建 tag 子接口、配 IP，并把子接口划入安全区域（PAN-OS 的 zone 必须先建）。",
+      "commands": "# ===== 创建 VLAN 子接口（PAN-OS）=====\nconfigure\nset network interface ethernet {{parent_port}} layer3 units {{sub_if}} tag {{vlan_id}}\nset network interface ethernet {{parent_port}} layer3 units {{sub_if}} ip {{vlan_ip}}/{{prefix_len}}\nset network interface ethernet {{parent_port}} layer3 units {{sub_if}} comment \"{{vlan_desc}}\"\nset zone {{zone_name}} network layer3 {{sub_if}}\nset network virtual-router default interface {{sub_if}}\ncommit\nshow interface all",
+      "params": [
+        {
+          "name": "parent_port",
+          "label": "父物理口",
+          "default": "ethernet1/2",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/2"
+        },
+        {
+          "name": "sub_if",
+          "label": "子接口名",
+          "default": "ethernet1/2.10",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/2.10"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_ip",
+          "label": "接口 IP",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24（PAN-OS 用 CIDR）"
+        },
+        {
+          "name": "zone_name",
+          "label": "安全区域名",
+          "default": "trust",
+          "required": false,
+          "validate": "",
+          "example": "trust / untrust / dmz"
+        },
+        {
+          "name": "vlan_desc",
+          "label": "描述",
+          "default": "办公网段",
+          "required": false,
+          "validate": "",
+          "example": "办公网段"
+        }
+      ],
+      "notes": "1) PAN-OS 有三件套必须齐全：子接口 → 划入 zone → 加入 virtual-router，缺一样流量就不通。\n   子接口名必须是\"父接口.tag\"格式（ethernet1/2.10），tag 就写 VLAN ID。\n2) IP 用 CIDR 写法（192.168.10.1/24），不是点分掩码。\n3) 所有配置都是\"候选配置\"，必须 commit 才生效；未 commit 的改动可以用\n   show config diff 查看、revert config 丢弃。\n4) 物理口若已是 layer3 且带 IP，需要先清掉再建子接口，否则报错。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "70bb798c-8e45-5bfd-8340-6cb541ed710d",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220",
+      "category": "Trunk",
+      "title": "配置链路聚合（AE 接口）与 Trunk 子接口",
+      "description": "把多个物理口绑成 AE 聚合口，再在 AE 上建 tag 子接口作为 Trunk 上联。",
+      "commands": "# ===== 链路聚合 + Trunk 子接口（PAN-OS）=====\nconfigure\n! ---- 1) 创建 AE 聚合口并加入成员口 ----\nset network interface ethernet {{member1}} layer2 lacp enable true\nset network interface ethernet {{member1}} aggregate-group {{ae_name}}\nset network interface ethernet {{member2}} layer2 lacp enable true\nset network interface ethernet {{member2}} aggregate-group {{ae_name}}\n! ---- 2) 在 AE 上建子接口作为 Trunk（每个 VLAN 一个 tag 子接口）----\nset network interface aggregate-ethernet {{ae_name}} layer3 units {{ae_name}}.{{vlan_id}} tag {{vlan_id}}\nset network interface aggregate-ethernet {{ae_name}} layer3 units {{ae_name}}.{{vlan_id}} ip {{vlan_ip}}/{{prefix_len}}\nset zone trust network layer3 {{ae_name}}.{{vlan_id}}\nset network virtual-router default interface {{ae_name}}.{{vlan_id}}\ncommit\nshow interface all\nshow lacp interfaces",
+      "params": [
+        {
+          "name": "member1",
+          "label": "成员口1",
+          "default": "ethernet1/1",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/1"
+        },
+        {
+          "name": "member2",
+          "label": "成员口2",
+          "default": "ethernet1/2",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/2"
+        },
+        {
+          "name": "ae_name",
+          "label": "聚合口名",
+          "default": "ae1",
+          "required": true,
+          "validate": "",
+          "example": "ae1"
+        },
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_ip",
+          "label": "子接口 IP",
+          "default": "192.168.10.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "prefix_len",
+          "label": "掩码长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24"
+        }
+      ],
+      "notes": "1) PAN-OS 的\"trunk\"由\"AE 聚合口 + 多个 tag 子接口\"组合实现，没有 Cisco 那种\n   switchport mode trunk 命令。\n2) 成员口必须先设 aggregate-group 才会成为聚合成员；只开 lacp enable 不会自动聚合。\n3) 多个 VLAN 就重复建多个 tag 子接口（ae1.10、ae1.20…），别想一次配完。\n4) show lacp interfaces 看成员口是否都 negotiated，是排查聚合异常的第一步。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "4e21bace-fb13-5c98-a7fe-f74ec449f43a",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA 全系列",
+      "category": "静态路由",
+      "title": "配置静态路由与默认路由（PAN-OS）",
+      "description": "在 virtual-router 的路由表中新增静态路由，指定下一跳与出接口。",
+      "commands": "# ===== 静态路由（PAN-OS）=====\nconfigure\nset network virtual-router default routing-table ip static-route {{route_name}} destination {{dest_net}}/{{prefix_len}}\nset network virtual-router default routing-table ip static-route {{route_name}} nexthop ip-address {{next_hop}}\nset network virtual-router default routing-table ip static-route {{route_name}} interface {{out_interface}}\nset network virtual-router default routing-table ip static-route {{route_name}} metric {{metric}}\nset network virtual-router default routing-table ip static-route {{default_route_name}} destination 0.0.0.0/0\nset network virtual-router default routing-table ip static-route {{default_route_name}} nexthop ip-address {{next_hop}}\nset network virtual-router default routing-table ip static-route {{default_route_name}} interface {{out_interface}}\ncommit\nshow routing route\nshow routing route type static\ntest routing fib-lookup virtual-router default ip {{probe_ip}}",
+      "params": [
+        {
+          "name": "route_name",
+          "label": "路由名",
+          "default": "TO-CORE",
+          "required": true,
+          "validate": "",
+          "example": "TO-CORE"
+        },
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "192.168.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.20.0"
+        },
+        {
+          "name": "prefix_len",
+          "label": "前缀长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24"
+        },
+        {
+          "name": "next_hop",
+          "label": "下一跳地址",
+          "default": "10.0.0.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.2"
+        },
+        {
+          "name": "out_interface",
+          "label": "出接口",
+          "default": "ethernet1/1",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/1"
+        },
+        {
+          "name": "metric",
+          "label": "metric",
+          "default": "10",
+          "required": false,
+          "validate": "int:1-65535",
+          "example": "越小越优先，默认 10"
+        },
+        {
+          "name": "default_route_name",
+          "label": "默认路由名",
+          "default": "DEFAULT-TO-ISP",
+          "required": false,
+          "validate": "",
+          "example": "DEFAULT-TO-ISP"
+        },
+        {
+          "name": "probe_ip",
+          "label": "探测目标 IP",
+          "default": "8.8.8.8",
+          "required": false,
+          "validate": "ipv4",
+          "example": "8.8.8.8"
+        }
+      ],
+      "notes": "1) 路由挂在 virtual-router 下，如果设备上有多个 VR，要确认加到哪个 VR（默认 default）。\n2) destination 用 CIDR（192.168.20.0/24）；nexthop 与 interface 都建议给，便于链路 down 时失效。\n3) test routing fib-lookup virtual-router default ip <目标> 可直连查\"这个目的走哪个下一跳\"，\n   比翻路由表快得多 —— 这是 PAN-OS 排查路由的首选命令。\n4) metric 越小越优先（默认 10）；做浮动备份调整 metric 即可。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "713c3eeb-c398-5ae8-af31-05c5ed260301",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA 全系列（需高级路由订阅）",
+      "category": "OSPF",
+      "title": "配置 OSPF 基本组网（PAN-OS）",
+      "description": "启用 OSPF、指定 router-id、按区域把接口加入 OSPF 并设置被动接口。",
+      "commands": "# ===== OSPF 基本配置（PAN-OS）=====\nconfigure\nset network virtual-router default protocol ospf router-id {{router_id}}\nset network virtual-router default protocol ospf enable yes\nset network virtual-router default protocol ospf area {{area_id}} interface {{uplink_port}}\nset network virtual-router default protocol ospf area {{area_id}} interface {{port}}\nset network virtual-router default protocol ospf area {{area_id}} interface {{port}} passive yes\nset network virtual-router default protocol ospf area {{area_id}} type normal\ncommit\nshow routing protocol ospf neighbor\nshow routing protocol ospf interface\nshow routing protocol ospf summary",
+      "params": [
+        {
+          "name": "router_id",
+          "label": "Router ID",
+          "default": "6.6.6.6",
+          "required": true,
+          "validate": "ipv4",
+          "example": "6.6.6.6"
+        },
+        {
+          "name": "area_id",
+          "label": "区域号",
+          "default": "0.0.0.0",
+          "required": false,
+          "validate": "",
+          "example": "0.0.0.0（点分格式）"
+        },
+        {
+          "name": "uplink_port",
+          "label": "上行接口（非被动）",
+          "default": "ethernet1/1",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/1"
+        },
+        {
+          "name": "port",
+          "label": "业务接口（被动）",
+          "default": "ethernet1/2",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/2"
+        }
+      ],
+      "notes": "1) OSPF 需要先有接口 IP 并加入 virtual-router；接口没进 VR 就不会出现在可选列表里。\n2) passive yes 让业务口不发不收 Hello（等效 Cisco passive-interface）。\n3) 部分型号/版本需装高级路由（Advanced Routing）授权才有 OSPF，上机前先确认 license。\n4) 邻居起不来的第一件事：确认两端 area 类型（normal/stub）与 Hello/Dead 定时器一致。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "79235f77-4cc9-5b5a-a4db-92fe85549eb0",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA 全系列",
+      "category": "ACL",
+      "title": "配置安全策略与地址对象（ACL 等效）",
+      "description": "创建地址对象与服务对象，用 security rule 控制区域间访问，并开启日志。",
+      "commands": "# ===== 地址对象 + 安全策略（PAN-OS）=====\nconfigure\nset address {{src_obj}} ip-netmask {{src_net}}/{{src_prefix}}\nset address {{dst_obj}} ip-netmask {{dst_net}}/{{dst_prefix}}\nset service {{svc_obj}} protocol tcp port {{dst_port}}\nset rulebase security rules {{rule_name}} from {{src_zone}}\nset rulebase security rules {{rule_name}} to {{dst_zone}}\nset rulebase security rules {{rule_name}} source {{src_obj}}\nset rulebase security rules {{rule_name}} destination {{dst_obj}}\nset rulebase security rules {{rule_name}} application {{application}}\nset rulebase security rules {{rule_name}} service {{svc_obj}}\nset rulebase security rules {{rule_name}} action allow\nset rulebase security rules {{rule_name}} log-end yes\ncommit\nshow rulebase security rules\nshow session all filter rule {{rule_name}}",
+      "params": [
+        {
+          "name": "src_obj",
+          "label": "源地址对象名",
+          "default": "OBJ-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "OBJ-OFFICE"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_prefix",
+          "label": "源前缀长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24"
+        },
+        {
+          "name": "dst_obj",
+          "label": "目的地址对象名",
+          "default": "OBJ-SERVER",
+          "required": true,
+          "validate": "",
+          "example": "OBJ-SERVER"
+        },
+        {
+          "name": "dst_net",
+          "label": "目的网段",
+          "default": "10.10.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.10.0.0"
+        },
+        {
+          "name": "dst_prefix",
+          "label": "目的前缀长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24"
+        },
+        {
+          "name": "svc_obj",
+          "label": "服务对象名",
+          "default": "SVC-WEB-8443",
+          "required": true,
+          "validate": "",
+          "example": "SVC-WEB-8443"
+        },
+        {
+          "name": "dst_port",
+          "label": "目的端口",
+          "default": "8443",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8443"
+        },
+        {
+          "name": "rule_name",
+          "label": "策略名",
+          "default": "OFFICE-to-SERVER",
+          "required": true,
+          "validate": "",
+          "example": "OFFICE-to-SERVER"
+        },
+        {
+          "name": "src_zone",
+          "label": "源区域",
+          "default": "trust",
+          "required": true,
+          "validate": "",
+          "example": "trust"
+        },
+        {
+          "name": "dst_zone",
+          "label": "目的区域",
+          "default": "dmz",
+          "required": true,
+          "validate": "",
+          "example": "dmz"
+        },
+        {
+          "name": "application",
+          "label": "应用",
+          "default": "ssl",
+          "required": false,
+          "validate": "",
+          "example": "ssl / web-browsing / any"
+        }
+      ],
+      "notes": "1) PAN-OS 的策略是\"区域对区域\"（from/to zone），不是绑定到接口；这条与思科/华为思维完全不同。\n2) application 与 service 的关系：application 是 L7 识别（推荐用 ssl/web-browsing 这类），\n   service 是 L4 端口（用 application-default 可让系统自动带出端口）。\n3) 策略自上而下匹配，先匹配生效；新规则默认加在末尾，插到前面要显式指定位置。\n4) 必须有 source/destination/application（或 service）三要素，缺一个提交会报错。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "b516d80d-67b1-5549-b7e9-4cf3dc2a471c",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA 全系列",
+      "category": "NAT",
+      "title": "配置源 NAT（SNAT/PAT）与目的 NAT（DNAT 端口映射）",
+      "description": "用 NAT 策略做源地址转换与端口映射，并说明与安全策略的配合关系。",
+      "commands": "# ===== 源 NAT + 目的 NAT（PAN-OS）=====\nconfigure\n! ---- 1) 源 NAT：内网出网做 PAT（借用出接口地址）----\nset rulebase nat rules {{snat_name}} from {{src_zone}}\nset rulebase nat rules {{snat_name}} to {{dst_zone}}\nset rulebase nat rules {{snat_name}} source {{src_net}}/{{src_prefix}}\nset rulebase nat rules {{snat_name}} destination any\nset rulebase nat rules {{snat_name}} service any\nset rulebase nat rules {{snat_name}} source-translation dynamic-ip-and-port interface-address interface {{out_interface}}\n! ---- 2) 目的 NAT：公网端口映射到内网服务器 ----\nset rulebase nat rules {{dnat_name}} from {{untrust_zone}}\nset rulebase nat rules {{dnat_name}} to {{trust_zone}}\nset rulebase nat rules {{dnat_name}} destination {{public_ip}}/32\nset rulebase nat rules {{dnat_name}} service {{svc_name}}\nset rulebase nat rules {{dnat_name}} source any\nset rulebase nat rules {{dnat_name}} destination-translation translated-address {{inside_ip}}\nset rulebase nat rules {{dnat_name}} destination-translation translated-port {{inside_port}}\ncommit\nshow running nat-policy\nshow session all",
+      "params": [
+        {
+          "name": "snat_name",
+          "label": "SNAT 策略名",
+          "default": "SNAT-TO-INTERNET",
+          "required": true,
+          "validate": "",
+          "example": "SNAT-TO-INTERNET"
+        },
+        {
+          "name": "src_zone",
+          "label": "源区域",
+          "default": "trust",
+          "required": true,
+          "validate": "",
+          "example": "trust"
+        },
+        {
+          "name": "dst_zone",
+          "label": "目的区域",
+          "default": "untrust",
+          "required": true,
+          "validate": "",
+          "example": "untrust"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_prefix",
+          "label": "源前缀长度",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24"
+        },
+        {
+          "name": "out_interface",
+          "label": "出接口",
+          "default": "ethernet1/1",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/1"
+        },
+        {
+          "name": "dnat_name",
+          "label": "DNAT 策略名",
+          "default": "DNAT-WEB-8443",
+          "required": true,
+          "validate": "",
+          "example": "DNAT-WEB-8443"
+        },
+        {
+          "name": "untrust_zone",
+          "label": "外网区域",
+          "default": "untrust",
+          "required": true,
+          "validate": "",
+          "example": "untrust"
+        },
+        {
+          "name": "trust_zone",
+          "label": "内网区域",
+          "default": "trust",
+          "required": true,
+          "validate": "",
+          "example": "trust"
+        },
+        {
+          "name": "public_ip",
+          "label": "公网 IP",
+          "default": "200.1.1.30",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.30"
+        },
+        {
+          "name": "svc_name",
+          "label": "服务对象名",
+          "default": "SVC-WEB-8443",
+          "required": true,
+          "validate": "",
+          "example": "SVC-WEB-8443"
+        },
+        {
+          "name": "inside_ip",
+          "label": "内网服务器",
+          "default": "192.168.10.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.100"
+        },
+        {
+          "name": "inside_port",
+          "label": "内网端口",
+          "default": "8443",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "8443"
+        }
+      ],
+      "notes": "1) PAN-OS 的 NAT 是\"策略\"（rulebase nat rules），与安全策略分开：**NAT 策略只做转换，\n   是否放行由安全策略决定**，因此 DNAT 场景必须同时配一条允许 untrust→trust 的安全策略。\n2) source-translation dynamic-ip-and-port interface-address 就是 PAT（借用出接口地址）。\n3) DNAT 的 service 对象端口要与 translated-port 对齐，端口写错表现为\"能连上但业务不通\"。\n4) show session all 看会话；排查 NAT 时确认会话里显示的源/目的地址是否是转换后的结果。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "367389ae-43d1-5d99-a504-c0fdf0daded4",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA 全系列",
+      "category": "SSH管理",
+      "title": "开启 SSH 管理并创建管理员账号",
+      "description": "创建管理员账号与角色、限制管理源地址、指定 SSH 版本与端口。",
+      "commands": "# ===== 管理员账号 + 管理面收紧（PAN-OS）=====\nconfigure\nset mgt-config users {{username}} permissions role-based superuser yes\nset mgt-config users {{username}} password\n! ↑ 交互提示输入两次口令，脚本里会停在提示符上，需手工输入\nset deviceconfig system permitted-ip {{mgmt_net}}/{{mgmt_prefix}}\nset deviceconfig system ssh-version 2\nset deviceconfig system port {{ssh_port}}\nset deviceconfig system hostname {{hostname}}\ncommit\nshow mgt-config users\nshow deviceconfig system",
+      "params": [
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "mgmt_net",
+          "label": "允许管理网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "mgmt_prefix",
+          "label": "管理网段前缀",
+          "default": "24",
+          "required": true,
+          "validate": "int:0-32",
+          "example": "24"
+        },
+        {
+          "name": "ssh_port",
+          "label": "SSH 端口",
+          "default": "22",
+          "required": false,
+          "validate": "int:1-65535",
+          "example": "22，建议改非标端口"
+        },
+        {
+          "name": "hostname",
+          "label": "设备名",
+          "default": "FW-EDGE-01",
+          "required": false,
+          "validate": "",
+          "example": "FW-EDGE-01"
+        }
+      ],
+      "notes": "1) set mgt-config users X password 是交互式命令：粘贴脚本会停在 \"Enter password:\" —— 现场手工敲。\n   想在脚本里一次配好，可用 password-hash 方式（先在界面/设备上设好再导出配置复用）。\n2) permitted-ip 是\"管理面白名单\"，配了就只允许该网段访问管理接口；\n   配置前务必确认自己在白名单网段内，否则会把自己锁在外面。\n3) 角色权限用 permissions role-based superuser yes；更细的可用自定义 role。\n4) 改 port 或 permitted-ip 前，先留一个已连通的会话，改完立即用新方式验证。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "3eaf7291-5531-5b2f-a27a-f07ecd4a0f01",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA 全系列",
+      "category": "密码",
+      "title": "修改管理员口令并设置口令策略",
+      "description": "修改管理员口令，配置口令复杂度与有效期策略。",
+      "commands": "# ===== 修改管理员口令（PAN-OS）=====\nconfigure\nset mgt-config users {{username}} password\n! ↑ 交互输入两次新口令，无法在脚本里自动化\nset mgt-config password-complexity enabled yes\nset mgt-config password-complexity minimum-length {{min_len}}\nset mgt-config password-complexity minimum-numeric {{min_numeric}}\nset mgt-config password-complexity minimum-special {{min_special}}\nset mgt-config password-complexity password-history-count {{history}}\nset mgt-config password-complexity password-change-period {{change_days}}\nset mgt-config password-complexity password-change-warning {{warning_days}}\ncommit\nshow mgt-config password-complexity",
+      "params": [
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "min_len",
+          "label": "口令最小长度",
+          "default": "12",
+          "required": false,
+          "validate": "int:8-15",
+          "example": "8-15"
+        },
+        {
+          "name": "min_numeric",
+          "label": "最少数字位数",
+          "default": "2",
+          "required": false,
+          "validate": "int:0-15",
+          "example": "2"
+        },
+        {
+          "name": "min_special",
+          "label": "最少特殊字符数",
+          "default": "2",
+          "required": false,
+          "validate": "int:0-15",
+          "example": "2"
+        },
+        {
+          "name": "history",
+          "label": "口令历史记录数",
+          "default": "12",
+          "required": false,
+          "validate": "int:0-50",
+          "example": "12"
+        },
+        {
+          "name": "change_days",
+          "label": "口令有效期（天）",
+          "default": "90",
+          "required": false,
+          "validate": "int:0-365",
+          "example": "90"
+        },
+        {
+          "name": "warning_days",
+          "label": "到期前提醒（天）",
+          "default": "7",
+          "required": false,
+          "validate": "int:0-365",
+          "example": "7"
+        }
+      ],
+      "notes": "1) 改口令必须交互输入，脚本粘贴会卡在 \"Enter password:\"；现场手工敲，或从界面改。\n2) PAN-OS 的 console / HTTPS / SSH 共用同一套管理员账号，改一处全套生效。\n3) 忘记 admin 口令的恢复：通过 console 在维护模式（Maintenance Recovery）重置，\n   需要重启并现场操作，属破坏性操作。\n4) 安全基线：minimum-length ≥12、必须有数字与特殊字符、有效期 ≤90 天、开启历史记录。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "512998b6-470d-50e7-8afc-37193c6a31db",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA 全系列",
+      "category": "SNMP",
+      "title": "配置 SNMP 团体字与 Trap 目标（PAN-OS）",
+      "description": "配置 SNMP v2c 团体字、限定网管源地址并指定 Trap 接收服务器。",
+      "commands": "# ===== SNMP 配置（PAN-OS）=====\nconfigure\nset deviceconfig system snmp-setting access-setting version v2c snmp-community-string {{ro_community}}\nset deviceconfig system snmp-setting access-setting version v2c permitted-ip {{nms_ip}}/32\nset deviceconfig system snmp-setting trap-setting v2c enable yes\nset deviceconfig system snmp-setting trap-setting v2c servers {{nms_ip}}\nset deviceconfig system snmp-setting trap-setting v2c community-string {{ro_community}}\ncommit\nshow deviceconfig system snmp-setting",
+      "params": [
+        {
+          "name": "ro_community",
+          "label": "只读团体字",
+          "default": "RO@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RO@Public1"
+        },
+        {
+          "name": "nms_ip",
+          "label": "网管服务器 IP",
+          "default": "10.0.0.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.100"
+        }
+      ],
+      "notes": "1) permitted-ip 必须配，不配等于对全网开放 SNMP，安全审计必查。\n2) 团体字别用 public/private；建议与其它设备区分，避免一处泄露全网受影响。\n3) Trap 的 community-string 要与接收端一致，否则网管收不到告警。\n4) 更安全的做法是用 SNMPv3（set deviceconfig system snmp-setting access-setting version v3 ...），\n   需要配 usm-users 与认证/加密口令。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "2156ab5b-7fbc-5a1d-9565-b943fd139c1d",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA 全系列",
+      "category": "保存配置",
+      "title": "提交配置并导出配置文件归档",
+      "description": "commit 生效后把配置导出为文件（含命名版本），并把导出文件取回本机归档。",
+      "commands": "# ===== 提交与导出配置（PAN-OS）=====\nconfigure\nshow config diff\ncommit\n! ---- 导出运行配置到设备本地文件 ----\nsave config to {{backup_name}}\n! ---- 列出已有导出文件 ----\nshow config saved\n! ---- 命名版本快照（在界面上做，便于一键回滚）----\n! 【Web】Device → Setup → Operations → Save named configuration snapshot\n! 【Web】导出到本机：Device → Setup → Operations → Export configuration version\n! ---- 回滚 ----\n! load config from {{backup_name}}\n! load config version <版本号>\n! commit",
+      "params": [
+        {
+          "name": "backup_name",
+          "label": "导出文件名",
+          "default": "FW-EDGE-01-20260920.xml",
+          "required": true,
+          "validate": "",
+          "example": "FW-EDGE-01-20260920.xml"
+        }
+      ],
+      "notes": "1) PAN-OS 每次 commit 都会自动生成一个版本快照，误改后可以 load config version <版本号> 回滚。\n2) save config to <文件名> 是导出到设备本地；要取回本机需在界面上\n   Device → Setup → Operations → Export 或用 SCP 拉取（隔离网络下建议存本地归档）。\n3) 变更前先在界面做一次 \"Save named configuration snapshot\"，命名带变更单号，回滚最方便。\n4) load config 会覆盖当前运行配置，执行前确认没有其他人正在操作设备。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "3542ee8d-c063-5f96-a6a4-d470f3845b2c",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "Palo Alto 全系列",
+      "category": "DNS域名解析",
+      "title": "配置 DNS 服务器与域名解析（PAN-OS，set 系）",
+      "description": "set dns-setting 指向内网 DNS 并 commit，验证域名可解析（离网内网 DNS 标准动作）。",
+      "commands": "# ===== 配置 DNS 服务器与域名解析（PAN-OS，set 系）=====\n# ---- 配置段：Web 路径见 notes ----\nset deviceconfig system dns-setting servers primary {{dns_server_ip}}\ncommit\n# ---- 验证段 ----\nshow deviceconfig system dns-setting\nping host {{test_domain}}\n",
+      "params": [
+        {
+          "name": "dns_server_ip",
+          "label": "内网 DNS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        },
+        {
+          "name": "test_domain",
+          "label": "验证用内网域名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "gw.corp.local"
+        }
+      ],
+      "notes": "1) Web 路径：Device → Setup → Services → Services → DNS Servers，Primary 填内网 DNS——CLI/Web 二选一，结果一致。\n2) PAN-OS 的 set 改动必须 commit 才生效；多条变更可攒一次 commit。\n3) ping host 是 PAN-OS 固定语法（裸 ping 不带 host 关键字会报错），与 IOS/VRP 习惯不同。\n验证方法：show deviceconfig system dns-setting 核对 primary + ping host test_domain，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "3db181e1-b710-51c0-958f-68f59fa45503",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "Palo Alto 全系列",
+      "category": "时间同步",
+      "title": "配置 NTP 服务器与状态验证（PAN-OS，set 系）",
+      "description": "set ntp-servers 指向内网 NTP 并 commit，show ntp 验证同步状态。",
+      "commands": "# ===== 配置 NTP 服务器与状态验证（PAN-OS，set 系）=====\nset deviceconfig system ntp-servers primary-ntp ntp-server-address {{ntp_server_ip}}\ncommit\n# ---- 验证（收敛需数分钟）----\nshow ntp\nshow system info | match datetime\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) Web 路径：Device → Setup → Services → NTP；CLI set 后必须 commit。\n2) show ntp 的 SYNCHRONIZED 才是同步成功；首次同步可能要几分钟。\n3) 备用 NTP：secondary-ntp 同结构追加。\n验证方法：show ntp 显示 SYNCHRONIZED + show system info 时间准确，收敛后 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "2e2c7470-dd13-525f-9419-ec95b07b3a0b",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "Palo Alto 全系列",
+      "category": "版本升级",
+      "title": "软件版本查看、备份与升级流程（PAN-OS，request 系）",
+      "description": "show system info → software download/install → 重启复核。",
+      "commands": "# ===== 版本查看、备份与升级流程（PAN-OS）=====\n# ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\nshow system info | match sw-version\n# ---- 1. 下载目标版本（设备可达更新源；离网用离线包经 Web 上传）----\nrequest system software download version <目标版本号>\nrequest system software download status\n# ---- 2. 安装（安装完需手动 reboot 才切换）----\nrequest system software install version <目标版本号>\nrequest system reboot\n# ---- 3. 重启后复核 ----\nshow system info | match sw-version\n",
+      "params": [
+        {
+          "name": "backup_server",
+          "label": "TFTP/备份服务器 IP",
+          "default": "",
+          "required": true,
+          "required_note": "",
+          "validate": "ipv4",
+          "example": "192.168.66.20"
+        }
+      ],
+      "notes": "1) ★ 危险点（变更窗口/回滚点/带外通道三要素先行）：install + reboot 两段式，中间不可断电；PAN-OS 自带旧版本分区（软件管理页可切换回退），回滚点天然存在。\n2) 升级前确认 content/威胁库版本与目标 PAN-OS 兼容；跨大版本按官方升级路径逐级升。\n3) 离网环境：官方站点下载 .tar 离线包，Web（Device → Software）上传安装更直接。\n4) <目标版本号> 按实际替换（如 10.2.9）。\n验证方法：升级后 show system info sw-version 新版本 + Web 登录 + 策略抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "24feb9c8-bdf3-54e9-8291-cf5462701e46",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "防火墙全系列",
+      "category": "防火墙诊断",
+      "title": "会话表与策略命中诊断（PAN-OS）",
+      "description": "show session 过滤 + show running security-policy 看生效策略序（配了策略不通的第一排查动作）。",
+      "commands": "# ===== 会话表与策略命中诊断（PAN-OS）=====\n# ---- 1. 按目的地址过滤会话 ----\nshow session all filter destination {{target_ip}}\n# ---- 2. 会话总数与速率概览 ----\nshow session info\n# ---- 3. 当前生效的安全策略（按序命中，排前的先赢）----\nshow running security-policy\n",
+      "params": [
+        {
+          "name": "target_ip",
+          "label": "排查目标 IP（内网服务器/公网映射地址）",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.100"
+        }
+      ],
+      "notes": "1) session all 输出里看 rule 字段 = 命中的策略名；action: deny 即被拒；无会话 = 流量没到设备或路由不可达（先 show routing route）。\n2) show running security-policy 是 commit 后的生效序，与 Web 里候选配置区分；策略从上到下第一条命中即止。\n3) 会话有但业务不通：查 return session（反向会话）与 server-profile/NAT 转换是否对称。\n验证方法：对已知通/不通 IP 各跑一遍，会话 rule 与 action 可复现；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "23660802-b6e0-50d1-ae24-75fbcbbca2d9",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "防火墙全系列",
+      "category": "防火墙诊断",
+      "title": "NAT 会话诊断（PAN-OS）",
+      "description": "按公网地址过滤会话看 xlate 转换 + show running nat-policy 核对 NAT 规则。",
+      "commands": "# ===== NAT 会话诊断（PAN-OS）=====\n# ---- 1. 按公网目的地址过滤会话 ----\nshow session all filter destination {{target_ip}}\n# ---- 2. 会话里看转换字段（destination-xlated / source-xlated = 转换后地址）----\n# ---- 3. 当前生效的 NAT 规则（按序命中）----\nshow running nat-policy\n",
+      "params": [
+        {
+          "name": "target_ip",
+          "label": "排查目标 IP（内网服务器/公网映射地址）",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.100"
+        }
+      ],
+      "notes": "1) 映射不通三查：nat-policy 里规则是否命中（rule 字段）、destination-xlated 是否为预期内网服务器、安全策略放行的是转换前还是转换后地址（PAN-OS 安全策略按\"转换后\"目的地址匹配，这是与其他厂商最大的差异点）。\n2) 无会话先查路由与 zone。\n验证方法：外部实测端口 + 会话 xlate 字段与 NAT 规则三方一致即通过；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "5a4697f0-f788-5cfb-a9a8-21f1ab27d909",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "Palo Alto 全系列（HA 双机）",
+      "category": "HA/双机",
+      "title": "HA 双机状态检查（PAN-OS）",
+      "description": "HA 主备状态、同步状态与链路监控检查（双机场景巡检/切换验证标准动作）。",
+      "commands": "# ===== HA 双机状态检查（PAN-OS）=====\n# ---- 1. HA 状态总览：local/peer 角色与同步 ----\nshow high-availability state\n# ---- 2. HA 链路监控（heartbeat/hb2 状态）----\nshow high-availability link-monitoring\nshow high-availability path-monitoring\n# ---- 3. 运行配置同步确认 ----\nshow high-availability sync\n",
+      "params": [],
+      "notes": "1) show high-availability state 里 local 为 active、peer 为 passive 才是正常主备；local 显示 suspended/non-functional 要查 reason 字段。\n2) sync 状态 \"synced\" 才是配置一致；\"sync pending\" 表示配置未同步完，此时切机会有差异。\n3) 切换验证：主设备挂起（request high-availability state suspend）观察备机接管，变更窗口内做。\n验证方法：两台 state 互为主备 + sync synced + 模拟切换接管成功；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "a9081e7f-2ef3-5687-8516-61582c6dde56",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "Palo Alto 全系列",
+      "category": "配置回滚",
+      "title": "配置回滚（PAN-OS，历史版本配置恢复）",
+      "description": "PAN-OS 保存多份命名配置快照，改坏后加载历史快照并 commit 回退。",
+      "commands": "# ===== 配置回滚（PAN-OS）=====\n# ---- 0. 改动前：保存命名配置快照（Web：Device → Setup → Operations → Save named snapshot）----\n# ---- 1. 改动出问题后：加载历史快照 ----\nload config from <快照名> to running-config\n# ---- 2. 生效（回滚也是配置变更，必须 commit）----\ncommit\n# ---- 3. 复核 ----\nshow running security-policy\n",
+      "params": [],
+      "notes": "1) ★ 危险点：load config 后必须 commit 才生效——与 Junos 同为候选模型，忘 commit 即\"回滚没生效\"。\n2) ★ 回滚前 diff：Web 配置页有两快照对比功能，CLI 侧 load 前先导出当前配置留档。\n3) 命名快照在 Web（Device → Setup → Operations）管理，CLI load 的 <快照名> 按实际替换。\n4) 与《保存配置并备份到本地 flash》分工：那条是备份，本条是历史快照回滚。\n验证方法：commit 后 show running security-policy 复核 + 策略抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "_file": "seed_data/paloalto.json",
+      "uuid": "500d0646-7486-517b-b7ef-72e13862aa90",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "Palo Alto",
+      "category": "环路检测",
+      "title": "环路风险核查（PAN-OS，骨架参照）",
+      "description": "PAN-OS 无传统 STP 体系（二层口 loopback 风险靠 zone/风暴控制），骨架以 ? 实测为准。",
+      "commands": "# ===== 环路风险核查（PAN-OS）=====\n# ---- 1. 接口模式核查（L2 口才有环路风险；L3 口无 STP 概念）----\nshow interface all\n# ---- 2. 风暴控制（VLAN 级 flood 保护按版本确认）----\n# Web：Network → Network Profiles → Network Overrides / Zone Protection\n# ---- 3. 会话/流量异常判读配合 ----\nshow session info\n",
+      "params": [],
+      "notes": "1) ★ 待真机核对：PAN-OS 环路防护特性（风暴控制/zone protection）配置在 Web 为主，本条为骨架参照。\n2) ★ 危险点：风暴中勿盲目插拔线。\n3) 核对通过后回填本条目并升 exec_level 为 verified-cli。\n验证方法：L2 口风暴控制已配置 + 会话无广播激增；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": "skeleton"
+    }
+  ]
+}

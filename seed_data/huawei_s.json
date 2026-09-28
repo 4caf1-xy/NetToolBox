@@ -1,0 +1,825 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "huawei_s.json",
+  "vendor_label": "华为（S 系列交换机 / VRP5）",
+  "vendor_slug": "huawei",
+  "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
+  "generated_at": "2026-09-28",
+  "count": 17,
+  "entries": [
+    {
+      "uuid": "fc982ad5-2758-5749-9f78-a5b2b52e41db",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720 / S6720 / S5731",
+      "category": "VLAN",
+      "title": "创建 VLAN 并把端口划入 Access（S 系列）",
+      "description": "新建业务 VLAN，用 port-group 把一批端口批量划为 access 并加入该 VLAN。",
+      "commands": "# ===== 创建 VLAN 并划入端口（华为 VRP5 交换机）=====\nsystem-view\nvlan {{vlan_id}}\n description {{vlan_name}}\n quit\nport-group {{group_name}}\n group-member GigabitEthernet {{port_start}} to GigabitEthernet {{port_end}}\n port link-type access\n port default vlan {{vlan_id}}\n quit\nsave\ny",
+      "params": [
+        {
+          "name": "vlan_id",
+          "label": "VLAN ID",
+          "default": "10",
+          "required": true,
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "vlan_name",
+          "label": "VLAN 名称",
+          "default": "OFFICE",
+          "required": false,
+          "validate": "",
+          "example": "OFFICE"
+        },
+        {
+          "name": "group_name",
+          "label": "临时组名",
+          "default": "TEMP-GROUP",
+          "required": false,
+          "validate": "",
+          "example": "TEMP-GROUP"
+        },
+        {
+          "name": "port_start",
+          "label": "起始端口",
+          "default": "0/0/1",
+          "required": true,
+          "validate": "port",
+          "example": "0/0/1"
+        },
+        {
+          "name": "port_end",
+          "label": "结束端口",
+          "default": "0/0/10",
+          "required": true,
+          "validate": "port",
+          "example": "0/0/10"
+        }
+      ],
+      "notes": "1) VRP 没有 Cisco 那种 interface range；批量配口用 port-group（较新版本支持），\n   老版本只能逐口 interface GigabitEthernet 0/0/1 敲。\n2) 华为交换机端口是三段式 槽位/子槽位/端口（0/0/1），不能按思科的 0/1 敲。\n3) save 会二次确认 [Y/N]，脚本里必须跟一行 y，否则粘贴后会一直停在提示符。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "79728290-89d3-56ba-abdb-c5707aead754",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720 / S6720",
+      "category": "Trunk",
+      "title": "配置 Trunk 口并放通指定 VLAN（S 系列）",
+      "description": "把级联口配成 trunk，放通允许的 VLAN 列表并设置 PVID。",
+      "commands": "# ===== 配置 Trunk 口（华为 VRP5 交换机）=====\nsystem-view\ninterface GigabitEthernet {{port}}\n port link-type trunk\n port trunk allow-pass vlan {{vlan_list}}\n port trunk pvid vlan {{pvid}}\n undo shutdown\n quit\nsave\ny",
+      "params": [
+        {
+          "name": "port",
+          "label": "端口",
+          "default": "0/0/24",
+          "required": true,
+          "validate": "port",
+          "example": "0/0/24"
+        },
+        {
+          "name": "vlan_list",
+          "label": "放通 VLAN 列表",
+          "default": "10 20 30",
+          "required": true,
+          "validate": "",
+          "example": "10 20 30 或 10 to 20"
+        },
+        {
+          "name": "pvid",
+          "label": "PVID / Native VLAN",
+          "default": "1",
+          "required": false,
+          "validate": "vlan",
+          "example": "1"
+        }
+      ],
+      "notes": "1) 华为是 allow-pass，别写成思科的 allowed；连续段用 \"vlan 10 to 20\"，\n   不连续列表用 \"vlan 10 20 30\"，两者不能混在一条命令里。\n2) port trunk allow-pass vlan all 会放通全部 VLAN，生产上有隔离要求时是个隐患。\n3) pvid 相当于思科的 native VLAN，两端必须一致。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 三层 / S6720",
+      "category": "静态路由",
+      "title": "配置静态路由与缺省路由（三层交换机）",
+      "description": "配置目的网段静态路由、缺省路由与浮动备份路由。",
+      "commands": "# ===== 静态路由（华为 VRP5 三层交换机）=====\nsystem-view\nip route-static {{dest_net}} {{mask}} {{next_hop}}\nip route-static 0.0.0.0 0.0.0.0 {{next_hop}}\n! 浮动路由：preference 数值越大越不优先，主路由失效才生效\nip route-static {{dest_net}} {{mask}} {{backup_hop}} preference {{preference}}\ndisplay ip routing-table {{dest_net}}\nsave\ny",
+      "params": [
+        {
+          "name": "dest_net",
+          "label": "目的网段",
+          "default": "192.168.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.20.0"
+        },
+        {
+          "name": "mask",
+          "label": "掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "24 或 255.255.255.0"
+        },
+        {
+          "name": "next_hop",
+          "label": "下一跳地址",
+          "default": "10.0.0.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.2"
+        },
+        {
+          "name": "backup_hop",
+          "label": "备份下一跳",
+          "default": "10.0.0.3",
+          "required": false,
+          "validate": "ipv4",
+          "example": "10.0.0.3"
+        },
+        {
+          "name": "preference",
+          "label": "优先级",
+          "default": "70",
+          "required": false,
+          "validate": "int:1-255",
+          "example": "默认 60，备份建议 70"
+        }
+      ],
+      "notes": "1) 三层转发的前提是先建 vlanif 并在 vlanif 上配 IP，否则没有直连路由可用。\n2) preference 越小越优先（默认 60），写成 1 会让静态路由抢走 OSPF 的路由。\n3) 缺省路由写 ip route-static 0.0.0.0 0.0.0.0 <下一跳>，掩码写 0 或 0.0.0.0 都认。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "cbeb3037-d375-599b-bace-3571fd3afee2",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 三层 / S6720",
+      "category": "OSPF",
+      "title": "配置 OSPF 基本组网（S 系列）",
+      "description": "开启 OSPF 进程、指定 router-id、按区域宣告网段并静默业务口。",
+      "commands": "# ===== OSPF 基本配置（华为 VRP5）=====\nsystem-view\nospf {{process_id}} router-id {{router_id}}\n area {{area_id}}\n  network {{network}} {{wildcard}}\n  quit\n silent-interface GigabitEthernet{{silent_port}}\n quit\ndisplay ospf peer\ndisplay ospf routing\nsave\ny",
+      "params": [
+        {
+          "name": "process_id",
+          "label": "进程号",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "1"
+        },
+        {
+          "name": "router_id",
+          "label": "Router ID",
+          "default": "1.1.1.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "1.1.1.1"
+        },
+        {
+          "name": "area_id",
+          "label": "区域号",
+          "default": "0",
+          "required": false,
+          "validate": "",
+          "example": "0 或 0.0.0.1"
+        },
+        {
+          "name": "network",
+          "label": "宣告网段",
+          "default": "10.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.0"
+        },
+        {
+          "name": "wildcard",
+          "label": "反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "silent_port",
+          "label": "静默接口",
+          "default": "0/0/1",
+          "required": false,
+          "validate": "port",
+          "example": "0/0/1"
+        }
+      ],
+      "notes": "1) 华为 OSPF 用\"进程 → 区域 → network\"的嵌套视图，quit 的层数别数错。\n2) network 后面是反掩码；宣告错网段会出现接口 UP 但邻居起不来，先看 display ospf peer。\n3) silent-interface 让业务口不发不收 OSPF 报文（等效 Cisco 的 passive-interface），\n   接口段要写紧凑格式 GigabitEthernet0/0/1，带空格会解析失败。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "ea1fe386-ed49-5dd8-bbb4-00b33b0cf500",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S6720",
+      "category": "ACL",
+      "title": "配置 ACL 并应用到接口流量过滤",
+      "description": "创建高级 ACL 限制网段互访，用 traffic-filter 绑到接口入方向。",
+      "commands": "# ===== ACL 配置与下发（华为 VRP5）=====\nsystem-view\nacl number {{acl_number}}\n rule 5 permit ip source {{src_net}} {{src_wild}} destination {{dst_net}} {{dst_wild}}\n rule 10 deny ip\n quit\ninterface GigabitEthernet {{port}}\n traffic-filter inbound acl {{acl_number}}\n quit\ndisplay acl {{acl_number}}\nsave\ny",
+      "params": [
+        {
+          "name": "acl_number",
+          "label": "ACL 编号",
+          "default": "3000",
+          "required": true,
+          "validate": "int:1-3999",
+          "example": "2000-3999"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "dst_net",
+          "label": "目的网段",
+          "default": "10.10.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.10.0.0"
+        },
+        {
+          "name": "dst_wild",
+          "label": "目的反掩码",
+          "default": "0.0.255.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.255.255"
+        },
+        {
+          "name": "port",
+          "label": "应用端口",
+          "default": "0/0/1",
+          "required": true,
+          "validate": "port",
+          "example": "0/0/1"
+        }
+      ],
+      "notes": "1) 基本 ACL 2000-2999 只能匹配源地址；高级 ACL 3000-3999 可匹配协议/源目/端口。\n2) rule 后面的数字是规则序号，默认步长 5；要插规则就用中间序号（如 rule 6），\n   序号小的先匹配，末尾隐含 deny。\n3) 华为应用到接口用 traffic-filter，H3C 用 packet-filter，两者别记混。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "5a9b2932-b97d-50d4-8ab7-2a59c1e65804",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 系列（需支持 NAT 的型号）/ 建议改用 AR 系列",
+      "category": "NAT",
+      "title": "配置 NAT 地址转换（Easy IP）",
+      "description": "内网匹配 ACL 后借用出接口地址做端口复用；也可指定地址池。",
+      "commands": "# ===== NAT / Easy IP（华为 VRP5）=====\nsystem-view\nacl number {{acl_number}}\n rule 5 permit source {{src_net}} {{src_wild}}\n quit\ninterface GigabitEthernet {{outside_port}}\n ip address {{outside_ip}} {{outside_mask}}\n quit\n! Easy IP：直接借用出接口地址（最常用）\nnat outbound {{acl_number}}\n! 使用地址池做 PAT：\n! nat address-group {{group_id}}\n!  nat outbound {{acl_number}} address-group {{group_id}}\ndisplay nat outbound\nsave\ny",
+      "params": [
+        {
+          "name": "acl_number",
+          "label": "ACL 编号",
+          "default": "3000",
+          "required": true,
+          "validate": "int:1-3999",
+          "example": "2000-3999"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "192.168.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.10.0"
+        },
+        {
+          "name": "src_wild",
+          "label": "源反掩码",
+          "default": "0.0.0.255",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.255"
+        },
+        {
+          "name": "outside_port",
+          "label": "出接口",
+          "default": "0/0/1",
+          "required": true,
+          "validate": "port",
+          "example": "0/0/1"
+        },
+        {
+          "name": "outside_ip",
+          "label": "出接口 IP",
+          "default": "200.1.1.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.2"
+        },
+        {
+          "name": "outside_mask",
+          "label": "出接口掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "group_id",
+          "label": "地址池编号",
+          "default": "1",
+          "required": false,
+          "validate": "int:0-7",
+          "example": "0-7"
+        }
+      ],
+      "notes": "1) 纯二层 S5700-LI 不支持 NAT，需要 NAT 的场合请用 AR 路由器或支持 NAT 的三层型号，\n   上设备前先用 display version 确认产品形态。\n2) nat outbound <acl> 是 Easy IP（借用出接口地址）；带 address-group 才是地址池 PAT。\n3) ACL 匹配的是内网源地址，别写成公网地址。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "db7e7679-a4e4-51cc-ba17-156b1d8e98eb",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720 / S6720",
+      "category": "SSH管理",
+      "title": "开启 SSH 并创建本地管理用户（S 系列）",
+      "description": "生成 RSA 密钥、启用 stelnet、建 AAA 本地用户、限制 vty 只用 SSH。",
+      "commands": "# ===== 开启 SSH + 本地用户（华为 VRP5）=====\nsystem-view\nsysname {{hostname}}\nrsa local-key-pair create\n! 提示输入密钥位数，建议 2048\nstelnet server enable\naaa\n local-user {{username}} password irreversible-cipher {{password}}\n local-user {{username}} privilege level 15\n local-user {{username}} service-type ssh\n quit\nuser-interface vty 0 4\n authentication-mode aaa\n protocol inbound ssh\n idle-timeout {{timeout_min}} 0\n quit\nssh user {{username}} authentication-type password\nsave\ny",
+      "params": [
+        {
+          "name": "hostname",
+          "label": "设备名",
+          "default": "SW-CORE-01",
+          "required": false,
+          "validate": "",
+          "example": "SW-CORE-01"
+        },
+        {
+          "name": "username",
+          "label": "用户名",
+          "default": "netadmin",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "password",
+          "label": "密码",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成：>=12位，含大小写/数字/符号"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) 必须先 rsa local-key-pair create 生成密钥，否则 stelnet server enable 会报错。\n2) irreversible-cipher 是不可逆加密存储，比 cipher 更安全；密码至少 8 位含大小写数字。\n3) protocol inbound ssh 会禁掉 Telnet，改之前务必先确认 SSH 能登录，避免锁死设备。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "aec91111-a95a-5257-afc1-fef4195ad322",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720 / S6720",
+      "category": "密码",
+      "title": "修改 Console 口令与用户级别",
+      "description": "设置 console 口认证方式与口令，并配置空闲超时。",
+      "commands": "# ===== Console 口令（华为 VRP5）=====\nsystem-view\nuser-interface console 0\n authentication-mode password\n set authentication password cipher {{console_password}}\n user privilege level {{privilege}}\n idle-timeout {{timeout_min}}\n quit\nsave\ny",
+      "params": [
+        {
+          "name": "console_password",
+          "label": "Console 口令",
+          "default": "C0nsole@123",
+          "required": true,
+          "validate": "",
+          "example": "C0nsole@123"
+        },
+        {
+          "name": "privilege",
+          "label": "用户级别",
+          "default": "15",
+          "required": false,
+          "validate": "int:0-15",
+          "example": "0-15，管理用 15"
+        },
+        {
+          "name": "timeout_min",
+          "label": "超时分钟数",
+          "default": "10",
+          "required": false,
+          "validate": "int:0-35791",
+          "example": "10"
+        }
+      ],
+      "notes": "1) authentication-mode password 是\"只有口令\"；要用户名+口令请用 authentication-mode aaa\n   并配合本地 local-user 创建账号。\n2) cipher 表示按密文存储（输入的是明文，设备加密后保存）；忘记口令只能清空配置重来。\n3) user privilege level 15 才能进所有视图；给 0-1 级会出现能登录但什么都配不了。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "bd0741fb-c566-5c28-b34f-a83908946c5f",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S6720",
+      "category": "SNMP",
+      "title": "配置 SNMP v2c 与 Trap 上报（S 系列）",
+      "description": "开启 SNMP 代理、设置团体字、位置联系人，并把 Trap 上报到网管服务器。",
+      "commands": "# ===== SNMP 配置（华为 VRP5）=====\nsystem-view\nsnmp-agent\nsnmp-agent sys-info version v2c\nsnmp-agent community read cipher {{ro_community}}\nsnmp-agent community write cipher {{rw_community}}\nsnmp-agent sys-info location {{location}}\nsnmp-agent sys-info contact {{contact}}\nsnmp-agent target-host trap address udp-domain {{nms_ip}} params securityname cipher {{ro_community}} v2c\nsnmp-agent trap enable\ndisplay snmp-agent community\nsave\ny",
+      "params": [
+        {
+          "name": "ro_community",
+          "label": "只读团体字",
+          "default": "RO@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RO@Public1"
+        },
+        {
+          "name": "rw_community",
+          "label": "读写团体字",
+          "default": "RW@Public1",
+          "required": true,
+          "validate": "",
+          "example": "RW@Public1"
+        },
+        {
+          "name": "location",
+          "label": "设备位置",
+          "default": "IDC-A-机柜12",
+          "required": false,
+          "validate": "",
+          "example": "IDC-A-机柜12"
+        },
+        {
+          "name": "contact",
+          "label": "联系人",
+          "default": "网络运维组",
+          "required": false,
+          "validate": "",
+          "example": "网络运维组"
+        },
+        {
+          "name": "nms_ip",
+          "label": "网管服务器 IP",
+          "default": "10.0.0.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.0.100"
+        }
+      ],
+      "notes": "1) community 后面跟 cipher 表示密文存储；团体字别用 public/private，安全审计会判违规。\n2) Trap 目标必须带 udp-domain 与 params securityname，只写 IP 是不生效的。\n3) 只用采集时给 read 团体字就够了，write 团体字有下发配置的风险。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "66071ff1-752e-55a0-9a7b-fa0caaaa1c96",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720 / S6720",
+      "category": "保存配置",
+      "title": "保存配置并备份到本地 flash",
+      "description": "保存当前配置到 vrpcfg.zip，并在 flash 里留一份带日期的备份文件。",
+      "commands": "# ===== 保存与本地备份（华为 VRP5）=====\nsave\ny\ndisplay saved-configuration\ndir flash:/\n! 本地备份（隔离网络不依赖 FTP/TFTP）\ncopy flash:/vrpcfg.zip flash:/vrpcfg-{{backup_tag}}.zip\ndir flash:/",
+      "params": [
+        {
+          "name": "backup_tag",
+          "label": "备份标记",
+          "default": "20260920",
+          "required": false,
+          "validate": "",
+          "example": "20260920 或变更单号"
+        }
+      ],
+      "notes": "1) save 必须跟一行 y 确认；也可以用 save force 免交互直接落盘。\n2) 默认保存到 flash:/vrpcfg.zip，备份前先用 dir 确认实际文件名（部分版本名不同）。\n3) 改坏了可以用 startup saved-configuration 指定回滚文件后重启恢复。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "1d371020-3fbe-564d-9854-30eb2fb9b756",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "华为 S 系列（AR/VRP8 通用）",
+      "category": "DNS域名解析",
+      "title": "配置 DNS 服务器与域名解析（华为 VRP5，AR/VRP8 通用）",
+      "description": "开启动态域名解析并指向内网 DNS，验证域名可解析（离网内网 DNS 标准动作）。",
+      "commands": "# ===== 配置 DNS 服务器与域名解析（华为 VRP5，AR/VRP8 通用）=====\n# ---- 配置段 ----\nsystem-view\ndns resolve\ndns server {{dns_server_ip}}\nquit\n# ---- 验证段 ----\ndisplay dns server\nping {{test_domain}}\n",
+      "params": [
+        {
+          "name": "dns_server_ip",
+          "label": "内网 DNS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        },
+        {
+          "name": "test_domain",
+          "label": "验证用内网域名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "gw.corp.local"
+        }
+      ],
+      "notes": "1) dns resolve 是开启动态域名解析的总开关，漏敲则 ping 域名直接报 Unknown host——这是本场景第一大坑。\n2) dns server 最多可配 8 个；重复执行即追加备用 DNS。\n3) VRP5/VRP8 命令完全一致，AR 系列路由器同样适用；ping 域名回显 PING xxx (x.x.x.x) 即解析成功。\n验证方法：display dns server 确认服务器已写入 + ping test_domain，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "16851b17-1676-5d52-be5c-a4d30d7eb1a0",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "华为 S 系列（AR/VRP8 通用）",
+      "category": "时间同步",
+      "title": "配置 NTP 服务器与状态验证（华为 VRP5，AR 通用）",
+      "description": "ntp-service unicast-server 指向内网 NTP 并验证时钟同步。",
+      "commands": "# ===== 配置 NTP 服务器与状态验证（华为 VRP5，AR 通用）=====\nsystem-view\nntp-service unicast-server {{ntp_server_ip}}\nquit\n# ---- 验证：clock status: synchronized + 会话标记 ----\ndisplay ntp-service status\ndisplay ntp-service sessions\ndisplay clock\n",
+      "params": [
+        {
+          "name": "ntp_server_ip",
+          "label": "内网 NTP 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.10"
+        }
+      ],
+      "notes": "1) display ntp-service status 里 clock status: synchronized 才算同步；刚配置等 2-5 分钟收敛。\n2) sessions 输出 [master] 标记选中源；失联源显示异常状态。\n3) VRP5/VRP8 命令一致，AR 系列同样适用；个别老版本需先 ntp-service enable。\n验证方法：display ntp-service status synchronized + display clock，收敛后 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "5a11c2cc-7efb-59ca-9656-2d6c49df5130",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "华为 S 系列（AR/VRP8 通用）",
+      "category": "版本升级",
+      "title": "软件版本查看、备份与升级流程（华为 VRP5，AR 通用）",
+      "description": "display version/startup → 备份 → 传输 .cc → startup system-software → reboot。",
+      "commands": "# ===== 版本查看、备份与升级流程（华为 VRP）=====\n# ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\ndisplay version\ndisplay startup\n# ---- 1. 保存并备份配置 + 当前系统软件（TFTP {{backup_server}}）----\nsave\ntftp {{backup_server}} put flash:/vrpcfg.zip\n# tftp {{backup_server}} put flash:/<当前.cc文件名>     ← 按 dir flash: 实际文件名执行\n# ---- 2. 传输新版本 .cc 并校验 ----\n# tftp {{backup_server}} get <新版本.cc> flash:/<新版本.cc>\ndisplay md5 flash:/<新版本.cc>\n# ---- 3. 指定下次启动系统软件（回滚点：旧 .cc 保留在 flash）----\nstartup system-software flash:/<新版本.cc>\ndisplay startup\n# ---- 4. ★ 重启生效（备份与回滚方案就绪后再做）----\nreboot\n# ---- 5. 重启后复核 ----\ndisplay version\ndisplay startup\n",
+      "params": [
+        {
+          "name": "backup_server",
+          "label": "TFTP/备份服务器 IP",
+          "default": "",
+          "required": true,
+          "required_note": "",
+          "validate": "ipv4",
+          "example": "192.168.66.20"
+        }
+      ],
+      "notes": "1) ★ 危险点：含 reboot——变更窗口内执行；回滚点 = 旧 .cc 保留 + 记住当前 startup 版本（回滚用 startup system-software 指回旧文件再 reboot）。\n2) display md5 在部分老 VRP 版本不可用：改为在 PC 侧对下载文件先行校验再传输。\n3) <新版本.cc>/<当前.cc文件名> 按设备实际文件名替换（dir flash: 查看）；AR 系列流程一致。\n4) save 后再备份 vrpcfg.zip，避免备份到未保存配置。\n验证方法：升级后 display version 新版本 + display startup 指向新 .cc + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "b5448c53-ddc3-54cd-bb83-2a97b9e8ddf1",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "华为 S 系列（VRRP 网关冗余）",
+      "category": "HA/双机",
+      "title": "VRRP 网关冗余状态检查（华为 VRP5）",
+      "description": "VRRP 主备状态、优先级与抢占检查（网关冗余巡检标准动作）。",
+      "commands": "# ===== VRRP 网关冗余状态检查（华为 VRP5）=====\n# ---- 1. 汇总：每组 VRRP 的本机角色 ----\ndisplay vrrp brief\n# ---- 2. 详情：状态/优先级/抢占/心跳 ----\ndisplay vrrp\n# ---- 3. 统计（状态切换次数异常增多要查链路抖动）----\ndisplay vrrp statistics\n",
+      "params": [],
+      "notes": "1) display vrrp brief 里 State 为 Master/Backup；两台设备同一组必须一主一备——双 Master 说明心跳断（VRRP 报文不通），双 Backup 说明优先级/接口状态异常。\n2) 注意 Master/Backup 与\"业务网关在哪台\"的关系：优先级高 + 抢占开启的一台应持续持主；频繁切换查物理链路与 CPU。\n3) 回切演练：调低主机优先级→备机接管→恢复优先级观察抢占回切，变更窗口内做。\n验证方法：display vrrp brief 双机状态互备 + statistics 里切换次数无异常增长；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "b01593bf-7830-5072-b8a8-7002dc7358d4",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "华为 S 系列（作 DHCP 服务端）",
+      "category": "地址分配",
+      "title": "DHCP 地址池状态检查（华为 VRP5）",
+      "description": "查看全局地址池使用率、冲突与过期地址（办公网 DHCP 异常第一排查动作）。",
+      "commands": "# ===== DHCP 地址池状态检查（华为 VRP5）=====\n# ---- 1. 地址池概览与使用率 ----\ndisplay ip pool name {{pool_name}}\n# ---- 2. 服务统计（DISCOVER/OFFER/ACK 计数）----\ndisplay dhcp server statistics\n# ---- 3. 冲突地址 ----\ndisplay ip pool name {{pool_name}} used\n",
+      "params": [
+        {
+          "name": "pool_name",
+          "label": "地址池名称",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "office-pool"
+        }
+      ],
+      "notes": "1) display ip pool 的 Used/Expired 字段：Expired 大 = 大量过期未回收（缩短租期或 reset 过期地址）。\n2) 客户端拿不到地址时看 statistics 里 DISCOVER 有没有进来——没有 = 请求没到服务端（中继/接口 dhcp select 配置问题）。\n3) <pool_name> 按实际池名替换（display ip pool 先看有哪些池）。\n验证方法：地址池有充足空闲 + statistics 计数在增长，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "78f9a12d-524a-504a-b72d-2a31a8899346",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "华为 S 系列（VRP5；VRP8/AR 见 notes）",
+      "category": "配置回滚",
+      "title": "配置回滚（华为 VRP，备份恢复式）",
+      "description": "改动前备份配置文件到 flash，改坏后恢复备份文件并重启回退（VRP5 标准路径）。",
+      "commands": "# ===== 配置回滚（华为 VRP5）=====\n# ---- 0. 改动前：备份当前配置为独立文件（回滚点）----\nsave flash:/{{backup_file}}\n# ---- 1. 改动出问题后：先 diff 当前运行与备份差异 ----\ncompare configuration\n# ---- 2. 恢复备份文件为启动配置 ----\ncopy flash:/{{backup_file}} flash:/vrpcfg.zip\nstartup saved-configuration flash:/vrpcfg.zip\n# ---- 3. ★ 重启生效（备份与带外通道确认后再做）----\nreboot\n# ---- 4. 重启后复核 ----\ndisplay current-configuration | include <核对关键字>\n",
+      "params": [
+        {
+          "name": "backup_file",
+          "label": "备份配置文件名",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "confg-bak-20260928.cfg"
+        }
+      ],
+      "notes": "1) ★ 危险点：VRP5 无原生 checkpoint 回滚，恢复配置文件需重启——变更窗口内操作，带外 Console 先确认。\n2) VRP8/AR 系列支持 configuration checkpoint save / configuration rollback last（两步原生回滚），VRP5 用本条的备份恢复式。\n3) ★ 回滚前先 compare configuration 做 diff，确认回退范围。\n4) 与《保存配置并备份到本地 flash》分工：那条是\"保存当前\"，本条是\"回退到历史备份\"。\n验证方法：重启后 display version/配置复核关键字 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "c3ddd6bb-ba13-5ff4-a613-fbd819b891ef",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "华为 VRP5",
+      "category": "AAA认证",
+      "title": "配置 AAA 认证与本地兜底（华为 VRP5）",
+      "description": "RADIUS 服务器模板 + 认证域 + test-aaa 验证 + 本地兜底（先验证后退出，见 notes 铁律）。",
+      "commands": "# ===== AAA 认证与本地兜底（华为 VRP5）=====\nsystem-view\n# ---- 1. RADIUS 服务器模板 ----\nradius-server template RD1\n radius-server authentication {{aaa_server_ip}} 1812\n radius-server shared-key cipher {{aaa_shared_key}}\nquit\n# ---- 2. 认证域引用（default域：先 radius 后 local 兜底）----\naaa\n authentication-scheme SCH\n  authentication-mode radius local\n radius-server RD1\n quit\n# ---- 3. ★ 验证（勿退当前会话）----\ntest-aaa {{test_user}} {{test_password}} radius-template RD1\n# ---- 4. 本地兜底账号确认存在 ----\nlocal-user {{local_user}} password irreversible-cipher {{local_password}}\nlocal-user {{local_user}} service-type ssh\nquit\n",
+      "params": [
+        {
+          "name": "aaa_server_ip",
+          "label": "RADIUS 服务器 IP",
+          "default": "",
+          "required": true,
+          "validate": "ipv4",
+          "example": "192.168.66.30"
+        },
+        {
+          "name": "aaa_shared_key",
+          "label": "共享密钥",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强密钥"
+        },
+        {
+          "name": "test_user",
+          "label": "验证用域账号",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "test_password",
+          "label": "验证用口令",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强口令"
+        },
+        {
+          "name": "local_user",
+          "label": "本地兜底账号",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "netadmin"
+        },
+        {
+          "name": "local_password",
+          "label": "本地兜底口令",
+          "default": "",
+          "required": true,
+          "validate": "",
+          "example": "现场生成强口令"
+        }
+      ],
+      "notes": "1) ★ 危险点（AAA 第一铁律）：配置 AAA 后**不要退出当前会话**——先用新开窗口验证能登录，确认兜底本地账号可用再断开；配置错误把自己锁外面只能 Console 救。\n2) ★ 保留 Console 通道：AAA 服务器不可达时 Console 是最后生命线（console 上配置本地兜底）。\n3) 本地兜底顺序必须显式配置（radius/tacacs 之后跟 local），服务器全挂时才回落本地账号。\n4) test-aaa 返回 Respond Time OK + 认证成功才算通。\n5) authentication-mode radius local 顺序即兜底顺序，local 不能省。\n验证方法：test-aaa 成功 + 新窗口域账号登录 + 断服务器后本地账号可登录；（验证人/型号/日期验证通过后回填 verified，属下轮真机验证会重点对象）",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    }
+  ]
+}

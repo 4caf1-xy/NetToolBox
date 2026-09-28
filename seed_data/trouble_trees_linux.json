@@ -1,0 +1,1395 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "trouble_trees_linux.json",
+  "count": 7,
+  "trouble_trees": [
+    {
+      "tree_id": "linux-same-subnet",
+      "symptom": "同网段 ping 不通（Linux）",
+      "category": "连通性",
+      "vendor_hint": [
+        "centos",
+        "ubuntu",
+        "kylin",
+        "openeuler"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "查本机 IP 与网卡状态",
+          "observe": "网卡是 UP 吗？IP/掩码是不是预期值？",
+          "explain": "先用 ip addr 看网卡状态与地址——地址没配或网卡 down，一切免谈。",
+          "cmd_ref": {
+            "vendor_category": "网络配置",
+            "title_keyword": "临时配置 IP",
+            "by_vendor": {
+              "centos": {
+                "uuid": "887ade2e-5900-5ae2-830f-8fdef988fe9c",
+                "title": "临时配置 IP 地址（ip 命令族）"
+              },
+              "ubuntu": {
+                "uuid": "5b094e2d-eb19-5797-8486-e7dcd1b9b4f1",
+                "title": "临时配置 IP 地址（ip 命令族）"
+              },
+              "kylin": {
+                "uuid": "f6ce82c6-888f-4ee4-97a9-cec04bf931a3",
+                "title": "临时配置 IP 地址（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "e3503861-efdd-4784-a1f7-ab673a55f8c0",
+                "title": "临时配置 IP 地址（openEuler）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "网卡 down 或没 IP",
+              "goto": "s2"
+            },
+            {
+              "when": "IP 正常",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "配好地址并起网卡",
+          "observe": "配完能否 ping 通自己与对端？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "网络配置",
+            "title_keyword": "临时配置 IP",
+            "by_vendor": {
+              "centos": {
+                "uuid": "887ade2e-5900-5ae2-830f-8fdef988fe9c",
+                "title": "临时配置 IP 地址（ip 命令族）"
+              },
+              "ubuntu": {
+                "uuid": "5b094e2d-eb19-5797-8486-e7dcd1b9b4f1",
+                "title": "临时配置 IP 地址（ip 命令族）"
+              },
+              "kylin": {
+                "uuid": "f6ce82c6-888f-4ee4-97a9-cec04bf931a3",
+                "title": "临时配置 IP 地址（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "e3503861-efdd-4784-a1f7-ab673a55f8c0",
+                "title": "临时配置 IP 地址（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "本机地址问题",
+            "actions": [
+              "按条目临时加地址并 ip link set up",
+              "需要持久化改用 ifcfg/netplan/nmcli 条目",
+              "注意 PREFIX 是掩码长度不是点分掩码"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "查 ARP/邻居与连通性",
+          "observe": "ping 对端与网关的结果？ARP（ip neigh）有没有学到？",
+          "explain": "IP 对了就查二层：ARP 学不到通常是链路或 VLAN 问题。",
+          "cmd_ref": {
+            "vendor_category": "排查命令",
+            "title_keyword": "连通性",
+            "by_vendor": {
+              "centos": {
+                "uuid": "edc961f1-86cc-59d5-9958-7569af10034c",
+                "title": "连通性排查三连（ping/traceroute/dig）"
+              },
+              "ubuntu": {
+                "uuid": "4817095e-4f5c-48ce-a682-4fd496ad3b4e",
+                "title": "连通性排查三连（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "2691e845-28c0-4392-93ca-1684af6a9386",
+                "title": "连通性排查三连（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "42512d69-fe4f-5f7c-8ef4-143b6818b227",
+                "title": "网络排查三件套（ss / tcpdump / journalctl）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "ARP 学不到",
+              "goto": "s4"
+            },
+            {
+              "when": "ARP 正常但 ping 不通",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "title": "查网卡链路质量",
+          "observe": "Link detected 是否 yes？双工/速率是否匹配？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "排查命令",
+            "title_keyword": "ethtool",
+            "by_vendor": {
+              "centos": {
+                "uuid": "ba83f283-c390-5fb6-ad71-14e03f1b62f4",
+                "title": "ethtool 网卡与光模块诊断"
+              },
+              "ubuntu": {
+                "uuid": "badd911f-39c1-4ec8-aeb3-55d6a4e52992",
+                "title": "ethtool 网卡链路诊断（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "8126eb73-bc96-46f9-931e-b020f8e9eb38",
+                "title": "ethtool 网卡链路诊断（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "42512d69-fe4f-5f7c-8ef4-143b6818b227",
+                "title": "网络排查三件套（ss / tcpdump / journalctl）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "两层链路问题",
+            "actions": [
+              {
+                "text": "核对链路是否 detected 以及协商速率",
+                "cmd_ref": {
+                  "vendor_category": "排查命令",
+                  "title_keyword": "ethtool"
+                }
+              },
+              "换网线/网口；核对交换机侧 VLAN 与端口状态",
+              "虚拟机检查虚拟网卡与桥接网卡"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "查本机防火墙",
+          "observe": "防火墙是否拦截 ICMP？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "防火墙",
+            "title_keyword": "放行端口",
+            "by_vendor": {
+              "centos": {
+                "uuid": "ab2aaeca-7569-53f4-8296-062b9a2faf2e",
+                "title": "firewalld 放行端口与服务"
+              },
+              "ubuntu": {
+                "uuid": "c728b20c-8028-52e1-bcd2-5e28eb6cfdb4",
+                "title": "ufw 防火墙基础（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "b3c063a9-ab25-57bb-b25f-69c7580ea5b1",
+                "title": "firewalld 放行端口（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "f6ca4000-a13a-5700-897c-4dd2bdbf0566",
+                "title": "firewalld 放行端口（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "本机防火墙拦截",
+            "actions": [
+              "临时关掉验证：systemctl stop firewalld（验证后恢复）",
+              "按规则放行 ICMP 或对应端口，不要长期关闭防火墙",
+              "Ubuntu 用 ufw status verbose 查看"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "linux-cross-subnet",
+      "symptom": "跨网段不通（Linux）",
+      "category": "连通性",
+      "vendor_hint": [
+        "centos",
+        "ubuntu",
+        "kylin",
+        "openeuler"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "先确认网关可达",
+          "observe": "ping 网关通不通？",
+          "explain": "跨网段必过网关；网关不通先解决同网段问题。",
+          "cmd_ref": {
+            "vendor_category": "排查命令",
+            "title_keyword": "连通性",
+            "by_vendor": {
+              "centos": {
+                "uuid": "edc961f1-86cc-59d5-9958-7569af10034c",
+                "title": "连通性排查三连（ping/traceroute/dig）"
+              },
+              "ubuntu": {
+                "uuid": "4817095e-4f5c-48ce-a682-4fd496ad3b4e",
+                "title": "连通性排查三连（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "2691e845-28c0-4392-93ca-1684af6a9386",
+                "title": "连通性排查三连（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "42512d69-fe4f-5f7c-8ef4-143b6818b227",
+                "title": "网络排查三件套（ss / tcpdump / journalctl）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "网关不通",
+              "goto": "s2"
+            },
+            {
+              "when": "网关通",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "回退同网段排查",
+          "observe": "按同网段树走完是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "网络配置",
+            "title_keyword": "临时配置 IP",
+            "by_vendor": {
+              "centos": {
+                "uuid": "887ade2e-5900-5ae2-830f-8fdef988fe9c",
+                "title": "临时配置 IP 地址（ip 命令族）"
+              },
+              "ubuntu": {
+                "uuid": "5b094e2d-eb19-5797-8486-e7dcd1b9b4f1",
+                "title": "临时配置 IP 地址（ip 命令族）"
+              },
+              "kylin": {
+                "uuid": "f6ce82c6-888f-4ee4-97a9-cec04bf931a3",
+                "title": "临时配置 IP 地址（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "e3503861-efdd-4784-a1f7-ab673a55f8c0",
+                "title": "临时配置 IP 地址（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "本机到网关链路问题",
+            "actions": [
+              "先走《同网段 ping 不通（Linux）》树",
+              "核对网关地址与掩码是否写对"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "查路由表与默认路由",
+          "observe": "有没有默认路由或目的网段路由？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "网络配置",
+            "title_keyword": "临时添加静态路由",
+            "by_vendor": {
+              "centos": {
+                "uuid": "5061d3b4-37ab-511c-8c02-89606803c0df",
+                "title": "临时添加静态路由（ip route）"
+              },
+              "ubuntu": {
+                "uuid": "dcec3d65-dac4-482a-93fd-a47cb8116871",
+                "title": "临时添加静态路由（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "b9650b64-8067-4611-a92a-bf37739f072c",
+                "title": "临时添加静态路由（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "740d2afe-319f-4dd6-9255-9db73a6e531a",
+                "title": "临时添加静态路由（openEuler）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "没有默认路由",
+              "goto": "s4"
+            },
+            {
+              "when": "有路由",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "title": "补默认路由",
+          "observe": "补完是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "网络配置",
+            "title_keyword": "临时添加静态路由",
+            "by_vendor": {
+              "centos": {
+                "uuid": "5061d3b4-37ab-511c-8c02-89606803c0df",
+                "title": "临时添加静态路由（ip route）"
+              },
+              "ubuntu": {
+                "uuid": "dcec3d65-dac4-482a-93fd-a47cb8116871",
+                "title": "临时添加静态路由（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "b9650b64-8067-4611-a92a-bf37739f072c",
+                "title": "临时添加静态路由（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "740d2afe-319f-4dd6-9255-9db73a6e531a",
+                "title": "临时添加静态路由（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "缺默认路由",
+            "actions": [
+              {
+                "text": "补一条指向网关的默认路由（临时生效；持久化见本步命令）",
+                "cmd_ref": {
+                  "vendor_category": "网络配置",
+                  "title_keyword": "临时添加静态路由"
+                }
+              },
+              "持久化：ifcfg 的 GATEWAY / netplan 的 routes / nmcli 的 ipv4.gateway",
+              "固化后重启验证"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "查放行策略与中间设备",
+          "observe": "本机与中间设备的放行策略是否拦了？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "防火墙",
+            "title_keyword": "放行端口",
+            "by_vendor": {
+              "centos": {
+                "uuid": "ab2aaeca-7569-53f4-8296-062b9a2faf2e",
+                "title": "firewalld 放行端口与服务"
+              },
+              "ubuntu": {
+                "uuid": "c728b20c-8028-52e1-bcd2-5e28eb6cfdb4",
+                "title": "ufw 防火墙基础（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "b3c063a9-ab25-57bb-b25f-69c7580ea5b1",
+                "title": "firewalld 放行端口（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "f6ca4000-a13a-5700-897c-4dd2bdbf0566",
+                "title": "firewalld 放行端口（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "策略或中间链路拦截",
+            "actions": [
+              "查本机 firewalld/ufw 规则",
+              "查网关/防火墙的转发与 NAT 策略",
+              "两端同时 tcpdump 定位丢在哪一跳"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "linux-port-closed",
+      "symptom": "端口不通（Linux）",
+      "category": "端口",
+      "vendor_hint": [
+        "centos",
+        "ubuntu",
+        "kylin",
+        "openeuler"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "查端口是否在监听",
+          "observe": "ss -tlnp 里有没有这个端口？监听地址是 0.0.0.0 还是 127.0.0.1？",
+          "explain": "先分清「服务没起」与「防火墙拦」——ss 是分水岭。",
+          "cmd_ref": {
+            "vendor_category": "排查命令",
+            "title_keyword": "查端口监听",
+            "by_vendor": {
+              "centos": {
+                "uuid": "7ddb249b-4d42-5f56-b592-36c2cc4b595c",
+                "title": "查端口监听与占用（ss/netstat）"
+              },
+              "ubuntu": {
+                "uuid": "8ec4a39b-6ad4-5b74-806c-70f307f38479",
+                "title": "查端口监听与占用（ss）"
+              },
+              "kylin": {
+                "uuid": "5a93bc67-7a4b-5315-a2e8-609ad4d648e1",
+                "title": "查端口监听（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "42512d69-fe4f-5f7c-8ef4-143b6818b227",
+                "title": "网络排查三件套（ss / tcpdump / journalctl）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "没有监听",
+              "goto": "s2"
+            },
+            {
+              "when": "监听在 127.0.0.1",
+              "goto": "s3"
+            },
+            {
+              "when": "监听正常",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "服务没起来",
+          "observe": "服务状态是否 failed？日志里写了什么？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "服务管理",
+            "title_keyword": "systemctl 服务管理",
+            "by_vendor": {
+              "centos": {
+                "uuid": "86214216-5e00-5e49-954b-5a369f2587d7",
+                "title": "systemctl 服务管理五件套"
+              },
+              "ubuntu": {
+                "uuid": "297246ef-c222-5d30-b76b-d0daaad8b08b",
+                "title": "systemctl 服务管理（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "c3e92b08-ff00-5a63-8b52-8bb753e99a32",
+                "title": "systemctl 服务管理（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "69ec3d06-b392-5bd2-9938-778699a23fbc",
+                "title": "systemctl 服务管理（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "服务未启动",
+            "actions": [
+              {
+                "text": "查看服务失败原因",
+                "cmd_ref": {
+                  "vendor_category": "服务管理",
+                  "title_keyword": "systemctl 服务管理"
+                }
+              },
+              {
+                "text": "查看该服务最近 100 行日志",
+                "cmd_ref": {
+                  "vendor_category": "服务管理",
+                  "title_keyword": "systemctl 服务管理"
+                }
+              },
+              "常见根因：配置语法错/端口被占/依赖服务没起"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "只监听本机回环",
+          "observe": "改配置监听 0.0.0.0 后是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "服务管理",
+            "title_keyword": "systemctl 服务管理",
+            "by_vendor": {
+              "centos": {
+                "uuid": "86214216-5e00-5e49-954b-5a369f2587d7",
+                "title": "systemctl 服务管理五件套"
+              },
+              "ubuntu": {
+                "uuid": "297246ef-c222-5d30-b76b-d0daaad8b08b",
+                "title": "systemctl 服务管理（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "c3e92b08-ff00-5a63-8b52-8bb753e99a32",
+                "title": "systemctl 服务管理（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "69ec3d06-b392-5bd2-9938-778699a23fbc",
+                "title": "systemctl 服务管理（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "监听地址错误",
+            "actions": [
+              "改服务配置 bind 地址为 0.0.0.0（或具体业务 IP）",
+              "重启服务后 ss 复核",
+              "注意安全：开放范围要按最小化原则"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "查防火墙规则",
+          "observe": "该端口是否被防火墙放行？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "防火墙",
+            "title_keyword": "放行端口",
+            "by_vendor": {
+              "centos": {
+                "uuid": "ab2aaeca-7569-53f4-8296-062b9a2faf2e",
+                "title": "firewalld 放行端口与服务"
+              },
+              "ubuntu": {
+                "uuid": "c728b20c-8028-52e1-bcd2-5e28eb6cfdb4",
+                "title": "ufw 防火墙基础（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "b3c063a9-ab25-57bb-b25f-69c7580ea5b1",
+                "title": "firewalld 放行端口（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "f6ca4000-a13a-5700-897c-4dd2bdbf0566",
+                "title": "firewalld 放行端口（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "防火墙拦截",
+            "actions": [
+              {
+                "text": "放行该端口并重载防火墙规则",
+                "cmd_ref": {
+                  "vendor_category": "防火墙",
+                  "title_keyword": "放行端口"
+                }
+              },
+              "Ubuntu 用 ufw allow 端口/tcp",
+              "从对端 curl -v telnet://IP:端口 复测"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "linux-dns-fail",
+      "symptom": "DNS 不解析（Linux）",
+      "category": "连通性",
+      "vendor_hint": [
+        "centos",
+        "ubuntu",
+        "kylin",
+        "openeuler"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "查 DNS 配置",
+          "observe": "/etc/resolv.conf 里的 DNS 地址是什么？是否为 stub 地址（127.0.0.53）？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "网络配置",
+            "title_keyword": "DNS",
+            "by_vendor": {
+              "centos": {
+                "uuid": "5ca5ddd1-6be9-5069-b81d-52f1c7183b87",
+                "title": "DNS 配置（临时 + 持久化）"
+              },
+              "ubuntu": {
+                "uuid": "c0ed7438-d915-58e5-b34b-1b520d3ccc47",
+                "title": "DNS 配置（systemd-resolved）"
+              },
+              "kylin": {
+                "uuid": "1cb28e42-18a9-5228-bf0a-5ebd5f4c74e0",
+                "title": "DNS 配置（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "58291a7c-89c8-4fb7-bb8d-58fc3fa75b93",
+                "title": "DNS 配置（openEuler 22.03）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "没配 DNS 或明显不对",
+              "goto": "s2"
+            },
+            {
+              "when": "DNS 配置正常",
+              "goto": "s3"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "补 DNS 配置",
+          "observe": "配完 dig 是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "网络配置",
+            "title_keyword": "DNS",
+            "by_vendor": {
+              "centos": {
+                "uuid": "5ca5ddd1-6be9-5069-b81d-52f1c7183b87",
+                "title": "DNS 配置（临时 + 持久化）"
+              },
+              "ubuntu": {
+                "uuid": "c0ed7438-d915-58e5-b34b-1b520d3ccc47",
+                "title": "DNS 配置（systemd-resolved）"
+              },
+              "kylin": {
+                "uuid": "1cb28e42-18a9-5228-bf0a-5ebd5f4c74e0",
+                "title": "DNS 配置（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "58291a7c-89c8-4fb7-bb8d-58fc3fa75b93",
+                "title": "DNS 配置（openEuler 22.03）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "DNS 未配置",
+            "actions": [
+              {
+                "text": "在各发行版自己的持久化网络配置里写 DNS（推荐方式）",
+                "cmd_ref": {
+                  "vendor_category": "网络配置",
+                  "title_keyword": "DNS"
+                }
+              },
+              "Ubuntu 注意 resolv.conf 是指向 stub 的软链，要改 resolved 或 netplan",
+              {
+                "text": "用一个可达的公共 DNS 直接验证解析结果",
+                "cmd_ref": {
+                  "vendor_category": "网络配置",
+                  "title_keyword": "DNS"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "用指定 DNS 验证解析",
+          "observe": "dig @公网DNS 能解析吗？",
+          "explain": "指定 DNS 能解析 = 本机 DNS 配置问题；也不能 = 网络到 DNS 不通。",
+          "cmd_ref": {
+            "vendor_category": "排查命令",
+            "title_keyword": "连通性",
+            "by_vendor": {
+              "centos": {
+                "uuid": "edc961f1-86cc-59d5-9958-7569af10034c",
+                "title": "连通性排查三连（ping/traceroute/dig）"
+              },
+              "ubuntu": {
+                "uuid": "4817095e-4f5c-48ce-a682-4fd496ad3b4e",
+                "title": "连通性排查三连（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "2691e845-28c0-4392-93ca-1684af6a9386",
+                "title": "连通性排查三连（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "42512d69-fe4f-5f7c-8ef4-143b6818b227",
+                "title": "网络排查三件套（ss / tcpdump / journalctl）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "指定 DNS 能解析",
+              "goto": "s4"
+            },
+            {
+              "when": "指定 DNS 也不通",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "title": "修本机 DNS 顺序",
+          "observe": "改完是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "网络配置",
+            "title_keyword": "DNS",
+            "by_vendor": {
+              "centos": {
+                "uuid": "5ca5ddd1-6be9-5069-b81d-52f1c7183b87",
+                "title": "DNS 配置（临时 + 持久化）"
+              },
+              "ubuntu": {
+                "uuid": "c0ed7438-d915-58e5-b34b-1b520d3ccc47",
+                "title": "DNS 配置（systemd-resolved）"
+              },
+              "kylin": {
+                "uuid": "1cb28e42-18a9-5228-bf0a-5ebd5f4c74e0",
+                "title": "DNS 配置（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "58291a7c-89c8-4fb7-bb8d-58fc3fa75b93",
+                "title": "DNS 配置（openEuler 22.03）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "本机 DNS 配置问题",
+            "actions": [
+              "核对 resolv.conf 的 nameserver 顺序与 systemd-resolved 状态",
+              {
+                "text": "查看每个链路各自生效的 DNS",
+                "cmd_ref": {
+                  "vendor_category": "网络配置",
+                  "title_keyword": "DNS"
+                }
+              },
+              "内网域名要走内网 DNS，别只配公网"
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "查到 DNS 的网络连通性",
+          "observe": "ping/traceroute 到 DNS 地址通不通？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "排查命令",
+            "title_keyword": "连通性",
+            "by_vendor": {
+              "centos": {
+                "uuid": "edc961f1-86cc-59d5-9958-7569af10034c",
+                "title": "连通性排查三连（ping/traceroute/dig）"
+              },
+              "ubuntu": {
+                "uuid": "4817095e-4f5c-48ce-a682-4fd496ad3b4e",
+                "title": "连通性排查三连（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "2691e845-28c0-4392-93ca-1684af6a9386",
+                "title": "连通性排查三连（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "42512d69-fe4f-5f7c-8ef4-143b6818b227",
+                "title": "网络排查三件套（ss / tcpdump / journalctl）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "到 DNS 的网络不通",
+            "actions": [
+              {
+                "text": "先确认到 DNS 地址三层可达（本库暂无 ping 专用条目）"
+              },
+              "查防火墙是否放通 UDP 53",
+              "换一个可达的 DNS 先用着，再查根因"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "linux-service-fail",
+      "symptom": "服务起不动（Linux）",
+      "category": "管理面",
+      "vendor_hint": [
+        "centos",
+        "ubuntu",
+        "kylin",
+        "openeuler"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "看服务状态与失败原因",
+          "observe": "Active 行是 failed 吗？最后几行提示什么？",
+          "explain": "systemctl status 的最后几行往往直接给出根因。",
+          "cmd_ref": {
+            "vendor_category": "服务管理",
+            "title_keyword": "systemctl 服务管理",
+            "by_vendor": {
+              "centos": {
+                "uuid": "86214216-5e00-5e49-954b-5a369f2587d7",
+                "title": "systemctl 服务管理五件套"
+              },
+              "ubuntu": {
+                "uuid": "297246ef-c222-5d30-b76b-d0daaad8b08b",
+                "title": "systemctl 服务管理（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "c3e92b08-ff00-5a63-8b52-8bb753e99a32",
+                "title": "systemctl 服务管理（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "69ec3d06-b392-5bd2-9938-778699a23fbc",
+                "title": "systemctl 服务管理（openEuler）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "配置类报错",
+              "goto": "s2"
+            },
+            {
+              "when": "端口占用类报错",
+              "goto": "s3"
+            },
+            {
+              "when": "依赖类报错",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "查配置语法并修正",
+          "observe": "改完配置 restart 是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "服务管理",
+            "title_keyword": "systemctl",
+            "by_vendor": {
+              "centos": {
+                "uuid": "86214216-5e00-5e49-954b-5a369f2587d7",
+                "title": "systemctl 服务管理五件套"
+              },
+              "ubuntu": {
+                "uuid": "297246ef-c222-5d30-b76b-d0daaad8b08b",
+                "title": "systemctl 服务管理（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "c3e92b08-ff00-5a63-8b52-8bb753e99a32",
+                "title": "systemctl 服务管理（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "69ec3d06-b392-5bd2-9938-778699a23fbc",
+                "title": "systemctl 服务管理（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "配置文件错误",
+            "actions": [
+              "按日志提示修正配置文件",
+              "改完先 daemon-reload 再 restart",
+              "配置改动前先备份（cp xxx.conf xxx.conf.bak）"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "查端口占用",
+          "observe": "端口被谁占着？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "排查命令",
+            "title_keyword": "查端口监听",
+            "by_vendor": {
+              "centos": {
+                "uuid": "7ddb249b-4d42-5f56-b592-36c2cc4b595c",
+                "title": "查端口监听与占用（ss/netstat）"
+              },
+              "ubuntu": {
+                "uuid": "8ec4a39b-6ad4-5b74-806c-70f307f38479",
+                "title": "查端口监听与占用（ss）"
+              },
+              "kylin": {
+                "uuid": "5a93bc67-7a4b-5315-a2e8-609ad4d648e1",
+                "title": "查端口监听（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "42512d69-fe4f-5f7c-8ef4-143b6818b227",
+                "title": "网络排查三件套（ss / tcpdump / journalctl）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "端口冲突",
+            "actions": [
+              {
+                "text": "找到占用该端口的进程",
+                "cmd_ref": {
+                  "vendor_category": "排查命令",
+                  "title_keyword": "查端口监听"
+                }
+              },
+              "停掉冲突服务或改本服务端口",
+              "改完 restart 并 ss 复核"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "查依赖与自启",
+          "observe": "依赖服务是否已启动？是否设置了开机自启？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "服务管理",
+            "title_keyword": "开机自启",
+            "by_vendor": {
+              "centos": {
+                "uuid": "5f774ec6-2019-5172-9c27-3e75d51e260f",
+                "title": "开机自启排查"
+              },
+              "ubuntu": {
+                "uuid": "baa13814-e05f-5d12-9cd8-4f92aecf28a6",
+                "title": "开机自启排查（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "c3e92b08-ff00-5a63-8b52-8bb753e99a32",
+                "title": "systemctl 服务管理（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "69ec3d06-b392-5bd2-9938-778699a23fbc",
+                "title": "systemctl 服务管理（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "依赖或自启问题",
+            "actions": [
+              {
+                "text": "查依赖链，先把依赖服务起起来",
+                "cmd_ref": {
+                  "vendor_category": "服务管理",
+                  "title_keyword": "systemctl 服务管理"
+                }
+              },
+              "先起依赖服务，再起本服务",
+              {
+                "text": "设置开机自启，避免重启后服务缺失",
+                "cmd_ref": {
+                  "vendor_category": "服务管理",
+                  "title_keyword": "systemctl 服务管理"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "linux-disk-full",
+      "symptom": "磁盘满（Linux）",
+      "category": "性能",
+      "vendor_hint": [
+        "centos",
+        "ubuntu",
+        "kylin",
+        "openeuler"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "看总体使用率",
+          "observe": "哪个分区使用率最高？有没有到 100%？inode（df -i）是否也满？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "磁盘",
+            "title_keyword": "磁盘空间排查",
+            "by_vendor": {
+              "centos": {
+                "uuid": "a3d432c9-5bc7-5b62-a099-eb37fb106890",
+                "title": "磁盘空间排查（df/du/deleted 句柄）"
+              },
+              "ubuntu": {
+                "uuid": "466cab9e-536b-5bf4-aea8-2f03676cb2ee",
+                "title": "磁盘空间排查（df/du/deleted 句柄）"
+              },
+              "kylin": {
+                "uuid": "0836ad94-f869-5d7f-bc04-77ffbdbc05ee",
+                "title": "磁盘与句柄排查（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "ad5c54d1-9082-5807-a29b-a3b1864914e2",
+                "title": "磁盘与资源排查（openEuler）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "某个分区满",
+              "goto": "s2"
+            },
+            {
+              "when": "空间够但报错",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "逐层定位大目录",
+          "observe": "du 找到的大目录是哪个？",
+          "explain": "从 / 逐层往下 du -sh，别一上来就翻整个盘。",
+          "cmd_ref": {
+            "vendor_category": "磁盘",
+            "title_keyword": "磁盘空间排查",
+            "by_vendor": {
+              "centos": {
+                "uuid": "a3d432c9-5bc7-5b62-a099-eb37fb106890",
+                "title": "磁盘空间排查（df/du/deleted 句柄）"
+              },
+              "ubuntu": {
+                "uuid": "466cab9e-536b-5bf4-aea8-2f03676cb2ee",
+                "title": "磁盘空间排查（df/du/deleted 句柄）"
+              },
+              "kylin": {
+                "uuid": "0836ad94-f869-5d7f-bc04-77ffbdbc05ee",
+                "title": "磁盘与句柄排查（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "ad5c54d1-9082-5807-a29b-a3b1864914e2",
+                "title": "磁盘与资源排查（openEuler）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "日志目录占用大",
+              "goto": "s3"
+            },
+            {
+              "when": "其它目录占用大",
+              "goto": "s5"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "title": "清理日志",
+          "observe": "清理后空间是否释放？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "日志",
+            "title_keyword": "journalctl",
+            "by_vendor": {
+              "centos": {
+                "uuid": "e2da85a1-b6a5-54d7-8909-edba295ead46",
+                "title": "journalctl 日志过滤"
+              },
+              "ubuntu": {
+                "uuid": "5cb7d2aa-008c-5609-bcdb-5c458adce088",
+                "title": "journalctl 日志过滤（Ubuntu）"
+              },
+              "kylin": {
+                "uuid": "450bf945-3420-5ff0-8ffd-954757f2e67f",
+                "title": "journalctl 日志过滤（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "25c1903c-f12c-4200-bc5d-ad4010f460ee",
+                "title": "系统日志过滤（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "日志占满磁盘",
+            "actions": [
+              {
+                "text": "先缩容 systemd 日志释放空间",
+                "cmd_ref": {
+                  "vendor_category": "日志",
+                  "title_keyword": "journalctl"
+                }
+              },
+              "业务日志用 : > 文件截断（不要 rm，正在写的文件空间不释放）",
+              "配置 logrotate 防止复发"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "查被删文件仍被占用",
+          "observe": "lsof | grep deleted 有输出吗？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "磁盘",
+            "title_keyword": "磁盘空间排查",
+            "by_vendor": {
+              "centos": {
+                "uuid": "a3d432c9-5bc7-5b62-a099-eb37fb106890",
+                "title": "磁盘空间排查（df/du/deleted 句柄）"
+              },
+              "ubuntu": {
+                "uuid": "466cab9e-536b-5bf4-aea8-2f03676cb2ee",
+                "title": "磁盘空间排查（df/du/deleted 句柄）"
+              },
+              "kylin": {
+                "uuid": "0836ad94-f869-5d7f-bc04-77ffbdbc05ee",
+                "title": "磁盘与句柄排查（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "ad5c54d1-9082-5807-a29b-a3b1864914e2",
+                "title": "磁盘与资源排查（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "deleted 句柄占空间",
+            "actions": [
+              {
+                "text": "找到仍持有已删文件的进程",
+                "cmd_ref": {
+                  "vendor_category": "磁盘",
+                  "title_keyword": "磁盘空间排查"
+                }
+              },
+              "重启该进程释放空间（最有效）",
+              {
+                "text": "确认 df 与 du 的差值来源（被删文件仍被进程占用）",
+                "cmd_ref": {
+                  "vendor_category": "磁盘",
+                  "title_keyword": "磁盘空间排查"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "s5",
+          "title": "处理大目录",
+          "observe": "迁移/清理后是否恢复？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "磁盘",
+            "title_keyword": "磁盘空间排查",
+            "by_vendor": {
+              "centos": {
+                "uuid": "a3d432c9-5bc7-5b62-a099-eb37fb106890",
+                "title": "磁盘空间排查（df/du/deleted 句柄）"
+              },
+              "ubuntu": {
+                "uuid": "466cab9e-536b-5bf4-aea8-2f03676cb2ee",
+                "title": "磁盘空间排查（df/du/deleted 句柄）"
+              },
+              "kylin": {
+                "uuid": "0836ad94-f869-5d7f-bc04-77ffbdbc05ee",
+                "title": "磁盘与句柄排查（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "ad5c54d1-9082-5807-a29b-a3b1864914e2",
+                "title": "磁盘与资源排查（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "大文件/目录占满",
+            "actions": [
+              "确认文件归属与用途后再动（别删业务数据）",
+              "能迁就迁到其它分区（mv 后做软链）",
+              "清理临时文件与旧备份"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    },
+    {
+      "tree_id": "linux-cpu-high",
+      "symptom": "CPU 飙高（Linux）",
+      "category": "性能",
+      "vendor_hint": [
+        "centos",
+        "ubuntu",
+        "kylin",
+        "openeuler"
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "title": "定位高占用进程",
+          "observe": "top 里 %us 高还是 %sy/%wa 高？哪个进程排第一？",
+          "explain": "%us 高是应用吃 CPU；%wa 高是磁盘 IO 等待；%sy 高看系统调用/驱动。",
+          "cmd_ref": {
+            "vendor_category": "系统资源",
+            "title_keyword": "CPU",
+            "by_vendor": {
+              "centos": {
+                "uuid": "2af0330b-0b4f-58a3-8e6d-b841777ac249",
+                "title": "CPU / 内存资源判读（top/free）"
+              },
+              "ubuntu": {
+                "uuid": "62c1bb3c-3721-58ab-a681-2ca3f0965f8b",
+                "title": "CPU / 内存资源判读（top/free）"
+              },
+              "kylin": {
+                "uuid": "c5d4578b-0130-5091-9e0b-ebc41f7d249e",
+                "title": "CPU / 内存判读（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "7f6a6110-984f-490a-b1d2-fa4a6efb4ed1",
+                "title": "CPU / 内存资源判读（openEuler）"
+              }
+            }
+          },
+          "branches": [
+            {
+              "when": "应用进程（%us 高）",
+              "goto": "s2"
+            },
+            {
+              "when": "IO 等待（%wa 高）",
+              "goto": "s3"
+            },
+            {
+              "when": "其它/不明",
+              "goto": "s4"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "title": "应用侧定位",
+          "observe": "该进程的线程/子进程谁在吃 CPU？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "系统资源",
+            "title_keyword": "CPU",
+            "by_vendor": {
+              "centos": {
+                "uuid": "2af0330b-0b4f-58a3-8e6d-b841777ac249",
+                "title": "CPU / 内存资源判读（top/free）"
+              },
+              "ubuntu": {
+                "uuid": "62c1bb3c-3721-58ab-a681-2ca3f0965f8b",
+                "title": "CPU / 内存资源判读（top/free）"
+              },
+              "kylin": {
+                "uuid": "c5d4578b-0130-5091-9e0b-ebc41f7d249e",
+                "title": "CPU / 内存判读（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "7f6a6110-984f-490a-b1d2-fa4a6efb4ed1",
+                "title": "CPU / 内存资源判读（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "应用吃 CPU",
+            "actions": [
+              {
+                "text": "下钻到线程级占用，定位到具体线程",
+                "cmd_ref": {
+                  "vendor_category": "系统资源",
+                  "title_keyword": "CPU"
+                }
+              },
+              "结合应用日志定位慢请求/死循环",
+              "确认为业务峰值可考虑扩容或限流"
+            ]
+          }
+        },
+        {
+          "id": "s3",
+          "title": "IO 等待排查",
+          "observe": "磁盘使用率与 IO 是否异常？空间是否接近满？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "磁盘",
+            "title_keyword": "磁盘空间排查",
+            "by_vendor": {
+              "centos": {
+                "uuid": "a3d432c9-5bc7-5b62-a099-eb37fb106890",
+                "title": "磁盘空间排查（df/du/deleted 句柄）"
+              },
+              "ubuntu": {
+                "uuid": "466cab9e-536b-5bf4-aea8-2f03676cb2ee",
+                "title": "磁盘空间排查（df/du/deleted 句柄）"
+              },
+              "kylin": {
+                "uuid": "0836ad94-f869-5d7f-bc04-77ffbdbc05ee",
+                "title": "磁盘与句柄排查（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "ad5c54d1-9082-5807-a29b-a3b1864914e2",
+                "title": "磁盘与资源排查（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "磁盘 IO 瓶颈",
+            "actions": [
+              {
+                "text": "查磁盘空间与 IO 状况",
+                "cmd_ref": {
+                  "vendor_category": "磁盘",
+                  "title_keyword": "磁盘空间排查"
+                }
+              },
+              "查是否有大文件读写/备份任务在跑",
+              "空间满会连带引发 IO 异常，先清空间"
+            ]
+          }
+        },
+        {
+          "id": "s4",
+          "title": "资源与句柄复核",
+          "observe": "句柄是否打满？内存是否吃紧（swap 频繁）？",
+          "explain": "",
+          "cmd_ref": {
+            "vendor_category": "磁盘",
+            "title_keyword": "文件句柄",
+            "by_vendor": {
+              "centos": {
+                "uuid": "b4c04b67-0ce8-5209-826f-0c1f9b892e7b",
+                "title": "文件句柄不足排查（Too many open files）"
+              },
+              "ubuntu": {
+                "uuid": "466cab9e-536b-5bf4-aea8-2f03676cb2ee",
+                "title": "磁盘空间排查（df/du/deleted 句柄）"
+              },
+              "kylin": {
+                "uuid": "0836ad94-f869-5d7f-bc04-77ffbdbc05ee",
+                "title": "磁盘与句柄排查（麒麟 V10）"
+              },
+              "openeuler": {
+                "uuid": "ad5c54d1-9082-5807-a29b-a3b1864914e2",
+                "title": "磁盘与资源排查（openEuler）"
+              }
+            }
+          },
+          "leafs": {
+            "conclusion": "资源耗尽",
+            "actions": [
+              {
+                "text": "核对该进程的句柄上限与已用句柄数",
+                "cmd_ref": {
+                  "vendor_category": "磁盘",
+                  "title_keyword": "文件句柄"
+                }
+              },
+              "调大 limits.conf 与 systemd LimitNOFILE",
+              "内存不足先看 free 的 available 与 swap 使用"
+            ]
+          }
+        }
+      ],
+      "verified": 0
+    }
+  ]
+}
