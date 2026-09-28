@@ -627,7 +627,7 @@
           "example": "192.168.66.10"
         }
       ],
-      "notes": "1) openEuler 22.03 默认 chrony，/etc/chrony.conf 同 RHEL 系；DAS-OS-M 等交付机部署产品前先完成对表（证书校验/日志时序全依赖）。\n2) sources 见 ^* 才是真同步；^? 查 UDP 123 与服务端 allow。\n3) 内网无 NTP 源时，选一台常开机服务器做源（chrony server + allow 网段）。\n验证方法：chronyc sources 见 ^* + date 一致，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "notes": "1) openEuler 22.03 默认 chrony，/etc/chrony.conf 同 RHEL 系；安全设备等交付机部署产品前先完成对表（证书校验/日志时序全依赖）。\n2) sources 见 ^* 才是真同步；^? 查 UDP 123 与服务端 allow。\n3) 内网无 NTP 源时，选一台常开机服务器做源（chrony server + allow 网段）。\n验证方法：chronyc sources 见 ^* + date 一致，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
       "duration": "perm",
       "verified": 0,
       "verified_by": "",

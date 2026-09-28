@@ -177,7 +177,7 @@
           "default": "",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.67.14"
+          "example": "192.0.2.14"
         }
       ],
       "notes": "1) scp -l 是 Kbit/s、rsync --bwlimit 是 KB/s——差 8 倍，同一个\"8000\"含义完全不同，别混。\n2) scp 大文件中断只能重来；传 ISO 这类大文件优先 rsync -avP（见 rsync 条目），scp 留给小文件/单次快传。\n3) 首连会问 host key（yes 确认）；目标端口非 22 用 scp -P 大写、rsync -e \"ssh -p 端口\"。\n验证方法：传输完成 sha256sum 与源端比对一致即通过；限速生效用 -v 或传输速率目测核对；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",

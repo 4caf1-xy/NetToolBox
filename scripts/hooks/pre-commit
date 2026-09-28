@@ -1,0 +1,25 @@
+#!/bin/sh
+# NetToolBox pre-commit 钩子：提交前运行种子库质检，不通过则中止提交。
+#
+# 安装（README 同款一行命令）：
+#   cp scripts/hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+#   （Windows Git Bash 下 cp 即可，无需 chmod）
+#
+# 说明：若仓库根目录不是当前目录（如在子目录提交），脚本自动向上定位仓库根。
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$REPO_ROOT" || exit 1
+
+echo "[pre-commit] 运行种子库质检 validate-seed ..."
+python app/main.py --validate-seed
+status=$?
+
+if [ $status -ne 0 ]; then
+  echo ""
+  echo "[pre-commit] validate-seed 未通过（exit=$status），提交已中止。"
+  echo "[pre-commit] 请修复 app/seed_data/ 中的问题后重试，或 git commit --no-verify 跳过（不建议）。"
+  exit 1
+fi
+
+echo "[pre-commit] 质检通过。"
+exit 0

@@ -1,0 +1,20 @@
+name: validate-seed
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate-seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run seed validation
+        run: python app/main.py --validate-seed
