@@ -3,8 +3,8 @@
 build_exe.py —— NetToolBox 一键打包脚本（在**联网开发机**上执行）
 
 用法：
-    python build_exe.py            # 正常打包
-    python build_exe.py --check    # 只做打包前检查，不实际打包
+    python scripts/build_exe.py            # 正常打包
+    python scripts/build_exe.py --check    # 只做打包前检查，不实际打包
 
 它做的事：
     1. 打包前自检：依赖是否齐全、种子库是否有内容、语法能否编译、种子库能否通过质检
@@ -22,11 +22,19 @@ import os
 import subprocess
 import sys
 
-BASE = os.path.dirname(os.path.abspath(__file__))
-SEED_DIR = os.path.join(BASE, "seed_data")
+# 本脚本位于 scripts/，BASE 恒指仓库根（所有相对路径都以仓库根为基准）
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# ★ 源码目录（2026-09 起代码/种子/样式都收进 app/；构建产物收拢到根 dist_package/）
+APP_DIR = os.path.join(BASE, "app")
+SEED_DIR = os.path.join(APP_DIR, "seed_data")
 APP_NAME = "NetToolBox"
-ENTRY = "main.py"
+ENTRY = os.path.join(APP_DIR, "main.py")
 DIST_DIR = os.path.join(BASE, "dist_package")
+# ★ PyInstaller 中间产物定向（2026-09-29）：build/dist/spec 统一落仓库根（均已 gitignore），
+#   不再污染 app/ 源码目录
+WORK_DIR = os.path.join(BASE, "build")
+OUT_DIR = os.path.join(BASE, "dist")
+SPEC_PATH = BASE
 
 # ★ requests 依赖的项目内落点（2026-09-28）：受管 python 环境禁止全局 pip install，
 #   改用 pip --target 装到项目 _vendor/ 目录，PyInstaller 经 --paths 解析后
@@ -102,8 +110,8 @@ def check():
 
     # 2) 入口与模块文件齐全
     for name in ("main.py", "db.py", "renderer.py", "ui_main.py",
-                 "ui_generator.py", "ui_editor.py") + tuple(AI_FILES):
-        path = os.path.join(BASE, name)
+                 "ui_generator.py", "ui_editor.py", "theme.qss") + tuple(AI_FILES):
+        path = os.path.join(APP_DIR, name)
         if os.path.isfile(path):
             print("  [OK] %-16s %d 字节" % (name, os.path.getsize(path)))
         else:
@@ -115,8 +123,8 @@ def check():
     for name in ("main.py", "db.py", "renderer.py", "ui_main.py",
                  "ui_generator.py", "ui_editor.py") + tuple(AI_FILES):
         try:
-            py_compile.compile(os.path.join(BASE, name), doraise=True,
-                               cfile=os.path.join(BASE, "__pycache__", name + "c"))
+            py_compile.compile(os.path.join(APP_DIR, name), doraise=True,
+                               cfile=os.path.join(APP_DIR, "__pycache__", name + "c"))
             print("  [OK] %-16s 语法通过" % name)
         except Exception as exc:
             print("  [!!] %-16s 语法错误：%s" % (name, exc))
@@ -140,7 +148,7 @@ def check():
     # 5) 种子库质检（复用程序自带的 --validate-seed）
     print("-" * 66)
     print("运行种子库质检（python main.py --validate-seed）…")
-    code = run([sys.executable, os.path.join(BASE, "main.py"), "--validate-seed"])
+    code = run([sys.executable, ENTRY, "--validate-seed"])
     if code != 0:
         print("  [!!] 种子库质检未通过，请先修好再打包")
         ok = False
@@ -163,32 +171,43 @@ def build():
     print("开始打包（单文件 exe，首次打包约 1-3 分钟）")
     print("=" * 66)
 
-    # ★ 中间产物清理：优先删除；若删除被安全策略拦（批量删除需确认），
-    #   则退化成"重命名成 .stale-<时间戳>"——重命名不触发删除拦截，
-    #   PyInstaller 拿到空目录即可干净构建（否则它会因删不掉而直接返回码 1 结束）。
-    #   ★ 一律用"重命名"，不尝试删除：某些环境（如本机的删除安全策略）
-    #     在删除大批文件时会被拦截甚至终止进程，导致打包直接失败。
-    #     重命名是瞬时操作且不触发拦截；旧的 .stale-* 目录可自行清理。
+    # ★ 中间产物让位（2026-09-29 重构）：构建前把根目录 build/ dist/ NetToolBox.spec
+    #   一律 rename 成 .trash-<时间戳>——rename 是瞬时操作，任何环境都不阻塞。
+    #   【禁止再生成 .stale-* 目录】；也【不要先尝试 rmtree】：某些受限环境
+    #   （如 WorkBuddy 沙箱）对批量删除是进程级拦截，进程会被直接终止，
+    #   连 except 降级的机会都没有。
+    #   构建成功后再尝试彻底删除 .trash-*（正常环境零残留；删除仍被拦的环境
+    #   保留待手动清，不影响构建，见 .gitignore 的 *.trash-* 条目）。
+    import shutil
     import time as _time
     stamp = _time.strftime("%Y%m%d_%H%M%S")
+    trashed = []
     for junk in ("build", "dist", "%s.spec" % APP_NAME):
         path = os.path.join(BASE, junk)
         if not os.path.exists(path):
             continue
+        t = "%s.trash-%s" % (path, stamp)
         try:
-            os.rename(path, "%s.stale-%s" % (path, stamp))
-            print("· 旧产物已让位：%s → %s.stale-%s" % (junk, junk, stamp))
+            os.rename(path, t)
+            trashed.append(t)
+            print("· 旧产物已让位：%s → %s" % (junk, os.path.basename(t)))
         except Exception as exc:
-            print("· 旧产物让位失败（忽略继续）：%s（%s）" % (junk, exc))
+            print("· [!!] 旧产物移位失败：%s（%s）" % (junk, exc))
+            print("      请手动删除 %s 后重试打包" % path)
+            return 1
 
     cmd = [
         sys.executable, "-m", "PyInstaller",
-        "--noconfirm",          # 不交互（--clean 会尝试删 build/，在受限环境里会硬失败）
+        "--noconfirm",          # 不交互
         "--onefile",                # 单文件，U 盘拷贝即用
         "--windowed",               # 不弹黑框控制台
         "--name", APP_NAME,
-        "--add-data", "seed_data;seed_data",   # 种子库打进 exe（Windows 用 ; 分隔）
-        "--paths", BASE,
+        "--add-data", os.path.join(APP_DIR, "seed_data") + ";seed_data",   # 种子库打进 exe（Windows 用 ; 分隔）
+        "--add-data", os.path.join(APP_DIR, "theme.qss") + ";.",           # 全站样式表（theme.py 运行时读取；缺失有内置兜底）
+        "--workpath", WORK_DIR,     # 中间产物定向根 build/（不再落在 app/ 下）
+        "--distpath", OUT_DIR,      # 产物定向根 dist/
+        "--specpath", SPEC_PATH,    # spec 定向根（gitignore 已含 NetToolBox.spec）
+        "--paths", APP_DIR,
     ]
     if os.path.isdir(os.path.join(VENDOR_DIR, "requests")):
         cmd += ["--paths", VENDOR_DIR]   # requests 及其依赖从 _vendor 解析并打包
@@ -198,7 +217,7 @@ def build():
         cmd += ["--hidden-import", module]
     cmd.append(ENTRY)
 
-    code = run(cmd, cwd=BASE)
+    code = run(cmd)
     if code != 0:
         print("打包失败，返回码 %d" % code)
         return code
@@ -206,7 +225,7 @@ def build():
     # 收拢产物到 dist_package/
     if not os.path.isdir(DIST_DIR):
         os.makedirs(DIST_DIR)
-    src_exe = os.path.join(BASE, "dist", APP_NAME + ".exe")
+    src_exe = os.path.join(OUT_DIR, APP_NAME + ".exe")
     dst_exe = os.path.join(DIST_DIR, APP_NAME + ".exe")
     if os.path.isfile(src_exe):
         import shutil
@@ -241,6 +260,17 @@ def build():
     [ ] 有网：发一次对话 → 流式输出 → 代码块可[复制] → 自动存 ai_cases/
     [ ] AI 回复 → 转为草稿条目 → 勾选入库 → 灰徽章 → 真机验证后标记转绿
 """)
+    # ★ 构建成功后的收尾：尝试彻底删除本次让位的 .trash-*（正常环境零残留；
+    #   受限环境删除被拦则保留，不影响本次构建结果，手动清掉即可）
+    for t in trashed:
+        try:
+            if os.path.isdir(t):
+                shutil.rmtree(t)
+            else:
+                os.remove(t)
+        except Exception:
+            print("· .trash 副本删除被环境拦截（不影响本次构建），可手动清理：")
+            print("  " + t)
     return 0
 
 
