@@ -78,6 +78,8 @@ PANE_MIN_DETAIL_H = 260     # 详情区最小高
 APP_NAME = "NetToolBox"
 APP_TITLE = "离网网络运维工具箱"
 APP_SUBTITLE = "网络设备 + Linux 命令库 / 排查向导 / 报错诊断"
+# 产品版本（semver；发版时与 tag/Release/CHANGELOG 三处对齐，标题栏与关于对话框均引用此常量）
+APP_VERSION = "0.4.0"
 
 
 def copy_to_clipboard(text):
@@ -449,7 +451,7 @@ class MainWindow(QMainWindow):
         self._importing = False         # 导入进行中标志（防事件重入，见 _do_seed_import）
         self._ui_state = load_ui_state()   # 上次关闭时的窗口尺寸 + 三栏比例（可能为 {}）
 
-        self.setWindowTitle("%s · %s" % (APP_TITLE, APP_NAME))
+        self.setWindowTitle("%s v%s · %s" % (APP_TITLE, APP_VERSION, APP_NAME))
         self.resize(1420, 900)
         self.setMinimumSize(1100, 700)
 
@@ -2445,7 +2447,7 @@ class MainWindow(QMainWindow):
         # HTML 内联色 → 引用主题令牌（先拼接成 template，再交给 .format）
         template = (
             "<b>离网网络运维工具箱 </b><br><br>"
-            "版本：1.1（规格对齐：platform/duration、维度 slug、三库 .nlb）<br>"
+            "版本：v%s<br>"
             "技术栈：Python 3.9+ / PyQt5 / SQLite<br>"
             "库文件：command_lib.db（与程序同目录）<br>"
             "种子库：%d 个厂商文件（seed_data/，改库不需重新打包）<br>"
@@ -2455,7 +2457,7 @@ class MainWindow(QMainWindow):
             "命令的执行者永远是外部 Xshell / SecureCRT。</span>"
         )
         QMessageBox.about(self, "关于 %s" % APP_NAME,
-                          template.format(warning=WARNING) % seed_files)
+                          template.format(warning=WARNING) % (APP_VERSION, seed_files))
 
     # ==================================================================
     # 关闭
