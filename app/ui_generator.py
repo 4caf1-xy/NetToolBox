@@ -31,10 +31,6 @@ from ui_main import CommandHighlighter, copy_to_clipboard   # 复用主窗的高
 # 会话内记住上次填的操作人，省得每次重敲（离网环境留痕要用）
 _LAST_OPERATOR = {"value": ""}
 
-# 未通过校验时的输入框样式（红框）
-_STYLE_ERROR = "QLineEdit, QComboBox, QSpinBox { border: 1px solid #e05656; }"
-
-
 def mono_font(size=10):
     """等宽字体（命令区统一用它）"""
     f = QFont("Consolas")
@@ -46,6 +42,8 @@ def mono_font(size=10):
 # ---------------------------------------------------------------------------
 # 一、参数表单
 # ---------------------------------------------------------------------------
+from theme import repolish, set_state  # 状态标签 / error 属性的动态重polish
+
 class ParamFormWidget(QWidget):
     """
     根据参数规格动态生成表单。
@@ -77,7 +75,8 @@ class ParamFormWidget(QWidget):
         if not self.specs:
             tip = QLabel("该条目没有 {{参数}} 占位，无需填写参数，直接用『复制全部』即可。")
             tip.setWordWrap(True)
-            tip.setStyleSheet("color:#9aa0b0; padding:12px;")
+            tip.setObjectName("Hint")
+            tip.setIndent(12)
             outer.addWidget(tip)
             outer.addStretch(1)
             return
@@ -105,7 +104,7 @@ class ParamFormWidget(QWidget):
 
             hint = QLabel("")
             hint.setWordWrap(True)
-            hint.setStyleSheet("color:#9aa0b0; font-size:11px;")
+            hint.setObjectName("StateLabel")
             self.error_labels[name] = hint
 
             box = QWidget()
@@ -230,14 +229,16 @@ class ParamFormWidget(QWidget):
                 continue
 
             if name in errors:
-                widget.setStyleSheet(_STYLE_ERROR)
-                hint.setStyleSheet("color:#e05656; font-size:11px;")
+                widget.setProperty("error", True)
+                repolish(widget)
+                set_state(hint, "err")
                 hint.setText("✘ %s" % errors[name])
                 continue
 
-            widget.setStyleSheet("")
+            widget.setProperty("error", False)
+            repolish(widget)
             # 通过时显示"示例/端口展开预览"，而不是啰嗦的"校验通过"
-            hint.setStyleSheet("color:#9aa0b0; font-size:11px;")
+            set_state(hint, "idle")
             hint.setText(self._hint_text(spec, silent=silent))
         return not errors
 
@@ -329,16 +330,16 @@ class GeneratorDialog(QDialog):
                _escape(self.entry.get("description") or "")))
         info.setTextFormat(Qt.RichText)
         info.setWordWrap(True)
-        info.setStyleSheet("padding:4px;")
+        info.setIndent(4)
 
         if int(self.entry.get("verified") or 0) == 1:
             badge = QLabel("已验证")
-            badge.setStyleSheet("background-color:#3fbf6f; color:#fff; border-radius:3px;"
-                                "padding:2px 8px; font-size:11px;")
+            badge.setObjectName("Badge")
+            badge.setProperty("state", "ok")
         else:
             badge = QLabel("未验证 · 执行前请核对")
-            badge.setStyleSheet("background-color:#6a7080; color:#fff; border-radius:3px;"
-                                "padding:2px 8px; font-size:11px;")
+            badge.setObjectName("Badge")
+            badge.setProperty("state", "muted")
 
         head = QHBoxLayout()
         head.addWidget(info, 1)
@@ -379,8 +380,7 @@ class GeneratorDialog(QDialog):
         self.txt_preview.setReadOnly(True)
         self.txt_preview.setLineWrapMode(QPlainTextEdit.NoWrap)
         self.txt_preview.setFont(mono_font(10))
-        self.txt_preview.setStyleSheet("QPlainTextEdit { background-color:#16181d;"
-                                       "border:1px solid #333745; border-radius:4px; padding:8px; }")
+        self.txt_preview.setObjectName("CodeBlock")
         self.highlighter = CommandHighlighter(self.txt_preview.document())
 
         prev_box = QGroupBox("实时预览")
@@ -389,6 +389,7 @@ class GeneratorDialog(QDialog):
         pv.addWidget(self.txt_preview)
 
         self.lbl_status = QLabel("")
+        self.lbl_status.setObjectName("StateLabel")
         self.lbl_status.setWordWrap(True)
 
         right = QWidget()
@@ -492,21 +493,21 @@ class GeneratorDialog(QDialog):
         count = renderer.count_effective_lines(text)
         total_lines = len([l for l in text.splitlines() if l.strip()])
         if errors:
-            self.lbl_status.setStyleSheet("color:#e05656;")
+            set_state(self.lbl_status, "err")
             self.lbl_status.setText("✘ 有 %d 个参数不合法：%s（修正后才能复制）"
                                     % (len(errors), "；".join(errors.values())))
         elif missing:
-            self.lbl_status.setStyleSheet("color:#e0a83c;")
+            set_state(self.lbl_status, "warn")
             self.lbl_status.setText("⚠ 仍有未填参数：%s（将保持 {{占位}} 原样）"
                                     % "、".join(missing))
         elif count == 0 and total_lines:
             # 深信服 AF / 天融信这类以 Web 控制台为主的厂商：整条都是说明性文字，没有可执行命令
-            self.lbl_status.setStyleSheet("color:#e0a83c;")
+            set_state(self.lbl_status, "warn")
             self.lbl_status.setText("⚠ 本条为【Web 控制台操作路径清单】（共 %d 行说明），"
                                     "没有可直接粘贴执行的命令 —— 请按界面路径操作"
                                     % total_lines)
         else:
-            self.lbl_status.setStyleSheet("color:#3fb950;")
+            set_state(self.lbl_status, "ok")
             self.lbl_status.setText("✓ 渲染正常，共 %d 条有效命令" % count)
 
     # ---------------- 复制 / 导出 ----------------
@@ -524,7 +525,7 @@ class GeneratorDialog(QDialog):
         if commands_only:
             text = renderer.strip_comments(text)
         if not copy_to_clipboard(text):
-            self.lbl_status.setStyleSheet("color:#e05656;")
+            set_state(self.lbl_status, "err")
             self.lbl_status.setText("✘ 复制失败（剪贴板被占用），请手动选中右侧预览区内容复制。")
             return
         op = self.ed_operator.text().strip()
@@ -532,7 +533,7 @@ class GeneratorDialog(QDialog):
             _LAST_OPERATOR["value"] = op
         kind = "纯命令（已剔除注释）" if commands_only else "全部内容（含注释）"
         count = renderer.count_effective_lines(text)
-        self.lbl_status.setStyleSheet("color:#3fb950;")
+        set_state(self.lbl_status, "ok")
         self.lbl_status.setText("✓已复制 %s，共 %d 条命令 → 切到 Xshell 粘贴" % (kind, count))
 
     def _export_txt(self):
@@ -556,7 +557,7 @@ class GeneratorDialog(QDialog):
         except Exception as exc:
             QMessageBox.critical(self, "导出失败", str(exc))
             return
-        self.lbl_status.setStyleSheet("color:#3fb950;")
+        set_state(self.lbl_status, "ok")
         self.lbl_status.setText("✓ 已导出：%s" % path)
 
     def values(self):
@@ -591,7 +592,8 @@ class PackageDialog(QDialog):
     def _build(self):
         tip = QLabel("勾选要打包的命令条目 → 右侧实时预览 → 复制或导出 .txt。"
                      "双击带 {{参数}} 的条目可单独填写参数（未填则用默认值）。")
-        tip.setStyleSheet("color:#9aa0b0; padding:4px;")
+        tip.setObjectName("Hint")
+        tip.setIndent(4)
         tip.setWordWrap(True)
 
         # 左侧勾选列表
@@ -626,7 +628,7 @@ class PackageDialog(QDialog):
         tools.addWidget(self.btn_edit_param)
 
         self.lbl_count = QLabel("已选 0 条")
-        self.lbl_count.setStyleSheet("color:#9aa0b0;")
+        self.lbl_count.setObjectName("Secondary")
 
         left_box = QGroupBox("选择命令条目")
         lb = QVBoxLayout(left_box)
@@ -641,8 +643,7 @@ class PackageDialog(QDialog):
         self.txt_preview.setReadOnly(True)
         self.txt_preview.setLineWrapMode(QPlainTextEdit.NoWrap)
         self.txt_preview.setFont(mono_font(10))
-        self.txt_preview.setStyleSheet("QPlainTextEdit { background-color:#16181d;"
-                                       "border:1px solid #333745; border-radius:4px; padding:8px; }")
+        self.txt_preview.setObjectName("CodeBlock")
         self.highlighter = CommandHighlighter(self.txt_preview.document())
 
         self.chk_header = QCheckBox("加脚本头部注释块")
@@ -673,6 +674,7 @@ class PackageDialog(QDialog):
         opts.addWidget(self.ed_model, 2)
 
         self.lbl_status = QLabel("")
+        self.lbl_status.setObjectName("StateLabel")
         self.lbl_status.setWordWrap(True)
 
         right_box = QGroupBox("配置包预览")
@@ -817,18 +819,18 @@ class PackageDialog(QDialog):
         pending = self._entries_with_pending_params(entries)
         count = renderer.count_effective_lines(text)
         if missing:
-            self.lbl_status.setStyleSheet("color:#e0a83c;")
+            set_state(self.lbl_status, "warn")
             self.lbl_status.setText("⚠ 有参数未填写：%s" % "；".join(missing[:5]))
         elif pending:
-            self.lbl_status.setStyleSheet("color:#e0a83c;")
+            set_state(self.lbl_status, "warn")
             self.lbl_status.setText("⚠ %d 条使用了默认值：%s（双击条目可单独填写）"
                                     % (len(pending), "、".join(pending[:3])))
         elif count == 0 and entries:
-            self.lbl_status.setStyleSheet("color:#e0a83c;")
+            set_state(self.lbl_status, "warn")
             self.lbl_status.setText("⚠ 勾选的条目全部是【Web 控制台操作路径】清单，"
                                     "打包结果不能直接执行，请按界面路径操作")
         else:
-            self.lbl_status.setStyleSheet("color:#3fb950;")
+            set_state(self.lbl_status, "ok")
             self.lbl_status.setText("✓ 共 %d 个条目 / %d 条有效命令" % (len(entries), count))
 
     def _entries_with_pending_params(self, entries):
@@ -852,14 +854,14 @@ class PackageDialog(QDialog):
             QMessageBox.warning(self, "内容为空", "勾选的条目没有可生成的命令。")
             return
         if not copy_to_clipboard(text):
-            self.lbl_status.setStyleSheet("color:#e05656;")
+            set_state(self.lbl_status, "err")
             self.lbl_status.setText("✘ 复制失败（剪贴板被占用），请手动选中右侧预览区内容复制。")
             return
         op = self.ed_operator.text().strip()
         if op:
             _LAST_OPERATOR["value"] = op
         count = renderer.count_effective_lines(text)
-        self.lbl_status.setStyleSheet("color:#3fb950;")
+        set_state(self.lbl_status, "ok")
         self.lbl_status.setText("✓已复制配置包：%d 个条目 / %d 条有效命令 → 切到 Xshell 粘贴"
                                 % (len(entries), count))
 
@@ -881,7 +883,7 @@ class PackageDialog(QDialog):
         except Exception as exc:
             QMessageBox.critical(self, "导出失败", str(exc))
             return
-        self.lbl_status.setStyleSheet("color:#3fb950;")
+        set_state(self.lbl_status, "ok")
         self.lbl_status.setText("✓ 已导出：%s" % path)
         QMessageBox.information(self, "导出完成", "配置包已导出：\n%s" % path)
 

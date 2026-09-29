@@ -30,6 +30,8 @@ def _mono(size=10):
     return f
 
 
+from theme import repolish, set_state  # 状态标签 / error 属性的动态重polish
+
 class ErrorFixTab(QWidget):
     """报错诊断 Tab"""
 
@@ -74,7 +76,7 @@ class ErrorFixTab(QWidget):
             self.cmb_vendor.addItem(dbmod.display_vendor(slug), slug)
         row.addWidget(self.cmb_vendor)
         self.lbl_vendor = QLabel("")
-        self.lbl_vendor.setStyleSheet("color:#e0a83c; font-size:11px;")
+        self.lbl_vendor.setObjectName("HintText")
         row.addWidget(self.lbl_vendor, 1)
         self.btn_inbox = QPushButton("待解决收件箱")
         self.btn_inbox.setObjectName("Ghost")
@@ -134,7 +136,7 @@ class ErrorFixTab(QWidget):
             empty = QLabel("✘ 字典里没有匹配到该报错。\n\n"
                            "已自动存入「待解决收件箱」——可从收件箱把它转成新的字典条目，"
                            "帮助团队积累。")
-            empty.setStyleSheet("color:#e05656; font-size:13px;")
+            empty.setObjectName("ErrorText")
             empty.setWordWrap(True)
             self.results_layout.addWidget(empty)
             self.results_layout.addStretch(1)
@@ -165,7 +167,7 @@ class ErrorFixTab(QWidget):
         self._reset_results()
         empty = QLabel(message)
         empty.setWordWrap(True)
-        empty.setStyleSheet("color:#9aa0b0; font-size:13px;")
+        empty.setObjectName("Hint")
         self.results_layout.addWidget(empty)
         self.results_layout.addStretch(1)
 
@@ -175,8 +177,7 @@ class ErrorFixTab(QWidget):
     def _build_card(self, d, matched_line, full_text):
         card = QFrame()
         card.setFrameShape(QFrame.StyledPanel)
-        card.setStyleSheet("QFrame { background-color:#232530; border:1px solid #333745;"
-                           " border-radius:6px; }")
+        card.setObjectName("Card")
         cv = QVBoxLayout(card)
         cv.setContentsMargins(12, 10, 12, 10)
         cv.setSpacing(6)
@@ -235,7 +236,7 @@ class ErrorFixTab(QWidget):
             text = "%d. %s" % (i, step.get("text") or "")
             lbl = QLabel(text)
             lbl.setWordWrap(True)
-            lbl.setStyleSheet("padding-left:12px;")
+            lbl.setIndent(12)
             row.addWidget(lbl, 1)
 
             ref_uuid = step.get("ref_entry_uuid")
@@ -411,7 +412,7 @@ class InboxDialog(QDialog):
         self.cmb_status.currentIndexChanged.connect(self.refresh)
         filt.addWidget(self.cmb_status)
         self.lbl_count = QLabel("")
-        self.lbl_count.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        self.lbl_count.setObjectName("Hint")
         filt.addWidget(self.lbl_count)
         filt.addStretch(1)
         v.addLayout(filt)
@@ -592,7 +593,7 @@ class DictEditDialog(QDialog):
         self.btn_test.clicked.connect(self.test_pattern)
         test_row.addWidget(self.btn_test)
         self.lbl_test = QLabel("粘贴一条真实报错到下面的大框，点测试看命中与否")
-        self.lbl_test.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        self.lbl_test.setObjectName("StateLabel")
         test_row.addWidget(self.lbl_test, 1)
         v.addLayout(test_row)
 
@@ -624,7 +625,7 @@ class DictEditDialog(QDialog):
         if self.err_id:
             tip = QLabel("编辑既有字典条目：保存后改动会写入 history（可见改动前后的值）。")
             tip.setWordWrap(True)
-            tip.setStyleSheet("color:#9aa0b0; font-size:11px;")
+            tip.setObjectName("Hint")
             v.addWidget(tip)
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.save)
@@ -642,24 +643,23 @@ class DictEditDialog(QDialog):
         pattern = self.ed_pattern.text().strip()
         if not pattern:
             self.lbl_test.setText("✘ pattern 为空")
-            self.lbl_test.setStyleSheet("color:#e05656; font-size:11px;")
+            set_state(self.lbl_test, "err")
             return False
         regex = em.compile_pattern(pattern)
         if regex is None:
             self.lbl_test.setText("✘ 正则无法编译（请检查语法）")
-            self.lbl_test.setStyleSheet("color:#e05656; font-size:11px;")
+            set_state(self.lbl_test, "err")
             return False
         lines = [ln for ln in self.txt_examples.toPlainText().splitlines() if ln.strip()]
         if not lines:
             self.lbl_test.setText("⚠ 没有样例可测——先在下方粘贴真实报错")
-            self.lbl_test.setStyleSheet("color:#e0a83c; font-size:11px;")
+            set_state(self.lbl_test, "warn")
             return False
         hit = sum(1 for ln in lines if regex.search(ln))
         ok = hit == len(lines)
         self.lbl_test.setText(
             ("%s 命中 %d/%d 条样例" % ("✓" if ok else "✘", hit, len(lines))))
-        self.lbl_test.setStyleSheet("color:%s; font-size:11px;"
-                                    % ("#3fbf6f" if ok else "#e05656"))
+        set_state(self.lbl_test, "ok" if ok else "err")
         return ok
 
     def save(self):
@@ -783,10 +783,10 @@ class DictManagerDialog(QDialog):
         self.table.itemSelectionChanged.connect(self._on_selection)
 
         self.lbl_status = QLabel("")
-        self.lbl_status.setStyleSheet("color:#9aa0b0; padding:2px;")
+        self.lbl_status.setObjectName("StatusStrip")
         self.lbl_test = QLabel("")
         self.lbl_test.setWordWrap(True)
-        self.lbl_test.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        self.lbl_test.setObjectName("StateLabel")
 
         btn_close = QPushButton("关闭")
         btn_close.setObjectName("Ghost")
@@ -808,7 +808,7 @@ class DictManagerDialog(QDialog):
             for w in (self.btn_new, self.btn_edit, self.btn_del):
                 w.setEnabled(False)
             self.lbl_status.setText("命令库处于只读状态（U 盘写保护），无法新增/编辑/删除。")
-            self.lbl_status.setStyleSheet("color:#e05656; padding:2px;")
+            set_state(self.lbl_status, "err")
 
     # ---------------- 刷新 ----------------
     def refresh(self):
@@ -904,8 +904,7 @@ class DictManagerDialog(QDialog):
             lines.append("  样例 %d：%s %s" % (idx, "命中" if ok else "未命中", msg))
         bad = [r for r in rows if not r[2]]
         self.lbl_test.setText("\n".join(lines))
-        self.lbl_test.setStyleSheet("color:%s; font-size:11px;"
-                                    % ("#e05656" if bad else "#3fbf6f"))
+        set_state(self.lbl_test, "err" if bad else "ok")
 
     def on_delete(self):
         e = self._selected()

@@ -40,10 +40,6 @@ TREE_CATEGORY_COLORS = {
     "管理面": "#8e44ad",
 }
 
-MONO_STYLE = ("QPlainTextEdit { background-color:#16181d; color:#e8eaf0;"
-              "border:1px solid #333745; border-radius:4px; padding:8px; }")
-
-
 def _esc(text):
     """转义富文本特殊字符（QLabel 用 RichText 渲染时必须转义，避免内容破坏排版）"""
     return (str(text if text is not None else "")
@@ -55,6 +51,8 @@ def _mono(size=10):
     f.setPointSize(size)
     return f
 
+
+from theme import repolish, set_state  # 状态标签 / error 属性的动态重polish
 
 class TroubleshootTab(QWidget):
     """排查向导 Tab"""
@@ -159,7 +157,7 @@ class TroubleshootTab(QWidget):
         hist.setSpacing(6)
         self.lbl_breadcrumb = QLabel("选择左侧现象开始排查。")
         self.lbl_breadcrumb.setWordWrap(True)
-        self.lbl_breadcrumb.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        self.lbl_breadcrumb.setObjectName("Hint")
         hist.addWidget(self.lbl_breadcrumb, 1)
         self.lbl_ai_source = QLabel("")
         self.lbl_ai_source.setTextFormat(Qt.RichText)
@@ -176,20 +174,19 @@ class TroubleshootTab(QWidget):
         # 当前步骤卡片
         card = QFrame()
         card.setFrameShape(QFrame.StyledPanel)
-        card.setStyleSheet("QFrame { background-color:#232530; border:1px solid #333745;"
-                           " border-radius:6px; }")
+        card.setObjectName("Card")
         cv = QVBoxLayout(card)
         cv.setContentsMargins(12, 10, 12, 10)
         cv.setSpacing(6)
 
         self.lbl_step_title = QLabel("")
-        self.lbl_step_title.setStyleSheet("font-size:14px; font-weight:bold; color:#e8eaf0;")
+        self.lbl_step_title.setObjectName("SectionTitle")
         self.lbl_step_title.setWordWrap(True)
         cv.addWidget(self.lbl_step_title)
 
         self.lbl_step_explain = QLabel("")
         self.lbl_step_explain.setWordWrap(True)
-        self.lbl_step_explain.setStyleSheet("color:#9aa0b0; font-size:12px;")
+        self.lbl_step_explain.setObjectName("Hint")
         cv.addWidget(self.lbl_step_explain)
 
         cv.addWidget(QLabel("执行命令（来自命令库条目渲染）："))
@@ -197,7 +194,7 @@ class TroubleshootTab(QWidget):
         self.txt_step_commands.setReadOnly(True)
         self.txt_step_commands.setFont(_mono(10))
         self.txt_step_commands.setLineWrapMode(QPlainTextEdit.NoWrap)
-        self.txt_step_commands.setStyleSheet(MONO_STYLE)
+        self.txt_step_commands.setObjectName("CodeBlock")
         self.txt_step_commands.setMinimumHeight(120)
         cv.addWidget(self.txt_step_commands, 2)
 
@@ -212,18 +209,18 @@ class TroubleshootTab(QWidget):
         self.btn_ask_ai.clicked.connect(self.ask_ai_about_step)
         btn_row.addWidget(self.btn_ask_ai)
         self.lbl_no_entry = QLabel("")
-        self.lbl_no_entry.setStyleSheet("color:#e05656; font-size:11px;")
+        self.lbl_no_entry.setObjectName("ErrorText")
         btn_row.addWidget(self.lbl_no_entry, 1)
         cv.addLayout(btn_row)
 
         self.lbl_observe = QLabel("")
         self.lbl_observe.setWordWrap(True)
-        self.lbl_observe.setStyleSheet("color:#e0a83c; font-size:12px;")
+        self.lbl_observe.setObjectName("HintText")
         cv.addWidget(QLabel("观察："))
         cv.addWidget(self.lbl_observe)
 
         self.lbl_branch_title = QLabel("根据观察结果选择：")
-        self.lbl_branch_title.setStyleSheet("font-weight:bold;")
+        self.lbl_branch_title.setObjectName("SectionTitle")
         cv.addWidget(self.lbl_branch_title)
         self.branch_area = QVBoxLayout()
         self.branch_area.setSpacing(4)
@@ -233,34 +230,32 @@ class TroubleshootTab(QWidget):
         self.leaf_frame = QFrame()
         self.leaf_frame.setMinimumHeight(130)   # 防止被布局压成 0 高度
         self.leaf_frame.setFrameShape(QFrame.StyledPanel)
-        self.leaf_frame.setStyleSheet("QFrame { background-color:#1d3320; border:1px solid #3fbf6f;"
-                                      " border-radius:6px; }")
+        self.leaf_frame.setObjectName("LeafCard")
         lv = QVBoxLayout(self.leaf_frame)
         lv.setContentsMargins(12, 10, 12, 10)
         lv.setSpacing(6)
         self.lbl_leaf_title = QLabel("✔ 排查结论")
-        self.lbl_leaf_title.setStyleSheet("color:#3fbf6f; font-weight:bold; font-size:13px;")
+        self.lbl_leaf_title.setObjectName("LeafTitle")
         lv.addWidget(self.lbl_leaf_title)
         self.lbl_leaf_conclusion = QLabel("")
         self.lbl_leaf_conclusion.setWordWrap(True)
-        self.lbl_leaf_conclusion.setStyleSheet("font-size:13px;")
         lv.addWidget(self.lbl_leaf_conclusion)
         self.lbl_leaf_actions = QLabel("")
         self.lbl_leaf_actions.setWordWrap(True)
-        self.lbl_leaf_actions.setStyleSheet("color:#e8eaf0; font-size:12px;")
+        self.lbl_leaf_actions.setObjectName("InfoBody")
         lv.addWidget(self.lbl_leaf_actions)
 
         # 叶子"补充命令"区（P1-5）：处理动作里带 cmd_ref 的，命令一律从命令库条目渲染出来，
         # 不再把命令文本硬编码在树里 —— 改库条目后这里跟着变。
         self.lbl_leaf_cmds = QLabel("")
         self.lbl_leaf_cmds.setWordWrap(True)
-        self.lbl_leaf_cmds.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        self.lbl_leaf_cmds.setObjectName("Hint")
         lv.addWidget(self.lbl_leaf_cmds)
         self.txt_leaf_cmds = QPlainTextEdit()
         self.txt_leaf_cmds.setReadOnly(True)
         self.txt_leaf_cmds.setFont(_mono(10))
         self.txt_leaf_cmds.setLineWrapMode(QPlainTextEdit.NoWrap)
-        self.txt_leaf_cmds.setStyleSheet(MONO_STYLE)
+        self.txt_leaf_cmds.setObjectName("CodeBlock")
         self.txt_leaf_cmds.setMaximumHeight(140)
         self.txt_leaf_cmds.setVisible(False)
         lv.addWidget(self.txt_leaf_cmds)
@@ -548,7 +543,7 @@ class TroubleshootTab(QWidget):
             self.lbl_branch_title.setText("根据观察结果选择：")
             for b in branches:
                 btn = QPushButton("➜ %s" % b.get("when", ""))
-                btn.setStyleSheet("QPushButton { text-align:left; padding:6px 10px; }")
+                btn.setObjectName("BranchBtn")
                 btn.clicked.connect(lambda _=False, sid=b.get("goto"),
                                     w=b.get("when"): self._goto(sid, w))
                 self.branch_area.addWidget(btn)
@@ -935,7 +930,7 @@ class OutputAnalyzerDialog(QDialog):
         v.addWidget(self.txt_input)
 
         self.lbl_note = QLabel("粘贴后点「解析」；识别不出格式会给提示，不会报错。")
-        self.lbl_note.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        self.lbl_note.setObjectName("StateLabel")
         self.lbl_note.setWordWrap(True)
         v.addWidget(self.lbl_note)
 
@@ -966,14 +961,14 @@ class OutputAnalyzerDialog(QDialog):
         self._clear()
         if not findings:
             self.lbl_note.setText("⚠ " + (note or "没有解析出异常项。"))
-            self.lbl_note.setStyleSheet("color:#e0a83c; font-size:12px;")
+            set_state(self.lbl_note, "warn")
             return
         used = kind or output_analyzer.detect_kind(text)
         self.lbl_note.setText("识别类型：%s ｜ 共 %d 项异常（错误 %d / 警告 %d）"
                               % (output_analyzer.kind_label(used), len(findings),
                                  sum(1 for f in findings if f["severity"] == "error"),
                                  sum(1 for f in findings if f["severity"] == "warn")))
-        self.lbl_note.setStyleSheet("color:#3fbf6f; font-size:12px;")
+        set_state(self.lbl_note, "ok")
         for f in findings:
             self.result_layout.insertWidget(self.result_layout.count() - 1, self._card(f))
 
@@ -988,8 +983,8 @@ class OutputAnalyzerDialog(QDialog):
         color, label = output_analyzer.SEVERITY_STYLE.get(f["severity"], ("#4f8cff", "提示"))
         card = QFrame()
         card.setFrameShape(QFrame.StyledPanel)
-        card.setStyleSheet("QFrame { background-color:#232530; border:1px solid %s;"
-                           " border-radius:6px; }" % color)
+        card.setObjectName("DupCard")
+        card.setProperty("level", {"error": "high", "warn": "warn", "info": "info"}.get(f["severity"], "info"))
         cv = QVBoxLayout(card)
         cv.setContentsMargins(10, 8, 10, 8)
         cv.setSpacing(4)
@@ -1032,10 +1027,10 @@ class OutputAnalyzerDialog(QDialog):
     def _copy(self, text):
         if not copy_to_clipboard(text):
             self.lbl_note.setText("✘ 复制失败（剪贴板被占用），请手动选中后复制。")
-            self.lbl_note.setStyleSheet("color:#e05656; font-size:12px;")
+            set_state(self.lbl_note, "err")
             return
         self.lbl_note.setText("✓ 已复制该行原文到剪贴板")
-        self.lbl_note.setStyleSheet("color:#3fbf6f; font-size:12px;")
+        set_state(self.lbl_note, "ok")
 
     def _jump_tree(self, tree_id, step_id):
         """跳到排查向导对应树的指定步骤（跨对话框跳转）"""
@@ -1063,10 +1058,10 @@ class OutputAnalyzerDialog(QDialog):
             lines.append("    原文（第 %d 行）：%s" % (f["line_no"], f["line"]))
         if not copy_to_clipboard("\n".join(lines)):
             self.lbl_note.setText("✘ 复制失败（剪贴板被占用），请手动选中后复制。")
-            self.lbl_note.setStyleSheet("color:#e05656; font-size:12px;")
+            set_state(self.lbl_note, "err")
             return
         self.lbl_note.setText("✓ 已复制 %d 条结论到剪贴板（可直接贴进变更单）" % len(self.findings))
-        self.lbl_note.setStyleSheet("color:#3fbf6f; font-size:12px;")
+        set_state(self.lbl_note, "ok")
 
     def ask_ai_about_findings(self):
         """[问 AI]：回显=粘贴原文，现象=输出分析结论，步骤=异常项清单（任务4-4）"""
@@ -1081,7 +1076,7 @@ class OutputAnalyzerDialog(QDialog):
         echo = self.txt_input.toPlainText().strip()
         if not echo:
             self.lbl_note.setText("先粘贴回显再问 AI。")
-            self.lbl_note.setStyleSheet("color:#e0a83c; font-size:12px;")
+            set_state(self.lbl_note, "warn")
             return
         used = self.cmb_kind.currentData() or output_analyzer.detect_kind(echo)
         items = []
@@ -1098,7 +1093,7 @@ class OutputAnalyzerDialog(QDialog):
             steps=("输出分析器识别的异常项清单：\n" + "\n".join(items)) if items else "",
         )
         self.lbl_note.setText("✓ 已带入 AI 诊断 Tab（含回显原文与异常清单）。")
-        self.lbl_note.setStyleSheet("color:#3fbf6f; font-size:12px;")
+        set_state(self.lbl_note, "ok")
 
 
 class ReportHistoryDialog(QDialog):
@@ -1131,7 +1126,7 @@ class ReportHistoryDialog(QDialog):
         v.addWidget(self.table, 1)
 
         self.lbl_dir = QLabel("")
-        self.lbl_dir.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        self.lbl_dir.setObjectName("Hint")
         v.addWidget(self.lbl_dir)
 
         bottom = QHBoxLayout()

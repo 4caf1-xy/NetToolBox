@@ -62,6 +62,8 @@ def mono_font(size=10):
 # ---------------------------------------------------------------------------
 # 参数表（可视化编辑 params 字段，免手写 JSON）
 # ---------------------------------------------------------------------------
+from theme import repolish, set_state  # 状态标签 / error 属性的动态重polish
+
 class ParamTableWidget(QWidget):
     """
     参数表：每行对应 params JSON 数组里的一个对象
@@ -119,7 +121,7 @@ class ParamTableWidget(QWidget):
         tools.addWidget(btn_down)
 
         self.lbl_hint = QLabel("参数表决定生成器里的表单字段；校验规则留空表示只做必填校验。")
-        self.lbl_hint.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        self.lbl_hint.setObjectName("Hint")
         self.lbl_hint.setWordWrap(True)
 
         root = QVBoxLayout(self)
@@ -313,7 +315,7 @@ class EntryEditorDialog(QDialog):
             "厂商 / OS 下拉里存的是小写 slug（如 cisco / ios / kylin / kylinV10），"
             "界面显示中文名；手输显示名或 slug 都能识别。\n"
             "生效方式（duration）仅 Linux 条目需要：临时命令选 temp，配置文件选 perm。")
-        self.lbl_platform_tip.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        self.lbl_platform_tip.setObjectName("Hint")
         self.lbl_platform_tip.setWordWrap(True)
 
         base_box = QGroupBox("基本信息")
@@ -333,14 +335,13 @@ class EntryEditorDialog(QDialog):
             "  vlan {{vlan_id:10}}\n"
             "  interface {{port_range}}\n"
             "带冒号默认值（:10）的占位按「选填」提取，不带的按「必填」提取。")
-        self.txt_commands.setStyleSheet("QPlainTextEdit { background-color:#16181d;"
-                                        "border:1px solid #333745; border-radius:4px; padding:8px; }")
+        self.txt_commands.setObjectName("CodeBlock")
         self.txt_commands.setMinimumHeight(240)
         self.highlighter = CommandHighlighter(self.txt_commands.document())
         self.txt_commands.textChanged.connect(self._on_commands_changed)
 
         self.lbl_params_found = QLabel("")
-        self.lbl_params_found.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        self.lbl_params_found.setObjectName("Hint")
 
         cmd_box = QGroupBox("命令全文（含 {{参数}} 占位）")
         cb = QVBoxLayout(cmd_box)
@@ -377,18 +378,19 @@ class EntryEditorDialog(QDialog):
 
         if self.is_new:
             state_text = "新条目保存后一律为『未验证』（灰色徽章），真机验证通过后才能变绿。"
-            state_color = "#e0a83c"
+            state_key = "warn"
         elif int(self.entry.get("verified") or 0) == 1:
             state_text = ("当前状态：已验证（%s / %s / %s）"
                           % (self.entry.get("verified_by") or "-",
                              self.entry.get("verified_model") or "-",
                              self.entry.get("verified_date") or "-"))
-            state_color = VERIFIED_COLOR
+            state_key = "ok"
         else:
             state_text = "当前状态：未验证（灰色徽章）。保存后仍保持未验证，需走团队验证流程。"
-            state_color = "#9aa0b0"
+            state_key = "idle"
         self.lbl_state = QLabel(state_text)
-        self.lbl_state.setStyleSheet("color:%s; font-size:11px;" % state_color)
+        self.lbl_state.setObjectName("StateLabel")
+        set_state(self.lbl_state, state_key)
         self.lbl_state.setWordWrap(True)
 
         foot = QHBoxLayout()
@@ -452,7 +454,7 @@ class EntryEditorDialog(QDialog):
             for widget in (self.btn_save, self.btn_save_new):
                 widget.setEnabled(False)
             self.lbl_state.setText("命令库处于只读状态（U 盘写保护），无法保存。")
-            self.lbl_state.setStyleSheet("color:#e05656; font-size:11px;")
+            set_state(self.lbl_state, "err")
 
     @staticmethod
     def _editable_combo(items):
@@ -775,10 +777,10 @@ class LibraryEditorDialog(QDialog):
         self.tbl_history.setMaximumHeight(220)
 
         self.lbl_status = QLabel("")
-        self.lbl_status.setStyleSheet("color:#9aa0b0; padding:2px;")
+        self.lbl_status.setObjectName("StatusStrip")
         if self.db.readonly:
             self.lbl_status.setText("⚠ 命令库处于只读状态（U 盘写保护），新建/编辑/删除/标记验证均被禁用。")
-            self.lbl_status.setStyleSheet("color:#e05656; padding:2px;")
+            set_state(self.lbl_status, "err")
 
         self.btn_close = QPushButton("关闭")
         self.btn_close.setObjectName("Ghost")

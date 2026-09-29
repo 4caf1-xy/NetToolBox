@@ -406,7 +406,7 @@ class VerifyDialog(QDialog):
 
         tip = QLabel("提示：AI 生成的命令必须经真机执行成功后，才允许标记为已验证（徽章变绿）。")
         tip.setWordWrap(True)
-        tip.setStyleSheet("color:%s; font-size:8pt;" % WARNING)
+        tip.setObjectName("HintText")
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Ok).setText("确认已验证")
@@ -871,7 +871,7 @@ class MainWindow(QMainWindow):
             lay.setSpacing(10)
 
             head = QLabel("【%s】功能暂不可用" % tab_title)
-            head.setStyleSheet("font-size:12pt; font-weight:bold; color:%s;" % DANGER)
+            head.setObjectName("ErrorHead")
             head.setWordWrap(True)
             lay.addWidget(head)
 
@@ -894,7 +894,7 @@ class MainWindow(QMainWindow):
                 "命令库的搜索 / 浏览 / 复制 / 参数生成器 / 条目编辑不受影响，可继续使用。"
                 % (missing, type(exc).__name__, exc, dbmod.SCHEMA_VERSION))
             body.setWordWrap(True)
-            body.setStyleSheet("color:%s; font-size:9pt; line-height:150%%;" % TEXT_PRIMARY)
+            body.setObjectName("InfoBody")
             body.setTextInteractionFlags(Qt.TextSelectableByMouse)
             card_lay.addWidget(body)
             lay.addWidget(card)

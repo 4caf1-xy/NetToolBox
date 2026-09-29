@@ -455,6 +455,71 @@ check("旧案例回看不产生会话落盘", len(ai_bridge.list_sessions()) == 
 qw.QMessageBox.information = _orig_info
 qw.QMessageBox.question = _orig_question
 
+# ---------------------------------------------------------------------------
+# [9] 界面重构（样板间）：折叠跨会话记忆 / 空态引导 / Composer 自适应 / 发送中文案
+# ---------------------------------------------------------------------------
+print("[9] 界面重构：折叠记忆 / 空态引导 / Composer")
+import theme
+stored = theme.load_ui_state().get("ai_ctx_expanded")
+check("折叠状态已持久化（落盘值 = 面板当前可见性）",
+      stored == tab2.ctx_body.isVisible(),
+      "stored=%r visible=%r" % (stored, tab2.ctx_body.isVisible()))
+
+tab3 = ui_ai.AiTab(db=None)
+tab3.resize(1200, 800)
+tab3.show()
+tab3.refresh_config_state()
+app.processEvents()
+check("新实例继承持久化状态（跨会话记忆）",
+      tab3.ctx_body.isVisible() == bool(stored),
+      "visible=%r stored=%r" % (tab3.ctx_body.isVisible(), stored))
+tab3.toggle_context_panel(expand=True)
+app.processEvents()
+check("展开后摘要隐藏 / 折叠后显示", not tab3.lbl_ctx_summary.isVisible()
+      and tab3.ctx_body.isVisible())
+check("自动随发说明唯一出处 = 折叠头 tooltip",
+      "每轮自动随消息发送" in tab3.btn_ctx_toggle.toolTip())
+check("空态引导可见（新会话无消息）", tab3._empty_guide.isVisible())
+chips = [w for w in tab3._empty_guide.findChildren(qw.QPushButton)
+         if w.objectName() == "ExampleChip"]
+check("空态含 3 个示例问题 chip", len(chips) == 3, "n=%d" % len(chips))
+chips[0].click()
+app.processEvents()
+check("点示例 chip → 填入输入框", tab3.txt_input.toPlainText() == chips[0].text())
+check("示例不自动发送（无 worker）", not (tab3._worker and tab3._worker.isRunning()))
+
+# Composer 高度自适应：失焦钳 2 行，聚焦扩到 5 行（需 >2 行内容才能观察到扩高）
+tab3.txt_input.setPlainText("第一行\n第二行\n第三行\n第四行")
+tab3.btn_attach.setFocus()          # 先移走焦点（示例 chip 点击后焦点已落在输入框）
+app.processEvents()
+h_unfocused = tab3.txt_input.height()
+tab3.txt_input.setFocus()
+app.processEvents()
+h_focused = tab3.txt_input.height()
+check("聚焦后输入框扩高（2→5 行空间）", h_focused > h_unfocused,
+      "%d → %d" % (h_unfocused, h_focused))
+tab3.txt_input.clear()
+app.processEvents()
+check("清空后收回 2 行", tab3.txt_input.height() <= h_unfocused + 2)
+
+# 发送中状态：按钮禁用 + 文案「生成中…」，完成后复原
+tab3.txt_input.setPlainText("测生成中文案")
+tab3.on_send()
+check("生成中：按钮禁用 + 文案「生成中…」",
+      not tab3.btn_send.isEnabled() and tab3.btn_send.text() == "生成中…")
+worker = tab3._worker
+t0 = time.time()
+while worker.isRunning() and time.time() - t0 < 5:
+    app.processEvents()
+    time.sleep(0.01)
+app.processEvents()
+# enabled 与网络探测结果联动（_update_send_state）；文案复原是本次断言重点
+check("完成后按钮文案复原「发送」",
+      tab3.btn_send.text() == "发送"
+      and tab3.btn_send.isEnabled() == (tab3.network_ok
+                                        and ai_bridge.is_configured()
+                                        and not (tab3._worker and tab3._worker.isRunning())))
+
 print()
 print("=" * 60)
 print("通过 %d 项，失败 %d 项" % (len(PASS), len(FAIL)))

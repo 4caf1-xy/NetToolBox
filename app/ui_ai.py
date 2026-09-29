@@ -45,7 +45,8 @@ from ui_main import copy_to_clipboard
 from theme import (SPACE_XS, SPACE_SM, SPACE_MD, SPACE_LG,
                    TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY, WARNING, DANGER,
                    SUCCESS, ACCENT, BORDER, BORDER_HOVER, BG_RAISED, BG_PANEL,
-                   CODE_BG, WARNING_14, DANGER_14, MONO_FONT_FAMILY, mono_font)
+                   CODE_BG, WARNING_14, DANGER_14, MONO_FONT_FAMILY, mono_font,
+                   repolish, load_ui_state, save_ui_state)
 
 
 # ===========================================================================
@@ -430,7 +431,8 @@ class SettingsDialog(QDialog):
         self.btn_test.setObjectName("Ghost")
         self.btn_test.clicked.connect(self.on_test)
         self.lbl_test = QLabel("未测试")
-        self.lbl_test.setObjectName("Muted")
+        self.lbl_test.setObjectName("StateLabel")       # theme.qss 状态选择器配色
+        self._set_test_state("idle")
 
         test_row = QHBoxLayout()
         test_row.setSpacing(SPACE_SM)
@@ -455,16 +457,21 @@ class SettingsDialog(QDialog):
         root.addWidget(buttons)
 
     # ---- 测试连接 ----
+    def _set_test_state(self, state):
+        """测试连接状态标签：idle/ok/warn/err → property + repolish（无内联样式）"""
+        self.lbl_test.setProperty("state", state)
+        repolish(self.lbl_test)
+
     def on_test(self):
         if self._test_worker and self._test_worker.isRunning():
             return
         if not self.ed_key.text().strip():
             self.lbl_test.setText("✗ 请先填写 API Key")
-            self.lbl_test.setStyleSheet("color:%s;" % DANGER)
+            self._set_test_state("err")
             return
         self.btn_test.setEnabled(False)
         self.lbl_test.setText("测试中…（最多 3 秒）")
-        self.lbl_test.setStyleSheet("color:%s;" % TEXT_MUTED)
+        self._set_test_state("idle")
         self._test_worker = _TestWorker(self._collect())
         self._test_worker.test_done.connect(self._on_test_done)
         self._test_worker.start()
@@ -475,12 +482,12 @@ class SettingsDialog(QDialog):
             return
         if not self.ed_key.text().strip():
             self.lbl_test.setText("✗ 请先填写 API Key")
-            self.lbl_test.setStyleSheet("color:%s;" % DANGER)
+            self._set_test_state("err")
             return
         self.btn_models.setEnabled(False)
         self.btn_models.setText("获取中…")
         self.lbl_test.setText("正在拉取模型列表…")
-        self.lbl_test.setStyleSheet("color:%s;" % TEXT_MUTED)
+        self._set_test_state("idle")
         self._models_worker = _ModelListWorker(self._collect())
         self._models_worker.models_done.connect(self._on_models_done)
         self._models_worker.start()
@@ -490,7 +497,7 @@ class SettingsDialog(QDialog):
         self.btn_models.setText("获取模型")
         if not ok:
             self.lbl_test.setText("✗ %s" % message)
-            self.lbl_test.setStyleSheet("color:%s;" % DANGER)
+            self._set_test_state("err")
             return
         keep = self.cmb_model.currentText().strip()
         self.cmb_model.clear()
@@ -503,16 +510,16 @@ class SettingsDialog(QDialog):
         if keep and keep not in names:
             tip += "（原填写的「%s」不在列表里，已替换）" % keep
         self.lbl_test.setText(tip)
-        self.lbl_test.setStyleSheet("color:%s;" % SUCCESS)
+        self._set_test_state("ok")
 
     def _on_test_done(self, ok, message, latency):
         self.btn_test.setEnabled(True)
         if ok:
             self.lbl_test.setText("✓ %s（延迟 %d ms）" % (message, latency))
-            self.lbl_test.setStyleSheet("color:%s;" % SUCCESS)
+            self._set_test_state("ok")
         else:
             self.lbl_test.setText("✗ %s（%d ms）" % (message, latency))
-            self.lbl_test.setStyleSheet("color:%s;" % DANGER)
+            self._set_test_state("err")
 
     # ---- 保存 ----
     def _collect(self):
@@ -569,13 +576,9 @@ class StatusIndicator(QLabel):
 # ===========================================================================
 # AI 诊断 Tab（对话式）
 # ===========================================================================
-# 气泡样式（内联 QSS：仅气泡底色/圆角这类"形态色"，沿用 theme 常量）
-_USER_BUBBLE_QSS = "QFrame#BubbleUser{background-color:#31405f; border-radius:8px;}"
-_AI_BUBBLE_QSS = ("QFrame#BubbleAi{background-color:%s; border:1px solid %s; border-radius:8px;}"
-                  % (BG_PANEL, BORDER))
-_BROWSER_QSS = "QTextBrowser{background:transparent; border:none;}"
-_PANEL_QSS = ("QWidget#CtxPanelFrame{background-color:%s; border:1px solid %s; border-radius:6px;}"
-              % (BG_RAISED, BORDER))
+# 样式约定（本次重构起）：气泡 / 上下文面板 / Composer / 空态 chip 等
+# 全部走 theme.qss 的 objectName / 属性状态规则（BubbleUser / BubbleAi /
+# CtxPanel / Composer / ExampleChip / DupCard…），本文件零内联样式。
 
 
 def _human_size(num):
@@ -656,7 +659,7 @@ class AiTab(QWidget):
         lay.addStretch(1)
 
         icon = QLabel("✦")
-        icon.setStyleSheet("color:%s; font-size:30pt;" % TEXT_MUTED)
+        icon.setObjectName("EmptyIcon")           # theme.qss：muted 色 + 40px
         icon.setAlignment(Qt.AlignCenter)
         lay.addWidget(icon)
 
@@ -725,18 +728,17 @@ class AiTab(QWidget):
         bar.addWidget(self.btn_to_draft)
 
         self.lbl_state = QLabel("")
-        self.lbl_state.setStyleSheet("color:#6a7080; font-size:8pt;")
+        self.lbl_state.setObjectName("AiStatus")     # theme.qss：muted 12px
         bar.addWidget(self.lbl_state)
 
         host = QWidget()
         host.setLayout(bar)
         return host
 
-    # ---- 上下文面板（六字段 = 会话基线，可折叠）----
+    # ---- 上下文面板（六字段 = 会话基线，可折叠；折叠态跨会话记忆）----
     def _build_context_panel(self):
         self.ctx_frame = QFrame()
-        self.ctx_frame.setObjectName("CtxPanelFrame")
-        self.ctx_frame.setStyleSheet(_PANEL_QSS)
+        self.ctx_frame.setObjectName("CtxPanel")     # theme.qss：面板底 + 边框 + 卡片圆角
 
         v = QVBoxLayout(self.ctx_frame)
         v.setContentsMargins(SPACE_SM, SPACE_XS, SPACE_SM, SPACE_SM)
@@ -745,16 +747,19 @@ class AiTab(QWidget):
         # 折叠头：箭头按钮 + 摘要（折叠时显示）
         head = QHBoxLayout()
         head.setSpacing(SPACE_SM)
-        self.btn_ctx_toggle = QPushButton("▾ 设备上下文（每轮自动随消息发送）")
-        self.btn_ctx_toggle.setObjectName("Ghost")
+        self.btn_ctx_toggle = QPushButton("▼ 设备上下文")
+        self.btn_ctx_toggle.setObjectName("CtxToggle")
         self.btn_ctx_toggle.setFlat(True)
-        self.btn_ctx_toggle.setStyleSheet("text-align:left; padding:2px;")
         self.btn_ctx_toggle.setCursor(Qt.PointingHandCursor)
+        # 文案唯一出处：上下文自动随发的说明只留这里一处 tooltip
+        self.btn_ctx_toggle.setToolTip(
+            "厂商 / OS / 型号 / 故障现象 / 命令回显 / 已试步骤，每轮自动随消息发送；"
+            "有新输出时更新回显区即可，下一轮生效。点击展开或收起。")
         self.btn_ctx_toggle.clicked.connect(self.toggle_context_panel)
         head.addWidget(self.btn_ctx_toggle)
         head.addStretch(1)
         self.lbl_ctx_summary = QLabel("")
-        self.lbl_ctx_summary.setStyleSheet("color:%s; font-size:8pt;" % TEXT_MUTED)
+        self.lbl_ctx_summary.setObjectName("HintMuted")
         self.lbl_ctx_summary.setVisible(False)          # 默认展开，摘要不显示
         head.addWidget(self.lbl_ctx_summary)
         v.addLayout(head)
@@ -767,7 +772,7 @@ class AiTab(QWidget):
 
         def _label(text):
             lbl = QLabel(text)
-            lbl.setStyleSheet("color:#9aa0b0; font-size:8pt;")
+            lbl.setObjectName("HintMuted")
             return lbl
 
         self.cmb_vendor = QComboBox()
@@ -808,6 +813,10 @@ class AiTab(QWidget):
         self.txt_symptom.setFixedHeight(52)
         self.txt_echo = QPlainTextEdit()
         self.txt_echo.setPlaceholderText("命令回显：把 show/display 命令的输出粘贴到这里，作为本会话的基线；有新输出时更新此处，下一轮生效")
+        # ★ 回显框纵向不再 Expanding 抢空间（挤压根因之二）：限高 140，
+        #   消息流是唯一弹性项，保证对话区 ≥70% 高度
+        self.txt_echo.setMinimumHeight(56)
+        self.txt_echo.setMaximumHeight(140)
         self.txt_steps = QPlainTextEdit()
         self.txt_steps.setPlaceholderText("已尝试步骤（可选），例如：1. 已检查两端 trunk allowed vlan；2. 已重启端口无效")
         self.txt_steps.setFixedHeight(44)
@@ -816,13 +825,9 @@ class AiTab(QWidget):
             edit.textChanged.connect(self._on_ctx_edited)
             body.addWidget(edit)
 
-        hint = QLabel("以上内容每轮自动作为上下文发送；有新输出时更新回显区，或直接粘贴到输入框（仅影响当轮）")
-        hint.setStyleSheet("color:%s; font-size:8pt;" % TEXT_MUTED)
-        hint.setWordWrap(True)
-        body.addWidget(hint)
-
+        # 说明文案已收进折叠头 tooltip（文案去重：不再重复一行 hint）
         self.lbl_echo_warn = QLabel("⚠ 回显较大（>20KB），每轮随发将消耗较多 token")
-        self.lbl_echo_warn.setStyleSheet("color:%s; font-size:8pt;" % WARNING)
+        self.lbl_echo_warn.setObjectName("HintText")     # theme.qss：warning 12px
         self.lbl_echo_warn.setVisible(False)
         body.addWidget(self.lbl_echo_warn)
 
@@ -883,31 +888,76 @@ class AiTab(QWidget):
         self.lbl_ctx_summary.setText(" · ".join(bits) if bits else "（尚未填写）")
 
     def toggle_context_panel(self, expand=None):
-        """折叠/展开上下文面板；expand=True/False 强制指定"""
+        """折叠/展开上下文面板；expand=True/False 强制指定。
+        折叠状态写入 ui_state.json（跨会话记忆；写失败静默，U 盘只读不弹错）"""
         if expand is None:
             expand = not self.ctx_body.isVisible()
         self.ctx_body.setVisible(expand)
-        self.btn_ctx_toggle.setText("▾ 设备上下文（每轮自动随消息发送）" if expand
-                                    else "▸ 设备上下文（点击展开编辑）")
+        self.btn_ctx_toggle.setText("▼ 设备上下文" if expand else "▶ 设备上下文")
         self.lbl_ctx_summary.setVisible(not expand)
         if expand:
             self._update_ctx_summary()
+        state = load_ui_state()
+        if state.get("ai_ctx_expanded") != expand:      # 值不变不写盘
+            state["ai_ctx_expanded"] = expand
+            save_ui_state(state)
 
     # ---- 消息流 ----
     def _build_message_flow(self):
         self.flow_scroll = QScrollArea()
-        self.flow_scroll.setObjectName("MessageFlow")
+        self.flow_scroll.setObjectName("MessageFlow")   # theme.qss：透明无边框
         self.flow_scroll.setWidgetResizable(True)
         self.flow_scroll.setFrameShape(QFrame.NoFrame)
-        self.flow_scroll.setStyleSheet("QScrollArea#MessageFlow{background:transparent; border:none;}")
         self.flow_host = QWidget()
-        self.flow_host.setStyleSheet("background:transparent;")
+        self.flow_host.setObjectName("FlowHost")
         self.flow_lay = QVBoxLayout(self.flow_host)
         self.flow_lay.setContentsMargins(SPACE_MD, SPACE_MD, SPACE_MD, SPACE_MD)
         self.flow_lay.setSpacing(SPACE_SM)
+        self._build_empty_guide()
+        self.flow_lay.addWidget(self._empty_guide)
         self.flow_lay.addStretch(1)
         self.flow_scroll.setWidget(self.flow_host)
         return self.flow_scroll
+
+    # ---- 空态引导：新对话时给 2-3 个示例问题，点击填入输入框 ----
+    def _build_empty_guide(self):
+        guide = QWidget()
+        guide.setObjectName("EmptyState")
+        v = QVBoxLayout(guide)
+        v.setContentsMargins(SPACE_LG, SPACE_LG, SPACE_LG, SPACE_LG)
+        v.setSpacing(SPACE_MD)
+
+        title = QLabel("AI 诊断 · 试试这样问")
+        title.setObjectName("EmptyTitle")
+        title.setAlignment(Qt.AlignCenter)
+        v.addWidget(title)
+
+        subtitle = QLabel("设备上下文里的现象 / 回显会随每轮消息自动带上，这里只描述本轮要解决的问题")
+        subtitle.setObjectName("HintMuted")
+        subtitle.setWordWrap(True)
+        subtitle.setAlignment(Qt.AlignCenter)
+        v.addWidget(subtitle)
+
+        examples = [
+            "华为 S5720 配置 trunk 后对端学不到 VLAN，怎么排查？",
+            "Cisco 2960 端口进入 err-disable，如何定位原因并恢复？",
+            "H3C 防火墙会话数异常升高，给我一套排查命令清单",
+        ]
+        for text in examples:
+            chip = QPushButton(text)
+            chip.setObjectName("ExampleChip")
+            chip.setCursor(Qt.PointingHandCursor)
+            chip.clicked.connect(lambda _=False, t=text: self._apply_example(t))
+            v.addWidget(chip)
+
+        v.addStretch(1)
+        self._empty_guide = guide
+
+    def _apply_example(self, text):
+        """点示例问题 → 填入输入框并聚焦（不自动发送，用户可改）"""
+        self.txt_input.setPlainText(text)
+        self.txt_input.setFocus()
+        self._update_input_height()
 
     def _flow_add(self, widget):
         """往消息流底部插入控件（stretch 之前）并滚到底"""
@@ -919,12 +969,13 @@ class AiTab(QWidget):
         bar.setValue(bar.maximum())
 
     def _clear_flow(self):
-        """清空消息流（删除全部子控件，保留末尾 stretch）"""
-        while self.flow_lay.count() > 1:
+        """清空消息流（删除全部子控件，保留末尾 stretch）；空了重新亮出空态引导"""
+        while self.flow_lay.count() > 2:
             item = self.flow_lay.takeAt(0)
             w = item.widget()
             if w is not None:
                 w.deleteLater()
+        self._empty_guide.setVisible(True)
 
     def _bubble_max_width(self):
         base = max(360, self.flow_scroll.viewport().width())
@@ -935,14 +986,13 @@ class AiTab(QWidget):
         lbl = QLabel(text)
         lbl.setAlignment(Qt.AlignCenter)
         lbl.setWordWrap(True)
-        lbl.setStyleSheet("color:%s; font-size:8pt;" % TEXT_MUTED)
+        lbl.setObjectName("HintMuted")
         self._flow_add(lbl)
 
     def _add_user_bubble(self, text, attachments):
-        """用户消息：右对齐浅色气泡（纯文本 + 附件标签，点击看原文）"""
+        """用户消息：右对齐主色气泡（纯文本 + 附件标签，点击看原文）"""
         frame = QFrame()
-        frame.setObjectName("BubbleUser")
-        frame.setStyleSheet(_USER_BUBBLE_QSS)
+        frame.setObjectName("BubbleUser")               # theme.qss：accent 底 + 卡片圆角
         v = QVBoxLayout(frame)
         v.setContentsMargins(10, 6, 10, 8)
         v.setSpacing(SPACE_XS)
@@ -960,8 +1010,7 @@ class AiTab(QWidget):
         row.setSpacing(0)
         row.addStretch(1)
         row.addWidget(frame)
-        wrapper = QWidget()
-        wrapper.setStyleSheet("background:transparent;")
+        wrapper = QWidget()                             # 默认透明（QWidget 不自绘底色）
         wrapper.setLayout(row)
         self._flow_add(wrapper)
 
@@ -970,11 +1019,9 @@ class AiTab(QWidget):
         tag = "图片" if att.get("is_image") else "文本"
         chip = QPushButton("📎 %s（%s·%s）" % (att.get("name") or "file",
                                               _human_size(att.get("size")), tag))
-        chip.setObjectName("Ghost")
-        chip.setFlat(True)
+        chip.setObjectName("Chip")                      # theme.qss：小号描边左对齐
         chip.setCursor(Qt.PointingHandCursor)
         chip.setToolTip("点击查看附件原文")
-        chip.setStyleSheet("text-align:left; padding:1px 6px; font-size:8pt;")
         chip.clicked.connect(lambda _=False, a=att: self.view_attachment(a))
         return chip
 
@@ -1005,7 +1052,7 @@ class AiTab(QWidget):
                     att.get("size") or 0, ai_bridge.ATTACH_TRUNCATE_BYTES)
             if note:
                 lbl = QLabel(note)
-                lbl.setStyleSheet("color:%s; font-size:8pt;" % WARNING)
+                lbl.setObjectName("HintText")           # theme.qss：warning 12px
                 v.addWidget(lbl)
             body = QPlainTextEdit()
             body.setReadOnly(True)
@@ -1026,16 +1073,15 @@ class AiTab(QWidget):
         dlg.exec_()
 
     def _add_ai_bubble(self):
-        """AI 回复：左对齐深色气泡（Markdown 渲染 + 底部动作条）。返回句柄 dict"""
+        """AI 回复：左对齐面板色气泡（Markdown 渲染 + 底部动作条）。返回句柄 dict"""
         frame = QFrame()
-        frame.setObjectName("BubbleAi")
-        frame.setStyleSheet(_AI_BUBBLE_QSS)
+        frame.setObjectName("BubbleAi")                 # theme.qss：面板底 + 边框 + 卡片圆角
         v = QVBoxLayout(frame)
         v.setContentsMargins(10, 6, 10, 6)
         v.setSpacing(2)
 
         browser = QTextBrowser()
-        browser.setStyleSheet(_BROWSER_QSS)
+        browser.setObjectName("BubbleBrowser")          # theme.qss：透明无边框
         browser.setOpenExternalLinks(False)
         browser.setOpenLinks(False)             # copycode:// 一律走 anchorClicked
         browser.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -1047,19 +1093,17 @@ class AiTab(QWidget):
         # 动作条：[复制] [入库▸]（入库三去向本阶段置灰，阶段二开放）
         action = QHBoxLayout()
         action.setSpacing(SPACE_SM)
-        btn_copy = QPushButton("复制")
-        btn_copy.setObjectName("Ghost")
-        btn_copy.setFlat(True)
-        btn_copy.setStyleSheet("padding:0px 6px; font-size:8pt;")
+        btn_copy = QToolButton()
+        btn_copy.setText("复制")
+        btn_copy.setObjectName("BubbleAction")           # theme.qss：小号 ghost
         handle = {"frame": frame, "browser": browser, "code_blocks": [], "text": ""}
         btn_copy.clicked.connect(lambda _=False, h=handle: self._copy_bubble(h))
         action.addWidget(btn_copy)
 
         btn_lib = QToolButton()
         btn_lib.setText("入库 ▸")
-        btn_lib.setObjectName("Ghost")
+        btn_lib.setObjectName("BubbleAction")
         btn_lib.setCursor(Qt.PointingHandCursor)
-        btn_lib.setStyleSheet("font-size:8pt; padding:0px 6px;")
         btn_lib.setPopupMode(QToolButton.InstantPopup)
         menu = QMenu(btn_lib)
         act_entry = menu.addAction("命令库")
@@ -1080,8 +1124,7 @@ class AiTab(QWidget):
         row.setSpacing(0)
         row.addWidget(frame)
         row.addStretch(1)
-        wrapper = QWidget()
-        wrapper.setStyleSheet("background:transparent;")
+        wrapper = QWidget()                             # 默认透明（QWidget 不自绘底色）
         wrapper.setLayout(row)
         self._flow_add(wrapper)
         self._last_ai_handle = handle
@@ -1171,9 +1214,10 @@ class AiTab(QWidget):
             self.lbl_state.setText("已复制代码块 %d（%d 行）→ 可直接粘贴"
                                    % (int(m.group()) + 1, len(code.splitlines())))
 
-    # ---- 输入区 ----
+    # ---- 输入区（Composer 一体化卡片：附件条 + 多行输入 + 动作行）----
     def _build_input_area(self):
         panel = QFrame()
+        panel.setObjectName("Composer")                 # theme.qss：面板底 + 卡片圆角
         v = QVBoxLayout(panel)
         v.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
         v.setSpacing(SPACE_XS)
@@ -1188,11 +1232,16 @@ class AiTab(QWidget):
         v.addWidget(self.att_bar)
 
         self.txt_input = QPlainTextEdit()
-        self.txt_input.setPlaceholderText(
-            "输入本轮问题（可多行）。临时性输出可直接粘贴到这里；基线信息放上方设备上下文面板。")
-        self.txt_input.setFixedHeight(72)
+        self.txt_input.setObjectName("ComposerInput")
+        # placeholder 精简为一句（基线说明已收进上下文折叠条 tooltip）
+        self.txt_input.setPlaceholderText("输入本轮问题（可多行），或粘贴新的命令回显")
         self.txt_input.textChanged.connect(self._update_token_estimate)
+        self.txt_input.textChanged.connect(self._update_input_height)
+        self.txt_input.installEventFilter(self)         # 聚焦/失焦 → 2↔5 行自适应
+        self.txt_input.setFocusPolicy(Qt.StrongFocus)
         v.addWidget(self.txt_input)
+        self._input_focused = False
+        self._update_input_height()
 
         bottom = QHBoxLayout()
         bottom.setSpacing(SPACE_SM)
@@ -1202,10 +1251,12 @@ class AiTab(QWidget):
         self.btn_attach.clicked.connect(self.on_attach)
         bottom.addWidget(self.btn_attach)
 
-        self.lbl_tokens = QLabel("约 0 tokens")
-        self.lbl_tokens.setStyleSheet("color:#6a7080; font-size:8pt;")
-        bottom.addWidget(self.lbl_tokens)
         bottom.addStretch(1)
+
+        # token 估算并入 Composer 卡片右下角
+        self.lbl_tokens = QLabel("约 0 tokens")
+        self.lbl_tokens.setObjectName("HintMuted")
+        bottom.addWidget(self.lbl_tokens)
 
         self.btn_stop = QPushButton("停止")
         self.btn_stop.setObjectName("Danger")
@@ -1219,6 +1270,43 @@ class AiTab(QWidget):
         bottom.addWidget(self.btn_send)
         v.addLayout(bottom)
         return panel
+
+    # ---- Composer 输入框：默认 2 行，聚焦后最多扩到 5 行，随内容自适应 ----
+    COMPOSER_MIN_LINES = 2
+    COMPOSER_MAX_LINES = 5
+
+    def _input_line_height(self):
+        fm = self.txt_input.fontMetrics()
+        return max(16, fm.height())
+
+    def _update_input_height(self):
+        """按内容行数自适应高度：默认钳在 2 行；聚焦后放宽到 5 行（spec：聚焦自动扩）。
+        内容高度用末字符 cursorRect 求（对自动换行/字体都稳；document().size() 在
+        offscreen 平台返回行数而非像素，不可直接用——实测踩过）"""
+        edit = self.txt_input
+        line_h = self._input_line_height()
+        max_lines = self.COMPOSER_MAX_LINES if self._input_focused else self.COMPOSER_MIN_LINES
+        min_h = line_h * self.COMPOSER_MIN_LINES + 14
+        max_h = line_h * max_lines + 14
+        try:
+            cursor = edit.textCursor()
+            cursor.movePosition(QTextCursor.End)
+            content_h = edit.cursorRect(cursor).bottom() + 12
+        except Exception:
+            content_h = line_h * (edit.document().blockCount() + 1) + 12
+        edit.setFixedHeight(max(min_h, min(content_h, max_h)))
+
+    def eventFilter(self, obj, event):
+        """Composer 聚焦 → 放宽到 5 行；失焦 → 收回 2 行"""
+        if obj is self.txt_input:
+            etype = event.type()
+            if etype == event.FocusIn:
+                self._input_focused = True
+                self._update_input_height()
+            elif etype == event.FocusOut:
+                self._input_focused = False
+                self._update_input_height()
+        return super(AiTab, self).eventFilter(obj, event)
 
     # ---- 附件（文本类先行；图片类随 vision_model 配置开放）----
     def _update_attach_tooltip(self):
@@ -1450,6 +1538,7 @@ class AiTab(QWidget):
 
         self.btn_stop.setVisible(True)
         self.btn_send.setEnabled(False)
+        self.btn_send.setText("生成中…")                # 发送中：禁用 + 文案（完成后复原）
         self.btn_new.setEnabled(False)
         self.btn_history.setEnabled(False)
         self.lbl_state.setText("生成中…")
@@ -1569,6 +1658,7 @@ class AiTab(QWidget):
     def _reset_send_ui(self):
         self.btn_stop.setVisible(False)
         self.btn_send.setEnabled(True)      # 立即恢复点击态，网络细分状态由 _update_send_state 接管
+        self.btn_send.setText("发送")       # 生成中文案复原（_update_send_state 只管 enable/tooltip）
         self._update_send_state()
 
     def on_cancel(self):
@@ -2010,7 +2100,7 @@ class AiImportDialog(QDialog):
         switch.addStretch(1)
         self.lbl_session = QLabel("会话 %s · 消息 #%s" % (self.session_id or "（无溯源）",
                                                          self.message_index))
-        self.lbl_session.setStyleSheet("color:%s; font-size:8pt;" % TEXT_MUTED)
+        self.lbl_session.setObjectName("HintMuted")
         switch.addWidget(self.lbl_session)
         root.addLayout(switch)
 
@@ -2041,7 +2131,7 @@ class AiImportDialog(QDialog):
             col = QVBoxLayout()
             col.setSpacing(2)
             cap = QLabel(label)
-            cap.setStyleSheet("color:#9aa0b0; font-size:8pt;")
+            cap.setObjectName("HintMuted")
             col.addWidget(cap)
             col.addWidget(widget)
             wrap = QWidget()
@@ -2066,7 +2156,7 @@ class AiImportDialog(QDialog):
 
         self.lbl_hint = QLabel("")
         self.lbl_hint.setWordWrap(True)
-        self.lbl_hint.setStyleSheet("color:%s; font-size:8pt;" % TEXT_MUTED)
+        self.lbl_hint.setObjectName("HintMuted")
         root.addWidget(self.lbl_hint)
 
         btns = QHBoxLayout()
@@ -2186,13 +2276,14 @@ class AiImportDialog(QDialog):
             return
         self.dup_panel.setVisible(True)
         cap = QLabel("查重结果：%d 条候选（黄色=疑似相似，红色=高度疑似；提交时复核）" % len(cands))
-        cap.setStyleSheet("color:%s; font-size:8pt;" % TEXT_MUTED)
+        cap.setObjectName("HintMuted")
         self.dup_v.addWidget(cap)
         for c in cands:
             key = c.get("uuid") or c.get("err_id") or c.get("tree_id")
-            color = DANGER if c["level"] == "high" else WARNING
+            level = c["level"]                      # "high"→红 / 其他→黄（theme.qss 状态边框）
             card = QFrame()
-            card.setStyleSheet("QFrame{border:1px solid %s; border-radius:6px;}" % color)
+            card.setObjectName("DupCard")
+            card.setProperty("level", level)
             cv = QVBoxLayout(card)
             cv.setContentsMargins(6, 4, 6, 4)
             cv.setSpacing(2)
@@ -2200,9 +2291,10 @@ class AiImportDialog(QDialog):
             toggle = QPushButton("▸ 疑似与《%s》相似（%s）· %s"
                                  % (c["title"], dedupe.percent(c["score"]),
                                     c.get("summary") or ""))
+            toggle.setObjectName("DupToggle")
+            toggle.setProperty("level", level)
             toggle.setFlat(True)
             toggle.setCursor(Qt.PointingHandCursor)
-            toggle.setStyleSheet("text-align:left; color:%s; font-size:8pt;" % color)
             cv.addWidget(toggle)
 
             diff_view = QTextBrowser()
@@ -2244,7 +2336,7 @@ class AiImportDialog(QDialog):
             elif c["level"] == "high":
                 guide = QLabel("⚠ 高度疑似已有同现象树 —— 建议使用下方「追加现有树」模式（已自动切换）")
                 guide.setWordWrap(True)
-                guide.setStyleSheet("color:%s; font-size:8pt;" % WARNING)
+                guide.setObjectName("HintText")         # theme.qss：warning 12px
                 cv.addWidget(guide)
 
             self.dup_v.addWidget(card)
@@ -2318,7 +2410,7 @@ class AiImportDialog(QDialog):
             desc = (blk.get("desc") or "").strip()
             if desc:
                 lbl = QLabel(desc[:50])
-                lbl.setStyleSheet("color:#9aa0b0; font-size:8pt;")
+                lbl.setObjectName("HintMuted")
                 head.addWidget(lbl)
             head.addStretch(1)
             row_lay.addLayout(head)
@@ -2674,7 +2766,7 @@ class AiImportDialog(QDialog):
                   else "未识别「步骤 N」结构，按命令块逐个建步"))
         lbl_tip = QLabel(tip)
         lbl_tip.setWordWrap(True)
-        lbl_tip.setStyleSheet("color:%s; font-size:8pt;" % TEXT_MUTED)
+        lbl_tip.setObjectName("HintMuted")
         v.addWidget(lbl_tip)
 
         # 可编辑步骤列表（滚动区）
@@ -2689,7 +2781,7 @@ class AiImportDialog(QDialog):
             box = QVBoxLayout()
             box.setSpacing(2)
             cap = QLabel("步骤 %d" % i)
-            cap.setStyleSheet("color:#9aa0b0; font-size:8pt;")
+            cap.setObjectName("HintMuted")
             box.addWidget(cap)
             ed_title = QLineEdit(st.get("title") or "")
             ed_title.setPlaceholderText("步骤标题")

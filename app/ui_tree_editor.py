@@ -53,6 +53,8 @@ def _ref_summary(ref):
     return "%s%s" % (cat, (" ｜" + extra) if extra else "")
 
 
+from theme import repolish, set_state  # 状态标签 / error 属性的动态重polish
+
 class StepEditDialog(QDialog):
     """单个排查步骤的可视化编辑"""
 
@@ -113,7 +115,7 @@ class StepEditDialog(QDialog):
             "同厂商多产品线可用 uuid 精确指定。")
         tip.setTextFormat(Qt.RichText)
         tip.setWordWrap(True)
-        tip.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        tip.setObjectName("Hint")
         root.addWidget(tip)
 
         # ---- 分支 ----
@@ -166,7 +168,7 @@ class StepEditDialog(QDialog):
         a_del.clicked.connect(self._del_action)
         a_btns.addWidget(a_del)
         a_tip = QLabel("命令请通过步骤的 cmd_ref 取；动作里只写“做什么”。")
-        a_tip.setStyleSheet("color:#9aa0b0; font-size:11px;")
+        a_tip.setObjectName("Hint")
         a_btns.addWidget(a_tip, 1)
         lv.addLayout(a_btns)
         root.addWidget(leaf_box)
@@ -409,7 +411,7 @@ class TreeManagerDialog(QDialog):
         root.addWidget(split, 1)
 
         self.lbl_status = QLabel("")
-        self.lbl_status.setStyleSheet("color:#9aa0b0;")
+        self.lbl_status.setObjectName("StateLabel")
         self.btn_save = QPushButton("保存树")
         self.btn_save.setObjectName("Primary")
         self.btn_save.clicked.connect(self.on_save)
@@ -426,7 +428,7 @@ class TreeManagerDialog(QDialog):
             for w in (self.btn_new, self.btn_dup, self.btn_del, self.btn_save):
                 w.setEnabled(False)
             self.lbl_status.setText("命令库处于只读状态（U 盘写保护），无法维护排查树。")
-            self.lbl_status.setStyleSheet("color:#e05656;")
+            set_state(self.lbl_status, "err")
 
     # ---------------- 列表刷新 ----------------
     def refresh(self, keep=None):
