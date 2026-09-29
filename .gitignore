@@ -27,6 +27,8 @@ build.stale-*/
 dist.stale-*/
 NetToolBox.spec
 NetToolBox.spec.stale-*
+*.trash-*
+*.trash-*/
 
 # ---- 验证证据（入伴生私有仓 nettoolbox-data，不入公开仓）----
 docs/verify/

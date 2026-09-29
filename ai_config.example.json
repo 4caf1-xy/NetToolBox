@@ -1,0 +1,7 @@
+{
+  "base_url": "https://your-llm-endpoint.example.com/v1",
+  "api_key": "sk-在此填入你的API密钥",
+  "model": "your-model-name",
+  "timeout": 90,
+  "operator": ""
+}

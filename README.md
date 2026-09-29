@@ -64,10 +64,12 @@ python scripts/check_db.py        # 主库只读体检
 
 ```
 app/            PyQt5 应用（入口 app/main.py）+ seed_data/ 种子库
-scripts/        校验、体检与维护脚本（check_db / validate / backup_db / hooks）
-docs/           审计报告、部署说明、prompts 提示词归档、screenshots 截图
+scripts/        校验、体检与维护脚本（check_db / backup_db / hooks / build_exe 一键打包）
+docs/           审计报告、部署说明、dev-notes、prompts 归档、screenshots 截图
 .github/        CI（validate-seed）
 ```
+
+> 打包说明：`python scripts/build_exe.py`（PyQt5 + PyInstaller）；requests 依赖以 `pip --target` 落在 `_vendor/`（仅构建机本地，随 exe 打包、不入 git）。AI 会话产物落位规范见 [AGENTS.md](AGENTS.md)。
 
 ## 贡献指引
 
