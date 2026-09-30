@@ -29,6 +29,6 @@
      新厂商进入后把 slug 追加进该组，防火墙树直接挂靠）
 2. **数据格式**：与现有种子一致（schema 2：`format/schema/vendor_file/vendor_label/
    vendor_slug/verified_policy/entries|err_dict|trouble_trees`）。
-3. **质量门槛**：新增条目后必跑 `python main.py --validate-seed`，全量通过才算入库。
+3. **质量门槛**：新增条目后必跑 `python app/main.py --validate-seed`，全量通过才算入库。
 4. **骨架条目**：未经真机核对的 CLI 命令标 `exec_level: "skeleton"`，commands 内
    注明"待真机核对"，UI 会以橙色『骨架』徽章标识并在首次复制时提醒。

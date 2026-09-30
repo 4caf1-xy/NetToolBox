@@ -17,15 +17,7 @@
 
 ## 架构与数据流
 
-```mermaid
-flowchart LR
-    A[seed_data/*.json\n种子库] -->|导入校验| B[(command_lib.db\n主库)]
-    C[AI 会话] -->|结构化校验/占位重映射| B
-    B --> D[命令渲染/排查向导/报错诊断]
-    D --> E[真机执行]
-    E -->|验证通过 回填 verified| F[验证证据]
-    F -->|种子晋升| A
-```
+> 完整的数据流图、三库职责与公开仓/伴生仓分工见 [docs/architecture.md](docs/architecture.md)。
 
 种子是唯一事实源：改种子 → `--validate-seed` 全量校验 → 重建/更新主库；真机验证结论回流种子，形成「沉淀 → 验证 → 晋升」闭环。
 
@@ -65,7 +57,7 @@ python scripts/check_db.py        # 主库只读体检
 ```
 app/            PyQt5 应用（入口 app/main.py）+ seed_data/ 种子库
 scripts/        校验、体检与维护脚本（check_db / backup_db / hooks / build_exe 一键打包）
-docs/           审计报告、部署说明、dev-notes、prompts 归档、screenshots 截图
+docs/           文档体系（索引 docs/README.md）：架构、种子指南、验证手册、部署说明、审计快照
 .github/        CI（validate-seed）
 ```
 
@@ -73,14 +65,11 @@ docs/           审计报告、部署说明、dev-notes、prompts 归档、scree
 
 ## 贡献指引
 
-1. **修改 `app/seed_data/` 的 PR 必须通过 CI 的 `validate-seed`**（参数占位一致性、UUID 唯一、slug 规范、样例自测全绿才能合入）。
-2. 本地建议装 pre-commit 钩子，提交前自动质检：
+欢迎贡献命令条目、报错样本与验证反馈——完整流程（fork→branch→validate 绿→PR、Issue 三类指引）见 [CONTRIBUTING.md](CONTRIBUTING.md)；种子条目字段写法见 [docs/seed-guide.md](docs/seed-guide.md)。速记：
 
-   ```bash
-   cp scripts/hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit   # Windows Git Bash 免 chmod
-   ```
-
-3. 新增命令请带 `notes`（坑点/判读口径/验证方法），未真机验证的条目保持 `verified: 0`。
+1. **修改 `app/seed_data/` 的 PR 必须通过 CI 的 `validate-seed`**（EXIT=0 硬门槛），本地可用 pre-commit 钩子（`cp scripts/hooks/pre-commit .git/hooks/pre-commit`）；
+2. 未真机验证的条目保持 `verified: 0`，CLI 骨架标 `exec_level: "skeleton"`；
+3. 文档体系总览见 [docs/README.md](docs/README.md)（每主题唯一权威出处索引）。
 
 ## 免责声明
 
