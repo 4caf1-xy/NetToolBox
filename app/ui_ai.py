@@ -31,7 +31,7 @@ import re
 import dedupe
 
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal, QUrl
-from PyQt5.QtGui import QTextCursor, QPixmap
+from PyQt5.QtGui import QTextCursor, QPixmap, QFontMetrics
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
                              QComboBox, QPlainTextEdit, QPushButton, QTextBrowser,
                              QDialog, QFormLayout, QDialogButtonBox, QStackedWidget,
@@ -41,12 +41,14 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdi
 
 import ai_bridge
 import db as dbmod
+import renderer
 from ui_main import copy_to_clipboard
-from theme import (SPACE_XS, SPACE_SM, SPACE_MD, SPACE_LG,
+from theme import (SPACE_XS, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XL,
                    TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY, WARNING, DANGER,
                    SUCCESS, ACCENT, BORDER, BORDER_HOVER, BG_RAISED, BG_PANEL,
                    CODE_BG, WARNING_14, DANGER_14, MONO_FONT_FAMILY, mono_font,
-                   repolish, load_ui_state, save_ui_state)
+                   repolish, load_ui_state, save_ui_state,
+                   GripSplitter, read_sizes)
 
 
 # ===========================================================================
@@ -62,21 +64,50 @@ def _esc(text):
     return (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+# ---- 观察判断类标签词（加粗提色；后跟冒号才命中，不误伤正文）----
+_LABEL_WORD_RE = re.compile(r"(观察|判断|结论|原因|风险|注意|影响)([:：])")
+
+
 def _md_inline(text):
     """行内 Markdown → HTML：`代码` 与 **加粗**（先转义再变换）"""
     s = _esc(text)
     s = re.sub(r"`([^`]+)`",
                r"<code style='background-color:%s; font-family:%s; font-size:9pt;'>\1</code>"
-               % (BG_RAISED, MONO_FONT_FAMILY), s)
+               % (CODE_BG, MONO_FONT_FAMILY), s)
     s = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", s)
+    # 观察/判断/结论等标签词：加粗 + accent 提色（与正文区分，扫读定位用）
+    s = _LABEL_WORD_RE.sub(
+        r"<b><span style='color:%s;'>\1\2</span></b>" % ACCENT, s)
     return s
+
+
+# ---- 代码块排版参数（探针实测：Qt 富文本 white-space:pre-wrap 支持完整换行，
+#      逐行 div + text-indent 负值 = 每行悬挂缩进，换行续行对齐块左缘）----
+CODE_HANG_INDENT = 16       # 悬挂缩进量（px）：首行右移、续行挂回块左缘
+
+
+def _code_body_html(code):
+    """
+    代码文本 → 逐行 div（white-space:pre-wrap 保留空格 + 自动换行，杜绝横向裁剪；
+    margin-left + text-indent 负值实现换行悬挂缩进）。空行用 &nbsp; 撑住行高。
+    """
+    rows = []
+    for line in code.split("\n"):
+        rows.append(
+            "<div style='white-space:pre-wrap; font-family:%s; font-size:9pt; "
+            "color:%s; margin-left:%dpx; text-indent:-%dpx;'>%s</div>"
+            % (MONO_FONT_FAMILY, TEXT_PRIMARY,
+               CODE_HANG_INDENT, CODE_HANG_INDENT,
+               _esc(line) if line.strip() else "&#160;"))
+    return "".join(rows)
 
 
 def _code_block_html(code, counter_ref):
     """
-    代码块 → 等宽底色框表格，右上角 [复制] 链接（copycode://blockN → anchorClicked）。
+    代码块 → 等宽底色框表格，右上角 [复制] 浮层式链接（copycode://blockN → anchorClicked）。
     counter_ref 是本次渲染的 code_blocks 列表：函数自己取号并登记原文，
     这样**引用块内的代码块**与顶层代码块共用一套编号，[复制] 一定对得上。
+    复制语义不变：链接取的是 counter_ref 里的原始文本，不是换行后的显示文本。
     """
     idx = len(counter_ref)
     counter_ref.append(code)
@@ -86,13 +117,11 @@ def _code_block_html(code, counter_ref):
         "<tr>"
         "<td style='padding:4px 10px 2px 10px; color:%s; font-size:8pt;'>代码块 %d</td>"
         "<td align='right' style='padding:4px 10px 2px 10px;'>"
-        "<a href='copycode://block%d' style='color:%s; text-decoration:none; font-size:8pt;'>[ 复制 ]</a>"
+        "<a href='copycode://block%d' style='color:#ffffff; background-color:%s; "
+        "text-decoration:none; font-size:8pt;'>&#160;复制&#160;</a>"
         "</td></tr>"
-        "<tr><td colspan='2' style='padding:0px 10px 8px 10px;'>"
-        "<pre style='color:%s; font-family:%s; font-size:9pt; margin:2px 0px 0px 0px;'>%s</pre>"
-        "</td></tr></table>"
-    ) % (CODE_BG, BORDER, TEXT_MUTED, idx, idx, ACCENT, TEXT_PRIMARY,
-         MONO_FONT_FAMILY, _esc(code))
+        "<tr><td colspan='2' style='padding:0px 10px 8px 10px;'>%s</td></tr></table>"
+    ) % (CODE_BG, BORDER, TEXT_MUTED, idx, idx, ACCENT, _code_body_html(code))
 
 
 def _text_segment_html(segment, preserve_lines=False):
@@ -124,6 +153,8 @@ def _text_segment_html(segment, preserve_lines=False):
             close_to(0)
             continue
         m_h = re.match(r"^(#{1,6})\s+(.*)$", stripped)
+        m_step = re.match(r"^(第\s*\d+\s*步|步骤\s*\d+|Step\s*\d+)\s*(?:[:：、.．\-—)]|\s|$)",
+                          stripped, re.IGNORECASE)
         m_ul = re.match(r"^(\s*)[-*•]\s+(.*)$", raw.rstrip())
         m_ol = re.match(r"^(\s*)(\d+)[.、)．]\s+(.*)$", raw.rstrip())
         if m_h:
@@ -131,6 +162,12 @@ def _text_segment_html(segment, preserve_lines=False):
             close_to(0)
             out.append("<h3 style='margin:10px 0px 4px 0px;'><b>%s</b></h3>"
                        % _md_inline(m_h.group(2)))
+        elif m_step:
+            # "第 N 步 / 步骤 N / Step N" 开头 → 节标题（加粗 + 上下间距，AI 分步回复扫读用）
+            flush_para()
+            close_to(0)
+            out.append("<h3 style='margin:12px 0px 4px 0px;'><b>%s</b></h3>"
+                       % _md_inline(stripped))
         elif m_ul or m_ol:
             flush_para()
             indent = len((m_ul or m_ol).group(1))
@@ -320,6 +357,36 @@ def render_selftest():
         (html3.count("<ol") == 1 and html3.count("<ul") == 2
          and "子项甲" in html3 and "顶层丙" in html3),
         "ol=%d ul=%d" % (html3.count("<ol"), html3.count("<ul"))))
+
+    # 样例4：长命令 pre-wrap（grep ListenAddress 实测样例）——必须整段保留、声明换行
+    #   （HTML 体内 & 会被转义为 &amp;，显示时还原 —— 原文完整性按转义形式断言）
+    long_cmd = ("grep -nE \"^[# ]*ListenAddress\" /etc/ssh/sshd_config && sudo sshd -T | "
+                "grep -i listenaddress && systemctl restart sshd")
+    md4 = "检查 sshd 监听配置：\n```bash\n%s\n```\n" % long_cmd
+    html4, blocks4 = md_to_html(md4, streaming=False)
+    cases.append((
+        "长命令 pre-wrap（无横向裁剪）",
+        (len(blocks4) == 1 and blocks4[0] == long_cmd
+         and "white-space:pre-wrap" in html4
+         and _esc(long_cmd) in html4
+         and "text-indent" in html4),
+        "原文完整=%s；pre-wrap=%s；悬挂缩进=%s"
+        % (_esc(long_cmd) in html4, "white-space:pre-wrap" in html4, "text-indent" in html4)))
+
+    # 样例5：复制链接取原始文本（右上角浮层式链接仍在，copycode 编号不变）
+    cases.append((
+        "代码块复制链接（原文语义）",
+        ("copycode://block0" in html4 and "复制" in html4 and blocks4[0] == long_cmd),
+        "链接=%s" % ("copycode://block0" in html4)))
+
+    # 样例6："第 N 步"节标题 + 观察/判断标签词提色
+    md6 = "第 1 步：确认服务状态\n观察：端口未监听\n判断：配置未生效\n"
+    html6, _b6 = md_to_html(md6, streaming=False)
+    cases.append((
+        "节标题与标签词",
+        ("<h3" in html6 and "<b>第 1 步" in html6
+         and "color:%s" % ACCENT in html6 and "<b><span" in html6),
+        "节标题=%s 标签词=%s" % ("<b>第 1 步" in html6, "color:%s" % ACCENT in html6)))
 
     passed = all(c[1] for c in cases)
     return passed, cases
@@ -602,7 +669,11 @@ class AiTab(QWidget):
     PROBE_INTERVAL_MS = 60 * 1000       # 60s 重探
     FLUSH_INTERVAL_MS = 100             # 流式刷新节流（避免每 token 重绘）
     ECHO_WARN_CHARS = 20 * 1024         # 回显 >20KB 提示 token 消耗
-    BUBBLE_MAX_RATIO = 0.80             # 气泡最大宽度占消息流视口比例
+    BUBBLE_MAX_RATIO = 0.80             # 用户气泡最大宽度占消息流视口比例
+    AI_CARD_MARGIN = SPACE_XL           # AI 卡片两侧边距（24px，全宽内容卡片规则）
+    AI_CARD_MIN_W = 320                 # AI 卡片最小宽度（短回复自适应下限）
+    SPLIT_KEY = "ai_split"              # 对话区│Composer 分栏记忆 key（ui_state.json）
+    SPLIT_MINS = (300, 120)             # 对话区 / Composer 最小高度（防拖成不可用）
 
     def __init__(self, db, parent=None):
         super(AiTab, self).__init__(parent)
@@ -622,6 +693,8 @@ class AiTab(QWidget):
         self._shown_trimmed = 0         # 消息流中已提示过的裁剪轮数（只增不减）
         self.session = ai_bridge.new_session()      # 当前会话（含 ctx 与历史消息）
         self._pending_attachments = []  # 待发送附件 [{name,type,size,content,truncated}]
+        self._user_frames = []          # 用户气泡 frame（resize 时同步 80% 上限）
+        self._ai_cards = []             # 全部 AI 卡片 handle（resize 时统一跟随视口）
 
         self._build_ui()
 
@@ -684,16 +757,68 @@ class AiTab(QWidget):
         return page
 
     def _build_main_page(self):
-        """主界面：工具条 / 上下文面板 / 消息流 / 输入区（垂直）"""
+        """
+        主界面（GripSplitter 纵向分栏，任务2）：
+            [工具条 + 上下文面板 + 消息流]  ↕ 可拖
+            [Composer 输入卡片]
+        默认 stretch 4:1；对话区 minHeight 300 / Composer minHeight 120（SPLIT_MINS），
+        比例记忆进 ui_state.json（key=ai_split，restore_split_state 校验回退）。
+        """
         page = QWidget()
-        v = QVBoxLayout(page)
+        root = QVBoxLayout(page)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        chat_host = QWidget()
+        v = QVBoxLayout(chat_host)
         v.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
         v.setSpacing(SPACE_SM)
         v.addWidget(self._build_toolbar())
         v.addWidget(self._build_context_panel())
         v.addWidget(self._build_message_flow(), 1)
-        v.addWidget(self._build_input_area())
+
+        composer = self._build_input_area()
+        composer.setMinimumHeight(self.SPLIT_MINS[1])
+        chat_host.setMinimumHeight(self.SPLIT_MINS[0])
+
+        self.chat_split = GripSplitter(Qt.Vertical)
+        self.chat_split.addWidget(chat_host)
+        self.chat_split.addWidget(composer)
+        self.chat_split.setStretchFactor(0, 4)
+        self.chat_split.setStretchFactor(1, 1)
+        self.chat_split.setSizes([640, 160])
+        # 分栏拖拽 → AiTab 自身尺寸不变（resizeEvent 不触发），必须挂 splitterMoved
+        self.chat_split.splitterMoved.connect(lambda *_: self._sync_card_widths())
+
+        root.addWidget(self.chat_split)
         return page
+
+    # ---- 分栏状态记忆（MainWindow 关闭/启动时统一收口，任务2-3）----
+    def split_state(self):
+        """把对话区│Composer 当前比例交给 MainWindow 并入 ui_state.json"""
+        try:
+            return {self.SPLIT_KEY: list(self.chat_split.sizes())}
+        except Exception:
+            return {}
+
+    def restore_split_state(self, state):
+        """
+        启动时恢复分栏比例；read_sizes 校验失败（坏值/小于最小高度）→ 忽略。
+        ★ Tab 未显示时 QSplitter 未布局，setSizes 不保证生效（冒烟实测间歇回退）——
+        值先存 pending，首次 showEvent 再真正应用。
+        """
+        self._pending_split = read_sizes(state, self.SPLIT_KEY, self.SPLIT_MINS)
+        if self._pending_split and self.isVisible():
+            self._apply_pending_split()
+
+    def _apply_pending_split(self):
+        if getattr(self, "_pending_split", None):
+            self.chat_split.setSizes(self._pending_split)
+            self._pending_split = None
+
+    def showEvent(self, event):
+        super(AiTab, self).showEvent(event)
+        self._apply_pending_split()
 
     def _build_toolbar(self):
         bar = QHBoxLayout()
@@ -911,7 +1036,9 @@ class AiTab(QWidget):
         self.flow_host = QWidget()
         self.flow_host.setObjectName("FlowHost")
         self.flow_lay = QVBoxLayout(self.flow_host)
-        self.flow_lay.setContentsMargins(SPACE_MD, SPACE_MD, SPACE_MD, SPACE_MD)
+        # 左右各 24px（AI_CARD_MARGIN）：AI 全宽内容卡片与视口保持的安全边距
+        self.flow_lay.setContentsMargins(self.AI_CARD_MARGIN, SPACE_MD,
+                                         self.AI_CARD_MARGIN, SPACE_MD)
         self.flow_lay.setSpacing(SPACE_SM)
         self._build_empty_guide()
         self.flow_lay.addWidget(self._empty_guide)
@@ -975,6 +1102,10 @@ class AiTab(QWidget):
             w = item.widget()
             if w is not None:
                 w.deleteLater()
+        self._user_frames = []          # 防止 resizeEvent 触碰已析构控件
+        self._ai_cards = []
+        self._ai_handles = {}
+        self._last_ai_handle = None
         self._empty_guide.setVisible(True)
 
     def _bubble_max_width(self):
@@ -1005,6 +1136,7 @@ class AiTab(QWidget):
             chip = self._attachment_chip(att)
             v.addWidget(chip)
         frame.setMaximumWidth(self._bubble_max_width())
+        self._user_frames.append(frame)     # resizeEvent 里随视口同步 80% 上限
 
         row = QHBoxLayout()
         row.setSpacing(0)
@@ -1073,7 +1205,12 @@ class AiTab(QWidget):
         dlg.exec_()
 
     def _add_ai_bubble(self):
-        """AI 回复：左对齐面板色气泡（Markdown 渲染 + 底部动作条）。返回句柄 dict"""
+        """
+        AI 回复：左对齐全宽内容卡片（Markdown 渲染 + 底部动作条）。返回句柄 dict。
+        宽度规则（对上一轮"气泡上限 80%"的修订）：AI 回复是文档型内容，
+        含代码块/引用块时恒占满可用宽（视口减两侧 24px）；短回复按内容自适应、
+        上限同为全宽（_fit_ai_card）。用户消息仍走右侧 80% 气泡。
+        """
         frame = QFrame()
         frame.setObjectName("BubbleAi")                 # theme.qss：面板底 + 边框 + 卡片圆角
         v = QVBoxLayout(frame)
@@ -1128,6 +1265,7 @@ class AiTab(QWidget):
         wrapper.setLayout(row)
         self._flow_add(wrapper)
         self._last_ai_handle = handle
+        self._ai_cards.append(handle)
         return handle
 
     def _open_import_dialog(self, handle=None, target="entry"):
@@ -1165,19 +1303,94 @@ class AiTab(QWidget):
         except Exception:
             pass
 
+    # ---- AI 卡片宽度治理（全宽内容卡片规则）----
+    def _ai_card_avail(self):
+        """卡片可用全宽 = 消息流视口宽 - 两侧 24px 边距（下限 320 防极窄窗口）"""
+        return max(self.AI_CARD_MIN_W,
+                   self.flow_scroll.viewport().width() - 2 * self.AI_CARD_MARGIN)
+
+    def _natural_card_width(self, text):
+        """短回复自适应宽度：按最长相邻显示行像素宽估算（含 24px 卡片内边距）"""
+        fm = QFontMetrics(self.font())
+        longest = 0
+        for ln in (text or "").splitlines():
+            ln = ln.strip()
+            if ln:
+                longest = max(longest, fm.horizontalAdvance(ln[:160]))
+        return longest + 30
+
+    def _fit_ai_card(self, handle, streaming=False):
+        """
+        按内容性质定卡片宽：
+          · 文档型（含代码块/引用块）→ 恒全宽；
+          · 短回复 → min(内容自然宽, 全宽)，且不小于 320；
+        流式期间宽度只增不减（杜绝打字机过程左右跳动），成品渲染精确落定。
+        """
+        browser = handle["browser"]
+        frame = handle["frame"]
+        avail = self._ai_card_avail()
+        if handle.get("is_doc"):
+            w = avail
+        else:
+            w = min(max(handle.get("natural") or 0, self.AI_CARD_MIN_W), avail)
+        if streaming:
+            w = max(w, handle.get("width") or 0)
+        handle["width"] = w
+        frame.setFixedWidth(w)
+        self._adjust_browser_height(browser)
+
+    def resizeEvent(self, event):
+        """窗口/Tab 尺寸变化：卡片与用户气泡跟随视口"""
+        super(AiTab, self).resizeEvent(event)
+        self._sync_card_widths()
+
+    def _sync_card_widths(self):
+        """
+        视口宽度变化（窗口 resize / 分栏拖拽）时统一跟随：
+        全宽卡跟视口、短回复卡钳在 [320, 视口]、用户气泡跟 80% 上限。
+        流式中的卡片由 _fit_ai_card 接管（只增不减，避免拖拽+打字机互相拉扯）。
+        """
+        if not getattr(self, "flow_scroll", None):
+            return
+        avail = self._ai_card_avail()
+        live = list(self._ai_cards)
+        if self._last_ai_handle and self._last_ai_handle not in live:
+            live.append(self._last_ai_handle)
+        for h in live:
+            try:
+                if h is self._current_ai:
+                    continue
+                if h.get("is_doc"):
+                    h["frame"].setFixedWidth(avail)
+                    self._adjust_browser_height(h["browser"])
+                else:
+                    h["frame"].setFixedWidth(
+                        min(max(h.get("natural") or 0, self.AI_CARD_MIN_W), avail))
+            except RuntimeError:
+                pass                            # C++ 对话气泡已析构（清流竞态）
+        for frame in self._user_frames:
+            try:
+                frame.setMaximumWidth(self._bubble_max_width())
+            except RuntimeError:
+                pass
+
     def _render_bubble(self, handle, text, streaming=False):
         """把 Markdown 渲染进指定 AI 气泡（每气泡独立 code_blocks，[复制] 互不串号）"""
         html, blocks = md_to_html(text or "", streaming=streaming)
         handle["code_blocks"] = blocks
         handle["text"] = text or ""
+        # 宽度性质：含代码块/引用块 → 文档型恒全宽；否则按内容自适应
+        handle["is_doc"] = bool(re.search(r"^\s*(```|>)", text or "", re.M))
+        handle["natural"] = self._natural_card_width(text)
         handle["browser"].setHtml(html)
-        self._adjust_browser_height(handle["browser"])
+        self._fit_ai_card(handle, streaming=streaming)
 
     def _render_error_bubble(self, handle, title, message):
         """在 AI 气泡顶部叠错误卡片（红左条），已生成部分照常渲染可复制"""
         html, blocks = md_to_html(self._response_text)
         handle["code_blocks"] = blocks
         handle["text"] = self._response_text
+        handle["is_doc"] = True                 # 错误卡本身是表格，恒全宽
         html = (
             "<div style='margin:6px 0px;'>"
             "<table cellpadding='0' cellspacing='0' width='100%%'>"
@@ -1189,7 +1402,7 @@ class AiTab(QWidget):
             % (DANGER, DANGER, title, _esc(message), html)
         )
         handle["browser"].setHtml(html)
-        self._adjust_browser_height(handle["browser"])
+        self._fit_ai_card(handle)
 
     def _copy_bubble(self, handle):
         if copy_to_clipboard(handle.get("text") or ""):
@@ -2565,6 +2778,25 @@ class AiImportDialog(QDialog):
                     r["body"].toPlainText().strip("\n"),
                     ai_bridge.build_block_title(symptom, r["desc"]),
                     "", r["index"]))
+
+        # ---- 入库校验钩子（schema 升级 2026-09-30，任务4）----
+        #   {{占位符}} 与 params 双向对账不过 / 结构化参数 description 为空 → 一律打回。
+        #   与 validate_seed 共用 renderer.check_entry_params 同一口径，不搞第二套规则。
+        rejected = []
+        for e in entries:
+            p_problems, _p_warn = renderer.check_entry_params(e)
+            if p_problems:
+                rejected.append((e, p_problems))
+        if rejected:
+            e0, ps0 = rejected[0]
+            QMessageBox.warning(
+                self, "入库校验未通过（已打回）",
+                "《%s》参数校验不过：\n  · %s\n\n"
+                "共 %d 条未通过（引用未定义 / 定义了 name-type-description 缺失 / "
+                "default 违反自身取值范围）。修正后重新提交。"
+                % (e0.get("title"), "\n  · ".join(ps0[:5]), len(rejected)))
+            self.lbl_hint.setText("⚠ %d 条未通过参数对账校验，未入库。" % len(rejected))
+            return
 
         # ---- 三级查重复核（提交时一次；以最高分候选的主决策为准）----
         merged_for_check = entries[0]["commands"] if self.rb_merge.isChecked() \

@@ -22,6 +22,7 @@ ui_main.py —— 主窗口
 """
 
 import os
+import html
 import datetime
 
 from PyQt5.QtCore import Qt, QTimer
@@ -57,7 +58,7 @@ from theme import (DARK_QSS,                                   # 全站唯一样
                    TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED,
                    SPACE_XS, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XL,
                    GripSplitter, ThemedComboBox, mono_font,
-                   load_ui_state, save_ui_state, read_sizes)
+                   load_ui_state, save_ui_state, read_sizes, set_state)
 
 # 布局尺寸约定（第 5 轮 UI 专项：三栏 pane 的初始/最小尺寸集中在此便于调整）
 PANE_MIN_NAV = 180          # 左导航最小宽（任务要求 ≥180）
@@ -220,10 +221,12 @@ class CommandHighlighter(QSyntaxHighlighter):
         param_fmt.setFontWeight(QFont.Bold)
         self._rules.append((renderer.PARAM_RE, param_fmt, False))
 
-        # 注释行（muted 灰 + 斜体）
+        # 注释行（muted 灰 + 斜体 + 小字 —— schema 升级 2026-09-30：种子约定
+        # "# 注释行独立成行"，渲染上进一步退到背景里，复制时可经 strip_comments 剔除）
         comment_fmt = QTextCharFormat()
         comment_fmt.setForeground(QColor(TEXT_MUTED))
         comment_fmt.setFontItalic(True)
+        comment_fmt.setFontPointSize(9)
         self._comment_re = self._compile_comment()
         self._comment_fmt = comment_fmt
 
@@ -841,14 +844,34 @@ class MainWindow(QMainWindow):
         if sizes:
             self.center_split.setSizes(sizes)
 
+        # 子 Tab 分栏记忆（AI 诊断 / 报错诊断 / 排查向导，任务2-3）：各 Tab 自校验
+        for tab in (self.tab_ai, self.tab_errorfix, self.tab_troubleshoot):
+            if tab is not None and hasattr(tab, "restore_split_state"):
+                try:
+                    tab.restore_split_state(state)
+                except Exception:
+                    pass
+
+    def _sub_tab_split_state(self):
+        """收集子 Tab 分栏比例（构造失败的占位 Tab 无此方法，跳过）"""
+        payload = {}
+        for tab in (self.tab_ai, self.tab_errorfix, self.tab_troubleshoot):
+            if tab is not None and hasattr(tab, "split_state"):
+                try:
+                    payload.update(tab.split_state())
+                except Exception:
+                    pass
+        return payload
+
     def _save_ui_state(self):
-        """把窗口尺寸与三栏比例写入 ui_state.json（只读介质上静默失败）"""
+        """把窗口尺寸与各分栏比例写入 ui_state.json（只读介质上静默失败）"""
         try:
             payload = {
                 "window": {"w": self.width(), "h": self.height()},
                 "main_split": list(self.main_split.sizes()),
                 "center_split": list(self.center_split.sizes()),
             }
+            payload.update(self._sub_tab_split_state())
         except Exception:
             return
         save_ui_state(payload)
@@ -1075,18 +1098,44 @@ class MainWindow(QMainWindow):
         self.txt_commands.setFont(mono_font())
         self.highlighter = CommandHighlighter(self.txt_commands.document())
 
+        # ---- 完整命令预览状态条（schema 升级 2026-09-30）----
+        #   缺必填 → err 红；缺选填 → warn 黄；全齐 → 隐藏
+        self.lbl_preview_state = QLabel("")
+        self.lbl_preview_state.setObjectName("StatusStrip")
+        self.lbl_preview_state.setWordWrap(True)
+        self.lbl_preview_state.setVisible(False)
+
         # ---- 信息分页（P-E：统一留白 + 行距 1.5）----
         self.tab_info = QTabWidget()
         self.tab_info.setDocumentMode(True)
 
-        self.tbl_params = QTableWidget(0, 6)
+        # ---- 参数说明折叠面板（schema 升级 2026-09-30）----
+        #   行结构：名称 | 必填* | 默认值 | 类型 | 说明（正文 + range/example/choices 灰字附注）
+        #   默认收起；无参数条目整页不渲染（_render_detail 里 setTabVisible 控制）
+        self.tbl_params = QTableWidget(0, 5)
         self.tbl_params.setHorizontalHeaderLabels(
-            ["参数", "说明", "类型校验", "必填", "默认值", "示例"])
+            ["参数", "必填", "默认值", "类型", "说明"])
         self.tbl_params.verticalHeader().setVisible(False)
         self.tbl_params.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tbl_params.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.tbl_params.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.tab_info.addTab(self.tbl_params, "参数说明")
+        self.tbl_params.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
+
+        self._param_tab_suffix = ""
+        self.btn_param_toggle = QToolButton()
+        self.btn_param_toggle.setObjectName("CollapseHeader")
+        self.btn_param_toggle.setCheckable(True)
+        self.btn_param_toggle.setChecked(False)
+        self.btn_param_toggle.setText("▸ 参数说明")
+        self.btn_param_toggle.setToolTip("展开/收起参数说明表")
+        self.btn_param_toggle.clicked.connect(self._toggle_param_panel)
+
+        self.param_panel = QWidget()
+        _pv = QVBoxLayout(self.param_panel)
+        _pv.setContentsMargins(0, 2, 0, 0)
+        _pv.setSpacing(2)
+        _pv.addWidget(self.btn_param_toggle)
+        _pv.addWidget(self.tbl_params)
+        self.tab_info.addTab(self.param_panel, "参数说明")
 
         self.txt_notes = QTextEdit()
         self.txt_notes.setReadOnly(True)
@@ -1122,6 +1171,7 @@ class MainWindow(QMainWindow):
         rv.addLayout(hint_row)
 
         rv.addWidget(self.txt_commands, 3)
+        rv.addWidget(self.lbl_preview_state)
         rv.addWidget(self.tab_info, 2)
         return root
 
@@ -1649,6 +1699,12 @@ class MainWindow(QMainWindow):
         # 命令全文：默认值先渲染进去；未填参数保留 {{xxx}} 并给出提示
         text, missing, specs = renderer.render_entry(entry, {})
         self.current_text = text
+        # P2 落实（schema 升级 2026-09-30）：缺必填 → 阻止复制（标红提示条 + copy 守卫）；
+        # 预览显示 {{占位}} 而非残缺命令（render keep_unknown 已保证）
+        self._missing_required = [m for m in missing
+                                  if any(s.get("name") == m and s.get("required")
+                                         for s in specs)]
+        self._missing_optional = [m for m in missing if m not in self._missing_required]
         self.txt_commands.setPlainText(text)
         self.line_items = [(i + 1, ln) for i, ln in enumerate(
             renderer.split_command_lines(text)) if ln.strip()]
@@ -1660,12 +1716,30 @@ class MainWindow(QMainWindow):
             self.lbl_param_hint.setText(
                 (self.lbl_param_hint.text() + "  " + hint) if self.lbl_param_hint.text() else hint)
 
+        # 预览状态条：缺必填标红（P2）、缺选填黄条提醒
+        if self._missing_required:
+            self.lbl_preview_state.setText(
+                "✘ 缺必填参数：%s —— 已阻止『复制全部 / 仅复制命令 / 逐条复制』；"
+                "双击条目或 Ctrl+G 打开参数生成器填写。预览保留 {{占位}}，不生成残缺命令。"
+                % "、".join(self._missing_required))
+            self.lbl_preview_state.setVisible(True)
+            set_state(self.lbl_preview_state, "err")
+        elif self._missing_optional:
+            self.lbl_preview_state.setText(
+                "⚠ 未填选填参数：%s（预览保留 {{占位}}，可按需打开生成器填写）"
+                % "、".join(self._missing_optional))
+            self.lbl_preview_state.setVisible(True)
+            set_state(self.lbl_preview_state, "warn")
+        else:
+            self.lbl_preview_state.setVisible(False)
+
         # 星形收藏 toggle：★ 实心 = 已收藏（P-D，不再用文字按钮）
         self.btn_fav.setChecked(bool(entry.get("favorite")))
         self.btn_fav.setText("★" if entry.get("favorite") else "☆")
 
-        # 参数说明表
+        # 参数说明表（含折叠/隐藏联动）
         self._fill_param_table(specs)
+        self._sync_param_tab(specs)
 
         # 备注（P-E：卡片式，左侧 accent 竖条 + 行距 1.5）
         self.txt_notes.setHtml(build_text_card(entry.get("notes") or "（暂无备注）", "info"))
@@ -1694,33 +1768,93 @@ class MainWindow(QMainWindow):
             self.btn_fav.setEnabled(False)
             self.btn_fav.setToolTip("只读库（U 盘写保护），无法修改收藏状态")
 
+    def _toggle_param_panel(self, checked):
+        """折叠面板开关：收起只留标题行，展开显示参数表"""
+        self.tbl_params.setVisible(bool(checked))
+        self.btn_param_toggle.setText(("▾ 参数说明" if checked else "▸ 参数说明")
+                                      + self._param_tab_suffix)
+
+    def _sync_param_tab(self, specs):
+        """无参数条目：参数说明整页不渲染（任务2 要求）；有参数时默认收起"""
+        idx = self.tab_info.indexOf(self.param_panel)
+        if idx < 0:
+            return
+        try:
+            self.tab_info.setTabVisible(idx, bool(specs))
+        except AttributeError:
+            pass    # 老版本 Qt 无 setTabVisible：保留常驻 tab，仅折叠内容兜底
+        self._param_tab_suffix = "（%d）" % len(specs or [])
+        self.btn_param_toggle.setText("▸ 参数说明" + self._param_tab_suffix)
+        self.btn_param_toggle.setChecked(False)
+        self.tbl_params.setVisible(False)
+
     def _fill_param_table(self, specs):
-        """填充参数说明表"""
+        """填充参数说明表（schema 升级 2026-09-30：名称|必填*|默认值|类型|说明）"""
         self.tbl_params.setRowCount(0)
         for spec in specs or []:
             row = self.tbl_params.rowCount()
             self.tbl_params.insertRow(row)
+            stype = str(spec.get("type") or "").strip()
+            rule = (spec.get("validate") or "").strip()
+            type_text = stype or (rule.split(":")[0] if rule else "—")
             values = [
                 spec.get("name", ""),
-                spec.get("label", ""),
-                spec.get("validate", "") or "—",
-                "必填" if spec.get("required") else "选填",
+                "必填 *" if spec.get("required") else "选填",
                 spec.get("default", "") or "—",
-                spec.get("example", "") or "—",
+                type_text,
             ]
             for col, value in enumerate(values):
                 cell = QTableWidgetItem(str(value))
                 if col == 0:
                     cell.setFont(self._mono_font())
-                if col == 3 and spec.get("required"):
+                if col == 1 and spec.get("required"):
                     cell.setForeground(QColor(WARNING))
                 self.tbl_params.setItem(row, col, cell)
+
+            # 说明列：description 正文 + range/example/choices 灰字附注（富文本单元格）
+            choices = [str(c) for c in (spec.get("choices") or [])]
+            notes = []
+            if choices:
+                notes.append("可选值：" + " / ".join(choices))     # enum 参数展示全集
+            if str(spec.get("range") or "").strip():
+                notes.append("范围：%s" % spec["range"])
+            ex = str(spec.get("example") or "").strip()
+            if ex and ex not in choices:
+                notes.append("示例：%s" % ex)
+            if spec.get("expand") == "port":
+                notes.append("端口范围展开")
+            body = str(spec.get("description") or "").strip()
+            if not body:
+                # 迁移期(desc_pending)/旧格式条目：描述待补，用灰字占位（不复述参数名充数）
+                body = "（描述待补）" if (stype or spec.get("desc_pending")) else (ex or "—")
+            desc_html = html.escape(body)
+            if notes:
+                desc_html += "<br><span style='color:%s;'>%s</span>" % (
+                    TEXT_MUTED, html.escape(" ｜ ".join(notes)))
+            lbl = QLabel(desc_html)
+            lbl.setTextFormat(Qt.RichText)
+            lbl.setWordWrap(True)
+            lbl.setContentsMargins(4, 2, 4, 2)
+            self.tbl_params.setCellWidget(row, 4, lbl)
+            self.tbl_params.resizeRowToContents(row)
+
         self.tbl_params.resizeColumnsToContents()
         # 说明列吃掉剩余宽度，避免右侧几列被挤到看不见
-        self.tbl_params.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tbl_params.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
         self.tbl_params.setColumnWidth(0, max(90, self.tbl_params.columnWidth(0)))
-        for col in (2, 3, 4, 5):
-            self.tbl_params.setColumnWidth(col, max(70, min(140, self.tbl_params.columnWidth(col))))
+        for col in (1, 2, 3):
+            self.tbl_params.setColumnWidth(col, max(64, min(120, self.tbl_params.columnWidth(col))))
+
+    def _guard_missing_required(self):
+        """P2 守卫：缺必填参数时阻止复制类动作，返回 True 表示已拦截"""
+        if getattr(self, "_missing_required", None):
+            QMessageBox.warning(
+                self, "缺必填参数",
+                "以下必填参数尚未填写，已阻止复制：\n\n%s\n\n"
+                "双击条目或按 Ctrl+G 打开『参数化命令生成器』填写后再复制。"
+                % "、".join(self._missing_required))
+            return True
+        return False
 
     def _fill_history_table(self, records):
         """填充修改历史表"""
@@ -1753,6 +1887,10 @@ class MainWindow(QMainWindow):
         self.lbl_meta.setText(message)
         self.txt_commands.setPlainText("")
         self.lbl_param_hint.setText("")
+        self.lbl_preview_state.setVisible(False)
+        self._missing_required = []
+        self._missing_optional = []
+        self._sync_param_tab([])
         self.txt_notes.setHtml("")
         self.txt_verify.setHtml("")
         self.tbl_params.setRowCount(0)
@@ -1775,6 +1913,8 @@ class MainWindow(QMainWindow):
         if not self.current_text:
             self.statusBar().showMessage("没有可复制的内容。")
             return
+        if self._guard_missing_required():
+            return
         self._skeleton_copy_guard(self.current_entry)
         if not copy_to_clipboard(self.current_text):
             self.statusBar().showMessage("复制失败（剪贴板被占用），请手动选中后复制。")
@@ -1787,6 +1927,8 @@ class MainWindow(QMainWindow):
         """仅复制命令：剔除 ! # 注释行，粘贴到 Xshell 直接可跑"""
         if not self.current_text:
             self.statusBar().showMessage("没有可复制的内容。")
+            return
+        if self._guard_missing_required():
             return
         self._skeleton_copy_guard(self.current_entry)
         text = renderer.strip_comments(self.current_text)
@@ -1819,6 +1961,9 @@ class MainWindow(QMainWindow):
     def next_line(self):
         """逐条复制：高亮下一条并把该条命令送进剪贴板"""
         if not self.line_mode or not self.line_items:
+            return
+        if self._guard_missing_required():
+            self.line_index = -1        # 回到起点，填完参数后从头逐条走
             return
         self.line_index += 1
         if self.line_index >= len(self.line_items):

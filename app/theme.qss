@@ -404,15 +404,14 @@ QScrollBar::add-line, QScrollBar::sub-line { height: 0px; width: 0px; border: no
 QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 
 /* ====================== QSplitter 分隔条 ====================== */
-/* 默认用面板色：比窗口底亮半档 —— 仍算"接近背景"不抢视线，
-   但能看出分栏边界（用窗口同色时列表区和分隔条融为一体，看不出能拖）。
-   hover 高亮为强调色；grip 点由 GripSplitterHandle 自绘 */
+/* 隐形热区方案（2026-09-30 裁决）：默认完全透明，布局干净不抢视线；
+   hover/pressed 由 QSS 泛 accent 淡光 + GripSplitterHandle 自绘 3px 主色高亮线 */
 QSplitter { background: transparent; }
-QSplitter::handle { background-color: {bg_panel}; }
+QSplitter::handle { background-color: transparent; }
 QSplitter::handle:horizontal { width: {handle_w}px; margin: 0px; }
 QSplitter::handle:vertical { height: {handle_w}px; margin: 0px; }
-QSplitter::handle:hover { background-color: {accent_20}; }
-QSplitter::handle:pressed { background-color: {accent}; }
+QSplitter::handle:hover { background-color: {accent_12}; }
+QSplitter::handle:pressed { background-color: {accent_20}; }
 
 /* ====================== 状态栏 ====================== */
 QStatusBar {
@@ -666,7 +665,7 @@ QTextEdit#InfoPane {
 QScrollArea#MessageFlow { background: transparent; border: none; }
 QWidget#FlowHost { background: transparent; }
 
-/* ---- 气泡：卡片圆角 10px，宽度上限在代码里控制（≤80% 视口）---- */
+/* ---- 气泡：卡片圆角 10px；用户气泡 ≤80% 视口、AI 回复恒全宽内容卡片（宽度在代码里控制）---- */
 QFrame#BubbleUser {
     background-color: {accent};
     border-radius: {radius_card}px;
@@ -767,3 +766,15 @@ QPushButton#ExampleChip:hover {
 
 /* ---- AI 状态指示（状态栏）---- */
 QLabel#AiStatus { color: {text_muted}; font-size: {aux_size}; }
+
+/* ---- 参数说明折叠面板（schema 升级 2026-09-30）---- */
+QToolButton#CollapseHeader {
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding: 3px 4px;
+    color: {text_secondary};
+    font-weight: bold;
+}
+QToolButton#CollapseHeader:hover { color: {accent}; }
+QToolButton#CollapseHeader:checked { color: {accent}; }

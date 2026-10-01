@@ -30,9 +30,12 @@ def _mono(size=10):
     return f
 
 
-from theme import repolish, set_state  # 状态标签 / error 属性的动态重polish
+from theme import repolish, set_state, GripSplitter, read_sizes  # 状态标签 / error 属性的动态重polish
 
 class ErrorFixTab(QWidget):
+
+    SPLIT_KEY = "errorfix_split"        # 粘贴区│结果区分栏记忆 key（ui_state.json）
+    SPLIT_MINS = (140, 180)             # 粘贴区 / 结果区最小高度
     """报错诊断 Tab"""
 
     def __init__(self, db, parent=None):
@@ -90,18 +93,54 @@ class ErrorFixTab(QWidget):
         self.btn_dict.clicked.connect(self.show_dict_manager)
         row.addWidget(self.btn_dict)
         tv.addLayout(row)
-        root.addWidget(top)
+        top.setMinimumHeight(self.SPLIT_MINS[0])
 
         # ---- 下半：结果卡片（滚动区）----
-        root.addWidget(QLabel("第二步：诊断结果（命中的报错原文以红色标注）"))
+        bottom_host = QWidget()
+        bv = QVBoxLayout(bottom_host)
+        bv.setContentsMargins(0, 6, 0, 0)
+        bv.setSpacing(6)
+        bv.addWidget(QLabel("第二步：诊断结果（命中的报错原文以红色标注）"))
         self.results_area = QScrollArea()
         self.results_area.setWidgetResizable(True)
         self.results_host = None
         self.results_layout = None
         self._reset_results()
-        root.addWidget(self.results_area, 1)
+        bv.addWidget(self.results_area, 1)
         self.show_empty_results("尚无诊断结果。粘贴报错后点「开始诊断」；"
                                 "字典里没有的报错会自动存入待解决收件箱。")
+        bottom_host.setMinimumHeight(self.SPLIT_MINS[1])
+
+        # ---- 纵向 GripSplitter：粘贴区 │ 结果区（可拖 + 状态记忆，任务2-2）----
+        self.split = GripSplitter(Qt.Vertical)
+        self.split.addWidget(top)
+        self.split.addWidget(bottom_host)
+        self.split.setStretchFactor(0, 0)
+        self.split.setStretchFactor(1, 1)
+        self.split.setSizes([200, 460])
+        root.addWidget(self.split, 1)
+
+    # ---- 分栏状态记忆（MainWindow 统一收口）----
+    def split_state(self):
+        try:
+            return {self.SPLIT_KEY: list(self.split.sizes())}
+        except Exception:
+            return {}
+
+    def restore_split_state(self, state):
+        """恢复分栏比例；Tab 未显示时 QSplitter 未布局，值存 pending 首次 show 应用"""
+        self._pending_split = read_sizes(state, self.SPLIT_KEY, self.SPLIT_MINS)
+        if self._pending_split and self.isVisible():
+            self._apply_pending_split()
+
+    def _apply_pending_split(self):
+        if getattr(self, "_pending_split", None):
+            self.split.setSizes(self._pending_split)
+            self._pending_split = None
+
+    def showEvent(self, event):
+        super(ErrorFixTab, self).showEvent(event)
+        self._apply_pending_split()
 
     def refresh_inbox_count(self):
         """收件箱按钮显示 pending 数量"""

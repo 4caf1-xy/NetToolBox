@@ -5,7 +5,8 @@
 
 ## 未发布（Unreleased）
 
-本批主题：**参数系统结构化升级** —— params 自描述 schema + 完整命令预览 + 注释渲染。
+本批主题：**参数系统结构化升级** —— params 自描述 schema + 完整命令预览 + 注释渲染；
+追加批次：**AI 回复渲染修复 + 全局 QSplitter 分栏改造**。
 
 ### 新功能
 - **params 结构化 schema**：参数规格新增 `type`（string/int/enum/ip/flag）、`description`（必填）、`choices`（enum 必带）、`range` 等自描述字段；`validate` 细粒度校验规则保留并与 type 推导互补（显式规则优先），旧格式（无 type）完全兼容继续放行；
@@ -17,6 +18,10 @@
 ### 种子数据
 - 启动存量 987 个参数规格的结构化迁移（`scripts/migrate_params.py`，dry-run 预览 + 快照兜底 + 幂等可重跑），迁移期空描述带 `desc_pending` 标记仅报 WARNING，AI 分批补齐后清扫标记；
 - 种子规模维持 **327 条命令 + 26 棵排查树 + 82 条报错字典**，升级后 `--validate-seed` 全量 EXIT=0。
+
+### 界面优化
+- **AI 回复渲染修复**：AI 回复改为全宽内容卡片（对话区宽度减两侧 24px 边距；用户消息仍为右侧气泡 ≤80%）；代码块等宽字体 + 自动换行 + 换行悬挂缩进，长命令（如 grep ListenAddress 类）不再横向裁剪且可完整复制；代码块右上角"复制"浮层（accent 底）复制原始文本；"第 N 步"类标题渲染为节标题（加粗 + 上下间距），观察/判断/结论等标签词加粗提色；
+- **分栏全局可拖拽**：AI 诊断（对话区│输入区，默认 4:1，输入区最小高 120px）、命令库（列表│详情）、报错诊断、排查向导四个 Tab 分栏统一改为 QSplitter，分隔条默认隐形、hover 显主色高亮线；分栏位置记忆至 ui_state.json，重启自动恢复（恢复时校验尺寸合理性，坏值回退默认）；最小窗口 1280×800 不破版；流式输出宽度只增不减、滚动不跳动。
 
 ### 工程修复
 - `validate-seed` 参数校验收口为统一的 `renderer.check_entry_params`（与 AI 入库钩子同一口径）：`{{占位符}}` 引用未定义 → ERROR；定义未引用 → 升格为显式 WARNING；default 违反自身 type/choices/range → ERROR；新条目 description 为空 → ERROR；

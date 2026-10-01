@@ -52,10 +52,13 @@ def _mono(size=10):
     return f
 
 
-from theme import repolish, set_state  # 状态标签 / error 属性的动态重polish
+from theme import repolish, set_state, GripSplitter, read_sizes  # 状态标签 / 分栏手柄 / 记忆校验
 
 class TroubleshootTab(QWidget):
     """排查向导 Tab"""
+
+    SPLIT_KEY = "ts_split"              # 现象树│步骤区分栏记忆 key（ui_state.json）
+    SPLIT_MINS = (240, 420)             # 左树 / 右步骤区最小宽度
 
     def __init__(self, db, parent=None):
         super(TroubleshootTab, self).__init__(parent)
@@ -139,7 +142,7 @@ class TroubleshootTab(QWidget):
         root.addLayout(top)
 
         # ---- 左：现象列表 / 右：步骤卡片 ----
-        split = QSplitter(Qt.Horizontal)
+        split = GripSplitter(Qt.Horizontal)
 
         self.tree_list = QTreeWidget()
         self.tree_list.setHeaderLabel("现象（按分类）")
@@ -283,10 +286,34 @@ class TroubleshootTab(QWidget):
         rv.addWidget(self.leaf_frame, 1)
 
         split.addWidget(right)
+        right.setMinimumWidth(self.SPLIT_MINS[1])
         split.setStretchFactor(0, 0)
         split.setStretchFactor(1, 1)
         split.setSizes([260, 1100])
         root.addWidget(split, 1)
+        self.split = split
+
+    # ---- 分栏状态记忆（MainWindow 统一收口，任务2-2/2-3）----
+    def split_state(self):
+        try:
+            return {self.SPLIT_KEY: list(self.split.sizes())}
+        except Exception:
+            return {}
+
+    def restore_split_state(self, state):
+        """恢复分栏比例；Tab 未显示时 QSplitter 未布局，值存 pending 首次 show 应用"""
+        self._pending_split = read_sizes(state, self.SPLIT_KEY, self.SPLIT_MINS)
+        if self._pending_split and self.isVisible():
+            self._apply_pending_split()
+
+    def _apply_pending_split(self):
+        if getattr(self, "_pending_split", None):
+            self.split.setSizes(self._pending_split)
+            self._pending_split = None
+
+    def showEvent(self, event):
+        super(TroubleshootTab, self).showEvent(event)
+        self._apply_pending_split()
 
     # ------------------------------------------------------------------
     # 数据刷新

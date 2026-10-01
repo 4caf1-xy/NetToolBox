@@ -35,3 +35,9 @@
 - 今后新增条目一律使用**结构化 params**（name/type/required/default/description 必填，enum 必带 choices），命令关键步骤加 `#` 注释行（独立成行）；字段写法见 `docs/seed-guide.md`，入库前必跑 `--validate-seed`（EXIT=0 硬门槛，description 为空 / 占位与 params 对账不过会被 ERROR 拦下）。
 - **生效时机**：validate 对结构化 params 的强制校验随「参数升级任务」合入即生效；该任务合入前，存量旧格式条目维持兼容放行，新条目从现在起就按 seed-guide 写。
 - 文档写作纪律：每主题唯一权威出处（params→seed-guide，验证→verify-guide，打包→打包与部署说明），其余文档只链接不复制；快照类文档（审计报告/prompts 归档）append-only 不回改。
+
+## 6. UI 布局与渲染纪律（2026-10-01 起）
+
+- AI 回复 = **全宽内容卡片**（对话区宽度减两侧 24px 边距），代码块等宽字体 + pre-wrap 自动换行 + 换行悬挂缩进，杜绝横向裁剪；代码块右上角"复制"浮层复制原始文本；用户消息保持右侧气泡（上限 80% 视口）。**此为对上一轮"气泡上限 80%"规则的修订**（修订依据：长命令在窄柱内被裁剪不可用）。
+- Tab 内分栏一律 QSplitter（GripSplitter）+ 状态记忆：`split_state()` / `restore_split_state()` 进 ui_state.json（key 按 Tab 命名，恢复时校验尺寸合理性，坏值回退默认），禁止写死分割尺寸；分隔条默认隐形、hover 显主色高亮线。
+- 样式只走 theme.qss token（theme.py 内置兜底副本逐字同步，构建自检比对），QSplitter 嵌套 ≤2 层；渲染/布局改动不得触碰业务信号槽。

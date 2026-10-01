@@ -32,7 +32,7 @@ import json
 import os
 import re
 
-from PyQt5.QtCore import Qt, QPointF
+from PyQt5.QtCore import Qt, QPointF, QRectF
 from PyQt5.QtGui import QColor, QFont, QPainter, QFontDatabase, QPolygonF
 from PyQt5.QtWidgets import QApplication, QSplitter, QSplitterHandle, QComboBox
 
@@ -97,7 +97,7 @@ MONO_FONT_SIZE = "13px"     # 代码/命令
 TITLE_FONT_SIZE = "16px"    # 区块标题
 
 # ---- 分隔条 ----
-HANDLE_WIDTH = 8
+HANDLE_WIDTH = 6             # 热区宽（px）；默认透明隐形，hover 显主色高亮线
 
 # ---- 状态色（沿用原配色语义，纳入主题统一管理）----
 VERIFIED_COLOR = SUCCESS
@@ -613,15 +613,14 @@ QScrollBar::add-line, QScrollBar::sub-line { height: 0px; width: 0px; border: no
 QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 
 /* ====================== QSplitter 分隔条 ====================== */
-/* 默认用面板色：比窗口底亮半档 —— 仍算"接近背景"不抢视线，
-   但能看出分栏边界（用窗口同色时列表区和分隔条融为一体，看不出能拖）。
-   hover 高亮为强调色；grip 点由 GripSplitterHandle 自绘 */
+/* 隐形热区方案（2026-09-30 裁决）：默认完全透明，布局干净不抢视线；
+   hover/pressed 由 QSS 泛 accent 淡光 + GripSplitterHandle 自绘 3px 主色高亮线 */
 QSplitter { background: transparent; }
-QSplitter::handle { background-color: {bg_panel}; }
+QSplitter::handle { background-color: transparent; }
 QSplitter::handle:horizontal { width: {handle_w}px; margin: 0px; }
 QSplitter::handle:vertical { height: {handle_w}px; margin: 0px; }
-QSplitter::handle:hover { background-color: {accent_20}; }
-QSplitter::handle:pressed { background-color: {accent}; }
+QSplitter::handle:hover { background-color: {accent_12}; }
+QSplitter::handle:pressed { background-color: {accent_20}; }
 
 /* ====================== 状态栏 ====================== */
 QStatusBar {
@@ -875,7 +874,7 @@ QTextEdit#InfoPane {
 QScrollArea#MessageFlow { background: transparent; border: none; }
 QWidget#FlowHost { background: transparent; }
 
-/* ---- 气泡：卡片圆角 10px，宽度上限在代码里控制（≤80% 视口）---- */
+/* ---- 气泡：卡片圆角 10px；用户气泡 ≤80% 视口、AI 回复恒全宽内容卡片（宽度在代码里控制）---- */
 QFrame#BubbleUser {
     background-color: {accent};
     border-radius: {radius_card}px;
@@ -975,7 +974,20 @@ QPushButton#ExampleChip:hover {
 }
 
 /* ---- AI 状态指示（状态栏）---- */
-QLabel#AiStatus { color: {text_muted}; font-size: {aux_size}; }"""
+QLabel#AiStatus { color: {text_muted}; font-size: {aux_size}; }
+
+/* ---- 参数说明折叠面板（schema 升级 2026-09-30）---- */
+QToolButton#CollapseHeader {
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding: 3px 4px;
+    color: {text_secondary};
+    font-weight: bold;
+}
+QToolButton#CollapseHeader:hover { color: {accent}; }
+QToolButton#CollapseHeader:checked { color: {accent}; }
+"""
 
 _PLACEHOLDER_RE = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
 
@@ -1107,15 +1119,17 @@ def code_font_family():
 # ===========================================================================
 class GripSplitterHandle(QSplitterHandle):
     """
-    分隔条手柄：在 QSS 铺好的底色上再自绘 3 个 grip 点。
-      · 默认：点用 text_muted（低调，不抢视线）
-      · hover：点变 accent，配合 QSS 的 handle:hover 淡蓝底
+    分隔条手柄（隐形热区方案）：
+      · 默认完全透明（QSS 铺 transparent）——布局干净，分隔条不抢视线
+      · hover / 按下：QSS 底色泛 accent 淡光 + 自绘 3px 主色高亮线
+      · 热区 6px（HANDLE_WIDTH），配合 SplitHCursor/SplitVCursor 抓手提示
     """
 
     def __init__(self, orientation, parent):
         super(GripSplitterHandle, self).__init__(orientation, parent)
         self.setAttribute(Qt.WA_Hover, True)      # 让 QSS 的 :hover 生效
         self._hover = False
+        self._pressed = False
         if orientation == Qt.Horizontal:
             self.setCursor(Qt.SplitHCursor)
         else:
@@ -1128,39 +1142,43 @@ class GripSplitterHandle(QSplitterHandle):
 
     def leaveEvent(self, event):
         self._hover = False
+        self._pressed = False
         self.update()
         super(GripSplitterHandle, self).leaveEvent(event)
 
+    def mousePressEvent(self, event):
+        self._pressed = True
+        self.update()
+        super(GripSplitterHandle, self).mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._pressed = False
+        self.update()
+        super(GripSplitterHandle, self).mouseReleaseEvent(event)
+
     def paintEvent(self, event):
-        # 先让 QSS 画底色（含 :hover 高亮）
+        # QSS 画底色：默认透明，hover/pressed 泛 accent 淡光
         super(GripSplitterHandle, self).paintEvent(event)
-
+        if not (self._hover or self._pressed):
+            return
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, True)
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor(ACCENT if self._hover else TEXT_MUTED))
-
         rect = self.rect()
-        cx = rect.center().x() + 1.0
-        cy = rect.center().y() + 1.0
-        radius = 1.6
         if self.orientation() == Qt.Horizontal:
-            # 垂直排列的点（拖左右）
-            for offset in (-7.0, 0.0, 7.0):
-                painter.drawEllipse(QPointF(cx, cy + offset), radius, radius)
+            # 水平分栏 → 手柄是竖条 → 画竖向 3px 主色线
+            painter.fillRect(QRectF(rect.center().x() - 1.5, 2.0, 3.0, rect.height() - 4.0),
+                             QColor(ACCENT))
         else:
-            # 水平排列的点（拖上下）
-            for offset in (-7.0, 0.0, 7.0):
-                painter.drawEllipse(QPointF(cx + offset, cy), radius, radius)
+            # 垂直分栏 → 手柄是横条 → 画横向 3px 主色线
+            painter.fillRect(QRectF(2.0, rect.center().y() - 1.5, rect.width() - 4.0, 3.0),
+                             QColor(ACCENT))
         painter.end()
 
 
 class GripSplitter(QSplitter):
     """
-    两级拖拽分栏用的 QSplitter：
-      · handle 宽 8px（默认 4px 太窄，鼠标难抓 —— P-A 的直接原因之一）
+    全站分栏用的 QSplitter（AI 诊断/报错诊断/排查向导/命令库统一走它）：
+      · handle 宽 6px 热区，默认隐形，hover 显主色高亮线（GripSplitterHandle）
       · setChildrenCollapsible(False)：拖到最小尺寸有卡限，不会被拖成 0
-      · 自绘 grip 点 + hover 变色
     """
 
     def __init__(self, orientation, parent=None):
