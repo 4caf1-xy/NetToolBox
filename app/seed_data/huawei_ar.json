@@ -26,7 +26,10 @@
           "default": "10",
           "required": true,
           "validate": "vlan",
-          "example": "10"
+          "example": "10",
+          "type": "string",
+          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务",
+          "desc_pending": true
         },
         {
           "name": "vlan_name",
@@ -34,7 +37,10 @@
           "default": "OFFICE",
           "required": false,
           "validate": "",
-          "example": "OFFICE"
+          "example": "OFFICE",
+          "type": "string",
+          "description": "VLAN 名称，二层辨识用途；建议按业务语义命名（如 OA_BIZ），纯展示不影响转发",
+          "desc_pending": true
         },
         {
           "name": "port",
@@ -42,7 +48,10 @@
           "default": "0/0/1",
           "required": true,
           "validate": "port",
-          "example": "0/0/1"
+          "example": "0/0/1",
+          "type": "string",
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
+          "desc_pending": true
         }
       ],
       "notes": "1) AR 的以太口默认是三层口，必须先 portswitch 才能配 switchport 类命令；\n   执行 portswitch 会清掉该口已有的 IP 地址配置，配之前先确认口上没有业务。\n2) 路由器上通常只用少数交换口做管理接入，业务互联仍用三层口 + 子接口。\n3) 要恢复三层口用 undo portswitch（同样会清掉二层配置）。",
@@ -71,7 +80,10 @@
           "default": "0/0/9",
           "required": true,
           "validate": "port",
-          "example": "0/0/9"
+          "example": "0/0/9",
+          "type": "string",
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
+          "desc_pending": true
         },
         {
           "name": "vlan_list",
@@ -79,7 +91,10 @@
           "default": "10 20 30",
           "required": true,
           "validate": "",
-          "example": "10 20 30 或 10 to 20"
+          "example": "10 20 30 或 10 to 20",
+          "type": "string",
+          "description": "Trunk 放行 VLAN 列表（如 10,20,30-40），控制哪些 VLAN 流量可通过该链路；漏放行业务 VLAN 会当场断流，改动立即生效",
+          "desc_pending": true
         },
         {
           "name": "pvid",
@@ -87,7 +102,10 @@
           "default": "1",
           "required": false,
           "validate": "vlan",
-          "example": "1"
+          "example": "1",
+          "type": "string",
+          "description": "Trunk 口 PVID（untagged VLAN），决定无标签流量归入哪个 VLAN；两端 PVID 不一致会导致原生态流量进错 VLAN 丢失",
+          "desc_pending": true
         }
       ],
       "notes": "1) 只有 portswitch 过的口才能配 link-type trunk，忘了会提示命令不存在。\n2) allow-pass 的写法与 S 系列交换机完全一致（\"vlan 10 to 20\" 或 \"vlan 10 20 30\"）。\n3) AR 交换口数量少（常见 8-9 口），上联口占满时优先考虑用交换机做汇聚。",
@@ -116,7 +134,10 @@
           "default": "192.168.20.0",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.20.0"
+          "example": "192.168.20.0",
+          "type": "ip",
+          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略",
+          "desc_pending": true
         },
         {
           "name": "mask",
@@ -124,7 +145,10 @@
           "default": "255.255.255.0",
           "required": true,
           "validate": "masklen",
-          "example": "24 或 255.255.255.0"
+          "example": "24 或 255.255.255.0",
+          "type": "string",
+          "description": "静态路由的点分十进制掩码，与 dest_net 圈定路由前缀；掩码写宽会吞掉相邻网段的路由匹配",
+          "desc_pending": true
         },
         {
           "name": "next_hop",
@@ -132,7 +156,10 @@
           "default": "10.0.0.2",
           "required": true,
           "validate": "ipv4",
-          "example": "10.0.0.2"
+          "example": "10.0.0.2",
+          "type": "ip",
+          "description": "下一跳 IP，路由/策略转发的去向；必须是本机直连可达地址，写错路由成『黑洞』",
+          "desc_pending": true
         },
         {
           "name": "backup_hop",
@@ -140,7 +167,10 @@
           "default": "10.1.1.2",
           "required": false,
           "validate": "ipv4",
-          "example": "10.1.1.2"
+          "example": "10.1.1.2",
+          "type": "ip",
+          "description": "浮动静态路由的备份下一跳，主路径失效后才接管转发；其管理距离/优先级必须大于主路由；须保证与本端直连可达",
+          "desc_pending": true
         },
         {
           "name": "preference",
@@ -148,7 +178,11 @@
           "default": "70",
           "required": false,
           "validate": "int:1-255",
-          "example": "默认 60，备份 70"
+          "example": "默认 60，备份 70",
+          "type": "int",
+          "range": "1-255",
+          "description": "路由优先级（华为/H3C/Juniper），数值越小越优先（华为/H3C 静态默认 60）；浮动静态路由把备份侧 preference 调大",
+          "desc_pending": true
         }
       ],
       "notes": "1) 双出口用 preference 做浮动备份最简单；要求链路探测可结合 NQA\n   （ip route-static ... track nqa），断线能自动切换。\n2) 路由器上更常用\"出接口 + 下一跳\"的写法：ip route-static 0.0.0.0 0 <接口> <下一跳>。\n3) display ip routing-table 0.0.0.0 可直接查缺省路由的下一跳，排查上网不通最快。",
@@ -177,7 +211,11 @@
           "default": "1",
           "required": true,
           "validate": "int:1-65535",
-          "example": "1"
+          "example": "1",
+          "type": "int",
+          "range": "1-65535",
+          "description": "OSPF 进程号（仅本机有效），标识一个 OSPF 实例；两端进程号可以不同，但网段/区域/认证必须匹配",
+          "desc_pending": true
         },
         {
           "name": "router_id",
@@ -185,7 +223,10 @@
           "default": "2.2.2.2",
           "required": true,
           "validate": "ipv4",
-          "example": "2.2.2.2"
+          "example": "2.2.2.2",
+          "type": "ip",
+          "description": "OSPF Router ID（IPv4 格式），区域内唯一标识本路由器；重复会引发邻居震荡与路由抖动，建议用 loopback 接口地址",
+          "desc_pending": true
         },
         {
           "name": "area_id",
@@ -193,7 +234,10 @@
           "default": "0",
           "required": false,
           "validate": "",
-          "example": "0 或 0.0.0.1"
+          "example": "0 或 0.0.0.1",
+          "type": "string",
+          "description": "OSPF 区域 ID，控制该网段归属哪个 OSPF 区域；骨干区域固定 0.0.0.0，非骨干区域须与骨干直连（或虚链路）；填错邻居起不来、路由学不到",
+          "desc_pending": true
         },
         {
           "name": "network",
@@ -201,7 +245,10 @@
           "default": "10.1.1.0",
           "required": true,
           "validate": "ipv4",
-          "example": "10.1.1.0"
+          "example": "10.1.1.0",
+          "type": "ip",
+          "description": "OSPF 宣告网段，匹配哪些接口参与 OSPF 进程；与 wildcard 配套使用；宣告漏了/错了邻居和路由直接缺失",
+          "desc_pending": true
         },
         {
           "name": "wildcard",
@@ -209,7 +256,10 @@
           "default": "0.0.0.255",
           "required": true,
           "validate": "masklen",
-          "example": "0.0.0.255"
+          "example": "0.0.0.255",
+          "type": "string",
+          "description": "OSPF/ACL 反掩码（wildcard），0 位精确匹配、1 位任意；0.0.0.255 对应 /24；写错宣告/匹配范围不对",
+          "desc_pending": true
         },
         {
           "name": "silent_port",
@@ -217,7 +267,10 @@
           "default": "0/0/0",
           "required": false,
           "validate": "port",
-          "example": "0/0/0"
+          "example": "0/0/0",
+          "type": "string",
+          "description": "OSPF 静默接口（华为/H3C silent-interface），该口不收发 Hello；接终端的口建议设静默防误建邻居",
+          "desc_pending": true
         }
       ],
       "notes": "1) import-route static 会把静态路由全部引入（可用 route-policy 过滤）；\n   不加过滤可能把不该发布的私网段泄露出去。\n2) AR 与 S 系列交换机的 OSPF 语法一致，差异主要在接口命名（AR 多为 0/0/x 两段式）。\n3) 引入后在域内其他设备上用 display ospf lsdb 看 5 类 LSA，确认引入成功。",
@@ -246,7 +299,11 @@
           "default": "2000",
           "required": true,
           "validate": "int:1-3999",
-          "example": "2000-2999 基本 / 3000-3999 高级"
+          "example": "2000-2999 基本 / 3000-3999 高级",
+          "type": "int",
+          "range": "1-3999",
+          "description": "ACL 编号，标识一条访问控制列表；Cisco 1-99 为标准 IP ACL、100-199 为扩展 IP ACL，华为/H3C 段位含义类似；改动后立即影响命中流量，nat outbound 等引用处需同步核对",
+          "desc_pending": true
         },
         {
           "name": "src_net",
@@ -254,7 +311,10 @@
           "default": "192.168.10.0",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.0"
+          "example": "192.168.10.0",
+          "type": "ip",
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
+          "desc_pending": true
         },
         {
           "name": "src_wild",
@@ -262,7 +322,10 @@
           "default": "0.0.0.255",
           "required": true,
           "validate": "masklen",
-          "example": "0.0.0.255"
+          "example": "0.0.0.255",
+          "type": "string",
+          "description": "源网段反掩码（wildcard mask），0 位精确匹配、1 位任意；与掩码写法相反（0.0.0.255 对应 /24）",
+          "desc_pending": true
         },
         {
           "name": "port",
@@ -270,7 +333,10 @@
           "default": "0/0/0",
           "required": true,
           "validate": "port",
-          "example": "0/0/0"
+          "example": "0/0/0",
+          "type": "string",
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
+          "desc_pending": true
         }
       ],
       "notes": "1) 路由器上 ACL 常被 NAT、策略路由、接口过滤复用，命名时写明用途（如 ACL-NAT-INSIDE）。\n2) 修改 ACL 是\"整条规则替换\"，不要试图只改一个字段，先 display acl 再改。\n3) 同时配 inbound/outbound 过滤会造成双向拦截，确认业务方向后再加第二条。",
@@ -299,7 +365,11 @@
           "default": "2000",
           "required": true,
           "validate": "int:1-3999",
-          "example": "2000-2999"
+          "example": "2000-2999",
+          "type": "int",
+          "range": "1-3999",
+          "description": "ACL 编号，标识一条访问控制列表；Cisco 1-99 为标准 IP ACL、100-199 为扩展 IP ACL，华为/H3C 段位含义类似；改动后立即影响命中流量，nat outbound 等引用处需同步核对",
+          "desc_pending": true
         },
         {
           "name": "src_net",
@@ -307,7 +377,10 @@
           "default": "192.168.10.0",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.0"
+          "example": "192.168.10.0",
+          "type": "ip",
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
+          "desc_pending": true
         },
         {
           "name": "src_wild",
@@ -315,7 +388,10 @@
           "default": "0.0.0.255",
           "required": true,
           "validate": "masklen",
-          "example": "0.0.0.255"
+          "example": "0.0.0.255",
+          "type": "string",
+          "description": "源网段反掩码（wildcard mask），0 位精确匹配、1 位任意；与掩码写法相反（0.0.0.255 对应 /24）",
+          "desc_pending": true
         },
         {
           "name": "group_id",
@@ -323,7 +399,11 @@
           "default": "1",
           "required": false,
           "validate": "int:0-7",
-          "example": "0-7"
+          "example": "0-7",
+          "type": "int",
+          "range": "0-7",
+          "description": "NAT 地址池编号，PAT/地址池复用转换时的地址组标识；被 nat outbound 引用，改前先解除引用关系",
+          "desc_pending": true
         },
         {
           "name": "section_start",
@@ -331,7 +411,10 @@
           "default": "200.1.1.10",
           "required": false,
           "validate": "ipv4",
-          "example": "200.1.1.10"
+          "example": "200.1.1.10",
+          "type": "ip",
+          "description": "DHCP 地址段起始 IP（华为 section 写法）",
+          "desc_pending": true
         },
         {
           "name": "section_end",
@@ -339,7 +422,10 @@
           "default": "200.1.1.20",
           "required": false,
           "validate": "ipv4",
-          "example": "200.1.1.20"
+          "example": "200.1.1.20",
+          "type": "ip",
+          "description": "DHCP 地址段结束 IP（华为 section 写法），与 section_start 圈定分配范围",
+          "desc_pending": true
         },
         {
           "name": "public_ip",
@@ -347,7 +433,10 @@
           "default": "200.1.1.30",
           "required": false,
           "validate": "ipv4",
-          "example": "200.1.1.30"
+          "example": "200.1.1.30",
+          "type": "ip",
+          "description": "对外发布的公网/映射 IP，NAT 后外部访问的地址；须在上联口网段内且未被占用，冲突会绑定失败",
+          "desc_pending": true
         },
         {
           "name": "public_port",
@@ -355,7 +444,11 @@
           "default": "8080",
           "required": false,
           "validate": "int:1-65535",
-          "example": "8080"
+          "example": "8080",
+          "type": "int",
+          "range": "1-65535",
+          "description": "对外映射端口号，DNAT 的外部端口；可与内部端口不同（如 8443→443）；与现有监听冲突会绑定失败",
+          "desc_pending": true
         },
         {
           "name": "inside_server",
@@ -363,7 +456,10 @@
           "default": "192.168.10.100",
           "required": false,
           "validate": "ipv4",
-          "example": "192.168.10.100"
+          "example": "192.168.10.100",
+          "type": "ip",
+          "description": "内网服务器真实 IP（NAT 发布的后端），对外映射的源地址；该主机须可达且服务在监听，否则映射是『空转』",
+          "desc_pending": true
         },
         {
           "name": "inside_port",
@@ -371,7 +467,11 @@
           "default": "80",
           "required": false,
           "validate": "int:1-65535",
-          "example": "80"
+          "example": "80",
+          "type": "int",
+          "range": "1-65535",
+          "description": "内网侧接口名或映射端口号，DNAT 流量的内部接收方向；写错映射不生效",
+          "desc_pending": true
         }
       ],
       "notes": "1) 端口映射写的是 protocol tcp global 公网IP 端口 inside 私网IP 端口，\n   端口号顺序极易写反，配完必须从外网实测。\n2) 多内网口 + 多外网口的场景要确认 NAT 是\"出接口方向\"还是\"全局 NAT\"，配错方向不通。\n3) display nat session all 看会话表是排查 NAT 最快的手段（有会话说明转换生效）。",
@@ -400,7 +500,10 @@
           "default": "SW-CORE-01",
           "required": false,
           "validate": "",
-          "example": "SW-CORE-01"
+          "example": "SW-CORE-01",
+          "type": "string",
+          "description": "设备主机名，标识作用不影响转发；修改后提示符与日志来源同步变化，网管侧如按主机名建资产需同步更新",
+          "desc_pending": true
         },
         {
           "name": "username",
@@ -408,7 +511,10 @@
           "default": "netadmin",
           "required": true,
           "validate": "",
-          "example": "netadmin"
+          "example": "netadmin",
+          "type": "string",
+          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号",
+          "desc_pending": true
         },
         {
           "name": "password",
@@ -416,7 +522,10 @@
           "default": "",
           "required": true,
           "validate": "",
-          "example": "现场生成：>=12位，含大小写/数字/符号"
+          "example": "现场生成：>=12位，含大小写/数字/符号",
+          "type": "string",
+          "description": "账号登录口令，认证凭据；配置中可能明文/弱加密存储，导出配置时必须脱敏；遵循强口令并定期轮换",
+          "desc_pending": true
         },
         {
           "name": "timeout_min",
@@ -424,7 +533,11 @@
           "default": "10",
           "required": false,
           "validate": "int:0-35791",
-          "example": "10"
+          "example": "10",
+          "type": "int",
+          "range": "0-35791",
+          "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险",
+          "desc_pending": true
         }
       ],
       "notes": "1) ssh server cipher / hmac 用来收紧加密算法（等保与漏扫常要求）；\n   老版本可能不支持这两条，报错就删掉。\n2) 先 rsa local-key-pair create 再 stelnet server enable，顺序反了会报错。\n3) 生产上建议再配 ACL 限制允许登录的源地址（并 ssh server acl <编号> 引用）。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
@@ -453,7 +566,10 @@
           "default": "C0nsole@123",
           "required": true,
           "validate": "",
-          "example": "C0nsole@123"
+          "example": "C0nsole@123",
+          "type": "string",
+          "description": "Console 串口登录口令，控制带外接入认证；是网络故障时的最后生命线，遗忘只能走 recovery 流程；配置后立即生效",
+          "desc_pending": true
         },
         {
           "name": "privilege",
@@ -461,7 +577,11 @@
           "default": "15",
           "required": false,
           "validate": "int:0-15",
-          "example": "0-15，管理用 15"
+          "example": "0-15，管理用 15",
+          "type": "int",
+          "range": "0-15",
+          "description": "用户权限等级（华为 0-15），控制该账号可执行命令的范围；15 为最高权限，日常运维账号给最小够用等级",
+          "desc_pending": true
         },
         {
           "name": "timeout_min",
@@ -469,7 +589,11 @@
           "default": "10",
           "required": false,
           "validate": "int:0-35791",
-          "example": "10"
+          "example": "10",
+          "type": "int",
+          "range": "0-35791",
+          "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险",
+          "desc_pending": true
         }
       ],
       "notes": "1) 若已配置 authentication-mode aaa，console 登录要输用户名+口令，改口令要改 local-user。\n2) cipher 是密文存储；配置文件被别人拿到时，明文口令（simple）等于泄露。\n3) 现场忘记口令需要重启并在启动阶段按 Ctrl+B 进 BootROM 清空配置，属破坏性操作。",
@@ -498,7 +622,10 @@
           "default": "RO@Public1",
           "required": true,
           "validate": "",
-          "example": "RO@Public1"
+          "example": "RO@Public1",
+          "type": "string",
+          "description": "SNMP 只读团体字，等同口令——网管凭它采集设备数据；禁用 public 等弱值并限定来源；只读为主，写权限单独管理",
+          "desc_pending": true
         },
         {
           "name": "rw_community",
@@ -506,7 +633,10 @@
           "default": "RW@Public1",
           "required": true,
           "validate": "",
-          "example": "RW@Public1"
+          "example": "RW@Public1",
+          "type": "string",
+          "description": "SNMP 读写团体字——持有即可远程修改设备配置，权限极高；仅必要时配置，务必限定来源网段并使用强值",
+          "desc_pending": true
         },
         {
           "name": "location",
@@ -514,7 +644,10 @@
           "default": "IDC-A-机柜12",
           "required": false,
           "validate": "",
-          "example": "IDC-A-机柜12"
+          "example": "IDC-A-机柜12",
+          "type": "string",
+          "description": "SNMP 系统位置（sysLocation）字段，标明设备物理位置（机房/机柜/U 位），告警现场定位依据；纯展示不影响功能",
+          "desc_pending": true
         },
         {
           "name": "contact",
@@ -522,7 +655,10 @@
           "default": "网络运维组",
           "required": false,
           "validate": "",
-          "example": "网络运维组"
+          "example": "网络运维组",
+          "type": "string",
+          "description": "SNMP 系统联系人（sysContact）字段，网管告警时定位责任人的依据；纯展示不影响功能",
+          "desc_pending": true
         },
         {
           "name": "nms_ip",
@@ -530,7 +666,10 @@
           "default": "10.0.0.100",
           "required": true,
           "validate": "ipv4",
-          "example": "10.0.0.100"
+          "example": "10.0.0.100",
+          "type": "ip",
+          "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明",
+          "desc_pending": true
         },
         {
           "name": "trap_source_port",
@@ -538,7 +677,10 @@
           "default": "0/0/0",
           "required": false,
           "validate": "port",
-          "example": "0/0/0"
+          "example": "0/0/0",
+          "type": "string",
+          "description": "SNMP trap 源接口（华为），告警报文以该接口 IP 为源；网管侧按源 IP 建资产时须与其一致",
+          "desc_pending": true
         }
       ],
       "notes": "1) 双出口设备一定要配 snmp-agent trap source，否则 Trap 源地址是出接口地址，\n   网管侧可能收不到或被防火墙丢弃。\n2) 团体字要和网管平台注册的一致，区分大小写。\n3) 安全基线要求：删掉默认团体字；v2c 仅内网采集使用，能上 v3 就上 v3。",
@@ -567,7 +709,10 @@
           "default": "20260920",
           "required": false,
           "validate": "",
-          "example": "20260920 或变更单号"
+          "example": "20260920 或变更单号",
+          "type": "string",
+          "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本",
+          "desc_pending": true
         }
       ],
       "notes": "1) save 跟 y 确认，或直接 save force。\n2) 备份文件名带日期或变更单号，现场多版本并存时才分得清。\n3) startup saved-configuration 指定的是\"下次启动\"用的配置，改错了重启后设备会变样，务必确认。",

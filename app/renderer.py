@@ -24,6 +24,17 @@ import datetime
 # 参数名允许中英文/数字/下划线/点/连字符
 PARAM_RE = re.compile(r"\{\{\s*([A-Za-z0-9_\-\.\u4e00-\u9fa5]+)\s*(?::([^{}]*))?\s*\}\}")
 
+# 结构化 params 的 type 白名单（schema 升级 2026-09-30）：
+#   string 普通文本 / int 整数（range 提示）/ enum 枚举（choices 必带）
+#   ip IPv4 地址 / flag 开关型（未勾选 → 占位整体消失，勾选 → 渲染 on_value）
+PARAM_TYPES = ("string", "int", "enum", "ip", "flag")
+
+# validate 规则白名单（validate_seed 与 check_entry_params 共用同一口径）
+KNOWN_VALIDATE_RULES = ("", "vlan", "ipv4", "ip", "masklen", "mask", "port",
+                        "port_range", "ifname", "nic", "path", "file")
+
+_RE_INT_RANGE = re.compile(r"^\s*(-?\d+)\s*-\s*(-?\d+)\s*$")
+
 # 注释行判定：! 或 # 开头的行（允许前置空白）
 COMMENT_LINE_RE = re.compile(r"^\s*[!#]")
 
@@ -50,17 +61,50 @@ def extract_params(text):
     return result
 
 
+def normalize_spec(spec):
+    """
+    结构化字段（type/choices/range）→ 细粒度 validate 规则推导。
+    设计取舍：type 是粗分类（驱动 UI 控件选择），validate 是细粒度校验规则
+    （存量 987 个 spec 都靠它工作）——两者并存，**显式 validate 优先**，
+    只有 validate 为空时才从 type/choices/range 推导，避免破坏存量条目。
+    返回新 dict（不改入参）；无可推导内容时原样返回。
+    """
+    if not isinstance(spec, dict):
+        return spec
+    stype = (spec.get("type") or "").strip()
+    if (spec.get("validate") or "").strip() or not stype:
+        return spec
+    derived = ""
+    if stype == "enum":
+        choices = spec.get("choices") or []
+        if choices:
+            derived = "enum:" + "|".join(str(c) for c in choices)
+    elif stype == "int":
+        m = _RE_INT_RANGE.match(str(spec.get("range") or ""))
+        if m:
+            derived = "int:%s-%s" % (m.group(1), m.group(2))
+    elif stype == "ip":
+        derived = "ipv4"
+    # string / flag：无默认规则（flag 由渲染层特判）
+    if not derived:
+        return spec
+    out = dict(spec)
+    out["validate"] = derived
+    return out
+
+
 def merge_param_specs(param_specs, text):
     """
     把"命令里提取到的参数"与"条目 params 字段里的规格"合并：
         - 规格里有的参数：补全 label/required/validate/example 等
         - 命令里有但规格缺失的参数：用名字兜底成一条非必填规格
     返回完整的参数规格列表（顺序 = 命令中出现的顺序）。
+    结构化 spec 会先过 normalize_spec（type/choices/range → validate 推导）。
     """
     spec_map = {}
     for spec in param_specs or []:
         if isinstance(spec, dict) and spec.get("name"):
-            spec_map[spec["name"]] = spec
+            spec_map[spec["name"]] = normalize_spec(spec)
 
     merged = []
     for item in extract_params(text):
@@ -292,6 +336,75 @@ def validate_form(specs, values):
         if not passed:
             errors[name] = msg
     return errors
+
+
+def check_entry_params(entry):
+    """
+    条目级参数对账 + 结构化 params 校验（schema 升级 2026-09-30）。
+    validate_seed / AI 入库钩子共用同一口径，避免两处规则漂移。
+
+    返回 (problems, warnings)：
+        problems  —— ERROR 级：占位引用未定义、结构化字段缺失/非法、
+                     default 违反自身 type/choices/range、新条目 description 为空
+        warnings  —— WARNING 级：参数定义未引用、迁移期(desc_pending) description 为空
+
+    兼容策略：spec 没有 type 字段 = 旧格式，只做对账与 default 自校验，其余放行；
+    有 type = 结构化校验生效（name/type/description 必填，enum 必带 choices）。
+    required 且 default 为空是 P2 整改后的合法形态（UI 表单现场输入），不算错误。
+    """
+    problems = []
+    warnings = []
+    if not isinstance(entry, dict):
+        return problems, warnings
+    text = entry.get("commands") or ""
+    specs = _load_params(entry)
+
+    used_names = set()
+    for item in extract_params(text):
+        used_names.add(item["name"])
+
+    declared_names = set()
+    for spec in specs:
+        if not isinstance(spec, dict):
+            problems.append("params 里存在非对象项（%r）" % (spec,))
+            continue
+        name = str(spec.get("name") or "").strip()
+        if not name:
+            problems.append("params 存在缺 name 的参数规格")
+            continue
+        declared_names.add(name)
+
+        stype = str(spec.get("type") or "").strip()
+        structured = bool(stype)
+        if structured and stype not in PARAM_TYPES:
+            problems.append("参数 %s 的 type 非法（%s），只允许 %s"
+                            % (name, stype, "/".join(PARAM_TYPES)))
+        if structured and not str(spec.get("description") or "").strip():
+            if spec.get("desc_pending"):
+                warnings.append("参数 %s 的 description 待补（迁移期）" % name)
+            else:
+                problems.append("参数 %s 缺 description（结构化条目必填）" % name)
+        if structured and stype == "enum" and not (spec.get("choices") or []):
+            problems.append("enum 参数 %s 缺 choices（必须给出可选值全集）" % name)
+
+        rule = (spec.get("validate") or "").strip()
+        if rule and rule not in KNOWN_VALIDATE_RULES \
+                and not rule.startswith(("int:", "enum:", "regex:")):
+            problems.append("参数 %s 的校验规则无法识别（%s）" % (name, rule))
+
+        # default 非空时必须通过自身校验（type/choices/range 经 normalize_spec 并入 validate）
+        default = spec.get("default")
+        if str(default or "").strip():
+            passed, msg = validate_value(normalize_spec(spec), default)
+            if not passed:
+                problems.append("参数 %s 的默认值不合法（%s）" % (name, msg))
+
+    for name in sorted(used_names - declared_names):
+        problems.append("命令里的 {{%s}} 没有在 params 中声明" % name)
+    for name in sorted(declared_names - used_names):
+        warnings.append("参数 %s 已声明但命令里未使用" % name)
+
+    return problems, warnings
 
 
 # ---------------------------------------------------------------------------
@@ -600,12 +713,16 @@ def render(text, values, vendor=None, specs=None, keep_unknown=True, os_family=N
         raw = values.get(name, "")
         if raw is None or str(raw).strip() == "":
             raw = inline_default
+        spec = spec_map.get(name, {})
         if raw is None or str(raw).strip() == "":
+            if spec.get("type") == "flag":
+                # flag 参数（2026-09-30 裁决的渲染语义）：未勾选/无值 →
+                # 占位整体消失（不进 missing、不保留 {{xxx}}），命令行不残留空白残缺
+                return ""
             if name not in missing:
                 missing.append(name)
             return match.group(0) if keep_unknown else ""
 
-        spec = spec_map.get(name, {})
         if spec.get("expand") == "port":
             expanded, _names, err = expand_port_range(str(raw), vendor or spec.get("vendor", ""),
                                                       os_family=os_family)

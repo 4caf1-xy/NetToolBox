@@ -66,7 +66,10 @@
           "default": "10.0.0.2",
           "required": false,
           "validate": "ipv4",
-          "example": "10.0.0.2"
+          "example": "10.0.0.2",
+          "type": "ip",
+          "description": "对端/目标 IP，ping/traceroute/tcpdump 等诊断命令的过滤与测试对象；仅诊断用途不影响配置",
+          "desc_pending": true
         }
       ],
       "notes": "1) State/PfxRcd 列：Idle=底层不通、Active=TCP 不通、OpenSent/OpenConfirm=协商问题、\n   Established=正常（数字是收到的前缀数）。\n2) Idle 先查 TCP 179 可达性与 update-source；协商失败查 AS 号/密码/route-policy。",
@@ -155,7 +158,10 @@
           "default": "10.0.0.2",
           "required": false,
           "validate": "ipv4",
-          "example": "10.0.0.2"
+          "example": "10.0.0.2",
+          "type": "ip",
+          "description": "对端/目标 IP，ping/traceroute/tcpdump 等诊断命令的过滤与测试对象；仅诊断用途不影响配置",
+          "desc_pending": true
         }
       ],
       "notes": "1) Idle=底层不通（先 ping 对端更新源）；Idle(Admin)=被手工 shutdown。\n2) 协商失败查 AS 号/认证/peer connect-interface。",
@@ -244,7 +250,10 @@
           "default": "10.0.0.2",
           "required": false,
           "validate": "ipv4",
-          "example": "10.0.0.2"
+          "example": "10.0.0.2",
+          "type": "ip",
+          "description": "对端/目标 IP，ping/traceroute/tcpdump 等诊断命令的过滤与测试对象；仅诊断用途不影响配置",
+          "desc_pending": true
         }
       ],
       "notes": "1) Established=正常；Idle 先查 TCP 179 与 update-source。",
@@ -293,7 +302,10 @@
           "default": "0/1",
           "required": true,
           "validate": "port",
-          "example": "0/1"
+          "example": "0/1",
+          "type": "string",
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
+          "desc_pending": true
         }
       ],
       "notes": "1) 锐捷与思科语法接近；保存命令是 write（不是 write memory 也行）。\n2) 接口名以实际 show 提示为准（Gi0/1 或 Gi0/0/1）。\n提示：MAC 漂移检测能力暂未收录本厂商专条（漂移排查可先用本条目观察端口错包/表项变化），专条将随 AI 管线扩充。\n",

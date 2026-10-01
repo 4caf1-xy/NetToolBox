@@ -26,7 +26,10 @@
           "default": "eth0",
           "required": true,
           "validate": "ifname",
-          "example": "eth0 / ens33 / enp3s0 / bond0"
+          "example": "eth0 / ens33 / enp3s0 / bond0",
+          "type": "string",
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
+          "desc_pending": true
         },
         {
           "name": "ip_addr",
@@ -34,7 +37,10 @@
           "default": "192.168.10.50",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.50"
+          "example": "192.168.10.50",
+          "type": "ip",
+          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底",
+          "desc_pending": true
         },
         {
           "name": "prefix_len",
@@ -42,7 +48,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24（不是 255.255.255.0）"
+          "example": "24（不是 255.255.255.0）",
+          "type": "int",
+          "range": "0-32",
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
+          "desc_pending": true
         },
         {
           "name": "gateway",
@@ -50,7 +60,10 @@
           "default": "192.168.10.1",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.1"
+          "example": "192.168.10.1",
+          "type": "ip",
+          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效",
+          "desc_pending": true
         }
       ],
       "notes": "1) ⚠ 重启后失效：持久化见配套条目：《netplan 永久配置 IP（Ubuntu）》。\n2) Ubuntu 桌面版由 NetworkManager 管、Server 版由 systemd-networkd 管，\n   但 ip 命令两种都适用（临时调试用）。",
@@ -79,7 +92,10 @@
           "default": "eth0",
           "required": true,
           "validate": "ifname",
-          "example": "eth0 / ens33 / enp3s0 / bond0"
+          "example": "eth0 / ens33 / enp3s0 / bond0",
+          "type": "string",
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
+          "desc_pending": true
         },
         {
           "name": "ip_addr",
@@ -87,7 +103,10 @@
           "default": "192.168.10.50",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.50"
+          "example": "192.168.10.50",
+          "type": "ip",
+          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底",
+          "desc_pending": true
         },
         {
           "name": "prefix_len",
@@ -95,7 +114,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24（不是 255.255.255.0）"
+          "example": "24（不是 255.255.255.0）",
+          "type": "int",
+          "range": "0-32",
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
+          "desc_pending": true
         },
         {
           "name": "gateway",
@@ -103,7 +126,10 @@
           "default": "192.168.10.1",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.1"
+          "example": "192.168.10.1",
+          "type": "ip",
+          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效",
+          "desc_pending": true
         },
         {
           "name": "dns_ip",
@@ -111,7 +137,10 @@
           "default": "223.5.5.5",
           "required": true,
           "validate": "ipv4",
-          "example": "223.5.5.5"
+          "example": "223.5.5.5",
+          "type": "ip",
+          "description": "DNS 服务器 IP，写入网卡连接配置；填错表现为 ping IP 通、域名解析失败——是『能 ping 通打不开网页』的典型根因",
+          "desc_pending": true
         }
       ],
       "notes": "1) ★ YAML 缩进必须用空格，Tab 会直接报错；层级错了 netplan apply 会拒绝执行。\n2) ★ netplan try 是远程改网络的救命命令：不确认自动回滚，避免把自己踢下线。\n3) 配置文件建议 chmod 600（里面可能有敏感信息，netplan 会告警）。\n4) 与 RHEL 系完全不同：RHEL 用 ifcfg-*，Ubuntu 用 netplan YAML —— 别混用。",
@@ -140,7 +169,10 @@
           "default": "eth0",
           "required": true,
           "validate": "ifname",
-          "example": "eth0 / ens33 / enp3s0 / bond0"
+          "example": "eth0 / ens33 / enp3s0 / bond0",
+          "type": "string",
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
+          "desc_pending": true
         },
         {
           "name": "vlan_id",
@@ -148,7 +180,10 @@
           "default": "10",
           "required": true,
           "validate": "vlan",
-          "example": "10"
+          "example": "10",
+          "type": "string",
+          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务",
+          "desc_pending": true
         },
         {
           "name": "ip_addr",
@@ -156,7 +191,10 @@
           "default": "192.168.10.50",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.50"
+          "example": "192.168.10.50",
+          "type": "ip",
+          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底",
+          "desc_pending": true
         },
         {
           "name": "prefix_len",
@@ -164,7 +202,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24（不是 255.255.255.0）"
+          "example": "24（不是 255.255.255.0）",
+          "type": "int",
+          "range": "0-32",
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
+          "desc_pending": true
         }
       ],
       "notes": "1) 母接口 {{ifname}} 必须在 ethernets 里声明（哪怕空配置），否则 vlans 引用不到。\n2) 交换机侧要 trunk + 放通该 VLAN；验证标签：cat /proc/net/vlan/config。",
@@ -193,7 +235,10 @@
           "default": "eth0",
           "required": true,
           "validate": "ifname",
-          "example": "eth0 / ens33 / enp3s0 / bond0"
+          "example": "eth0 / ens33 / enp3s0 / bond0",
+          "type": "string",
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
+          "desc_pending": true
         },
         {
           "name": "ifname2",
@@ -201,7 +246,10 @@
           "default": "eth1",
           "required": true,
           "validate": "ifname",
-          "example": "eth1"
+          "example": "eth1",
+          "type": "string",
+          "description": "bond 的第二个成员网卡名；加入 bond 后该口原有 IP 配置被接管，先确认其上无独立业务",
+          "desc_pending": true
         },
         {
           "name": "ip_addr",
@@ -209,7 +257,10 @@
           "default": "192.168.10.50",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.50"
+          "example": "192.168.10.50",
+          "type": "ip",
+          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底",
+          "desc_pending": true
         },
         {
           "name": "prefix_len",
@@ -217,7 +268,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24（不是 255.255.255.0）"
+          "example": "24（不是 255.255.255.0）",
+          "type": "int",
+          "range": "0-32",
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
+          "desc_pending": true
         },
         {
           "name": "gateway",
@@ -225,7 +280,10 @@
           "default": "192.168.10.1",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.1"
+          "example": "192.168.10.1",
+          "type": "ip",
+          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效",
+          "desc_pending": true
         }
       ],
       "notes": "1) member 网卡在 ethernets 里要声明为空配置，交给 bonds 接管。\n2) mode 常用 active-backup（主备）与 802.3ad（LACP，需交换机配合）。\n3) 改完先 netplan try 再 apply。",
@@ -254,7 +312,10 @@
           "default": "223.5.5.5",
           "required": true,
           "validate": "ipv4",
-          "example": "223.5.5.5"
+          "example": "223.5.5.5",
+          "type": "ip",
+          "description": "DNS 服务器 IP，写入网卡连接配置；填错表现为 ping IP 通、域名解析失败——是『能 ping 通打不开网页』的典型根因",
+          "desc_pending": true
         },
         {
           "name": "domain",
@@ -262,7 +323,10 @@
           "default": "www.example.com",
           "required": true,
           "validate": "",
-          "example": "www.example.com"
+          "example": "www.example.com",
+          "type": "string",
+          "description": "设备域名后缀（ip domain-name / domain-name），用于 DNS 解析补全与 SSH RSA 密钥生成；改后提示符与解析习惯同步变化",
+          "desc_pending": true
         }
       ],
       "notes": "1) ★ /etc/resolv.conf 是指向 127.0.0.53 的软链，手改会被 systemd-resolved 覆盖回去。\n2) netplan 里配 DNS 会下发到 resolved，是最干净的持久化方式。\n3) resolvectl status 能看到每个链路（网卡）各自的 DNS。",
@@ -291,7 +355,10 @@
           "default": "eth0",
           "required": false,
           "validate": "",
-          "example": "nmcli con show 查看，一般等于网卡名"
+          "example": "nmcli con show 查看，一般等于网卡名",
+          "type": "string",
+          "description": "NetworkManager 连接配置名，nmcli 按它修改网卡参数；先 nmcli con show 确认名字再改，改错连接会断网（远程操作务必留 console/带外兜底）",
+          "desc_pending": true
         },
         {
           "name": "ip_addr",
@@ -299,7 +366,10 @@
           "default": "192.168.10.50",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.50"
+          "example": "192.168.10.50",
+          "type": "ip",
+          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底",
+          "desc_pending": true
         },
         {
           "name": "prefix_len",
@@ -307,7 +377,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24（不是 255.255.255.0）"
+          "example": "24（不是 255.255.255.0）",
+          "type": "int",
+          "range": "0-32",
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
+          "desc_pending": true
         },
         {
           "name": "gateway",
@@ -315,7 +389,10 @@
           "default": "192.168.10.1",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.1"
+          "example": "192.168.10.1",
+          "type": "ip",
+          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效",
+          "desc_pending": true
         },
         {
           "name": "dns_ip",
@@ -323,7 +400,10 @@
           "default": "223.5.5.5",
           "required": true,
           "validate": "ipv4",
-          "example": "223.5.5.5"
+          "example": "223.5.5.5",
+          "type": "ip",
+          "description": "DNS 服务器 IP，写入网卡连接配置；填错表现为 ping IP 通、域名解析失败——是『能 ping 通打不开网页』的典型根因",
+          "desc_pending": true
         }
       ],
       "notes": "1) Server 默认用 netplan+networkd，没有 nmcli；装了 network-manager 才有。\n2) nmcli 与 netplan 同时管理同一网卡会打架，一个网卡认一个管。",
@@ -352,7 +432,10 @@
           "default": "sshd",
           "required": true,
           "validate": "",
-          "example": "sshd / firewalld / NetworkManager"
+          "example": "sshd / firewalld / NetworkManager",
+          "type": "string",
+          "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达",
+          "desc_pending": true
         }
       ],
       "notes": "1) enable --now 一步到位：设自启并立即启动（等价 enable + start）。\n2) disable --now 反过来：停掉并取消自启。",
@@ -381,7 +464,10 @@
           "default": "sshd",
           "required": true,
           "validate": "",
-          "example": "sshd / firewalld / NetworkManager"
+          "example": "sshd / firewalld / NetworkManager",
+          "type": "string",
+          "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达",
+          "desc_pending": true
         }
       ],
       "notes": "1) is-enabled 输出 enabled/static/disabled；static 表示被依赖拉起，不是自启失败。",
@@ -410,7 +496,11 @@
           "default": "8080",
           "required": true,
           "validate": "int:1-65535",
-          "example": "8080"
+          "example": "8080",
+          "type": "int",
+          "range": "1-65535",
+          "description": "TCP 端口号（0-65535），ufw 放行、ss 查监听、tcpdump 抓包过滤的对象；放行前先确认服务在监听；ufw 规则即时生效，锁自己端口前留 console 兜底",
+          "desc_pending": true
         },
         {
           "name": "src_net",
@@ -418,7 +508,10 @@
           "default": "192.168.10.0",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.0"
+          "example": "192.168.10.0",
+          "type": "ip",
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
+          "desc_pending": true
         },
         {
           "name": "prefix_len",
@@ -426,7 +519,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24"
+          "example": "24",
+          "type": "int",
+          "range": "0-32",
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
+          "desc_pending": true
         }
       ],
       "notes": "1) ★ ufw enable 前必须先 allow 22/tcp，否则远程会话直接断开。\n2) ufw delete 2 删的是 status numbered 里编号为 2 的规则（编号会变，先查再删）。\n3) ufw 不需要 reload，规则即时生效并持久化；与手写 iptables 规则会互相干扰。",
@@ -455,7 +552,11 @@
           "default": "8080",
           "required": true,
           "validate": "int:1-65535",
-          "example": "8080"
+          "example": "8080",
+          "type": "int",
+          "range": "1-65535",
+          "description": "TCP 端口号（0-65535），ufw 放行、ss 查监听、tcpdump 抓包过滤的对象；放行前先确认服务在监听；ufw 规则即时生效，锁自己端口前留 console 兜底",
+          "desc_pending": true
         },
         {
           "name": "pid",
@@ -463,7 +564,11 @@
           "default": "1234",
           "required": true,
           "validate": "int:1-4194304",
-          "example": "1234"
+          "example": "1234",
+          "type": "int",
+          "range": "1-4194304",
+          "description": "进程号（PID），ss/cat /proc/PID 定位进程资源与监听；kill 前先 ps 确认进程归属，误杀系统进程会宕机",
+          "desc_pending": true
         }
       ],
       "notes": "1) LISTEN 没有 → 服务没起；LISTEN 有但不通 → ufw/iptables 或对端链路。",
@@ -492,7 +597,10 @@
           "default": "eth0",
           "required": true,
           "validate": "ifname",
-          "example": "eth0 / ens33 / enp3s0 / bond0"
+          "example": "eth0 / ens33 / enp3s0 / bond0",
+          "type": "string",
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
+          "desc_pending": true
         },
         {
           "name": "peer_ip",
@@ -500,7 +608,10 @@
           "default": "192.168.10.1",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.1"
+          "example": "192.168.10.1",
+          "type": "ip",
+          "description": "对端/目标 IP，ping/traceroute/tcpdump 等诊断命令的过滤与测试对象；仅诊断用途不影响配置",
+          "desc_pending": true
         },
         {
           "name": "port",
@@ -508,7 +619,11 @@
           "default": "8080",
           "required": true,
           "validate": "int:1-65535",
-          "example": "8080"
+          "example": "8080",
+          "type": "int",
+          "range": "1-65535",
+          "description": "TCP 端口号（0-65535），ufw 放行、ss 查监听、tcpdump 抓包过滤的对象；放行前先确认服务在监听；ufw 规则即时生效，锁自己端口前留 console 兜底",
+          "desc_pending": true
         }
       ],
       "notes": "1) -nn 不解析域名；远程排查加 not port 22。\n2) tcpdump 没装：apt install tcpdump（离线场景见本地源条目）。",
@@ -537,7 +652,10 @@
           "default": "sshd",
           "required": true,
           "validate": "",
-          "example": "sshd / firewalld / NetworkManager"
+          "example": "sshd / firewalld / NetworkManager",
+          "type": "string",
+          "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达",
+          "desc_pending": true
         }
       ],
       "notes": "1) --since \"10 min ago\" 这类相对时间很顺手；也可用具体时间戳。",
@@ -566,7 +684,10 @@
           "default": "createrepo",
           "required": true,
           "validate": "",
-          "example": "createrepo"
+          "example": "createrepo",
+          "type": "string",
+          "description": "软件包名（yum/apt/rpm 的操作对象）；离网环境先在异机下载（pip download / yumdownloader）再拷入安装",
+          "desc_pending": true
         }
       ],
       "notes": "1) ★ 每次加了新 deb 都要重新 dpkg-scanpackages 生成 Packages.gz，否则 apt 看不到。\n2) [trusted=yes] 免签名校验；内网多机可改用 http 服务共享目录。\n3) apt-get update 报 NO_PUBKEY → 加 [trusted=yes] 或导入 key。",
@@ -595,7 +716,10 @@
           "default": "createrepo",
           "required": true,
           "validate": "",
-          "example": "createrepo"
+          "example": "createrepo",
+          "type": "string",
+          "description": "软件包名（yum/apt/rpm 的操作对象）；离网环境先在异机下载（pip download / yumdownloader）再拷入安装",
+          "desc_pending": true
         }
       ],
       "notes": "1) dpkg -i 不会自动装依赖 → 把依赖 deb 放同目录一起 dpkg -i ./*.deb。\n2) apt-get install -f 自动补缺失依赖（需要至少一个可用源）。\n3) 查包内容：dpkg -L {{pkg_name}}；查已装版本：dpkg -l | grep {{pkg_name}}。",
@@ -664,7 +788,10 @@
           "default": "10.0.0.0",
           "required": true,
           "validate": "ipv4",
-          "example": "10.0.0.0"
+          "example": "10.0.0.0",
+          "type": "ip",
+          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略",
+          "desc_pending": true
         },
         {
           "name": "prefix_len",
@@ -672,7 +799,10 @@
           "default": "8",
           "required": true,
           "validate": "masklen",
-          "example": "8"
+          "example": "8",
+          "type": "string",
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
+          "desc_pending": true
         },
         {
           "name": "gateway",
@@ -680,7 +810,10 @@
           "default": "192.168.1.1",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.1.1"
+          "example": "192.168.1.1",
+          "type": "ip",
+          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效",
+          "desc_pending": true
         }
       ],
       "notes": "1) 本条目同时给出**临时**与**持久化**两套做法，按现场需要取用。\n2) 只配去程不够：对端也要有回程路由，否则单向不通。\n3) 临时路由重启必丢，做变更请用第 2) 段的 nmcli 方式。",
@@ -709,7 +842,10 @@
           "default": "eth0",
           "required": false,
           "validate": "ifname",
-          "example": "eth0"
+          "example": "eth0",
+          "type": "string",
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
+          "desc_pending": true
         }
       ],
       "notes": "1) Link detected: no 说明物理层没起来（线缆/网口/对端）。\n2) 虚拟机里还要核对虚拟网卡与桥接网卡是否对应。",
@@ -738,7 +874,10 @@
           "default": "223.5.5.5",
           "required": true,
           "validate": "ipv4",
-          "example": "223.5.5.5"
+          "example": "223.5.5.5",
+          "type": "ip",
+          "description": "连通性测试目标（IP 或域名），ping/traceroute 的对象；先测 IP 再测域名可分离网络故障与 DNS 故障",
+          "desc_pending": true
         },
         {
           "name": "domain",
@@ -746,7 +885,10 @@
           "default": "www.baidu.com",
           "required": false,
           "validate": "",
-          "example": "www.baidu.com"
+          "example": "www.baidu.com",
+          "type": "string",
+          "description": "设备域名后缀（ip domain-name / domain-name），用于 DNS 解析补全与 SSH RSA 密钥生成；改后提示符与解析习惯同步变化",
+          "desc_pending": true
         }
       ],
       "notes": "1) 能 ping 通 IP 但 dig 不通 → 查 DNS 配置（不是连通性问题）。\n2) traceroute 默认走 UDP，被过滤时可加 -I 用 ICMP 再试。",
@@ -776,7 +918,10 @@
           "default": "",
           "required": true,
           "validate": "path",
-          "example": "/opt/iso/ubuntu-22.04.4-live-server-amd64.iso"
+          "example": "/opt/iso/ubuntu-22.04.4-live-server-amd64.iso",
+          "type": "string",
+          "description": "本地 ISO 镜像文件路径，loop 挂载为本地安装源；写错路径 mount 失败；写入 /etc/fstab 前先手动挂载验证（配错 fstab 重启起不来）",
+          "desc_pending": true
         },
         {
           "name": "release_name",
@@ -784,7 +929,10 @@
           "default": "jammy",
           "required": false,
           "validate": "",
-          "example": "jammy"
+          "example": "jammy",
+          "type": "string",
+          "description": "Ubuntu 发行代号（jammy/focal 等），本地 ISO 源的 suite 名；必须与光盘 dists/ 目录实际名称一致，否则 apt 更新 404",
+          "desc_pending": true
         },
         {
           "name": "pkg_name",
@@ -792,7 +940,10 @@
           "default": "vim",
           "required": false,
           "validate": "",
-          "example": "vim"
+          "example": "vim",
+          "type": "string",
+          "description": "软件包名（yum/apt/rpm 的操作对象）；离网环境先在异机下载（pip download / yumdownloader）再拷入安装",
+          "desc_pending": true
         }
       ],
       "notes": "1) ★ 易错点：GPG 校验——file:/ 源没有可校验的 keyring，不加 [trusted=yes] 时 apt-get update 报 NO_PUBKEY/InRelease 校验失败；内网物理介质可控加 trusted=yes 是通行做法，企业有签名要求则导入 ISO 的归档 key 后去掉 trusted。\n2) ★ 易错点：fstab 写错会导致开机卡住——第 4 步追加后必须立刻 mount -a 验证无报错；更稳妥用 blkid 查 ISO 的 UUID 替换路径列。\n3) 发行代号必须与 ISO 一致（22.04 = jammy），代号写错 apt-get update 报 Release 文件不存在；live-server ISO 的 pool 含 main/universe 常用包，桌面版范围更大。\n4) apt-get update 若同时报公网源失败属正常（离网），只看 local-iso 是否 OK。\n验证方法：apt-get update 无 local-iso 报错 + apt-get install -y {{pkg_name}} 成功，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）"
@@ -815,7 +966,10 @@
           "default": "",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.66.10"
+          "example": "192.168.66.10",
+          "type": "ip",
+          "description": "NTP 时间源地址，统一设备时钟；时间漂移会导致证书校验失败、日志排序混乱；须网络可达，内网建议指向专用 NTP",
+          "desc_pending": true
         }
       ],
       "notes": "1) Ubuntu 22.04 默认用 systemd-timesyncd（不是 chrony）；若已装 chrony 需先 systemctl disable --now chrony，两个时间服务同时跑会互抢。\n2) timedatectl timesync-status 里 Offset 是偏差、Sync Status 应为 synchronized；NTP 服务没起先看 firewall 是否拦 UDP 123。\n3) 需要 chrony 的高级功能（作为内网 NTP 源对外服务）时：apt install chrony（本地源，见本地源条目）后改用 chrony.conf，并 disable timesyncd。\n验证方法：timedatectl status 显示 synchronized + timesync-status 偏差毫秒级，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",

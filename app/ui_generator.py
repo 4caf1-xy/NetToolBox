@@ -127,6 +127,17 @@ class ParamFormWidget(QWidget):
         default = spec.get("default")
         default = "" if default is None else str(default)
 
+        # flag 型参数（schema 升级 2026-09-30）：勾选 → 渲染 on_value（默认参数名），
+        # 不勾选 → 占位整体消失。UI 表达就是开关本身，不做文本输入。
+        if (spec.get("type") or "").strip() == "flag":
+            chk = QCheckBox()
+            on_value = str(spec.get("on_value") or spec.get("example") or spec["name"])
+            chk.setProperty("on_value", on_value)
+            chk.setChecked(bool(default))
+            chk.setToolTip("勾选后渲染为：%s；不勾选则该占位从命令中消失" % on_value)
+            chk.toggled.connect(self._on_changed)
+            return chk
+
         if rule.startswith("enum:"):
             cmb = QComboBox()
             for value in [v for v in rule[5:].split("|") if v]:
@@ -157,6 +168,9 @@ class ParamFormWidget(QWidget):
     # ---------------- 取值 / 赋值 ----------------
     @staticmethod
     def _editor_value(widget):
+        if isinstance(widget, QCheckBox):
+            # flag 参数：勾选 → on_value（渲染文本）；不勾选 → 空串（占位消失）
+            return str(widget.property("on_value") or "") if widget.isChecked() else ""
         if isinstance(widget, QComboBox):
             return widget.currentText()
         if isinstance(widget, QSpinBox):
@@ -174,7 +188,9 @@ class ParamFormWidget(QWidget):
             if widget is None or value is None:
                 continue
             widget.blockSignals(True)
-            if isinstance(widget, QComboBox):
+            if isinstance(widget, QCheckBox):
+                widget.setChecked(bool(value))
+            elif isinstance(widget, QComboBox):
                 idx = widget.findText(str(value))
                 if idx >= 0:
                     widget.setCurrentIndex(idx)

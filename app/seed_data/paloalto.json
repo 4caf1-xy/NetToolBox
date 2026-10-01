@@ -26,7 +26,10 @@
           "default": "ethernet1/2",
           "required": true,
           "validate": "",
-          "example": "ethernet1/2"
+          "example": "ethernet1/2",
+          "type": "string",
+          "description": "VLAN 子接口的父物理口，子接口流量承载在其上；父口 down 则其下所有子接口全部 down",
+          "desc_pending": true
         },
         {
           "name": "sub_if",
@@ -34,7 +37,10 @@
           "default": "ethernet1/2.10",
           "required": true,
           "validate": "",
-          "example": "ethernet1/2.10"
+          "example": "ethernet1/2.10",
+          "type": "string",
+          "description": "PaloAlto 子接口编号（ethernet1/x.N 中的 N），VLAN 子接口标识；tag 值与 vlan_id 配套",
+          "desc_pending": true
         },
         {
           "name": "vlan_id",
@@ -42,7 +48,10 @@
           "default": "10",
           "required": true,
           "validate": "vlan",
-          "example": "10"
+          "example": "10",
+          "type": "string",
+          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务",
+          "desc_pending": true
         },
         {
           "name": "vlan_ip",
@@ -50,7 +59,10 @@
           "default": "192.168.10.1",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.1"
+          "example": "192.168.10.1",
+          "type": "ip",
+          "description": "VLAN 子接口/网关 IP，该网段终端的默认网关；须与终端同网段；改网关地址需同步终端配置",
+          "desc_pending": true
         },
         {
           "name": "prefix_len",
@@ -58,7 +70,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24（PAN-OS 用 CIDR）"
+          "example": "24（PAN-OS 用 CIDR）",
+          "type": "int",
+          "range": "0-32",
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
+          "desc_pending": true
         },
         {
           "name": "zone_name",
@@ -66,7 +82,10 @@
           "default": "trust",
           "required": false,
           "validate": "",
-          "example": "trust / untrust / dmz"
+          "example": "trust / untrust / dmz",
+          "type": "string",
+          "description": "安全区域名（trust/untrust/dmz），接口的 zone 归属决定策略方向匹配；接口须先加入 zone 才能被策略引用",
+          "desc_pending": true
         },
         {
           "name": "vlan_desc",
@@ -74,7 +93,10 @@
           "default": "办公网段",
           "required": false,
           "validate": "",
-          "example": "办公网段"
+          "example": "办公网段",
+          "type": "string",
+          "description": "VLAN/子接口的描述文字，运维辨识用途",
+          "desc_pending": true
         }
       ],
       "notes": "1) PAN-OS 有三件套必须齐全：子接口 → 划入 zone → 加入 virtual-router，缺一样流量就不通。\n   子接口名必须是\"父接口.tag\"格式（ethernet1/2.10），tag 就写 VLAN ID。\n2) IP 用 CIDR 写法（192.168.10.1/24），不是点分掩码。\n3) 所有配置都是\"候选配置\"，必须 commit 才生效；未 commit 的改动可以用\n   show config diff 查看、revert config 丢弃。\n4) 物理口若已是 layer3 且带 IP，需要先清掉再建子接口，否则报错。",
@@ -103,7 +125,10 @@
           "default": "ethernet1/1",
           "required": true,
           "validate": "",
-          "example": "ethernet1/1"
+          "example": "ethernet1/1",
+          "type": "string",
+          "description": "PaloAlto 聚合组成员口 1（ethernet1/x），加入 AE 后其独立配置失效；两成员口速率/双工/配置必须对称",
+          "desc_pending": true
         },
         {
           "name": "member2",
@@ -111,7 +136,10 @@
           "default": "ethernet1/2",
           "required": true,
           "validate": "",
-          "example": "ethernet1/2"
+          "example": "ethernet1/2",
+          "type": "string",
+          "description": "PaloAlto 聚合组成员口 2，配置必须与成员口 1 完全对称，否则成员被踢出聚合",
+          "desc_pending": true
         },
         {
           "name": "ae_name",
@@ -119,7 +147,10 @@
           "default": "ae1",
           "required": true,
           "validate": "",
-          "example": "ae1"
+          "example": "ae1",
+          "type": "string",
+          "description": "PaloAlto 聚合接口（AE）名称，把多个物理口聚成一条逻辑链路提高带宽与冗余；成员口 LACP/layer2 配置必须对称；删除聚合组会连带断开成员口业务",
+          "desc_pending": true
         },
         {
           "name": "vlan_id",
@@ -127,7 +158,10 @@
           "default": "10",
           "required": true,
           "validate": "vlan",
-          "example": "10"
+          "example": "10",
+          "type": "string",
+          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务",
+          "desc_pending": true
         },
         {
           "name": "vlan_ip",
@@ -135,7 +169,10 @@
           "default": "192.168.10.1",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.1"
+          "example": "192.168.10.1",
+          "type": "ip",
+          "description": "VLAN 子接口/网关 IP，该网段终端的默认网关；须与终端同网段；改网关地址需同步终端配置",
+          "desc_pending": true
         },
         {
           "name": "prefix_len",
@@ -143,7 +180,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24"
+          "example": "24",
+          "type": "int",
+          "range": "0-32",
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
+          "desc_pending": true
         }
       ],
       "notes": "1) PAN-OS 的\"trunk\"由\"AE 聚合口 + 多个 tag 子接口\"组合实现，没有 Cisco 那种\n   switchport mode trunk 命令。\n2) 成员口必须先设 aggregate-group 才会成为聚合成员；只开 lacp enable 不会自动聚合。\n3) 多个 VLAN 就重复建多个 tag 子接口（ae1.10、ae1.20…），别想一次配完。\n4) show lacp interfaces 看成员口是否都 negotiated，是排查聚合异常的第一步。",
@@ -172,7 +213,10 @@
           "default": "TO-CORE",
           "required": true,
           "validate": "",
-          "example": "TO-CORE"
+          "example": "TO-CORE",
+          "type": "string",
+          "description": "PaloAlto 静态路由条目名，标识一条静态路由；修改后须 commit 才生效",
+          "desc_pending": true
         },
         {
           "name": "dest_net",
@@ -180,7 +224,10 @@
           "default": "192.168.20.0",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.20.0"
+          "example": "192.168.20.0",
+          "type": "ip",
+          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略",
+          "desc_pending": true
         },
         {
           "name": "prefix_len",
@@ -188,7 +235,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24"
+          "example": "24",
+          "type": "int",
+          "range": "0-32",
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
+          "desc_pending": true
         },
         {
           "name": "next_hop",
@@ -196,7 +247,10 @@
           "default": "10.0.0.2",
           "required": true,
           "validate": "ipv4",
-          "example": "10.0.0.2"
+          "example": "10.0.0.2",
+          "type": "ip",
+          "description": "下一跳 IP，路由/策略转发的去向；必须是本机直连可达地址，写错路由成『黑洞』",
+          "desc_pending": true
         },
         {
           "name": "out_interface",
@@ -204,7 +258,10 @@
           "default": "ethernet1/1",
           "required": true,
           "validate": "",
-          "example": "ethernet1/1"
+          "example": "ethernet1/1",
+          "type": "string",
+          "description": "NAT/策略的出接口名，流量转发的物理出口；必须与真实外网口一致，写错 NAT 不生效",
+          "desc_pending": true
         },
         {
           "name": "metric",
@@ -212,7 +269,11 @@
           "default": "10",
           "required": false,
           "validate": "int:1-65535",
-          "example": "越小越优先，默认 10"
+          "example": "越小越优先，默认 10",
+          "type": "int",
+          "range": "1-65535",
+          "description": "PaloAlto 路由 metric 值，同前缀多条路由时决定优劣；修改后须 commit 才生效",
+          "desc_pending": true
         },
         {
           "name": "default_route_name",
@@ -220,7 +281,10 @@
           "default": "DEFAULT-TO-ISP",
           "required": false,
           "validate": "",
-          "example": "DEFAULT-TO-ISP"
+          "example": "DEFAULT-TO-ISP",
+          "type": "string",
+          "description": "PaloAlto 默认路由（0.0.0.0/0）的静态路由条目名，仅作辨识；修改后须 commit 才生效",
+          "desc_pending": true
         },
         {
           "name": "probe_ip",
@@ -228,7 +292,10 @@
           "default": "8.8.8.8",
           "required": false,
           "validate": "ipv4",
-          "example": "8.8.8.8"
+          "example": "8.8.8.8",
+          "type": "ip",
+          "description": "路由探测目标 IP（FIB lookup 测试），验证目的地址实际命中哪条路由；仅诊断用途不影响配置",
+          "desc_pending": true
         }
       ],
       "notes": "1) 路由挂在 virtual-router 下，如果设备上有多个 VR，要确认加到哪个 VR（默认 default）。\n2) destination 用 CIDR（192.168.20.0/24）；nexthop 与 interface 都建议给，便于链路 down 时失效。\n3) test routing fib-lookup virtual-router default ip <目标> 可直连查\"这个目的走哪个下一跳\"，\n   比翻路由表快得多 —— 这是 PAN-OS 排查路由的首选命令。\n4) metric 越小越优先（默认 10）；做浮动备份调整 metric 即可。",
@@ -257,7 +324,10 @@
           "default": "6.6.6.6",
           "required": true,
           "validate": "ipv4",
-          "example": "6.6.6.6"
+          "example": "6.6.6.6",
+          "type": "ip",
+          "description": "OSPF Router ID（IPv4 格式），区域内唯一标识本路由器；重复会引发邻居震荡与路由抖动，建议用 loopback 接口地址",
+          "desc_pending": true
         },
         {
           "name": "area_id",
@@ -265,7 +335,10 @@
           "default": "0.0.0.0",
           "required": false,
           "validate": "",
-          "example": "0.0.0.0（点分格式）"
+          "example": "0.0.0.0（点分格式）",
+          "type": "string",
+          "description": "OSPF 区域 ID，控制该网段归属哪个 OSPF 区域；骨干区域固定 0.0.0.0，非骨干区域须与骨干直连（或虚链路）；填错邻居起不来、路由学不到",
+          "desc_pending": true
         },
         {
           "name": "uplink_port",
@@ -273,7 +346,10 @@
           "default": "ethernet1/1",
           "required": true,
           "validate": "",
-          "example": "ethernet1/1"
+          "example": "ethernet1/1",
+          "type": "string",
+          "description": "OSPF 上联接口——被动接口策略中的例外口，no passive 恢复收发 Hello 建邻居；只放开必要上联口",
+          "desc_pending": true
         },
         {
           "name": "port",
@@ -281,7 +357,10 @@
           "default": "ethernet1/2",
           "required": true,
           "validate": "",
-          "example": "ethernet1/2"
+          "example": "ethernet1/2",
+          "type": "string",
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
+          "desc_pending": true
         }
       ],
       "notes": "1) OSPF 需要先有接口 IP 并加入 virtual-router；接口没进 VR 就不会出现在可选列表里。\n2) passive yes 让业务口不发不收 Hello（等效 Cisco passive-interface）。\n3) 部分型号/版本需装高级路由（Advanced Routing）授权才有 OSPF，上机前先确认 license。\n4) 邻居起不来的第一件事：确认两端 area 类型（normal/stub）与 Hello/Dead 定时器一致。",
@@ -310,7 +389,10 @@
           "default": "OBJ-OFFICE",
           "required": true,
           "validate": "",
-          "example": "OBJ-OFFICE"
+          "example": "OBJ-OFFICE",
+          "type": "string",
+          "description": "源地址对象名（FortiGate/PaloAlto 等），先建对象再被策略引用；修改对象影响所有引用它的策略",
+          "desc_pending": true
         },
         {
           "name": "src_net",
@@ -318,7 +400,10 @@
           "default": "192.168.10.0",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.0"
+          "example": "192.168.10.0",
+          "type": "ip",
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
+          "desc_pending": true
         },
         {
           "name": "src_prefix",
@@ -326,7 +411,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24"
+          "example": "24",
+          "type": "int",
+          "range": "0-32",
+          "description": "源网段前缀长度（0-32），与 src_net 组成 CIDR",
+          "desc_pending": true
         },
         {
           "name": "dst_obj",
@@ -334,7 +423,10 @@
           "default": "OBJ-SERVER",
           "required": true,
           "validate": "",
-          "example": "OBJ-SERVER"
+          "example": "OBJ-SERVER",
+          "type": "string",
+          "description": "PaloAlto 目的地址对象名，先建对象再被安全策略引用；修改对象网段会影响所有引用它的策略，改后须 commit",
+          "desc_pending": true
         },
         {
           "name": "dst_net",
@@ -342,7 +434,10 @@
           "default": "10.10.0.0",
           "required": true,
           "validate": "ipv4",
-          "example": "10.10.0.0"
+          "example": "10.10.0.0",
+          "type": "ip",
+          "description": "目的网段（ACL/防火墙策略匹配字段），0.0.0.0/0 表示任意目的；与反掩码/前缀长度配套使用；范围写宽会扩大放行面",
+          "desc_pending": true
         },
         {
           "name": "dst_prefix",
@@ -350,7 +445,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24"
+          "example": "24",
+          "type": "int",
+          "range": "0-32",
+          "description": "目的网段前缀长度（0-32），与 dst_net 组成 CIDR；写宽扩大匹配面，放行面随之变大",
+          "desc_pending": true
         },
         {
           "name": "svc_obj",
@@ -358,7 +457,10 @@
           "default": "SVC-WEB-8443",
           "required": true,
           "validate": "",
-          "example": "SVC-WEB-8443"
+          "example": "SVC-WEB-8443",
+          "type": "string",
+          "description": "PaloAlto 服务对象名，定义协议+端口组合供策略引用；修改对象影响所有引用它的策略",
+          "desc_pending": true
         },
         {
           "name": "dst_port",
@@ -366,7 +468,11 @@
           "default": "8443",
           "required": true,
           "validate": "int:1-65535",
-          "example": "8443"
+          "example": "8443",
+          "type": "int",
+          "range": "1-65535",
+          "description": "服务对象的端口号（0-65535，如 8443），定义四层匹配；改端口须同步核对后端真实监听，否则策略放行了也没流量",
+          "desc_pending": true
         },
         {
           "name": "rule_name",
@@ -374,7 +480,10 @@
           "default": "OFFICE-to-SERVER",
           "required": true,
           "validate": "",
-          "example": "OFFICE-to-SERVER"
+          "example": "OFFICE-to-SERVER",
+          "type": "string",
+          "description": "PaloAlto 安全/NAT 规则名，标识一条策略；命名带方向与用途（如 OA_to_DB_allow）；修改后须 commit",
+          "desc_pending": true
         },
         {
           "name": "src_zone",
@@ -382,7 +491,10 @@
           "default": "trust",
           "required": true,
           "validate": "",
-          "example": "trust"
+          "example": "trust",
+          "type": "string",
+          "description": "源安全区域，策略入方向区域匹配；报文入接口必须真属于该 zone；修改后须 commit",
+          "desc_pending": true
         },
         {
           "name": "dst_zone",
@@ -390,7 +502,10 @@
           "default": "dmz",
           "required": true,
           "validate": "",
-          "example": "dmz"
+          "example": "dmz",
+          "type": "string",
+          "description": "目的安全区域（trust/dmz/untrust），策略的目的方向匹配；报文出接口必须真属于该 zone，否则策略永不命中；改后须 commit",
+          "desc_pending": true
         },
         {
           "name": "application",
@@ -398,7 +513,10 @@
           "default": "ssl",
           "required": false,
           "validate": "",
-          "example": "ssl / web-browsing / any"
+          "example": "ssl / web-browsing / any",
+          "type": "string",
+          "description": "PaloAlto 安全策略的应用识别值（ssl / ssh / dns 等），基于应用识别放行流量而非仅端口；填 any 放行全部应用；规则修改后须 commit 才生效",
+          "desc_pending": true
         }
       ],
       "notes": "1) PAN-OS 的策略是\"区域对区域\"（from/to zone），不是绑定到接口；这条与思科/华为思维完全不同。\n2) application 与 service 的关系：application 是 L7 识别（推荐用 ssl/web-browsing 这类），\n   service 是 L4 端口（用 application-default 可让系统自动带出端口）。\n3) 策略自上而下匹配，先匹配生效；新规则默认加在末尾，插到前面要显式指定位置。\n4) 必须有 source/destination/application（或 service）三要素，缺一个提交会报错。",
@@ -427,7 +545,10 @@
           "default": "SNAT-TO-INTERNET",
           "required": true,
           "validate": "",
-          "example": "SNAT-TO-INTERNET"
+          "example": "SNAT-TO-INTERNET",
+          "type": "string",
+          "description": "SNAT 规则名，标识一条源地址转换（内网出去的方向）；修改后须 commit 才生效",
+          "desc_pending": true
         },
         {
           "name": "src_zone",
@@ -435,7 +556,10 @@
           "default": "trust",
           "required": true,
           "validate": "",
-          "example": "trust"
+          "example": "trust",
+          "type": "string",
+          "description": "源安全区域，策略入方向区域匹配；报文入接口必须真属于该 zone；修改后须 commit",
+          "desc_pending": true
         },
         {
           "name": "dst_zone",
@@ -443,7 +567,10 @@
           "default": "untrust",
           "required": true,
           "validate": "",
-          "example": "untrust"
+          "example": "untrust",
+          "type": "string",
+          "description": "目的安全区域（trust/dmz/untrust），策略的目的方向匹配；报文出接口必须真属于该 zone，否则策略永不命中；改后须 commit",
+          "desc_pending": true
         },
         {
           "name": "src_net",
@@ -451,7 +578,10 @@
           "default": "192.168.10.0",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.0"
+          "example": "192.168.10.0",
+          "type": "ip",
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
+          "desc_pending": true
         },
         {
           "name": "src_prefix",
@@ -459,7 +589,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24"
+          "example": "24",
+          "type": "int",
+          "range": "0-32",
+          "description": "源网段前缀长度（0-32），与 src_net 组成 CIDR",
+          "desc_pending": true
         },
         {
           "name": "out_interface",
@@ -467,7 +601,10 @@
           "default": "ethernet1/1",
           "required": true,
           "validate": "",
-          "example": "ethernet1/1"
+          "example": "ethernet1/1",
+          "type": "string",
+          "description": "NAT/策略的出接口名，流量转发的物理出口；必须与真实外网口一致，写错 NAT 不生效",
+          "desc_pending": true
         },
         {
           "name": "dnat_name",
@@ -475,7 +612,10 @@
           "default": "DNAT-WEB-8443",
           "required": true,
           "validate": "",
-          "example": "DNAT-WEB-8443"
+          "example": "DNAT-WEB-8443",
+          "type": "string",
+          "description": "DNAT/NAT 规则名，标识一条目的地址转换（外部访问内部服务的映射入口）；名称建议带业务语义；修改后须 commit 才生效",
+          "desc_pending": true
         },
         {
           "name": "untrust_zone",
@@ -483,7 +623,10 @@
           "default": "untrust",
           "required": true,
           "validate": "",
-          "example": "untrust"
+          "example": "untrust",
+          "type": "string",
+          "description": "非受信安全区域名（外网侧），DNAT/策略的来源区域匹配",
+          "desc_pending": true
         },
         {
           "name": "trust_zone",
@@ -491,7 +634,10 @@
           "default": "trust",
           "required": true,
           "validate": "",
-          "example": "trust"
+          "example": "trust",
+          "type": "string",
+          "description": "受信/目的安全区域名，NAT 与安全策略的区域匹配；与区域规划一致，改后须 commit",
+          "desc_pending": true
         },
         {
           "name": "public_ip",
@@ -499,7 +645,10 @@
           "default": "200.1.1.30",
           "required": true,
           "validate": "ipv4",
-          "example": "200.1.1.30"
+          "example": "200.1.1.30",
+          "type": "ip",
+          "description": "对外发布的公网/映射 IP，NAT 后外部访问的地址；须在上联口网段内且未被占用，冲突会绑定失败",
+          "desc_pending": true
         },
         {
           "name": "svc_name",
@@ -507,7 +656,10 @@
           "default": "SVC-WEB-8443",
           "required": true,
           "validate": "",
-          "example": "SVC-WEB-8443"
+          "example": "SVC-WEB-8443",
+          "type": "string",
+          "description": "NAT 规则引用的服务对象名，DNAT 的端口匹配依据；修改后须 commit",
+          "desc_pending": true
         },
         {
           "name": "inside_ip",
@@ -515,7 +667,10 @@
           "default": "192.168.10.100",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.100"
+          "example": "192.168.10.100",
+          "type": "ip",
+          "description": "NAT 映射的内网真实 IP（被发布服务器的地址），DNAT 后流量的真正去向；填错把外部流量引到错误主机",
+          "desc_pending": true
         },
         {
           "name": "inside_port",
@@ -523,7 +678,11 @@
           "default": "8443",
           "required": true,
           "validate": "int:1-65535",
-          "example": "8443"
+          "example": "8443",
+          "type": "int",
+          "range": "1-65535",
+          "description": "内网侧接口名或映射端口号，DNAT 流量的内部接收方向；写错映射不生效",
+          "desc_pending": true
         }
       ],
       "notes": "1) PAN-OS 的 NAT 是\"策略\"（rulebase nat rules），与安全策略分开：**NAT 策略只做转换，\n   是否放行由安全策略决定**，因此 DNAT 场景必须同时配一条允许 untrust→trust 的安全策略。\n2) source-translation dynamic-ip-and-port interface-address 就是 PAT（借用出接口地址）。\n3) DNAT 的 service 对象端口要与 translated-port 对齐，端口写错表现为\"能连上但业务不通\"。\n4) show session all 看会话；排查 NAT 时确认会话里显示的源/目的地址是否是转换后的结果。",
@@ -552,7 +711,10 @@
           "default": "netadmin",
           "required": true,
           "validate": "",
-          "example": "netadmin"
+          "example": "netadmin",
+          "type": "string",
+          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号",
+          "desc_pending": true
         },
         {
           "name": "mgmt_net",
@@ -560,7 +722,10 @@
           "default": "10.0.0.0",
           "required": true,
           "validate": "ipv4",
-          "example": "10.0.0.0"
+          "example": "10.0.0.0",
+          "type": "ip",
+          "description": "管理平台允许访问的源网段（permitted-ip 白名单），限制谁能访问设备管理面；改前确认当前管理机来源网段在名单内，否则当场失联",
+          "desc_pending": true
         },
         {
           "name": "mgmt_prefix",
@@ -568,7 +733,11 @@
           "default": "24",
           "required": true,
           "validate": "int:0-32",
-          "example": "24"
+          "example": "24",
+          "type": "int",
+          "range": "0-32",
+          "description": "管理源网段前缀长度，与 mgmt_net 配套；写窄会漏掉跳板机网段",
+          "desc_pending": true
         },
         {
           "name": "ssh_port",
@@ -576,7 +745,11 @@
           "default": "22",
           "required": false,
           "validate": "int:1-65535",
-          "example": "22，建议改非标端口"
+          "example": "22，建议改非标端口",
+          "type": "int",
+          "range": "1-65535",
+          "description": "SSH 管理端口（默认 22），改为非标端口可减少扫描骚扰；改前先放行新端口（防火墙/安全策略），否则把自己锁在门外",
+          "desc_pending": true
         },
         {
           "name": "hostname",
@@ -584,7 +757,10 @@
           "default": "FW-EDGE-01",
           "required": false,
           "validate": "",
-          "example": "FW-EDGE-01"
+          "example": "FW-EDGE-01",
+          "type": "string",
+          "description": "设备主机名，标识作用不影响转发；修改后提示符与日志来源同步变化，网管侧如按主机名建资产需同步更新",
+          "desc_pending": true
         }
       ],
       "notes": "1) set mgt-config users X password 是交互式命令：粘贴脚本会停在 \"Enter password:\" —— 现场手工敲。\n   想在脚本里一次配好，可用 password-hash 方式（先在界面/设备上设好再导出配置复用）。\n2) permitted-ip 是\"管理面白名单\"，配了就只允许该网段访问管理接口；\n   配置前务必确认自己在白名单网段内，否则会把自己锁在外面。\n3) 角色权限用 permissions role-based superuser yes；更细的可用自定义 role。\n4) 改 port 或 permitted-ip 前，先留一个已连通的会话，改完立即用新方式验证。",
@@ -613,7 +789,10 @@
           "default": "netadmin",
           "required": true,
           "validate": "",
-          "example": "netadmin"
+          "example": "netadmin",
+          "type": "string",
+          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号",
+          "desc_pending": true
         },
         {
           "name": "min_len",
@@ -621,7 +800,11 @@
           "default": "12",
           "required": false,
           "validate": "int:8-15",
-          "example": "8-15"
+          "example": "8-15",
+          "type": "int",
+          "range": "8-15",
+          "description": "口令最小长度，常见 8-12 位；配合复杂度策略（数字/特殊字符下限）使用",
+          "desc_pending": true
         },
         {
           "name": "min_numeric",
@@ -629,7 +812,11 @@
           "default": "2",
           "required": false,
           "validate": "int:0-15",
-          "example": "2"
+          "example": "2",
+          "type": "int",
+          "range": "0-15",
+          "description": "口令中最少数字字符个数（PaloAlto 复杂度策略），强制混合字符组成",
+          "desc_pending": true
         },
         {
           "name": "min_special",
@@ -637,7 +824,11 @@
           "default": "2",
           "required": false,
           "validate": "int:0-15",
-          "example": "2"
+          "example": "2",
+          "type": "int",
+          "range": "0-15",
+          "description": "口令中最少特殊字符个数（PaloAlto 复杂度策略）",
+          "desc_pending": true
         },
         {
           "name": "history",
@@ -645,7 +836,11 @@
           "default": "12",
           "required": false,
           "validate": "int:0-50",
-          "example": "12"
+          "example": "12",
+          "type": "int",
+          "range": "0-50",
+          "description": "口令历史记忆次数，禁止与最近 N 次口令重复；常见 5 次；配合有效期使用防止『改回旧口令』绕过轮换",
+          "desc_pending": true
         },
         {
           "name": "change_days",
@@ -653,7 +848,11 @@
           "default": "90",
           "required": false,
           "validate": "int:0-365",
-          "example": "90"
+          "example": "90",
+          "type": "int",
+          "range": "0-365",
+          "description": "口令有效期（天），超过后系统强制改密；常见 90 天；设得过短会逼出弱口令习惯，配合到期提前告警（warning_days）使用",
+          "desc_pending": true
         },
         {
           "name": "warning_days",
@@ -661,7 +860,11 @@
           "default": "7",
           "required": false,
           "validate": "int:0-365",
-          "example": "7"
+          "example": "7",
+          "type": "int",
+          "range": "0-365",
+          "description": "口令到期提前告警天数，临近过期登录时提示用户；与 change_days 配套，常见 7-14 天",
+          "desc_pending": true
         }
       ],
       "notes": "1) 改口令必须交互输入，脚本粘贴会卡在 \"Enter password:\"；现场手工敲，或从界面改。\n2) PAN-OS 的 console / HTTPS / SSH 共用同一套管理员账号，改一处全套生效。\n3) 忘记 admin 口令的恢复：通过 console 在维护模式（Maintenance Recovery）重置，\n   需要重启并现场操作，属破坏性操作。\n4) 安全基线：minimum-length ≥12、必须有数字与特殊字符、有效期 ≤90 天、开启历史记录。",
@@ -690,7 +893,10 @@
           "default": "RO@Public1",
           "required": true,
           "validate": "",
-          "example": "RO@Public1"
+          "example": "RO@Public1",
+          "type": "string",
+          "description": "SNMP 只读团体字，等同口令——网管凭它采集设备数据；禁用 public 等弱值并限定来源；只读为主，写权限单独管理",
+          "desc_pending": true
         },
         {
           "name": "nms_ip",
@@ -698,7 +904,10 @@
           "default": "10.0.0.100",
           "required": true,
           "validate": "ipv4",
-          "example": "10.0.0.100"
+          "example": "10.0.0.100",
+          "type": "ip",
+          "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明",
+          "desc_pending": true
         }
       ],
       "notes": "1) permitted-ip 必须配，不配等于对全网开放 SNMP，安全审计必查。\n2) 团体字别用 public/private；建议与其它设备区分，避免一处泄露全网受影响。\n3) Trap 的 community-string 要与接收端一致，否则网管收不到告警。\n4) 更安全的做法是用 SNMPv3（set deviceconfig system snmp-setting access-setting version v3 ...），\n   需要配 usm-users 与认证/加密口令。",
@@ -727,7 +936,10 @@
           "default": "FW-EDGE-01-20260920.xml",
           "required": true,
           "validate": "",
-          "example": "FW-EDGE-01-20260920.xml"
+          "example": "FW-EDGE-01-20260920.xml",
+          "type": "string",
+          "description": "配置/镜像备份在本地（flash/USB）的保存文件名；仅本机留痕，建议再 execute backup 到 TFTP 异机一份防单点",
+          "desc_pending": true
         }
       ],
       "notes": "1) PAN-OS 每次 commit 都会自动生成一个版本快照，误改后可以 load config version <版本号> 回滚。\n2) save config to <文件名> 是导出到设备本地；要取回本机需在界面上\n   Device → Setup → Operations → Export 或用 SCP 拉取（隔离网络下建议存本地归档）。\n3) 变更前先在界面做一次 \"Save named configuration snapshot\"，命名带变更单号，回滚最方便。\n4) load config 会覆盖当前运行配置，执行前确认没有其他人正在操作设备。",
@@ -756,7 +968,10 @@
           "default": "",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.66.10"
+          "example": "192.168.66.10",
+          "type": "ip",
+          "description": "设备侧 DNS 服务器地址，用于域名解析（ping 域名、日志主机名反查）；须网络可达；改动立即生效",
+          "desc_pending": true
         },
         {
           "name": "test_domain",
@@ -764,7 +979,10 @@
           "default": "",
           "required": true,
           "validate": "",
-          "example": "gw.corp.local"
+          "example": "gw.corp.local",
+          "type": "string",
+          "description": "DNS/连通性测试域名，ping 它通 = 网络+解析都正常；不通时分层排查（先 IP 后域名）",
+          "desc_pending": true
         }
       ],
       "notes": "1) Web 路径：Device → Setup → Services → Services → DNS Servers，Primary 填内网 DNS——CLI/Web 二选一，结果一致。\n2) PAN-OS 的 set 改动必须 commit 才生效；多条变更可攒一次 commit。\n3) ping host 是 PAN-OS 固定语法（裸 ping 不带 host 关键字会报错），与 IOS/VRP 习惯不同。\n验证方法：show deviceconfig system dns-setting 核对 primary + ping host test_domain，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -793,7 +1011,10 @@
           "default": "",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.66.10"
+          "example": "192.168.66.10",
+          "type": "ip",
+          "description": "NTP 时间源地址，统一设备时钟；时间漂移会导致证书校验失败、日志排序混乱；须网络可达，内网建议指向专用 NTP",
+          "desc_pending": true
         }
       ],
       "notes": "1) Web 路径：Device → Setup → Services → NTP；CLI set 后必须 commit。\n2) show ntp 的 SYNCHRONIZED 才是同步成功；首次同步可能要几分钟。\n3) 备用 NTP：secondary-ntp 同结构追加。\n验证方法：show ntp 显示 SYNCHRONIZED + show system info 时间准确，收敛后 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -823,7 +1044,10 @@
           "required": true,
           "required_note": "",
           "validate": "ipv4",
-          "example": "192.168.66.20"
+          "example": "192.168.66.20",
+          "type": "ip",
+          "description": "TFTP/SFTP 备份服务器地址，配置与镜像的异地留痕去向；升级/回滚前先从设备 ping 通确认可达；注意该地址可能出现在配置明文中",
+          "desc_pending": true
         }
       ],
       "notes": "1) ★ 危险点（变更窗口/回滚点/带外通道三要素先行）：install + reboot 两段式，中间不可断电；PAN-OS 自带旧版本分区（软件管理页可切换回退），回滚点天然存在。\n2) 升级前确认 content/威胁库版本与目标 PAN-OS 兼容；跨大版本按官方升级路径逐级升。\n3) 离网环境：官方站点下载 .tar 离线包，Web（Device → Software）上传安装更直接。\n4) <目标版本号> 按实际替换（如 10.2.9）。\n验证方法：升级后 show system info sw-version 新版本 + Web 登录 + 策略抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -852,7 +1076,10 @@
           "default": "",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.100"
+          "example": "192.168.10.100",
+          "type": "ip",
+          "description": "会话/调试过滤的目标 IP（FortiGate/PaloAlto 诊断命令），缩小排障范围；仅诊断用途不影响配置",
+          "desc_pending": true
         }
       ],
       "notes": "1) session all 输出里看 rule 字段 = 命中的策略名；action: deny 即被拒；无会话 = 流量没到设备或路由不可达（先 show routing route）。\n2) show running security-policy 是 commit 后的生效序，与 Web 里候选配置区分；策略从上到下第一条命中即止。\n3) 会话有但业务不通：查 return session（反向会话）与 server-profile/NAT 转换是否对称。\n验证方法：对已知通/不通 IP 各跑一遍，会话 rule 与 action 可复现；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -881,7 +1108,10 @@
           "default": "",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.100"
+          "example": "192.168.10.100",
+          "type": "ip",
+          "description": "会话/调试过滤的目标 IP（FortiGate/PaloAlto 诊断命令），缩小排障范围；仅诊断用途不影响配置",
+          "desc_pending": true
         }
       ],
       "notes": "1) 映射不通三查：nat-policy 里规则是否命中（rule 字段）、destination-xlated 是否为预期内网服务器、安全策略放行的是转换前还是转换后地址（PAN-OS 安全策略按\"转换后\"目的地址匹配，这是与其他厂商最大的差异点）。\n2) 无会话先查路由与 zone。\n验证方法：外部实测端口 + 会话 xlate 字段与 NAT 规则三方一致即通过；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",

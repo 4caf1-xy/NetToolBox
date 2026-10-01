@@ -422,39 +422,24 @@ def validate_seed(db_path=None):
             problems.append("%s：commands 含『待真机核对』但 exec_level 未标 skeleton" % title)
 
         specs = renderer.merge_param_specs(database.load_params(entry), entry.get("commands"))
-        declared = set(s.get("name") for s in database.load_params(entry))
-        # 参数规格合法性 + 默认值必须通过自身校验
+
+        # 参数对账 + 结构化 params 校验（schema 升级 2026-09-30）：
+        #   ERROR：占位引用未定义 / 结构化字段缺失非法 / default 违反 type-choices-range
+        #          / 新条目（无 desc_pending 标记）description 为空
+        #   WARNING（进 unused 列表，不阻塞）：定义未引用 / 迁移期 desc_pending 描述待补
+        #   与 AI 入库钩子共用 renderer.check_entry_params 同一口径，避免规则漂移
+        p_problems, p_warnings = renderer.check_entry_params(entry)
+        for item in p_problems:
+            problems.append("%s：%s" % (title, item))
+        for item in p_warnings:
+            unused.append("%s：%s" % (title, item))
+
+        # 端口展开参数：默认值必须能按厂商规则展开（对账函数不含此项）
         for spec in specs:
-            rule = (spec.get("validate") or "").strip()
-            known = (rule == "" or rule in ("vlan", "ipv4", "ip", "masklen", "mask", "port",
-                                            "port_range", "ifname", "nic", "path", "file")
-                     or rule.startswith(("int:", "enum:", "regex:")))
-            if not known:
-                problems.append("%s：参数 %s 的校验规则无法识别（%s）" % (title, spec["name"], rule))
-            # 必填且无默认值的参数（审计 P2 整改后的口令类标准形态）：
-            # 默认值留空是有意为之 —— 由 UI 表单强制现场输入，跳过默认值校验
-            if spec.get("required") and not str(spec.get("default") or "").strip():
-                pass
-            else:
-                passed, msg = renderer.validate_value(spec, spec.get("default"))
-                if not passed:
-                    problems.append("%s：参数 %s 的默认值不合法（%s）" % (title, spec["name"], msg))
             if spec.get("expand") == "port" and spec.get("default"):
                 col, names, err = renderer.expand_port_range(spec["default"], entry.get("vendor"))
                 if not names:
                     problems.append("%s：参数 %s 端口展开失败（%s）" % (title, spec["name"], err))
-
-        # 命令里的占位必须都在 params 里显式声明过（最常见的笔误：占位名与参数名不一致）
-        for item in renderer.extract_params(entry.get("commands")):
-            if item["name"] not in declared:
-                problems.append("%s：命令里的 {{%s}} 没有在 params 中声明"
-                                % (title, item["name"]))
-
-        # 声明了但命令里没用到的参数（不影响渲染，只提示，便于清理）
-        used = set(p["name"] for p in renderer.extract_params(entry.get("commands")))
-        for name in sorted(declared - used):
-            if name:
-                unused.append("%s：参数 %s 已声明但命令里未使用" % (title, name))
 
         # 渲染：带默认值渲染后不应残留未填占位
         # （必填参数留空默认值是 P2 整改后的合法形态，由 UI 表单强制输入，不计入缺失）
@@ -652,9 +637,11 @@ def validate_seed(db_path=None):
 
     print("-" * 66)
     if unused:
-        print("提示：%d 个参数已声明但命令里未使用（不影响使用，建议清理）" % len(unused))
+        print("[W] 参数 WARNING %d 处（定义未引用 / 迁移期描述待补，不阻塞打包）：" % len(unused))
         for item in unused[:10]:
             print("   - " + item)
+        if len(unused) > 10:
+            print("   … 其余 %d 处" % (len(unused) - 10))
     if tree_notes:
         print("提示：排查树数据覆盖度 %d 处待完善（不阻塞打包，建议逐条补条目或细化引用）："
               % len(tree_notes))

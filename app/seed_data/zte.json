@@ -26,7 +26,10 @@
           "default": "10",
           "required": true,
           "validate": "vlan",
-          "example": "10"
+          "example": "10",
+          "type": "string",
+          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务",
+          "desc_pending": true
         },
         {
           "name": "vlan_name",
@@ -34,7 +37,10 @@
           "default": "OFFICE",
           "required": false,
           "validate": "",
-          "example": "OFFICE"
+          "example": "OFFICE",
+          "type": "string",
+          "description": "VLAN 名称，二层辨识用途；建议按业务语义命名（如 OA_BIZ），纯展示不影响转发",
+          "desc_pending": true
         },
         {
           "name": "port",
@@ -42,7 +48,10 @@
           "default": "gei_1/1",
           "required": true,
           "validate": "port",
-          "example": "gei_1/1"
+          "example": "gei_1/1",
+          "type": "string",
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
+          "desc_pending": true
         }
       ],
       "notes": "1) ZXR10 接口名形如 gei_1/1（千兆以太网），三段式（gei_1/1/1）在机框式设备上常见，\n   以 show interface 的实际提示为准。\n2) ZXR10 命令体系接近 Cisco（enable / configure terminal / interface / exit），\n   但不同 ROS 版本差异较大，上机前建议先用 ? 确认命令是否存在。\n3) 保存命令为 write（部分版本可用 write memory / save），执行后用 show startup-config 核对。\n4) 批量配口可尝试 interface range（部分型号支持），不支持则逐口配。\n5) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
@@ -71,7 +80,10 @@
           "default": "gei_1/24",
           "required": true,
           "validate": "port",
-          "example": "gei_1/24"
+          "example": "gei_1/24",
+          "type": "string",
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
+          "desc_pending": true
         },
         {
           "name": "vlan_list",
@@ -79,7 +91,10 @@
           "default": "10,20,30",
           "required": true,
           "validate": "",
-          "example": "10,20,30 或 10-20"
+          "example": "10,20,30 或 10-20",
+          "type": "string",
+          "description": "Trunk 放行 VLAN 列表（如 10,20,30-40），控制哪些 VLAN 流量可通过该链路；漏放行业务 VLAN 会当场断流，改动立即生效",
+          "desc_pending": true
         },
         {
           "name": "pvid",
@@ -87,7 +102,10 @@
           "default": "1",
           "required": false,
           "validate": "vlan",
-          "example": "1"
+          "example": "1",
+          "type": "string",
+          "description": "Trunk 口 PVID（untagged VLAN），决定无标签流量归入哪个 VLAN；两端 PVID 不一致会导致原生态流量进错 VLAN 丢失",
+          "desc_pending": true
         }
       ],
       "notes": "1) 部分 ZXR10 版本用 switchport trunk vlan <列表>（不带 allowed），以 ? 提示为准；\n   两者语义相同，只是关键字差异。\n2) 放通全部用 switchport trunk vlan all（慎用）。\n3) native VLAN 两端必须一致，否则会出现跨 VLAN 串流或协议报文异常。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
@@ -116,7 +134,10 @@
           "default": "192.168.20.0",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.20.0"
+          "example": "192.168.20.0",
+          "type": "ip",
+          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略",
+          "desc_pending": true
         },
         {
           "name": "mask",
@@ -124,7 +145,10 @@
           "default": "255.255.255.0",
           "required": true,
           "validate": "masklen",
-          "example": "24 或 255.255.255.0"
+          "example": "24 或 255.255.255.0",
+          "type": "string",
+          "description": "静态路由的点分十进制掩码，与 dest_net 圈定路由前缀；掩码写宽会吞掉相邻网段的路由匹配",
+          "desc_pending": true
         },
         {
           "name": "next_hop",
@@ -132,7 +156,10 @@
           "default": "10.0.0.2",
           "required": true,
           "validate": "ipv4",
-          "example": "10.0.0.2"
+          "example": "10.0.0.2",
+          "type": "ip",
+          "description": "下一跳 IP，路由/策略转发的去向；必须是本机直连可达地址，写错路由成『黑洞』",
+          "desc_pending": true
         },
         {
           "name": "backup_hop",
@@ -140,7 +167,10 @@
           "default": "10.0.0.3",
           "required": false,
           "validate": "ipv4",
-          "example": "10.0.0.3"
+          "example": "10.0.0.3",
+          "type": "ip",
+          "description": "浮动静态路由的备份下一跳，主路径失效后才接管转发；其管理距离/优先级必须大于主路由；须保证与本端直连可达",
+          "desc_pending": true
         },
         {
           "name": "distance",
@@ -148,7 +178,11 @@
           "default": "200",
           "required": false,
           "validate": "int:1-255",
-          "example": "默认 1，备份用 200"
+          "example": "默认 1，备份用 200",
+          "type": "int",
+          "range": "1-255",
+          "description": "路由管理距离（FortiGate/锐捷/中兴），数值越小该路由越优先；浮动备份路由靠把备份侧 distance 调大实现主备切换",
+          "desc_pending": true
         }
       ],
       "notes": "1) 与 Cisco 语法一致：ip route <网段> <掩码> <下一跳> [距离]。\n2) 三层交换机做转发前确认已开启路由功能（部分型号需 ip routing）。\n3) show ip route 中静态路由标记为 S，缺省路由为 S*，排查时先看这两行。\n4) 掩码用点分写法（255.255.255.0）；若要用前缀长度写法，需按版本确认是否支持。",
@@ -177,7 +211,11 @@
           "default": "1",
           "required": true,
           "validate": "int:1-65535",
-          "example": "1"
+          "example": "1",
+          "type": "int",
+          "range": "1-65535",
+          "description": "OSPF 进程号（仅本机有效），标识一个 OSPF 实例；两端进程号可以不同，但网段/区域/认证必须匹配",
+          "desc_pending": true
         },
         {
           "name": "router_id",
@@ -185,7 +223,10 @@
           "default": "7.7.7.7",
           "required": true,
           "validate": "ipv4",
-          "example": "7.7.7.7"
+          "example": "7.7.7.7",
+          "type": "ip",
+          "description": "OSPF Router ID（IPv4 格式），区域内唯一标识本路由器；重复会引发邻居震荡与路由抖动，建议用 loopback 接口地址",
+          "desc_pending": true
         },
         {
           "name": "network",
@@ -193,7 +234,10 @@
           "default": "10.0.0.0",
           "required": true,
           "validate": "ipv4",
-          "example": "10.0.0.0"
+          "example": "10.0.0.0",
+          "type": "ip",
+          "description": "OSPF 宣告网段，匹配哪些接口参与 OSPF 进程；与 wildcard 配套使用；宣告漏了/错了邻居和路由直接缺失",
+          "desc_pending": true
         },
         {
           "name": "wildcard",
@@ -201,7 +245,10 @@
           "default": "0.0.0.255",
           "required": true,
           "validate": "masklen",
-          "example": "0.0.0.255"
+          "example": "0.0.0.255",
+          "type": "string",
+          "description": "OSPF/ACL 反掩码（wildcard），0 位精确匹配、1 位任意；0.0.0.255 对应 /24；写错宣告/匹配范围不对",
+          "desc_pending": true
         },
         {
           "name": "area_id",
@@ -209,7 +256,10 @@
           "default": "0",
           "required": false,
           "validate": "",
-          "example": "0 或 0.0.0.1"
+          "example": "0 或 0.0.0.1",
+          "type": "string",
+          "description": "OSPF 区域 ID，控制该网段归属哪个 OSPF 区域；骨干区域固定 0.0.0.0，非骨干区域须与骨干直连（或虚链路）；填错邻居起不来、路由学不到",
+          "desc_pending": true
         },
         {
           "name": "passive_port",
@@ -217,7 +267,10 @@
           "default": "gei_1/1",
           "required": false,
           "validate": "port",
-          "example": "gei_1/1"
+          "example": "gei_1/1",
+          "type": "string",
+          "description": "OSPF 被动接口（锐捷/中兴写法），同被动接口语义；上联口须 no passive 恢复建邻",
+          "desc_pending": true
         }
       ],
       "notes": "1) ZXR10 的 OSPF 与 Cisco 结构一致（进程 → network + area），改造成本低。\n2) network 用反掩码；router-id 建议显式指定，否则取接口地址，链路抖动会重建邻居。\n3) 被动接口写法在部分版本为 passive-interface <接口名>，也可能只支持在接口下配，\n   上机时用 ? 确认。",
@@ -246,7 +299,11 @@
           "default": "100",
           "required": true,
           "validate": "int:1-199",
-          "example": "ZXR10 通常 1-99 标准、100-199 扩展"
+          "example": "ZXR10 通常 1-99 标准、100-199 扩展",
+          "type": "int",
+          "range": "1-199",
+          "description": "ACL 编号，标识一条访问控制列表；Cisco 1-99 为标准 IP ACL、100-199 为扩展 IP ACL，华为/H3C 段位含义类似；改动后立即影响命中流量，nat outbound 等引用处需同步核对",
+          "desc_pending": true
         },
         {
           "name": "src_net",
@@ -254,7 +311,10 @@
           "default": "192.168.10.0",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.0"
+          "example": "192.168.10.0",
+          "type": "ip",
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
+          "desc_pending": true
         },
         {
           "name": "src_wild",
@@ -262,7 +322,10 @@
           "default": "0.0.0.255",
           "required": true,
           "validate": "masklen",
-          "example": "0.0.0.255"
+          "example": "0.0.0.255",
+          "type": "string",
+          "description": "源网段反掩码（wildcard mask），0 位精确匹配、1 位任意；与掩码写法相反（0.0.0.255 对应 /24）",
+          "desc_pending": true
         },
         {
           "name": "dst_net",
@@ -270,7 +333,10 @@
           "default": "10.10.0.0",
           "required": true,
           "validate": "ipv4",
-          "example": "10.10.0.0"
+          "example": "10.10.0.0",
+          "type": "ip",
+          "description": "目的网段（ACL/防火墙策略匹配字段），0.0.0.0/0 表示任意目的；与反掩码/前缀长度配套使用；范围写宽会扩大放行面",
+          "desc_pending": true
         },
         {
           "name": "dst_wild",
@@ -278,7 +344,10 @@
           "default": "0.0.255.255",
           "required": true,
           "validate": "masklen",
-          "example": "0.0.255.255"
+          "example": "0.0.255.255",
+          "type": "string",
+          "description": "目的网段反掩码（wildcard mask），0 位精确匹配、1 位任意；与子网掩码写法相反（0.0.0.255 对应 /24），写错匹配范围全错",
+          "desc_pending": true
         },
         {
           "name": "port",
@@ -286,7 +355,10 @@
           "default": "gei_1/1",
           "required": true,
           "validate": "port",
-          "example": "gei_1/1"
+          "example": "gei_1/1",
+          "type": "string",
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
+          "desc_pending": true
         }
       ],
       "notes": "1) ZXR10 用 acl standard number / acl extend number <编号> 建 ACL，\n   编号段与 Cisco 类似但具体范围需按版本确认（常见 1-99 标准、100-199 扩展）。\n2) 规则用 rule <序号> 定义，序号小的先匹配，末尾隐含拒绝。\n3) 应用到接口用 ip access-group <编号> in/out。\n4) show acl 看规则与命中计数，改完务必核对是否真的生效。",
@@ -315,7 +387,10 @@
           "default": "gei_1/1",
           "required": true,
           "validate": "port",
-          "example": "gei_1/1"
+          "example": "gei_1/1",
+          "type": "string",
+          "description": "内网侧接口名或映射端口号，DNAT 流量的内部接收方向；写错映射不生效",
+          "desc_pending": true
         },
         {
           "name": "inside_ip",
@@ -323,7 +398,10 @@
           "default": "192.168.1.1",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.1.1"
+          "example": "192.168.1.1",
+          "type": "ip",
+          "description": "NAT 映射的内网真实 IP（被发布服务器的地址），DNAT 后流量的真正去向；填错把外部流量引到错误主机",
+          "desc_pending": true
         },
         {
           "name": "inside_mask",
@@ -331,7 +409,10 @@
           "default": "255.255.255.0",
           "required": true,
           "validate": "masklen",
-          "example": "255.255.255.0"
+          "example": "255.255.255.0",
+          "type": "string",
+          "description": "内网接口的子网掩码，决定 inside 接口网段范围；须与内网地址规划一致",
+          "desc_pending": true
         },
         {
           "name": "outside_port",
@@ -339,7 +420,10 @@
           "default": "gei_1/2",
           "required": true,
           "validate": "port",
-          "example": "gei_1/2"
+          "example": "gei_1/2",
+          "type": "string",
+          "description": "外网侧接口名，NAT outside 方向的接口绑定；内外口方向标反 NAT 完全不生效",
+          "desc_pending": true
         },
         {
           "name": "outside_ip",
@@ -347,7 +431,10 @@
           "default": "200.1.1.2",
           "required": true,
           "validate": "ipv4",
-          "example": "200.1.1.2"
+          "example": "200.1.1.2",
+          "type": "ip",
+          "description": "外网口 IP，NAT 转换后对外呈现的地址所在接口；须与上联网段规划一致且未被占用",
+          "desc_pending": true
         },
         {
           "name": "outside_mask",
@@ -355,7 +442,10 @@
           "default": "255.255.255.0",
           "required": true,
           "validate": "masklen",
-          "example": "255.255.255.0"
+          "example": "255.255.255.0",
+          "type": "string",
+          "description": "外网口子网掩码，与 outside_ip 配套",
+          "desc_pending": true
         },
         {
           "name": "src_net",
@@ -363,7 +453,10 @@
           "default": "192.168.10.0",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.10.0"
+          "example": "192.168.10.0",
+          "type": "ip",
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
+          "desc_pending": true
         },
         {
           "name": "src_wild",
@@ -371,7 +464,10 @@
           "default": "0.0.0.255",
           "required": true,
           "validate": "masklen",
-          "example": "0.0.0.255"
+          "example": "0.0.0.255",
+          "type": "string",
+          "description": "源网段反掩码（wildcard mask），0 位精确匹配、1 位任意；与掩码写法相反（0.0.0.255 对应 /24）",
+          "desc_pending": true
         },
         {
           "name": "acl_number",
@@ -379,7 +475,11 @@
           "default": "1",
           "required": true,
           "validate": "int:1-99",
-          "example": "1-99"
+          "example": "1-99",
+          "type": "int",
+          "range": "1-99",
+          "description": "ACL 编号，标识一条访问控制列表；Cisco 1-99 为标准 IP ACL、100-199 为扩展 IP ACL，华为/H3C 段位含义类似；改动后立即影响命中流量，nat outbound 等引用处需同步核对",
+          "desc_pending": true
         },
         {
           "name": "inside_server",
@@ -387,7 +487,10 @@
           "default": "192.168.1.100",
           "required": false,
           "validate": "ipv4",
-          "example": "192.168.1.100"
+          "example": "192.168.1.100",
+          "type": "ip",
+          "description": "内网服务器真实 IP（NAT 发布的后端），对外映射的源地址；该主机须可达且服务在监听，否则映射是『空转』",
+          "desc_pending": true
         },
         {
           "name": "public_ip",
@@ -395,7 +498,10 @@
           "default": "200.1.1.3",
           "required": false,
           "validate": "ipv4",
-          "example": "200.1.1.3"
+          "example": "200.1.1.3",
+          "type": "ip",
+          "description": "对外发布的公网/映射 IP，NAT 后外部访问的地址；须在上联口网段内且未被占用，冲突会绑定失败",
+          "desc_pending": true
         }
       ],
       "notes": "1) NAT 语法与 Cisco 一致（ip nat inside/outside + source list ... overload），\n   但只有带 NAT 功能的 ZXR10 型号支持，上机前确认产品形态。\n2) inside/outside 标错接口是 NAT 不生效的头号原因，先用 show ip nat statistics 看命中。\n3) 部分版本用 nat 而非 ip nat 关键字，按 ? 提示调整。",
@@ -424,7 +530,10 @@
           "default": "SW-CORE-01",
           "required": false,
           "validate": "",
-          "example": "SW-CORE-01"
+          "example": "SW-CORE-01",
+          "type": "string",
+          "description": "设备主机名，标识作用不影响转发；修改后提示符与日志来源同步变化，网管侧如按主机名建资产需同步更新",
+          "desc_pending": true
         },
         {
           "name": "domain",
@@ -432,7 +541,10 @@
           "default": "corp.local",
           "required": true,
           "validate": "",
-          "example": "corp.local"
+          "example": "corp.local",
+          "type": "string",
+          "description": "设备域名后缀（ip domain-name / domain-name），用于 DNS 解析补全与 SSH RSA 密钥生成；改后提示符与解析习惯同步变化",
+          "desc_pending": true
         },
         {
           "name": "username",
@@ -440,7 +552,10 @@
           "default": "netadmin",
           "required": true,
           "validate": "",
-          "example": "netadmin"
+          "example": "netadmin",
+          "type": "string",
+          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号",
+          "desc_pending": true
         },
         {
           "name": "password",
@@ -448,7 +563,10 @@
           "default": "",
           "required": true,
           "validate": "",
-          "example": "现场生成：>=12位，含大小写/数字/符号"
+          "example": "现场生成：>=12位，含大小写/数字/符号",
+          "type": "string",
+          "description": "账号登录口令，认证凭据；配置中可能明文/弱加密存储，导出配置时必须脱敏；遵循强口令并定期轮换",
+          "desc_pending": true
         },
         {
           "name": "timeout_min",
@@ -456,7 +574,11 @@
           "default": "10",
           "required": false,
           "validate": "int:0-35791",
-          "example": "10"
+          "example": "10",
+          "type": "int",
+          "range": "0-35791",
+          "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险",
+          "desc_pending": true
         }
       ],
       "notes": "1) 生成 RSA 密钥前必须有 hostname 与 ip domain-name，否则报错。\n2) crypto key generate rsa 在部分版本是交互式（提示输入模数），脚本会停在提示符上，\n   需手工输入 2048 后继续。\n3) transport input ssh 会关掉 Telnet，改之前务必留一个已连通的 SSH 会话。\n4) 特权级别写法与 Cisco 一致（privilege 15）；部分版本用 user privilege level 15。\n5) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
@@ -485,7 +607,10 @@
           "default": "C0nsole@123",
           "required": true,
           "validate": "",
-          "example": "C0nsole@123"
+          "example": "C0nsole@123",
+          "type": "string",
+          "description": "Console 串口登录口令，控制带外接入认证；是网络故障时的最后生命线，遗忘只能走 recovery 流程；配置后立即生效",
+          "desc_pending": true
         },
         {
           "name": "enable_secret",
@@ -493,7 +618,10 @@
           "default": "En@ble@12345",
           "required": true,
           "validate": "",
-          "example": "En@ble@12345"
+          "example": "En@ble@12345",
+          "type": "string",
+          "description": "特权模式（enable）口令，加密存储于配置；控制进入最高权限级的入口，务必强口令并定期轮换",
+          "desc_pending": true
         },
         {
           "name": "timeout_min",
@@ -501,7 +629,11 @@
           "default": "10",
           "required": false,
           "validate": "int:0-35791",
-          "example": "10"
+          "example": "10",
+          "type": "int",
+          "range": "0-35791",
+          "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险",
+          "desc_pending": true
         }
       ],
       "notes": "1) 与 Cisco 一致：enable secret 优先于 enable password 且加密存储，新设备只用 secret。\n2) console 下只写 login 用 line password（权限 1）；要直进特权 15 用 login local + 本地用户。\n3) 部分版本 line console 提示符为 line console 0 或 console 0，按 ? 确认。",
@@ -530,7 +662,10 @@
           "default": "RO@Public1",
           "required": true,
           "validate": "",
-          "example": "RO@Public1"
+          "example": "RO@Public1",
+          "type": "string",
+          "description": "SNMP 只读团体字，等同口令——网管凭它采集设备数据；禁用 public 等弱值并限定来源；只读为主，写权限单独管理",
+          "desc_pending": true
         },
         {
           "name": "rw_community",
@@ -538,7 +673,10 @@
           "default": "RW@Public1",
           "required": true,
           "validate": "",
-          "example": "RW@Public1"
+          "example": "RW@Public1",
+          "type": "string",
+          "description": "SNMP 读写团体字——持有即可远程修改设备配置，权限极高；仅必要时配置，务必限定来源网段并使用强值",
+          "desc_pending": true
         },
         {
           "name": "location",
@@ -546,7 +684,10 @@
           "default": "IDC-A-机柜12",
           "required": false,
           "validate": "",
-          "example": "IDC-A-机柜12"
+          "example": "IDC-A-机柜12",
+          "type": "string",
+          "description": "SNMP 系统位置（sysLocation）字段，标明设备物理位置（机房/机柜/U 位），告警现场定位依据；纯展示不影响功能",
+          "desc_pending": true
         },
         {
           "name": "contact",
@@ -554,7 +695,10 @@
           "default": "网络运维组",
           "required": false,
           "validate": "",
-          "example": "网络运维组"
+          "example": "网络运维组",
+          "type": "string",
+          "description": "SNMP 系统联系人（sysContact）字段，网管告警时定位责任人的依据；纯展示不影响功能",
+          "desc_pending": true
         },
         {
           "name": "nms_ip",
@@ -562,7 +706,10 @@
           "default": "10.0.0.100",
           "required": true,
           "validate": "ipv4",
-          "example": "10.0.0.100"
+          "example": "10.0.0.100",
+          "type": "ip",
+          "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明",
+          "desc_pending": true
         }
       ],
       "notes": "1) 不同 ROS 版本 snmp-server host 的参数顺序差异较大（trap/version/团体字位置），\n   报错时按 ? 逐项确认。\n2) 只用采集时给 ro 即可；rw 有被下发配置的风险，用完及时删除。\n3) 团体字别用 public/private，安全审计会判违规。",
@@ -591,7 +738,10 @@
           "default": "20260920",
           "required": false,
           "validate": "",
-          "example": "20260920 或变更单号"
+          "example": "20260920 或变更单号",
+          "type": "string",
+          "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本",
+          "desc_pending": true
         }
       ],
       "notes": "1) ZXR10 保存用 write（等效 write memory）；部分版本为 save，按 ? 确认。\n2) 隔离网络不要用 TFTP 方式备份，直接存 flash: 最稳。\n3) flash 路径可能是 flash:/ 或 cfg/，先用 dir 看现有文件再决定路径。",
@@ -620,7 +770,10 @@
           "default": "",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.66.10"
+          "example": "192.168.66.10",
+          "type": "ip",
+          "description": "设备侧 DNS 服务器地址，用于域名解析（ping 域名、日志主机名反查）；须网络可达；改动立即生效",
+          "desc_pending": true
         },
         {
           "name": "test_domain",
@@ -628,7 +781,10 @@
           "default": "",
           "required": true,
           "validate": "",
-          "example": "gw.corp.local"
+          "example": "gw.corp.local",
+          "type": "string",
+          "description": "DNS/连通性测试域名，ping 它通 = 网络+解析都正常；不通时分层排查（先 IP 后域名）",
+          "desc_pending": true
         }
       ],
       "notes": "1) ZXR10 ROS 各版本查看 DNS 配置的命令差异较大：新版本支持 show ip name-server；老版本用 show running-config 后人工找 name-server 行，现场以 ? 为准。\n2) ip name-server 与 IOS 同源写法；ping 域名能解析出 IP 即生效。\n验证方法：show running-config 中核对 name-server 行 + ping test_domain，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -657,7 +813,10 @@
           "default": "",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.66.10"
+          "example": "192.168.66.10",
+          "type": "ip",
+          "description": "NTP 时间源地址，统一设备时钟；时间漂移会导致证书校验失败、日志排序混乱；须网络可达，内网建议指向专用 NTP",
+          "desc_pending": true
         }
       ],
       "notes": "1) ZXR10 ROS 各版本 NTP 命令与查看入口差异较大：show ntp status 不存在时试 show ntp 或 show clock，以 ? 实测为准。\n2) ntp server 为 IOS 系同源写法；同步判据看时钟状态标记 + show clock 与标准时间比对。\n验证方法：show clock 与标准时间一致 + NTP 状态命令按 ? 确认，收敛后 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -687,7 +846,10 @@
           "required": true,
           "required_note": "",
           "validate": "ipv4",
-          "example": "192.168.66.20"
+          "example": "192.168.66.20",
+          "type": "ip",
+          "description": "TFTP/SFTP 备份服务器地址，配置与镜像的异地留痕去向；升级/回滚前先从设备 ping 通确认可达；注意该地址可能出现在配置明文中",
+          "desc_pending": true
         }
       ],
       "notes": "1) ★ 危险点（变更窗口/回滚点/带外通道三要素先行）：含 reboot；ZXR10 ROS 各版本升级命令差异大（copy 语法/启动指定关键字），现场以 ? 为准——本条给流程主干，具体关键字核对后回填。\n2) 回滚点 = 旧版本文件保留 + 记录当前启动指定。\n验证方法：升级后 show version 新版本 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -716,7 +878,10 @@
           "default": "",
           "required": true,
           "validate": "",
-          "example": "confg-bak-20260928.cfg"
+          "example": "confg-bak-20260928.cfg",
+          "type": "string",
+          "description": "备份配置在设备存储中的文件名（如 old-cfg.cfg）；configure replace 会以它整体回滚配置——回滚是全量替换动作，执行前先 diff 确认目标文件内容",
+          "desc_pending": true
         }
       ],
       "notes": "1) ★ 待真机核对：ZXR10 各版本回滚/恢复命令差异大，本条给流程主干，具体关键字以 ? 实测为准后回填。\n2) ★ 回滚前 diff：show running-config 与备份逐段核对；带外通道先确认。\n3) 与《保存配置并备份到本地 flash》分工：保存 = 固化当前，本条 = 回退历史备份。\n验证方法：回滚后 show running-config 复核 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -768,7 +933,10 @@
           "default": "",
           "required": true,
           "validate": "ipv4",
-          "example": "192.168.66.30"
+          "example": "192.168.66.30",
+          "type": "ip",
+          "description": "AAA/RADIUS/TACACS 服务器地址，决定设备把认证/授权/审计请求发往哪台服务器；填内网可达的管理网段 IP；配错将导致所有远程登录认证失败，建议先 ping 通再下发",
+          "desc_pending": true
         },
         {
           "name": "aaa_shared_key",
@@ -776,7 +944,10 @@
           "default": "",
           "required": true,
           "validate": "",
-          "example": "现场生成强密钥"
+          "example": "现场生成强密钥",
+          "type": "string",
+          "description": "AAA 服务器共享密钥，用于设备与服务器间认证报文的加密校验；必须与服务器侧完全一致；配置中可能弱加密存储，导出配置时注意脱敏",
+          "desc_pending": true
         }
       ],
       "notes": "1) ★ 待真机核对：ZXR10 AAA 命令各版本差异大，本条为骨架参照；具体关键字以 ? 实测后回填。\n2) ★ 危险点同 AAA 铁律：先验证后退出，保留 Console。\n3) 本地兜底账号见《开启 SSH 并创建本地用户（ZXR10）》。\n验证方法：域账号登录成功 + 断服务器后本地账号可登录；（验证人/型号/日期验证通过后回填 verified，属下轮真机验证会重点对象）",
