@@ -22,8 +22,11 @@ jobs:
       - name: Compose config validation
         run: docker compose -f lab/docker-compose.yml config -q
 
-      - name: Build and start all services
-        run: docker compose -f lab/docker-compose.yml up -d --build
+      - name: Build images
+        run: docker compose -f lab/docker-compose.yml build --progress=plain
+
+      - name: Start all services
+        run: docker compose -f lab/docker-compose.yml up -d
 
       - name: Wait for all services healthy (up to 5 min)
         run: |
