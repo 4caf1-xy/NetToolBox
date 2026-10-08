@@ -17,6 +17,7 @@
 ## 2. 打包纪律
 
 - 打包统一走 `python scripts/build_exe.py`（产物自动收拢到 `dist_package/`）。
+- **发版 zip 由 CI 挂载**：push `v*` tag 触发 `.github/workflows/release.yml`（windows 构建 → exe/zip 断言 → 出库组装 → 挂 Release：已存在则 `--clobber` 覆盖同名附件，不存在则建 draft 待人核 publish）；本地 `build_exe.py` 构建仅作冒烟验证与 CI 故障时的兜底。
 - **禁止生成 `.stale-*` 目录**——旧版"重命名让位"机制已废除。
 - 脚本现行为：构建前把根 `build/` `dist/` `NetToolBox.spec` rename 成 `.trash-<时间戳>` 让位（瞬时操作，不触发删除拦截）；**构建成功后**自动尝试彻底删除。删除被环境拦截时残留的 `.trash-*` 属正常降级，手动清掉即可。
 - 中间产物恒定落在仓库根 `build/`、`dist/`（均已 gitignore），不得落回 `app/`。

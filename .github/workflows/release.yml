@@ -1,0 +1,117 @@
+name: release
+
+# 触发：push v* tag。与 validate-seed.yml 互不干扰——validate-seed 在 ubuntu 上
+# 快速质检种子（push/PR 均触发），本 workflow 在 windows 上打包，两者不共享任何状态。
+on:
+  push:
+    tags:
+      - 'v*'
+
+# 挂载 Release 需要写权限（上传附件 / 建 draft）
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ── 安全边界 ─────────────────────────────────────────────────────────
+      # CI 只 checkout 公开仓内容：ai_config.json（真实 key）、运行时
+      # command_lib.db / sessions / ai_cases 均被 .gitignore 挡在仓库外，
+      # 构建产物天然无密钥、无真实数据。任何密钥都不应进入本 workflow，
+      # 出库包组装步骤也会断言 zip 内不含敏感/运行时文件（见 Zip package 步骤）。
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyQt5 PyInstaller requests
+
+      - name: Build exe (scripts/build_exe.py)
+        run: python scripts/build_exe.py
+
+      # 断言一：exe 存在且体积合理（实际 ~43MB），防"打了个空壳还照样挂载"
+      - name: Assert exe artifact
+        shell: bash
+        run: |
+          set -e
+          test -s dist_package/NetToolBox.exe || { echo "::error::dist_package/NetToolBox.exe 不存在"; exit 1; }
+          EXE_BYTES=$(stat -c%s dist_package/NetToolBox.exe)
+          echo "exe bytes: $EXE_BYTES"
+          [ "$EXE_BYTES" -gt 10000000 ] || { echo "::error::exe 体积异常（${EXE_BYTES}B < 10MB）"; exit 1; }
+
+      # 组装出库包（与出库纪律一致）：exe + 纯净种子重建 command_lib.db + check_db.py + seed_data/
+      # --validate-seed 失败即中止（CI 侧再过一遍种子质检硬门槛）
+      - name: Assemble staging package
+        shell: bash
+        run: |
+          set -e
+          VER="${GITHUB_REF_NAME#v}"
+          STAGING="staging_v${VER}"
+          mkdir -p "$STAGING/seed_data"
+          cp dist_package/NetToolBox.exe "$STAGING/"
+          cp scripts/check_db.py "$STAGING/"
+          python app/main.py --db "$STAGING/command_lib.db" --validate-seed
+          cp app/seed_data/*.json "$STAGING/seed_data/"
+
+      - name: Zip package
+        shell: python
+        run: |
+          import os, sys, zipfile
+          ver = os.environ["GITHUB_REF_NAME"][1:]          # v0.4.0 -> 0.4.0
+          staging = f"staging_v{ver}"
+          out = f"NetToolBox_v{ver}.zip"
+          paths = []
+          for root, dirs, files in os.walk(staging):
+              for f in sorted(files):
+                  paths.append(os.path.join(root, f))
+          # 内置断言：出库包不得含密钥/运行时文件
+          for p in paths:
+              base = os.path.basename(p).lower()
+              if base == "ai_config.json" or base.endswith((".log", ".nlb")):
+                  sys.exit(f"::error::出库包含敏感/运行时文件：{p}")
+          with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+              for p in paths:
+                  z.write(p, os.path.relpath(p, staging).replace("\\", "/"))
+          print(out, os.path.getsize(out), "bytes,", len(paths), "files")
+
+      # 断言二：zip 存在且体积合理（实际 ~44MB），防"挂了个空包"
+      - name: Assert zip artifact
+        shell: bash
+        run: |
+          set -e
+          VER="${GITHUB_REF_NAME#v}"
+          ZIP="NetToolBox_v${VER}.zip"
+          test -s "$ZIP" || { echo "::error::${ZIP} 不存在或为空"; exit 1; }
+          ZIP_BYTES=$(stat -c%s "$ZIP")
+          echo "zip bytes: $ZIP_BYTES"
+          [ "$ZIP_BYTES" -gt 10000000 ] || { echo "::error::zip 体积异常（${ZIP_BYTES}B < 10MB）"; exit 1; }
+
+      # 挂载策略：该 tag 的 Release 已存在 → upload --clobber 覆盖同名附件；
+      # 不存在 → 建 draft 再挂（保住"人核后 publish"关口）。
+      - name: Attach zip to Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          VER="${GITHUB_REF_NAME#v}"
+          ZIP="NetToolBox_v${VER}.zip"
+          TAG="${GITHUB_REF_NAME}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release 已存在 → upload --clobber"
+            gh release upload "$TAG" "$ZIP" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            echo "Release 不存在 → 建 draft 并挂载"
+            gh release create "$TAG" "$ZIP" --draft \
+              --title "NetToolBox v${VER}" \
+              --notes "CI 自动构建产物，发布说明以 CHANGELOG.md 为准；请人工核对后 publish。" \
+              --repo "$GITHUB_REPOSITORY"
+          fi
