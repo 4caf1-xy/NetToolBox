@@ -62,7 +62,7 @@ def mono_font(size=10):
 # ---------------------------------------------------------------------------
 # 参数表（可视化编辑 params 字段，免手写 JSON）
 # ---------------------------------------------------------------------------
-from theme import repolish, set_state  # 状态标签 / error 属性的动态重polish
+from theme import set_state  # 状态标签 / error 属性的动态重polish
 from theme import TEXT_SECONDARY  # C4 收敛散落色（审计 B18）
 
 class ParamTableWidget(QWidget):

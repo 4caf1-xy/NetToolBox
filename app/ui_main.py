@@ -27,9 +27,9 @@ import datetime
 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import (QColor, QFont, QKeySequence, QSyntaxHighlighter,
-                         QTextCharFormat, QTextCursor, QPainter, QPalette)
+                         QTextCharFormat, QTextCursor)
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QSplitter, QLineEdit, QComboBox, QCheckBox, QPushButton,
+                             QLineEdit, QPushButton,
                              QListWidget, QListWidgetItem, QLabel, QPlainTextEdit,
                              QTreeWidget, QTreeWidgetItem, QTableWidget, QTableWidgetItem,
                              QTabWidget, QMessageBox, QFileDialog, QDialog, QFormLayout,
@@ -49,12 +49,11 @@ from db import (get_base_dir, display_vendor, display_os, display_platform,
 #   ★ 下列名字同时 re-export，ui_editor / ui_generator / ui_troubleshoot
 #     继续 from ui_main import VENDOR_COLORS 不受影响。
 # ---------------------------------------------------------------------------
-from theme import (DARK_QSS,                                   # 全站唯一样式表（main.py 引用）
-                   VENDOR_COLORS, DEFAULT_VENDOR_COLOR, PLATFORM_COLORS,
-                   VERIFIED_COLOR, UNVERIFIED_COLOR, FAVORITE_COLOR,
-                   SEL_BG, ACCENT, SUCCESS, WARNING, DANGER,
+from theme import (VENDOR_COLORS, DEFAULT_VENDOR_COLOR, PLATFORM_COLORS,
+                   VERIFIED_COLOR, UNVERIFIED_COLOR,
+                   ACCENT, SUCCESS, WARNING,
                    CODE_IP_COLOR, CODE_IFACE_COLOR,
-                   BG_WINDOW, BG_PANEL, BG_RAISED, BORDER, BORDER_HOVER,
+                   BORDER_HOVER,
                    TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED,
                    SPACE_XS, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XL,
                    GripSplitter, ThemedComboBox, mono_font,
@@ -152,11 +151,6 @@ def build_text_card(text, tone="info"):
     )
 
 
-def set_rich_text(edit, text):
-    """给 QTextEdit 填纯文本（自动转义 + 行距 1.5），替代裸 setPlainText"""
-    safe = (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    edit.setHtml("<div style='line-height:150%%; color:%s;'>%s</div>"
-                 % (TEXT_PRIMARY, safe.replace("\n", "<br/>")))
 
 # 深色主题 QSS 已收口到 theme.py（DARK_QSS 由上方 import 引入），
 # 本文件不再自带样式表定义。

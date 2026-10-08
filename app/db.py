@@ -56,14 +56,7 @@ EDITABLE_FIELDS = [
 # （P1-2 裁决 2026-10-08，见 docs/seed-guide.md 与 docs/audit/20261008-full-audit.md）
 VERIFY_FIELDS = ("verified", "verified_by", "verified_model", "verified_date")
 
-# exec_level 合法取值（审计 P1：区分"真机验证过的 CLI / 待核对的 CLI 骨架 / 仅 Web 路径"）
 EXEC_LEVELS = ("", "verified-cli", "skeleton", "web-only")
-EXEC_LEVEL_LABELS = {
-    "": "",
-    "verified-cli": "已核对 CLI",
-    "skeleton": "骨架（待真机核对）",
-    "web-only": "仅 Web 路径",
-}
 
 # 排查树 vendor_hint 标准分组（审计任务5：网络组扩入 zte/juniper，防火墙组先建好待挂靠）
 TREE_HINT_GROUPS = {
@@ -1206,14 +1199,6 @@ class Database(object):
         self.log_history("entries", entry_uuid, "delete", old.get("title", ""), "", operator)
         return True
 
-    def set_favorite(self, entry_uuid, value, operator=""):
-        """
-        收藏 / 取消收藏。
-
-        ★ 只传 favorite 一个键：早前实现额外塞了 verified 键，会被 update_entry
-          的动作判定误判成"取消验证"，把一次纯收藏记成 action=unverify（留痕错乱）。
-        """
-        return self.update_entry(entry_uuid, {"favorite": 1 if value else 0}, operator)
 
     def toggle_favorite(self, entry_uuid, operator=""):
         """收藏状态取反，返回新状态"""
@@ -2132,16 +2117,6 @@ class Database(object):
             return None, "ambiguous"
         return candidates[0], ""
 
-    def trees_for_category(self, category):
-        """给命令库详情面板的[去排查树]按钮用：按现象分类/厂商找相关树"""
-        trees = self.all_trees()
-        if not category:
-            return trees
-        hit = [t for t in trees if t.get("category") == category]
-        if hit:
-            return hit
-        # 按厂商再找一次
-        return trees
 
 
 

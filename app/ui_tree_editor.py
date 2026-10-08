@@ -53,7 +53,7 @@ def _ref_summary(ref):
     return "%s%s" % (cat, (" ｜" + extra) if extra else "")
 
 
-from theme import repolish, set_state  # 状态标签 / error 属性的动态重polish
+from theme import set_state  # 状态标签 / error 属性的动态重polish
 
 class StepEditDialog(QDialog):
     """单个排查步骤的可视化编辑"""

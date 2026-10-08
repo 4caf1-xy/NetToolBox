@@ -677,15 +677,6 @@ def expand_port_range(expr, vendor, use_long=False, if_type=None, limit=MAX_EXPA
     return separator.join(names), names, (err or "")
 
 
-def expand_port_range_lines(expr, vendor, use_long=False, if_type=None, limit=MAX_EXPAND,
-                            os_family=None):
-    """
-    逐行展开：返回接口名列表，用于生成"每个口一行"的配置。
-    与 expand_port_range 的区别是返回列表而不是逗号串。
-    """
-    _, names, err = expand_port_range(expr, vendor, use_long=use_long,
-                                     if_type=if_type, limit=limit, os_family=os_family)
-    return names, err
 
 
 # ---------------------------------------------------------------------------
@@ -875,15 +866,4 @@ def build_header(entry=None, operator="", scene="", vendor="", model="", extra="
     return "\n".join(lines)
 
 
-def build_package(rendered_texts, entry=None, operator="", scene="", vendor="",
-                  model="", extra="", with_header=True):
-    """
-    把多条渲染结果合并成一个配置包（生成器的"勾选合并导出"用）。
-    rendered_texts 为字符串列表，之间用空行分隔。
-    """
-    body = "\n\n".join(t for t in rendered_texts if t and t.strip())
-    if not with_header:
-        return body
-    return build_header(entry=entry, operator=operator, scene=scene, vendor=vendor,
-                        model=model, extra=extra) + "\n\n" + body
 

@@ -39,8 +39,6 @@ APP = os.path.join(REPO, "app")
 BACKUP = os.path.join(REPO, "backup")
 sys.path.insert(0, APP)
 
-import renderer  # noqa: E402  复用 PARAM_RE / extract_params / KNOWN_VALIDATE_RULES
-
 SEED_DIR = os.path.join(APP, "seed_data")
 
 _RE_INT = re.compile(r"^int:(-?\d+)-(-?\d+)$")

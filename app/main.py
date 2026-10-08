@@ -116,7 +116,7 @@ def run_selftest(db_path=None):
     print("    参数校验 单条：vlan=5000 → %s" % (renderer.validate_value(specs[0], "5000"),))
     print("    参数校验 表单：%s" % renderer.validate_form(
         specs, {"vlan_id": "", "ports": "0/1-0/10"}))
-    rendered, missing, merged_specs = renderer.render_entry(
+    rendered, missing, _ = renderer.render_entry(
         {"commands": text, "params": specs, "vendor": "Cisco"}, {}, vendor="Cisco")
     print("    渲染结果：\n%s" % "\n".join("        " + ln for ln in rendered.splitlines()))
     print("    缺失参数：%s" % (missing or "无"))

@@ -20,7 +20,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor, QFont, QCursor
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
                              QTreeWidget, QTreeWidgetItem, QPushButton, QPlainTextEdit,
-                             QMessageBox, QSplitter, QFrame, QLineEdit,
+                             QMessageBox, QFrame, QLineEdit,
                              QDialog, QScrollArea, QTableWidget, QTableWidgetItem,
                              QAbstractItemView, QMenu, QListWidget, QListWidgetItem,
                              QDialogButtonBox)
@@ -45,7 +45,7 @@ def _mono(size=10):
     return f
 
 
-from theme import repolish, set_state, GripSplitter, read_sizes  # 状态标签 / 分栏手柄 / 记忆校验
+from theme import set_state, GripSplitter, read_sizes  # 状态标签 / 分栏手柄 / 记忆校验
 from theme import TEXT_MUTED, TREE_CATEGORY_COLORS  # C4 收敛散落色（审计 B18）
 
 class TroubleshootTab(QWidget):

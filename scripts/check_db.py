@@ -109,13 +109,8 @@ def norm_os(value):
     return key.replace(" ", "")
 
 
-def norm_platform(value):
-    return "linux" if (value or "").strip().lower() == "linux" else "network"
 
 
-def norm_duration(value):
-    key = (value or "").strip().lower()
-    return key if key in ("temp", "perm", "both") else ""
 
 
 # ---------------------------------------------------------------------------

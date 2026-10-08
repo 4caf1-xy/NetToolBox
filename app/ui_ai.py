@@ -30,12 +30,12 @@ import re
 
 import dedupe
 
-from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal, QUrl
+from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt5.QtGui import QTextCursor, QPixmap, QFontMetrics
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
                              QComboBox, QPlainTextEdit, QPushButton, QTextBrowser,
                              QDialog, QFormLayout, QDialogButtonBox, QStackedWidget,
-                             QCheckBox, QSplitter, QFrame, QMessageBox, QListWidget,
+                             QCheckBox, QFrame, QMessageBox, QListWidget,
                              QListWidgetItem, QScrollArea, QSizePolicy, QToolButton,
                              QMenu, QFileDialog, QRadioButton, QButtonGroup)
 
@@ -45,8 +45,8 @@ import renderer
 from ui_main import copy_to_clipboard
 from theme import (SPACE_XS, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XL,
                    TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY, WARNING, DANGER,
-                   SUCCESS, ACCENT, BORDER, BORDER_HOVER, BG_RAISED, BG_PANEL,
-                   CODE_BG, WARNING_14, DANGER_14, MONO_FONT_FAMILY, mono_font,
+                   SUCCESS, ACCENT, BORDER, BORDER_HOVER, BG_PANEL,
+                   CODE_BG, MONO_FONT_FAMILY, mono_font,
                    repolish, load_ui_state, save_ui_state,
                    GripSplitter, read_sizes)
 
@@ -1624,10 +1624,14 @@ class AiTab(QWidget):
         if self._probe and self._probe.isRunning():
             return
         if self._probe is not None:
-            # B9（审计 2026-10-08）：旧实例已结束，排队销毁防堆积；挂 parent 防 GC
+            # B9（审计 2026-10-08）：旧实例已结束，排队销毁防堆积；
+            # 防 GC 靠下方 self._probe 引用持有。
+            # ★ 故意不挂 parent：实测（修复批 2026-10-08）带父的 QThread 会在
+            #   QApplication 析构期被级联删除，若线程仍活着直接进程崩溃
+            #   （退出码 127）——smoke_ai_chat 全量可复现，勿"顺手"加回。
             self._probe.deleteLater()
         cfg = ai_bridge.load_config()
-        self._probe = ai_bridge.NetworkProbe(cfg.get("base_url"), self)
+        self._probe = ai_bridge.NetworkProbe(cfg.get("base_url"))
         self._probe.probe_result.connect(self._on_probe_result)
         self._probe.start()
 
@@ -1927,7 +1931,6 @@ class AiTab(QWidget):
 
     def open_cases_dir(self):
         """打开 sessions 目录（离网场景：整目录拷走即可团队共享；旧案例仍在 ai_cases）"""
-        import subprocess
         path = ai_bridge.sessions_dir()
         try:
             os.startfile(path)               # Windows 资源管理器
@@ -2938,7 +2941,7 @@ class AiImportDialog(QDialog):
             if act == "append":
                 # 追加原因分析到现有条目：不动其命令内容，不影响验证状态
                 try:
-                    changed = self.db.append_err_reason(
+                    _ = self.db.append_err_reason(
                         c0["err_id"], cause_text or ("AI 分析（相似 %s）" % dedupe.percent(c0["score"])),
                         {"operator": self._operator, "dup_of_uuid": c0["err_id"]})
                 except Exception as exc:
@@ -3267,7 +3270,7 @@ class AiImportDialog(QDialog):
                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
                     return
         try:
-            tree_id = self.db.create_trouble_tree({
+            _ = self.db.create_trouble_tree({
                 "symptom": symptom,
                 "vendor_hint": [vendor_slug] if vendor_slug else [],
                 "category": "AI 草稿",

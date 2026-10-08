@@ -30,7 +30,7 @@ def _mono(size=10):
     return f
 
 
-from theme import repolish, set_state, GripSplitter, read_sizes  # 状态标签 / error 属性的动态重polish
+from theme import set_state, GripSplitter, read_sizes  # 状态标签 / error 属性的动态重polish
 from theme import WARNING, DANGER, TEXT_SECONDARY, ERROR_LINE_BG  # C4 收敛散落色（审计 B18）
 
 class ErrorFixTab(QWidget):

@@ -1117,12 +1117,6 @@ def has_family(name):
         return False
 
 
-def code_font_family():
-    """选一个真实存在的等宽字体名（Consolas 优先，其次 Cascadia Mono）"""
-    for name in ("Consolas", "Cascadia Mono", "Courier New"):
-        if has_family(name):
-            return name
-    return "monospace"
 
 
 # ===========================================================================

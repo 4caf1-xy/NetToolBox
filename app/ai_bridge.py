@@ -358,46 +358,6 @@ def has_wizard_conclusion(context):
                for k in ("steps", "echo", "symptom"))
 
 
-def build_messages(context):
-    """
-    组装 messages：系统提示固定模板 + 用户上下文结构化拼入。
-    context = {vendor, os, model_name, symptom, echo, steps}
-    若本地案例库有同厂商且现象相近的历史案例，取最近 1 条摘要（≤1500 字）作 few-shot。
-    ★ 当上下文含【排查结论】标记（排查向导已走到叶子）时，追加协同指令段，
-      把 AI 的任务从"从零诊断"改成"评估结论 + 补漏 + 给验证路径"（任务3）。
-    """
-    vendor = (context.get("vendor") or "未填写").strip()
-    os_name = (context.get("os") or "未填写").strip()
-    model_name = (context.get("model_name") or "未填写").strip()
-
-    parts = [
-        "【设备信息】厂商：%s ｜ OS 版本：%s ｜ 型号：%s" % (vendor, os_name, model_name),
-        "【故障现象】\n%s" % ((context.get("symptom") or "（未填写）").strip()),
-    ]
-    echo = (context.get("echo") or "").strip()
-    parts.append("【命令回显】\n%s" % (echo if echo else "（未提供）"))
-    steps = (context.get("steps") or "").strip()
-    parts.append("【已尝试步骤】\n%s" % (steps if steps else "（未提供）"))
-
-    guided = has_wizard_conclusion(context)
-    if guided:
-        # 结构化上下文里已经含【已走路径】/【排查结论】/【处理动作建议】，
-        # 这里只补"怎么用这些信息"的指令，避免重复搬运。
-        parts.append(WIZARD_CONCLUSION_GUIDE)
-
-    few_shot = find_similar_case(context.get("vendor") or "", context.get("symptom") or "")
-    if few_shot:
-        parts.append("【历史案例参考】（来自本机案例库，同厂商相近现象，仅供参考，"
-                     "不要照搬，注意核对厂商与版本）\n%s" % few_shot)
-
-    user_content = "\n\n".join(parts)
-    user_content += ("\n\n请先评估向导结论（成立性、前提条件、遗漏分支），"
-                     "再给出补充排查命令。" if guided
-                     else "\n\n请按系统要求给出结构化诊断。")
-    return [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_content},
-    ]
 
 
 # ---------------------------------------------------------------------------
@@ -420,24 +380,6 @@ def _symptom_slug(symptom, limit=40):
     return slug or "case"
 
 
-def save_case(record):
-    """
-    保存一次完整对话。
-    record 字段：context / messages / response / model / tokens / operator
-    返回保存的文件完整路径；失败返回 ""（写保护盘不阻断主流程）。
-    """
-    ts = record.get("ts") or datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    name = "%s_%s.json" % (ts, _symptom_slug((record.get("context") or {}).get("symptom")))
-    path = os.path.join(cases_dir(), name)
-    try:
-        payload = dict(record)
-        payload["ts"] = ts
-        payload["ts_iso"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(path, "w", encoding="utf-8") as fp:
-            json.dump(payload, fp, ensure_ascii=False, indent=2)
-        return path
-    except Exception:
-        return ""
 
 
 def list_cases():
@@ -899,8 +841,6 @@ class ChatWorker(QThread):
         if resp is not None:
             self._disconnect(resp)
 
-    def cancelled(self):
-        return self._cancelled
 
     def run(self):
         try:
