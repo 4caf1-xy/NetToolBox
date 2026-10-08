@@ -44,7 +44,7 @@ docker compose -f lab/docker-compose.yml up -d --build  # 改过 Dockerfile 后�
 
 | device_type | compose 实验室可用性 | 说明 |
 |---|---|---|
-| 服务器（Linux） | ✅ `linux-ubuntu` / `linux-centos7` | ubuntu/os:ubuntu2204 条目走 ubuntu 容器；centos7 条目走 centos7 容器；kylinV10 / openeuler2203 为 RHEL 系，在 centos7 容器只做**语法核对**档（包管理器/服务管理命令与实际发行版有差异，不判绿） |
+| 服务器（Linux） | ✅ `linux-ubuntu` / `linux-centos7` | ubuntu/os:ubuntu2204 条目走 ubuntu 容器；centos7 条目走 centos7 容器（`systemctl` 查询受限，见 FAQ 5，systemctl 类条目按**语法核对**档、不判绿）；kylinV10 / openeuler2203 为 RHEL 系，在 centos7 容器只做**语法核对**档（包管理器/服务管理命令与实际发行版有差异，不判绿） |
 | 通用 Linux（device_type 空） | ✅ `linux-ubuntu` | 纯 bash/procps 类命令在任意 Linux 容器等价 |
 | 路由器（cisco/ios） | ⚠️ `frr` 仅语法核对档 | `ip route` / `show ip route` / OSPF 骨架语法与 IOS 同构；**不判绿**（转发行为、硬件接口与非 IOS 厂商语法无法等价）；华为/H3C/锐捷/中兴 `display` 系不适用，挂起 |
 | 路由器（华为/H3C/锐捷/中兴/juniper） | ❌ 挂起 | 语法族不同，走模拟器（VRP/HCL/vSRX）或真机 |
@@ -109,5 +109,5 @@ docker tag ghcr.m.daocloud.io/nokia/srlinux:26.7 ghcr.io/nokia/srlinux:26.7
 **4. srlinux 迟迟不 healthy**
 SR Linux mgmt server 冷启动约 1-2 分钟，属正常；`docker logs ntbx-lab-srlinux` 看进度。若宿主机内存不足被 OOM，调低其他容器占用或提升 `mem_limit`。
 
-**5. systemd 服务显示 failed（centos7）**
-EOL 后个别 vault 源包组合偶发服务自检失败，不影响 SSH 与验证；需要干净环境直接 `down -v` 重建。
+**5. centos7 容器里 `systemctl` 报 "Failed to get D-Bus connection: Operation not permitted"**
+宿主内核（cgroup v2）与 centos7 老 systemd（219）的兼容局限：sshd 等服务由 systemd 正常拉起，但 `docker exec` 进去执行 `systemctl` 查询会报 D-Bus 权限错误。对策：centos7 的 systemctl 类条目在本容器按**语法核对**档验证（不判绿）；服务是否在跑改用 `pgrep -x sshd`、`ss -tlnp | grep :22` 确认。Ubuntu 22.04 容器（systemd 249）无此限制。
