@@ -6,7 +6,8 @@
 ## 未发布（Unreleased）
 
 本批主题：**参数系统结构化升级** —— params 自描述 schema + 完整命令预览 + 注释渲染；
-追加批次：**AI 回复渲染修复 + 全局 QSplitter 分栏改造**。
+追加批次：**AI 回复渲染修复 + 全局 QSplitter 分栏改造**；
+追加批次（2026-10-08）：**全量审计修复批** —— P1×3 修复 + 小型 P2 清扫 + dead code 清理（审计报告：docs/audit/20261008-full-audit.md）。
 
 ### 新功能
 - **params 结构化 schema**：参数规格新增 `type`（string/int/enum/ip/flag）、`description`（必填）、`choices`（enum 必带）、`range` 等自描述字段；`validate` 细粒度校验规则保留并与 type 推导互补（显式规则优先），旧格式（无 type）完全兼容继续放行；
@@ -24,6 +25,15 @@
 - **分栏全局可拖拽**：AI 诊断（对话区│输入区，默认 4:1，输入区最小高 120px）、命令库（列表│详情）、报错诊断、排查向导四个 Tab 分栏统一改为 QSplitter，分隔条默认隐形、hover 显主色高亮线；分栏位置记忆至 ui_state.json，重启自动恢复（恢复时校验尺寸合理性，坏值回退默认）；最小窗口 1280×800 不破版；流式输出宽度只增不减、滚动不跳动。
 
 ### 工程修复
+- **审计修复批（2026-10-08，五笔 commit 400a2c7 → de6c3f0）**：
+  - P1-1 命令库/报错诊断四处 db 写入口（标记验证/取消验证/报错验证/收件箱）补异常弹窗，只读竞态不再静默失败；
+  - P1-2 导入不携带验证态：verified 四字段新增强制 0、更新不采纳（外部 .nlb 无法伪造验证状态），验证状态只经真机回填流程产生；已验证条目内容仍可导入更新；
+  - P1-3 AI 对话取消即时生效：端点停滞时点"停止"由最长等 90s 降为约 0.6s（实测底层 socket `_real_close` 才能唤醒 Windows 阻塞读），异常路径补发取消信号防按钮卡死；
+  - 新增 `scripts/smoke_p1_fixes.py` 三案永久回归（弹窗/验证态归零/慢端点取消，全 mock）；
+  - 小型 P2 清扫：会话文件名表达式、附件按字节截断标注、quiet 静默语义、探测线程旧实例收尾、依赖探针意图注释；
+  - dead code 清理 12 组函数/常量 + 约 30 处无用导入（pyflakes 全量仅剩 3 条意图探针）；
+  - `[去排查树]` 同分类多树时弹选择（≤3 棵轻量菜单 / 更多带关键字过滤），不再静默取第一棵；
+  - 5 处散落硬编码色收敛 theme token（新增 `ERROR_LINE_BG`，`TREE_CATEGORY_COLORS` 迁 theme.py）。
 - `validate-seed` 参数校验收口为统一的 `renderer.check_entry_params`（与 AI 入库钩子同一口径）：`{{占位符}}` 引用未定义 → ERROR；定义未引用 → 升格为显式 WARNING；default 违反自身 type/choices/range → ERROR；新条目 description 为空 → ERROR；
 - AI 产出入库增加校验钩子：对账不过 / 结构化字段缺失一律打回不入库；AI 产出 prompt 同步要求结构化参数标注与 `#` 注释行。
 
