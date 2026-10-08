@@ -17,12 +17,13 @@ import os
 import datetime
 
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QColor, QFont
+from PyQt5.QtGui import QColor, QFont, QCursor
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
                              QTreeWidget, QTreeWidgetItem, QPushButton, QPlainTextEdit,
                              QMessageBox, QSplitter, QFrame, QLineEdit,
                              QDialog, QScrollArea, QTableWidget, QTableWidgetItem,
-                             QAbstractItemView)
+                             QAbstractItemView, QMenu, QListWidget, QListWidgetItem,
+                             QDialogButtonBox)
 
 import time
 
@@ -381,13 +382,53 @@ class TroubleshootTab(QWidget):
             if tree:
                 self.start_tree(tree_id)
                 return
-        # 按 category 选第一棵树
+        # 按分类定位：单棵直接进，多棵让用户选（C3：此前静默取第一棵）
         if category:
             trees = [t for t in self.db.all_trees() if t.get("category") == category]
-            if trees:
+            if len(trees) == 1:
                 self.start_tree(trees[0].get("tree_id"))
                 return
+            if trees:
+                self._pick_tree(trees, category)
+                return
         self.refresh()
+
+    def _pick_tree(self, trees, category):
+        """同分类多棵树的选择交互：≤3 棵 QMenu 轻选，更多弹带关键字过滤的对话框"""
+        def symptom_of(t):
+            return t.get("symptom") or t.get("tree_id") or "（未命名）"
+
+        if len(trees) <= 3:
+            menu = QMenu(self)
+            acts = [menu.addAction(symptom_of(t)) for t in trees]
+            menu.addSeparator()
+            act_cancel = menu.addAction("取消")
+            chosen = menu.exec_(QCursor.pos())
+            if chosen and chosen is not act_cancel and chosen in acts:
+                self.start_tree(trees[acts.index(chosen)].get("tree_id"))
+            return
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("选择排查树（%s · 共 %d 棵）" % (category, len(trees)))
+        dlg.resize(420, 360)
+        v = QVBoxLayout(dlg)
+        ed = QLineEdit()
+        ed.setPlaceholderText("输入现象关键字过滤…")
+        lst = QListWidget()
+        for t in trees:
+            lst.addItem(QListWidgetItem(symptom_of(t)))
+        ed.textChanged.connect(lambda s: [
+            lst.item(i).setHidden(s.lower() not in lst.item(i).text().lower())
+            for i in range(lst.count())])
+        lst.itemDoubleClicked.connect(lambda _item: dlg.accept())
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        v.addWidget(ed)
+        v.addWidget(lst)
+        v.addWidget(buttons)
+        if dlg.exec_() == QDialog.Accepted and lst.currentItem() is not None:
+            self.start_tree(trees[lst.currentRow()].get("tree_id"))
 
     # ------------------------------------------------------------------
     # 树行走
