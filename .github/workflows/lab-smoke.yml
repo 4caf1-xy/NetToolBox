@@ -26,7 +26,18 @@ jobs:
         run: docker compose -f lab/docker-compose.yml build --progress=plain
 
       - name: Start all services
-        run: docker compose -f lab/docker-compose.yml up -d
+        run: |
+          if ! docker compose -f lab/docker-compose.yml up -d; then
+            echo "::error::compose up -d failed — dumping container state"
+            docker compose -f lab/docker-compose.yml ps -a || true
+            for c in ntbx-lab-ubuntu ntbx-lab-centos7 ntbx-lab-frr ntbx-lab-srlinux; do
+              info=$(docker inspect --format '{{.State.Status}} exit={{.State.ExitCode}} err={{.State.Error}}' "$c" 2>/dev/null || echo "not-created")
+              echo "===== $c : $info ====="
+              docker logs "$c" 2>&1 | tail -25 || true
+              echo "::error::$c state=[$info]"
+            done
+            exit 1
+          fi
 
       - name: Wait for all services healthy (up to 5 min)
         run: |
@@ -39,7 +50,12 @@ jobs:
             [ "$(echo "$statuses" | grep -c healthy)" -eq 4 ] && exit 0
             sleep 10
           done
-          echo "::error::services not healthy in time"; docker ps -a; docker logs ntbx-lab-srlinux 2>&1 | tail -30; exit 1
+          echo "::error::services not healthy in time"
+          for c in ntbx-lab-ubuntu ntbx-lab-centos7 ntbx-lab-frr ntbx-lab-srlinux; do
+            h=$(docker inspect --format '{{.State.Health.Status}}' "$c" 2>/dev/null || echo missing)
+            echo "::error::$c health=[$h]"
+          done
+          docker ps -a; docker logs ntbx-lab-srlinux 2>&1 | tail -30; exit 1
 
       - name: Example 1 (linux) - entry 8ec4a39b ss port listen
         run: |
