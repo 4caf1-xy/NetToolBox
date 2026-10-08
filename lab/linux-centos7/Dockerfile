@@ -10,6 +10,9 @@ RUN sed -i 's/mirror.centos.org/vault.centos.org/g; s/^#.*baseurl=http/baseurl=h
     echo 'root:ntbxlab' | chpasswd && \
     sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    mkdir -p /etc/systemd/system/sshd.service.d && \
+    printf '[Service]\nType=simple\nExecStart=\nExecStart=/usr/sbin/sshd -D\n' \
+        > /etc/systemd/system/sshd.service.d/foreground.conf && \
     ln -sf /usr/lib/systemd/system/sshd.service /etc/systemd/system/multi-user.target.wants/sshd.service
 
 EXPOSE 22

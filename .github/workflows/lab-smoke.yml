@@ -101,7 +101,9 @@ jobs:
           # systemctl query is limited in this container (D-Bus EPERM: centos7's
           # old systemd 219 on cgroup-v2 hosts); sshd being up proves systemd works.
           out=$(docker exec ntbx-lab-centos7 pgrep -x sshd 2>&1) || {
-            echo "::error::no sshd process in centos7 (systemd did not start it?): $(echo "$out" | tr '\n' ' ')"
+            echo "::error::no sshd process in centos7: $(echo "$out" | tr '\n' ' ')"
+            echo "::error::procs: $(docker exec ntbx-lab-centos7 ps aux 2>&1 | tr '\n' ' ' | tail -c 800)"
+            echo "::error::sshd logs: $(docker exec ntbx-lab-centos7 bash -c "grep -i sshd /var/log/messages 2>/dev/null | tail -5" 2>&1 | tr '\n' ' ' | tail -c 700)"
             exit 1
           }
           echo "centos7 sshd pid: $(echo "$out" | tr '\n' ' ')"
