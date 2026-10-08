@@ -52,6 +52,10 @@ EDITABLE_FIELDS = [
     "exec_level", "interactive",
 ]
 
+# 验证状态四字段：只经真机回填流程（mark_verified）产生，导入一律不采纳
+# （P1-2 裁决 2026-10-08，见 docs/seed-guide.md 与 docs/audit/20261008-full-audit.md）
+VERIFY_FIELDS = ("verified", "verified_by", "verified_model", "verified_date")
+
 # exec_level 合法取值（审计 P1：区分"真机验证过的 CLI / 待核对的 CLI 骨架 / 仅 Web 路径"）
 EXEC_LEVELS = ("", "verified-cli", "skeleton", "web-only")
 EXEC_LEVEL_LABELS = {
@@ -1251,9 +1255,9 @@ class Database(object):
         """
         批量导入。按 UUID 合并去重：
             - 库中没有该 UUID → 新增
-            - 库中已有：
-                merge=True 时比较 verified，保留"已验证"那条（两边都验证或都不验证则用新数据覆盖）
-                merge=False 时一律跳过
+            - 库中已有：merge=True 时逐字段比对，有变化才更新；merge=False 一律跳过
+            - 验证态四字段（VERIFY_FIELDS）一律不采纳：新增强制 0，更新不改动
+              （P1-2 裁决 2026-10-08：导入不携带验证态，验证状态只经真机回填流程产生）
         返回 (新增数, 更新数, 跳过数)
         """
         if self.readonly:
@@ -1264,15 +1268,16 @@ class Database(object):
                 skipped += 1
                 continue
             data = self._normalize_entry(raw)
+            # P1-2 裁决（2026-10-08）：导入不携带验证态——verified 四字段一律归零，
+            # 验证状态只经真机回填流程产生（新增/更新两路径统一在此收敛）
+            data["verified"] = 0
+            data["verified_by"] = ""
+            data["verified_model"] = ""
+            data["verified_date"] = ""
             exist = self.get_entry(data["uuid"])
             if not exist:
                 cols = ",".join(ENTRY_FIELDS)
                 marks = ",".join(["?"] * len(ENTRY_FIELDS))
-                # 内置种子库同样一律 verified=0，必须走真机验证流程
-                data["verified"] = 0
-                data["verified_by"] = ""
-                data["verified_model"] = ""
-                data["verified_date"] = ""
                 self.conn.execute(
                     "INSERT INTO entries (%s) VALUES (%s)" % (cols, marks),
                     [data[f] for f in ENTRY_FIELDS],
@@ -1285,16 +1290,13 @@ class Database(object):
                 skipped += 1
                 continue
 
-            # 冲突处理：已验证的一方胜出
-            if int(exist.get("verified") or 0) == 1 and int(data.get("verified") or 0) == 0:
-                skipped += 1
-                continue
-
             # ★ 真幂等：逐字段比对，没有任何实际变化就跳过 ——
             #   否则每次重复导入都会写一遍全库、并在 history 里刷一堆无意义记录
+            #   验证态四字段已在上方归零且不允许经导入改动（VERIFY_FIELDS 白名单外），
+            #   故原"已验证一方胜出"守卫随 P1-2 裁决一并移除（防降级职责由排除承担）
             changes = {}
             for f in EDITABLE_FIELDS:
-                if f == "updated_at":
+                if f == "updated_at" or f in VERIFY_FIELDS:
                     continue
                 if cmp_value(data[f]) != cmp_value(exist.get(f)):
                     changes[f] = data[f]

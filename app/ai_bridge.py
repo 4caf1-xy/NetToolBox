@@ -853,15 +853,49 @@ class ChatWorker(QThread):
         self._config = {}
         self._messages = []
         self._cancelled = False
+        self._resp = None            # 当前响应对象引用：cancel() 用它立即断连（P1-3）
 
     def set_request(self, config, messages):
         self._config = dict(config)
         self._messages = list(messages)
         self._cancelled = False
+        self._resp = None
+
+    @staticmethod
+    def _disconnect(resp):
+        """强制断开底层连接。
+
+        实测（Windows 10 / Python 3.13 / urllib3 2.x，复现见 scripts/smoke_p1_fixes.py）：
+        - 跨线程 resp.close() 不唤醒阻塞中的 recv（urllib3 收尾不真正关 fd）；
+        - shutdown(SHUT_RDWR) 也不唤醒（Windows 平台特性）；
+        - 底层 socket 对象的 close() 因 http.client makefile 的 io 引用计数
+          只减不关，同样无效；
+        - **对底层 socket 调 _real_close()（绕过引用计数真正关 fd）才会让
+          阻塞中的 iter_lines 立即抛 ConnectionAbortedError(10053) 退出。**
+        Linux/macOS 上 close 语义正常，本路径对各平台均无害（fd 已关时静默）。"""
+        try:
+            sock = resp.raw._fp.fp.raw._sock
+            try:
+                sock._real_close()      # makefile 引用计数下的真关 fd（实测唯一有效）
+            except AttributeError:
+                sock.close()            # 旧版本无 _real_close 时的兜底
+        except Exception:
+            pass
+        try:
+            resp.close()
+        except Exception:
+            pass
 
     def cancel(self):
-        """中断：置标志 + 关闭底层连接（iter_lines 会立刻抛错退出循环）"""
+        """中断：置标志 + 立即断开底层连接（iter_lines 会立刻抛错退出循环）。
+
+        P1-3 修复（2026-10-08）：此前注释称"关闭底层连接"但实际只置标志，
+        端点挂起时取消要等满 read timeout。现保存 resp 引用，cancel 跨线程
+        强制断连，阻塞中的读立即抛错退出。"""
         self._cancelled = True
+        resp = self._resp
+        if resp is not None:
+            self._disconnect(resp)
 
     def cancelled(self):
         return self._cancelled
@@ -893,6 +927,7 @@ class ChatWorker(QThread):
             if not self._cancelled:
                 self.failed.emit("无法连接：%s" % _friendly_net_error(exc))
             return
+        self._resp = resp          # 供 cancel() 立即断连（P1-3）
 
         try:
             if resp.status_code != 200:
@@ -944,12 +979,16 @@ class ChatWorker(QThread):
         except Exception as exc:
             if not self._cancelled:
                 self.failed.emit("流式传输中断：%s" % _friendly_net_error(exc))
+            else:
+                # cancel() 断连引发的异常同样要通知 UI 恢复（否则按钮永久卡"生成中"）
+                self.failed.emit("__CANCELLED__")
             return
         finally:
             try:
                 resp.close()
             except Exception:
                 pass
+            self._resp = None
 
         if self._cancelled:
             # 取消不算失败，也不算完整成功；UI 层按"已取消"处理

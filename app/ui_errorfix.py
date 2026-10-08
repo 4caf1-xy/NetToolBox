@@ -402,14 +402,22 @@ class ErrorFixTab(QWidget):
             if not by:
                 QMessageBox.warning(self, "缺少验证人", "验证人必填。")
                 return
-            self.db.mark_err_verified(d["err_id"], by, dlg.ed_model.text().strip(),
-                                      dlg.ed_date.text().strip())
+            try:
+                self.db.mark_err_verified(d["err_id"], by, dlg.ed_model.text().strip(),
+                                          dlg.ed_date.text().strip())
+            except Exception as exc:
+                QMessageBox.critical(self, "标记失败", str(exc))
+                return
             QMessageBox.information(self, "已标记", "字典条目已标记为已验证（绿徽章）。")
             self.on_diagnose()          # 刷新卡片徽章
 
     def _mark_unsatisfied(self, d, full_text):
         if not self.db.readonly:
-            self.db.add_unresolved(full_text, d.get("vendor") or "")
+            try:
+                self.db.add_unresolved(full_text, d.get("vendor") or "")
+            except Exception as exc:
+                QMessageBox.critical(self, "收件箱写入失败", str(exc))
+                return
             self.refresh_inbox_count()
         QMessageBox.information(self, "已记录",
                                 "已存入待解决收件箱，可在收件箱里补充原因转成新字典条目。")

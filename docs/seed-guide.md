@@ -137,6 +137,11 @@ Linux 侧 `centos7` / `ubuntu2204` / `kylinV10` / `openeuler2203`，通用 Linux
 
 **EXIT=0 是 CI 合入与打包的硬门槛**——本地不过别提 PR，`scripts/build_exe.py` 也会先跑它。
 
+**验证态约定（P1-2 裁决 2026-10-08）**：导入不携带验证态——`verified` /
+`verified_by` / `verified_model` / `verified_date` 四字段在导入路径一律不采纳
+（新增强制 0，已有条目更新时不改动），验证状态**只经真机回填流程**（界面
+"标记已验证"）产生。种子/`.nlb` 源文件里即便写了 `verified: 1` 也会被归零。
+
 ## 七、红线
 
 - **示例 IP 一律用文档专用段**：`192.0.2.0/24`（TEST-NET-1）、`198.51.100.0/24`、

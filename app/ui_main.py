@@ -2247,7 +2247,11 @@ class MainWindow(QMainWindow):
         if dlg.exec_() != QDialog.Accepted:
             return
         by, model, date = dlg.values()
-        self.db.mark_verified(self.current_entry.get("uuid"), by, model, date)
+        try:
+            self.db.mark_verified(self.current_entry.get("uuid"), by, model, date)
+        except Exception as exc:
+            QMessageBox.critical(self, "标记验证失败", str(exc))
+            return
         self.refresh_list()
         self.statusBar().showMessage("已标记为已验证（绿色徽章）：%s / %s" % (by, model))
 
@@ -2258,7 +2262,11 @@ class MainWindow(QMainWindow):
         if QMessageBox.question(self, "取消验证", "确认把该条目退回『未验证』灰色状态？",
                                 QMessageBox.Yes | QMessageBox.No) != QMessageBox.Yes:
             return
-        self.db.mark_verified(self.current_entry.get("uuid"), "", "", unverify=True)
+        try:
+            self.db.mark_verified(self.current_entry.get("uuid"), "", "", unverify=True)
+        except Exception as exc:
+            QMessageBox.critical(self, "取消验证失败", str(exc))
+            return
         self.refresh_list()
         self.statusBar().showMessage("已取消验证，徽章恢复灰色。")
 
