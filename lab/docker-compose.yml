@@ -66,7 +66,7 @@ services:
     container_name: ntbx-lab-srlinux
     hostname: lab-srlinux
     privileged: true
-    mem_limit: 1g
+    mem_limit: 2g             # SR Linux official recommendation; 1g risks OOM at init
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f mgmt_server >/dev/null"]
       interval: 15s

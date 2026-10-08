@@ -11,7 +11,7 @@
 | 项 | 要求 |
 |---|---|
 | Docker | Docker Desktop 4.x（WSL2 后端）或任意 Linux 上的 Docker Engine 20.10+，含 compose v2 |
-| 内存 | 建议 16GB 物理内存；4 个服务运行合计 ≤2GB（srlinux 上限 1GB） |
+| 内存 | 建议 16GB 物理内存；4 个服务运行合计 ≤3.5GB（srlinux 上限 2GB，官方推荐值） |
 | 磁盘 | 镜像合计约 1.5GB（srlinux 占大头）；数据盘随 Docker 配置 |
 | 网络 | 首次 `up` 需拉取 `frrouting/frr`、`ghcr.io/nokia/srlinux` 与基础镜像，见 FAQ 拉取失败 |
 

@@ -56,6 +56,9 @@ jobs:
             h=$(docker inspect --format '{{.State.Health.Status}}' "$c" 2>/dev/null || echo missing)
             echo "::error::$c health=[$h]"
           done
+          echo "::error::srlinux state: $(docker inspect --format 'status={{.State.Status}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}} restarts={{.RestartCount}}' ntbx-lab-srlinux 2>&1 | tr '\n' ' ')"
+          echo "::error::srlinux health-log: $(docker inspect --format '{{range .State.Health.Log}}{{.Output}}{{end}}' ntbx-lab-srlinux 2>&1 | tr '\n' ' ' | tail -c 800)"
+          echo "::error::srlinux logs: $(docker logs ntbx-lab-srlinux 2>&1 | tr '\n' ' ' | tail -c 900)"
           docker ps -a; docker logs ntbx-lab-srlinux 2>&1 | tail -30; exit 1
 
       - name: Example 1 (linux) - entry 8ec4a39b ss port listen
