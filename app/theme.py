@@ -73,6 +73,16 @@ SUCCESS_14 = "rgba(63, 191, 111, 36)"
 WARNING_14 = "rgba(224, 168, 60, 36)"
 DANGER_14 = "rgba(224, 86, 86, 36)"
 
+# ---- 审计 C4（2026-10-08）收敛的散落色（仅富文本/Qt 项着色用，不进 QSS 模板）----
+ERROR_LINE_BG = "#5a1d1d"   # 报错诊断：命中原文高亮的深红底
+TREE_CATEGORY_COLORS = {    # 排查向导：树分类点色（原散落在 ui_troubleshoot 顶部的字典）
+    "连通性": "#1f6feb",
+    "端口": "#c9302c",
+    "性能": "#b8860b",
+    "路由协议": "#2e8b57",
+    "管理面": "#8e44ad",
+}
+
 # ★ 列表/树/表格的"选中行底色"：accent 12% 混到面板底后的**不透明**等价色。
 #   为什么不用 rgba 直接写：QStyleSheetStyle 画视图项时，会先按 palette 的
 #   Highlight 铺一层选中底，再叠加 QSS 的 rgba —— 两层叠加后比预期亮一大截
@@ -168,6 +178,7 @@ TOKENS = {
     "warning_14": WARNING_14,
     "danger": DANGER,
     "danger_14": DANGER_14,
+    "error_line_bg": ERROR_LINE_BG,
     "text_primary": TEXT_PRIMARY,
     "text_secondary": TEXT_SECONDARY,
     "text_muted": TEXT_MUTED,

@@ -43,6 +43,7 @@ def mono_font(size=10):
 # 一、参数表单
 # ---------------------------------------------------------------------------
 from theme import repolish, set_state  # 状态标签 / error 属性的动态重polish
+from theme import DANGER, TEXT_MUTED  # C4 收敛散落色（审计 B18）
 
 class ParamFormWidget(QWidget):
     """
@@ -93,8 +94,8 @@ class ParamFormWidget(QWidget):
             label.setTextFormat(Qt.RichText)
             text = spec.get("label") or name
             if spec.get("required"):
-                label.setText("%s <span style='color:#e05656; font-weight:bold;'>*</span>"
-                              % _escape(text))
+                label.setText("%s <span style='color:%s; font-weight:bold;'>*</span>"
+                              % (_escape(text), DANGER))
             else:
                 label.setText(_escape(text))
             label.setToolTip("参数字段名：{{%s}}" % name)
@@ -913,7 +914,7 @@ def _vendor_color(vendor):
         from ui_main import VENDOR_COLORS, DEFAULT_VENDOR_COLOR
         return VENDOR_COLORS.get(dbmod.normalize_vendor(vendor), DEFAULT_VENDOR_COLOR)
     except Exception:
-        return "#6a7080"
+        return TEXT_MUTED
 
 
 def _base_dir():

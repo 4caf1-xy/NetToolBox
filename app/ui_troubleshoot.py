@@ -33,14 +33,6 @@ import output_analyzer
 import report as report_mod
 from ui_main import VERIFIED_COLOR, VerifyDialog, copy_to_clipboard
 
-TREE_CATEGORY_COLORS = {
-    "连通性": "#1f6feb",
-    "端口": "#c9302c",
-    "性能": "#b8860b",
-    "路由协议": "#2e8b57",
-    "管理面": "#8e44ad",
-}
-
 def _esc(text):
     """转义富文本特殊字符（QLabel 用 RichText 渲染时必须转义，避免内容破坏排版）"""
     return (str(text if text is not None else "")
@@ -54,6 +46,7 @@ def _mono(size=10):
 
 
 from theme import repolish, set_state, GripSplitter, read_sizes  # 状态标签 / 分栏手柄 / 记忆校验
+from theme import TEXT_MUTED, TREE_CATEGORY_COLORS  # C4 收敛散落色（审计 B18）
 
 class TroubleshootTab(QWidget):
     """排查向导 Tab"""
@@ -334,7 +327,7 @@ class TroubleshootTab(QWidget):
             group = [t for t in trees if t.get("category") == category]
             if not group:
                 continue
-            color = TREE_CATEGORY_COLORS.get(category, "#6a7080")
+            color = TREE_CATEGORY_COLORS.get(category, TEXT_MUTED)
             cat_item = QTreeWidgetItem(["%s（%d）" % (category, len(group))])
             cat_item.setForeground(0, QColor(color))
             self.tree_list.addTopLevelItem(cat_item)

@@ -31,6 +31,7 @@ def _mono(size=10):
 
 
 from theme import repolish, set_state, GripSplitter, read_sizes  # 状态标签 / error 属性的动态重polish
+from theme import WARNING, DANGER, TEXT_SECONDARY, ERROR_LINE_BG  # C4 收敛散落色（审计 B18）
 
 class ErrorFixTab(QWidget):
 
@@ -223,9 +224,11 @@ class ErrorFixTab(QWidget):
 
         # 标题行：分类 + 厂商 + 验证徽章
         verified = int(d.get("verified") or 0) == 1
-        head = QLabel("<span style='color:#e0a83c; font-weight:bold;'>[%s]</span> "
-                      "<span style='color:#9aa0b0;'>%s ｜ 命中 %d 次 ｜ %s</span>"
-                      % (d.get("category") or "-",
+        head = QLabel("<span style='color:%s; font-weight:bold;'>[%s]</span> "
+                      "<span style='color:%s;'>%s ｜ 命中 %d 次 ｜ %s</span>"
+                      % (WARNING,
+                         d.get("category") or "-",
+                         TEXT_SECONDARY,
                          dbmod.display_vendor(d.get("vendor")),
                          int(d.get("hit_count") or 0) + 1,
                          "✔ 已验证" if verified else "未验证"))
@@ -244,9 +247,10 @@ class ErrorFixTab(QWidget):
             cv.addWidget(_src_lbl)
 
         # 红色高亮命中原文
-        line_lbl = QLabel("<span style='background-color:#5a1d1d; color:#ff6b6b; "
+        line_lbl = QLabel("<span style='background-color:%s; color:%s; "
                           "font-family:Consolas;'>%s</span>"
-                          % self._escape(matched_line))
+                          % (ERROR_LINE_BG, DANGER,
+                             self._escape(matched_line)))
         line_lbl.setTextFormat(Qt.RichText)
         line_lbl.setWordWrap(True)
         cv.addWidget(line_lbl)
