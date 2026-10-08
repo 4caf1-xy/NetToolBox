@@ -66,18 +66,17 @@ jobs:
       - name: Example 2 (frr) - entry eac547bb static route syntax
         run: |
           dump() {
-            echo "::error::frr daemons: $(docker exec ntbx-lab-frr vtysh -c "show daemons" 2>&1 | tr '\n' ' ' | tail -c 800)"
-            echo "::error::frr logs: $(docker logs ntbx-lab-frr 2>&1 | tr '\n' ' ' | tail -c 800)"
+            echo "::error::frr running-config ip-route lines: $(docker exec ntbx-lab-frr vtysh -c "show running-config" 2>&1 | grep -i "ip route" | tr '\n' ' ' | tail -c 700)"
+            echo "::error::frr daemons: $(docker exec ntbx-lab-frr vtysh -c "show daemons" 2>&1 | tr '\n' ' ' | tail -c 400)"
           }
-          cfg=$(docker exec ntbx-lab-frr vtysh -c "configure terminal" \
-            -c "ip route 192.168.20.0 255.255.255.0 10.0.0.2" \
-            -c "ip route 0.0.0.0 0.0.0.0 10.0.0.2" \
-            -c "end" 2>&1) || {
-              echo "::error::vtysh config failed: $(echo "$cfg" | tr '\n' ' ' | tail -c 600)"
-              dump; exit 1
-            }
-          echo "$cfg"
-          # FRR's parameterized query differs from IOS; assert on the full table instead
+          # Faithful replay of the documented paste workflow: feed the entry's
+          # command block to vtysh via stdin (exactly like an interactive paste;
+          # vtysh -c does NOT keep CLI mode between -c arguments).
+          out_apply=$(printf 'configure terminal\nip route 192.168.20.0 255.255.255.0 10.0.0.2\nip route 0.0.0.0 0.0.0.0 10.0.0.2\nend\n' | docker exec -i ntbx-lab-frr vtysh 2>&1) || {
+            echo "::error::vtysh stdin apply failed: $(echo "$out_apply" | tr '\n' ' ' | tail -c 600)"
+            dump; exit 1
+          }
+          echo "$out_apply"
           out=$(docker exec ntbx-lab-frr vtysh -c "show ip route" 2>&1) || {
             echo "::error::show ip route failed: $(echo "$out" | tr '\n' ' ' | tail -c 600)"
             dump; exit 1
