@@ -65,10 +65,18 @@ jobs:
 
       - name: Example 2 (frr) - entry eac547bb static route syntax
         run: |
+          echo "--- frr daemons running ---"
+          docker exec ntbx-lab-frr vtysh -c "show daemons" || true
+          echo "--- applying entry commands (IOS-style) ---"
           docker exec ntbx-lab-frr vtysh -c "configure terminal" \
             -c "ip route 192.168.20.0 255.255.255.0 10.0.0.2" \
             -c "ip route 0.0.0.0 0.0.0.0 10.0.0.2" \
-            -c "end"
+            -c "end" || {
+              echo "::error::vtysh config application failed"
+              docker exec ntbx-lab-frr vtysh -c "show daemons" 2>&1 | tail -5 || true
+              docker logs ntbx-lab-frr 2>&1 | tail -15 || true
+              exit 1
+            }
           # FRR's parameterized query differs from IOS; assert on the full table instead
           out=$(docker exec ntbx-lab-frr vtysh -c "show ip route")
           echo "$out"
