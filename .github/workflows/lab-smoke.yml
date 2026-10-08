@@ -65,32 +65,49 @@ jobs:
 
       - name: Example 2 (frr) - entry eac547bb static route syntax
         run: |
-          echo "--- frr daemons running ---"
-          docker exec ntbx-lab-frr vtysh -c "show daemons" || true
-          echo "--- applying entry commands (IOS-style) ---"
-          docker exec ntbx-lab-frr vtysh -c "configure terminal" \
+          dump() {
+            echo "::error::frr daemons: $(docker exec ntbx-lab-frr vtysh -c "show daemons" 2>&1 | tr '\n' ' ' | tail -c 800)"
+            echo "::error::frr logs: $(docker logs ntbx-lab-frr 2>&1 | tr '\n' ' ' | tail -c 800)"
+          }
+          cfg=$(docker exec ntbx-lab-frr vtysh -c "configure terminal" \
             -c "ip route 192.168.20.0 255.255.255.0 10.0.0.2" \
             -c "ip route 0.0.0.0 0.0.0.0 10.0.0.2" \
-            -c "end" || {
-              echo "::error::vtysh config application failed"
-              docker exec ntbx-lab-frr vtysh -c "show daemons" 2>&1 | tail -5 || true
-              docker logs ntbx-lab-frr 2>&1 | tail -15 || true
-              exit 1
+            -c "end" 2>&1) || {
+              echo "::error::vtysh config failed: $(echo "$cfg" | tr '\n' ' ' | tail -c 600)"
+              dump; exit 1
             }
+          echo "$cfg"
           # FRR's parameterized query differs from IOS; assert on the full table instead
-          out=$(docker exec ntbx-lab-frr vtysh -c "show ip route")
+          out=$(docker exec ntbx-lab-frr vtysh -c "show ip route" 2>&1) || {
+            echo "::error::show ip route failed: $(echo "$out" | tr '\n' ' ' | tail -c 600)"
+            dump; exit 1
+          }
           echo "$out"
           echo "$out" | grep -Eq "^S.*192\.168\.20\." || {
-            echo "::error::no S route for 192.168.20.0 in frr table; tail of route table:"
-            echo "$out" | tail -12
-            exit 1
+            echo "::error::no S route for 192.168.20.0; route-table tail: $(echo "$out" | tr '\n' ' ' | tail -c 600)"
+            dump; exit 1
           }
 
       - name: systemd check on centos7
-        run: docker exec ntbx-lab-centos7 systemctl is-active sshd
+        run: |
+          out=$(docker exec ntbx-lab-centos7 systemctl is-active sshd 2>&1) || {
+            echo "::error::centos7 sshd not active [$(echo "$out" | tr '\n' ' ')]: $(docker exec ntbx-lab-centos7 systemctl status sshd --no-pager 2>&1 | tr '\n' ' ' | tail -c 700)"
+            exit 1
+          }
+          echo "centos7 sshd: $out"
 
       - name: srlinux cli check
-        run: docker exec ntbx-lab-srlinux sr_cli show version | grep -qi version
+        run: |
+          out=$(docker exec ntbx-lab-srlinux sr_cli show version 2>&1) || {
+            echo "::error::sr_cli show version failed: $(echo "$out" | tr '\n' ' ' | tail -c 700)"
+            echo "::error::srlinux logs: $(docker logs ntbx-lab-srlinux 2>&1 | tr '\n' ' ' | tail -c 700)"
+            exit 1
+          }
+          echo "$out" | grep -qi version || {
+            echo "::error::sr_cli output has no version line: $(echo "$out" | tr '\n' ' ' | tail -c 700)"
+            exit 1
+          }
+          echo "sr_cli ok: $(echo "$out" | head -3 | tr '\n' ' ')"
 
       - name: Teardown (down -v resets everything)
         if: always()
