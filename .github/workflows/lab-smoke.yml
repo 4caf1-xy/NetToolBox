@@ -69,9 +69,14 @@ jobs:
             -c "ip route 192.168.20.0 255.255.255.0 10.0.0.2" \
             -c "ip route 0.0.0.0 0.0.0.0 10.0.0.2" \
             -c "end"
-          out=$(docker exec ntbx-lab-frr vtysh -c "show ip route 192.168.20.0")
+          # FRR's parameterized query differs from IOS; assert on the full table instead
+          out=$(docker exec ntbx-lab-frr vtysh -c "show ip route")
           echo "$out"
-          echo "$out" | grep -q "^S"
+          echo "$out" | grep -Eq "^S.*192\.168\.20\." || {
+            echo "::error::no S route for 192.168.20.0 in frr table; tail of route table:"
+            echo "$out" | tail -12
+            exit 1
+          }
 
       - name: systemd check on centos7
         run: docker exec ntbx-lab-centos7 systemctl is-active sshd
