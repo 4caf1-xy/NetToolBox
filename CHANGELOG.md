@@ -3,6 +3,12 @@
 本文件记录 NetToolBox 对外可感知的变更。版本号遵循 semver 口径：
 新功能 / 大改 / 种子扩充 → 次版本 +1；纯修复 → 修订号 +1。
 
+## Unreleased
+
+#### 工程
+- **CI 自动打包发版上线**：新增 `.github/workflows/release.yml`——push `v*` tag 触发，windows-latest 装依赖（PyQt5 / PyInstaller / requests）→ `scripts/build_exe.py` 构建 → 产物断言（exe 存在且体积合理、zip 非空且体积合理、出库包不含密钥/运行时文件）→ 出库组装（exe + 净库重建 `command_lib.db` + `check_db.py` + `seed_data/`，与本地出库纪律一致）→ zip 自动挂载到对应 Release：已存在则 `--clobber` 覆盖同名附件，不存在则建 **draft** 待人核后 publish；CI 只见公开仓内容，构建产物天然无密钥（安全边界写入 workflow 注释）；
+- README「快速开始」补齐当前版本号（与关于对话框 / Release 三处一致），并修正下载包名样例（`NetToolBox-dist-*.zip` → `NetToolBox_v*.zip`）。
+
 ## v0.4.0（2026-09-29 首发，2026-10-08 重新发版）
 
 自 v0.3-batch3 以来的全部变更，共两批。首发批主题：**全站界面重构 + 工程治理**；追加批主题：**参数系统结构化升级 + 全量审计修复**。种子库规模维持 **327 条命令 + 26 棵排查树 + 82 条报错字典**。

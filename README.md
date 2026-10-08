@@ -25,7 +25,9 @@
 
 **方式一：下载成品（推荐，免装环境）**
 
-到 [Releases](../../releases) 下载 `NetToolBox-dist-*.zip`，解压即用：
+当前版本：**v0.4.0**（与程序「关于」对话框、Release 页保持一致；更新随 [Releases](../../releases) 发布，发版 zip 由 CI 自动构建挂载）。
+
+到 [Releases](../../releases) 下载 `NetToolBox_v*.zip`，解压即用：
 
 ```
 NetToolBox.exe        # 双击运行
@@ -58,7 +60,7 @@ python scripts/check_db.py        # 主库只读体检
 app/            PyQt5 应用（入口 app/main.py）+ seed_data/ 种子库
 scripts/        校验、体检与维护脚本（check_db / backup_db / hooks / build_exe 一键打包）
 docs/           文档体系（索引 docs/README.md）：架构、种子指南、验证手册、部署说明、审计快照
-.github/        CI（validate-seed）
+.github/        CI（validate-seed 质检 / release 自动打包挂载）
 ```
 
 > 打包说明：`python scripts/build_exe.py`（PyQt5 + PyInstaller）；requests 依赖以 `pip --target` 落在 `_vendor/`（仅构建机本地，随 exe 打包、不入 git）。AI 会话产物落位规范见 [AGENTS.md](AGENTS.md)。
