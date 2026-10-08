@@ -3,7 +3,7 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        openssh-server systemd iproute2 net-tools iputils-ping traceroute \
+        openssh-server systemd systemd-sysv iproute2 net-tools iputils-ping traceroute \
         tcpdump curl dnsutils netcat-openbsd ethtool procps psmisc \
         vim-tiny less sudo && \
     rm -rf /var/lib/apt/lists/* && \
