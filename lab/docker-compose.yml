@@ -29,11 +29,11 @@ services:
     image: ntbx-lab-centos7:local
     container_name: ntbx-lab-centos7
     hostname: lab-centos7
-    privileged: true          # systemd as PID 1
-    command: /sbin/init
-    tmpfs:
-      - /run
-      - /run/lock
+    # No systemd as PID 1: centos7's systemd 219 cannot run services on
+    # cgroup-v2 hosts (CI-verified: PID 1 alive but zero services, sshd killed).
+    # sshd runs foreground instead; systemctl-family entries are out of scope
+    # for this container — see docs/lab/README.md FAQ 5.
+    command: /usr/sbin/sshd -D
     ports:
       - "127.0.0.1:2223:22"   # ssh root@127.0.0.1 -p 2223  (password: ntbxlab)
     mem_limit: 512m

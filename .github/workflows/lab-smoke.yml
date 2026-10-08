@@ -47,7 +47,8 @@ jobs:
               docker inspect --format '{{.State.Health.Status}}' "$c" 2>/dev/null || echo missing
             done)
             echo "$statuses"
-            [ "$(echo "$statuses" | grep -c healthy)" -eq 4 ] && exit 0
+            # -x: whole-line match only ("unhealthy" must not count as "healthy")
+            [ "$(echo "$statuses" | grep -cx healthy)" -eq 4 ] && exit 0
             sleep 10
           done
           echo "::error::services not healthy in time"

@@ -6,7 +6,7 @@
 ## Unreleased
 
 #### 新功能
-- **compose 实验室（一键验证环境）**：新增 `lab/`——4 个固定容器名服务（`ntbx-lab-ubuntu` 2222 / `ntbx-lab-centos7` 2223，systemd 作 PID 1；`ntbx-lab-frr` vtysh 经典 CLI，启用 zebra/staticd/bgpd/ospfd/bfdd；`ntbx-lab-srlinux` Nokia 免许可 NOS，回路练习/预留），全部免许可可直接拉取镜像，运行合计 ≤2GB，数据全在容器内 `down -v` 即重置；指南 `docs/lab/README.md`（拉起/进入/设备映射表/2 条完整验证示例/FAQ），verify-guide 环境映射表同步增补"compose 实验室"列、验证会流程新增"起环境"步；新增 `lab-smoke` workflow（lab 链路变更时 CI 全服务拉起 + 示例条目实测）。防火墙类无免许可容器化路径，如实标注"真机专权"，不硬凑。
+- **compose 实验室（一键验证环境）**：新增 `lab/`——4 个固定容器名服务（`ntbx-lab-ubuntu` 2222，systemd 作 PID 1，`systemctl` 类可验证；`ntbx-lab-centos7` 2223，sshd 前台直跑——centos7 systemd 219 与 cgroup v2 宿主结构性不兼容、服务无法启动（CI 实测），`systemctl` 类条目如实标注不可验证；`ntbx-lab-frr` vtysh 经典 CLI（privileged），启用 zebra/staticd/bgpd/ospfd/bfdd；`ntbx-lab-srlinux` Nokia 免许可 NOS，回路练习/预留），全部免许可可直接拉取镜像，运行合计 ≤2GB，数据全在容器内 `down -v` 即重置；指南 `docs/lab/README.md`（拉起/进入/设备映射表/2 条完整验证示例/FAQ），verify-guide 环境映射表同步增补"compose 实验室"列、验证会流程新增"起环境"步；新增 `lab-smoke` workflow（lab 链路变更时 CI 全服务拉起 + 示例条目实测）。防火墙类无免许可容器化路径，如实标注"真机专权"，不硬凑。
 
 #### 工程
 - **CI 自动打包发版上线**：新增 `.github/workflows/release.yml`——push `v*` tag 触发，windows-latest 装依赖（PyQt5 / PyInstaller / requests）→ `scripts/build_exe.py` 构建 → 产物断言（exe 存在且体积合理、zip 非空且体积合理、出库包不含密钥/运行时文件）→ 出库组装（exe + 净库重建 `command_lib.db` + `check_db.py` + `seed_data/`，与本地出库纪律一致）→ zip 自动挂载到对应 Release：已存在则 `--clobber` 覆盖同名附件，不存在则建 **draft** 待人核后 publish；CI 只见公开仓内容，构建产物天然无密钥（安全边界写入 workflow 注释）；
