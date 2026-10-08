@@ -14,6 +14,13 @@ permissions:
 jobs:
   build-release:
     runs-on: windows-latest
+    env:
+      # Windows runner 默认代码页 cp1252：脚本的中/全角字符 print 会直接
+      # UnicodeEncodeError（首跑 29s 秒败的根因；ubuntu 的 validate-seed
+      # workflow 不受影响）。PYTHONUTF8=1 强制 stdio/文件系统均为 UTF-8，
+      # 覆盖 build_exe.py 与其子进程（--validate-seed）。
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
     steps:
       - name: Checkout
         uses: actions/checkout@v4
