@@ -49,9 +49,7 @@ services:
     image: frrouting/frr:latest
     container_name: ntbx-lab-frr
     hostname: lab-frr
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
+    privileged: true         # zebra/ospfd/bfdd need cap_sys_admin (cap_add is not enough; official docs recommend privileged)
     volumes:
       - ./frr/daemons:/etc/frr/daemons:ro
     mem_limit: 512m
