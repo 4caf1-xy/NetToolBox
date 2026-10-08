@@ -77,15 +77,24 @@ jobs:
             dump; exit 1
           }
           echo "$out_apply"
+          # Syntax-check assertion (docs/lab/README.md example 2): the entry is a
+          # syntax-check, so assert staticd HOLDS the pasted routes in running-config.
+          # Route-table presence is NOT asserted: FRR does not display static routes
+          # whose next hop is unreachable (10.0.0.2 has no route in the container).
+          rc=$(docker exec ntbx-lab-frr vtysh -c "show running-config" 2>&1) || {
+            echo "::error::show running-config failed: $(echo "$rc" | tr '\n' ' ' | tail -c 600)"
+            dump; exit 1
+          }
+          echo "$rc" | grep -Eq "^ip route 192\.168\.20\.0/24 10\.0\.0\.2" || {
+            echo "::error::pasted static route not in running-config: $(echo "$rc" | grep -i "ip route" | tr '\n' ' ' | tail -c 700)"
+            dump; exit 1
+          }
           out=$(docker exec ntbx-lab-frr vtysh -c "show ip route" 2>&1) || {
             echo "::error::show ip route failed: $(echo "$out" | tr '\n' ' ' | tail -c 600)"
             dump; exit 1
           }
-          echo "$out"
-          echo "$out" | grep -Eq "^S.*192\.168\.20\." || {
-            echo "::error::no S route for 192.168.20.0; route-table tail: $(echo "$out" | tr '\n' ' ' | tail -c 600)"
-            dump; exit 1
-          }
+          echo "$out"  # shown for reference only (no S-route assert by design)
+          echo "syntax check OK: staticd holds ip route 192.168.20.0/24 via 10.0.0.2"
 
       - name: systemd check on centos7
         run: |

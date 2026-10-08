@@ -78,8 +78,8 @@ docker compose -f lab/docker-compose.yml up -d --build  # 改过 Dockerfile 后�
    write memory
    show ip route 192.168.20.0
    ```
-2. **粘贴执行**：`docker exec -it ntbx-lab-frr vtysh`，粘贴。FRR 与 IOS 同构，命令全部被接受；`show ip route` 中 `S` 行与 notes 判读口径（"S 表示静态路由、S* 默认路由"）一致。
-3. **档位判定**：下一跳 10.0.0.2 在容器里不可达，路由表里该 S 路由会标 **inactive**——这是预期现象（语法/模式已确认，场景未完整复现）→ **语法核对档**，notes 记录"inactive 因下一跳不可达；`ip route` 族与 `write memory` 语法确认"，`exec_level` 若为 skeleton 升 `verified-cli`。**不判绿**。
+2. **粘贴执行**：`docker exec -it ntbx-lab-frr vtysh`，粘贴命令块。FRR 与 IOS 同构，命令全部被接受（`configure terminal` 进入配置模式，粘贴的命令依次落盘，`end` 退出）。
+3. **档位判定**：**配置是否被接受，用 `show running-config` 确认**——能看到 `ip route 192.168.20.0/24 10.0.0.2`（FRR 把 IOS 掩码写法规范化为 CIDR）与默认路由。注意与 IOS 的行为差异：下一跳 10.0.0.2 在容器里不可达时，`show ip route` **不显示**该 S 路由（FRR 不展示下一跳未解析的静态路由，IOS 则显示 inactive 行）——这是预期现象 → **语法核对档**，notes 记录"`show ip route` 无 S 行因下一跳不可达（FRR 特性）；`ip route` 族与 `write memory` 语法确认（running-config 可见）"，`exec_level` 若为 skeleton 升 `verified-cli`。**不判绿**。
 4. **贴回显 + 回填**：同上，`verified_model=Docker(FRR, vtysh)`。
 
 > 纪律提醒：实验室判定同样遵守 verify-guide 四档标准与"宁红勿绿"——语法核对档**永远不判绿**，涉及该厂商真实行为的结论以真机/模拟器验证为准。
