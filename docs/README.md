@@ -13,6 +13,7 @@
 | [architecture.md](architecture.md) | 维护者 / 深度贡献者 | 数据流、三库职责、公开仓与伴生仓分工 | 架构变更时 |
 | [seed-guide.md](seed-guide.md) | 种子作者 | 怎么写一条从零到 validate 通过的合格条目 | schema / 校验规则变更时 |
 | [verify-guide.md](verify-guide.md) | 验证执行者 | 怎么跑一场验证会：环境、四档判定、回填与存档 | 验证流程变更时 |
+| [lab/README.md](lab/README.md) | 验证执行者 / 贡献者 | compose 实验室怎么拉起、进入、重置；设备映射与完整验证示例 | lab 链路变更时 |
 | [打包与部署说明.md](打包与部署说明.md) | 打包 / 分发执行者 | 怎么打包 exe、U 盘部署、升级迁移、现场排障 | 打包链路变更时 |
 | [dev-notes.md](dev-notes.md) | 维护者 / AI 会话 | 已知问题跟踪、历史坑与结论性沉淀 | 随发现随记（append） |
 | [prompts/README.md](prompts/README.md) | 维护者 | 历次 AI 提示词批次 → 产出对照 | 每批提示词归档后 |

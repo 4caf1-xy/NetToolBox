@@ -1,0 +1,78 @@
+# NetToolBox disposable verification lab (docs: docs/lab/README.md)
+# All state lives inside containers: `docker compose down -v` resets everything.
+name: ntbx-lab
+
+services:
+  linux-ubuntu:
+    build: ./linux-ubuntu
+    image: ntbx-lab-ubuntu:local
+    container_name: ntbx-lab-ubuntu
+    hostname: lab-ubuntu
+    privileged: true          # systemd as PID 1
+    command: /sbin/init
+    tmpfs:
+      - /run
+      - /run/lock
+    ports:
+      - "127.0.0.1:2222:22"   # ssh root@127.0.0.1 -p 2222  (password: ntbxlab)
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "pgrep", "-x", "sshd"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    restart: unless-stopped
+
+  linux-centos7:
+    build: ./linux-centos7
+    image: ntbx-lab-centos7:local
+    container_name: ntbx-lab-centos7
+    hostname: lab-centos7
+    privileged: true          # systemd as PID 1
+    command: /sbin/init
+    tmpfs:
+      - /run
+      - /run/lock
+    ports:
+      - "127.0.0.1:2223:22"   # ssh root@127.0.0.1 -p 2223  (password: ntbxlab)
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "pgrep", "-x", "sshd"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    restart: unless-stopped
+
+  frr:
+    image: frrouting/frr:latest
+    container_name: ntbx-lab-frr
+    hostname: lab-frr
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./frr/daemons:/etc/frr/daemons:ro
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "vtysh", "-c", "show version"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    restart: unless-stopped
+
+  srlinux:
+    image: ghcr.io/nokia/srlinux:26.7
+    container_name: ntbx-lab-srlinux
+    hostname: lab-srlinux
+    privileged: true
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f mgmt_server >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 120s
+    restart: unless-stopped

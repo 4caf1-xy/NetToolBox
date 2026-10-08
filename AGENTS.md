@@ -12,6 +12,7 @@
 | 实验/验证代码 | `scripts/`（可复用的转正并写清用法） | 以 `tmp*`、`test1.py` 等名字散落根目录 |
 | 会话记忆/笔记 | `.workbuddy/`（已 gitignore） | 写入任何被跟踪目录 |
 | 运行时数据（db/sessions/ai_cases/ui_state） | exe 同目录运行产物，一律 gitignore | 手动拷入仓库 |
+| compose 实验室 | `lab/`（docker-compose.yml + 各服务子目录，指南在 `docs/lab/README.md`） | 镜像文件 / 运行时产生的容器数据入库；指南里出现任何真实 IP/主机名/拓扑 |
 | 正式文档（.md） | `docs/` 对应位置（索引见 `docs/README.md`） | **在仓库根目录新建任何 .md**（根目录门面恒定：README / LICENSE / CONTRIBUTING / requirements / 配置模板，新增主题文档一律先进 docs/ 并登记索引）。**豁免：根目录 `CHANGELOG.md`**（2026-10-08 裁决：发版惯例先于本规范存在，semver 发版流程依赖其在根目录的显眼位置，迁入 docs/ 得不偿失；除此之外无新增豁免） |
 
 ## 2. 打包纪律

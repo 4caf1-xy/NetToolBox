@@ -6,12 +6,15 @@
 
 ## 一、环境映射表
 
-| device_type | 建议验证环境 | 说明 |
-|---|---|---|
-| 交换机 | 网络模拟器（EVE-NG / GNS3 / Cisco IOSvL2、华为 eNSP、H3C HCL）或真机 | 二层特性（STP/VACL/端口展开）优先真机或高保真镜像 |
-| 路由器 | 网络模拟器（IOSv / VRP / vSRX / vRouter）或真机 | OSPF/BGP 邻居类需至少双节点拓扑 |
-| 防火墙 | 防火墙虚机（FortiGate VM / PAN-OS VM / 深信服 AF 虚拟化 / 天融信 虚拟化） | Web 控制台条目需对应版本的管理界面；CLI 骨架条目见下 |
-| 服务器（Linux） | Linux 虚机（CentOS 7 / Ubuntu 22.04 / 麒麟 V10 / openEuler 22.03，VMware/ESXi），验证前打挂起快照 | 与现场主用发行版一致；涉及重启/网络瞬断的条目必须先拍快照 |
+| device_type | compose 实验室 | 建议验证环境 | 说明 |
+|---|---|---|---|
+| 交换机 | ⚠️ 仅 `frr` 语法核对档（IOS 风格管理面骨架） | 网络模拟器（EVE-NG / GNS3 / Cisco IOSvL2、华为 eNSP、H3C HCL）或真机 | 二层特性（STP/VACL/端口展开）优先真机或高保真镜像；非 IOS 厂商 `display` 系不适用实验室 |
+| 路由器 | ⚠️ `frr` 仅语法核对档（cisco/ios 静态路由 / OSPF 骨架）；`srlinux` 供回路练习 | 网络模拟器（IOSv / VRP / vSRX / vRouter）或真机 | OSPF/BGP 邻居类需至少双节点拓扑；华为/H3C/锐捷/中兴走各自模拟器或真机 |
+| 防火墙 | ❌ 真机专权（无免许可容器化路径，实验室不硬凑） | 防火墙虚机（FortiGate VM / PAN-OS VM / 深信服 AF 虚拟化 / 天融信 虚拟化） | Web 控制台条目需对应版本的管理界面；CLI 骨架条目见下 |
+| 服务器（Linux） | ✅ `linux-ubuntu` / `linux-centos7`（kylin/openEuler 在 centos7 容器仅语法核对档） | Linux 虚机（CentOS 7 / Ubuntu 22.04 / 麒麟 V10 / openEuler 22.03，VMware/ESXi），验证前打挂起快照 | 与现场主用发行版一致；涉及重启/网络瞬断的条目必须先拍快照——实验室可先行低成本预演，正式判定仍以虚机为准 |
+| 通用 Linux（device_type 空） | ✅ `linux-ubuntu` | 同上 | 纯 bash/procps 类命令在任意 Linux 容器等价 |
+
+compose 实验室的拉起方式、进入命令与完整示例见 [docs/lab/README.md](lab/README.md)；实验室判定同样适用本手册四档标准与"宁红勿绿"纪律，语法核对档**不判绿**。
 
 **骨架条目核对规则（exec_level: skeleton）**：与其他条目**同标准执行，不降级、不跳过**。
 核对通过 → 按"绿"档晋升且 `exec_level` 升级为 `verified-cli`；核对发现不可执行 → 按
@@ -30,6 +33,9 @@
 
 ## 三、操作流程
 
+0. **起环境**：本轮有实验室可覆盖条目（映射表 compose 实验室列为 ✅/⚠️）时，先按
+   [docs/lab/README.md](lab/README.md) 拉起 compose 实验室（`docker compose -f lab/docker-compose.yml up -d`，
+   等 `ps` 显示全部 healthy）；环境即抛型，破坏性命令随便执行，验证中可随时 `down -v` 重置。
 1. **导出清单**：从主库按本轮范围（厂商/分类/批次）导出待验证条目清单 CSV；
 2. **前置备份**：回填前先备份主库（`python scripts/backup_db.py` 或手动拷贝
    `command_lib.db.bak-<日期>`）——回填失败可整体回滚；
