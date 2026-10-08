@@ -1623,8 +1623,11 @@ class AiTab(QWidget):
         """启动一次探测（上一轮还在跑就跳过；60s 定时器循环触发）"""
         if self._probe and self._probe.isRunning():
             return
+        if self._probe is not None:
+            # B9（审计 2026-10-08）：旧实例已结束，排队销毁防堆积；挂 parent 防 GC
+            self._probe.deleteLater()
         cfg = ai_bridge.load_config()
-        self._probe = ai_bridge.NetworkProbe(cfg.get("base_url"))
+        self._probe = ai_bridge.NetworkProbe(cfg.get("base_url"), self)
         self._probe.probe_result.connect(self._on_probe_result)
         self._probe.start()
 

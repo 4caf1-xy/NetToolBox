@@ -686,27 +686,33 @@ class DictEditDialog(QDialog):
         self.test_pattern(quiet=True)
 
     def test_pattern(self, quiet=False):
+        """pattern 命中测试。quiet=True（examples 输入中自动触发）时只算不刷 UI，
+        避免打字过程中标签闪烁报错（B13：此前 quiet 参数被传入但从未读取）"""
         import error_match as em
         pattern = self.ed_pattern.text().strip()
         if not pattern:
-            self.lbl_test.setText("✘ pattern 为空")
-            set_state(self.lbl_test, "err")
+            if not quiet:
+                self.lbl_test.setText("✘ pattern 为空")
+                set_state(self.lbl_test, "err")
             return False
         regex = em.compile_pattern(pattern)
         if regex is None:
-            self.lbl_test.setText("✘ 正则无法编译（请检查语法）")
-            set_state(self.lbl_test, "err")
+            if not quiet:
+                self.lbl_test.setText("✘ 正则无法编译（请检查语法）")
+                set_state(self.lbl_test, "err")
             return False
         lines = [ln for ln in self.txt_examples.toPlainText().splitlines() if ln.strip()]
         if not lines:
-            self.lbl_test.setText("⚠ 没有样例可测——先在下方粘贴真实报错")
-            set_state(self.lbl_test, "warn")
+            if not quiet:
+                self.lbl_test.setText("⚠ 没有样例可测——先在下方粘贴真实报错")
+                set_state(self.lbl_test, "warn")
             return False
         hit = sum(1 for ln in lines if regex.search(ln))
         ok = hit == len(lines)
-        self.lbl_test.setText(
-            ("%s 命中 %d/%d 条样例" % ("✓" if ok else "✘", hit, len(lines))))
-        set_state(self.lbl_test, "ok" if ok else "err")
+        if not quiet:
+            self.lbl_test.setText(
+                ("%s 命中 %d/%d 条样例" % ("✓" if ok else "✘", hit, len(lines))))
+            set_state(self.lbl_test, "ok" if ok else "err")
         return ok
 
     def save(self):

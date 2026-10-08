@@ -212,8 +212,9 @@ qw.QMessageBox.information = staticmethod(
 qw.QMessageBox.question = staticmethod(lambda *a, **kw: qw.QMessageBox.Yes)
 _orig_write_nlb = ui_ai.DraftFromAiDialog._write_draft_nlb
 ui_ai.DraftFromAiDialog._write_draft_nlb = staticmethod(lambda entries: "（测试跳过留痕）")
-_orig_cfg_path = ai_bridge.config_path if "ai_bridge" in dir() else None
 import ai_bridge
+# A14（审计 2026-10-08）：原 dir() 守卫行是永不生效的死代码（import 在后，
+# 守卫恒 False），且下一行本就会保存原始函数指针——直接删除
 _orig_cfg_path = ai_bridge.config_path
 ai_bridge.config_path = lambda: os.path.join(tmpdir, "ai_config_s3.json")
 

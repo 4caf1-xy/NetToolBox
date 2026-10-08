@@ -153,7 +153,7 @@ def list_models(cfg=None):
     if not is_configured(cfg):
         return False, [], "尚未填写 API Key"
     try:
-        import requests
+        import requests  # 依赖可用性探针：本函数经 open_session 间接使用，pyflakes F401 属预期
     except ImportError:
         return False, [], "缺少 HTTP 客户端库（打包时需带 hiddenimports）"
     headers = {"Authorization": "Bearer %s" % cfg["api_key"]}
@@ -230,7 +230,7 @@ def test_connection(cfg=None):
     if not is_configured(cfg):
         return False, "尚未填写 API Key", 0
     try:
-        import requests
+        import requests  # 依赖可用性探针：本函数经 open_session 间接使用，pyflakes F401 属预期
     except ImportError:
         return False, "缺少 requests 库（打包时需带 hiddenimports）", 0
 
@@ -609,12 +609,14 @@ def load_text_attachment(path):
     if size > MAX_ATTACH_BYTES:
         return None, "文件超过 200KB 上限（%d KB）：%s" % (size // 1024, os.path.basename(path))
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as fp:
-            raw = fp.read(ATTACH_TRUNCATE_BYTES + 1)
+        # B11（审计 2026-10-08）：按字节读——此前按"字符"读却标注"字节"，
+        # CJK 内容下截断量与标注差 3 倍量级；解码失败仍用 replace 兜底
+        with open(path, "rb") as fp:
+            raw_bytes = fp.read(ATTACH_TRUNCATE_BYTES + 1)
     except Exception as exc:
         return None, "读取失败：%s" % str(exc)[:60]
-    truncated = size > ATTACH_TRUNCATE_BYTES
-    content = raw[:ATTACH_TRUNCATE_BYTES]
+    truncated = len(raw_bytes) > ATTACH_TRUNCATE_BYTES
+    content = raw_bytes[:ATTACH_TRUNCATE_BYTES].decode("utf-8", errors="replace")
     name = os.path.basename(path)
     ext = os.path.splitext(name)[1].lower()
     return {
@@ -772,7 +774,7 @@ def save_session(session):
     try:
         payload = dict(session)
         payload["saved_at"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        path = os.path.join(sessions_dir(), "%s.json" % session.get("session_id") or "session")
+        path = os.path.join(sessions_dir(), "%s.json" % (session.get("session_id") or "session"))
         with open(path, "w", encoding="utf-8") as fp:
             json.dump(payload, fp, ensure_ascii=False, indent=2)
         return path
@@ -902,7 +904,7 @@ class ChatWorker(QThread):
 
     def run(self):
         try:
-            import requests
+            import requests  # 依赖可用性探针：实际请求经 open_session 的会话发出，F401 属预期
         except ImportError:
             self.failed.emit("缺少 requests 库：请用 pip install requests 后重试")
             return

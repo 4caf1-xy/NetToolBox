@@ -92,6 +92,7 @@ def case_b():
 def case_a():
     from PyQt5.QtWidgets import QApplication, QMessageBox
     app = QApplication.instance() or QApplication(sys.argv)
+    _ = app  # 保持 QApplication 引用存活（offscreen 必需）
     import ui_main
     import db as dbmod
 

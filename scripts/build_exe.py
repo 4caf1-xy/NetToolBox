@@ -228,7 +228,6 @@ def build():
     src_exe = os.path.join(OUT_DIR, APP_NAME + ".exe")
     dst_exe = os.path.join(DIST_DIR, APP_NAME + ".exe")
     if os.path.isfile(src_exe):
-        import shutil
         shutil.copy2(src_exe, dst_exe)
         size_mb = os.path.getsize(dst_exe) / 1024.0 / 1024.0
         print("-" * 66)
