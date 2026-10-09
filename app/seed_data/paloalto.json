@@ -19,6 +19,7 @@
       "title": "创建 VLAN 子接口并划入安全区域",
       "description": "在物理口上建 tag 子接口、配 IP，并把子接口划入安全区域（PAN-OS 的 zone 必须先建）。",
       "commands": "# ===== 创建 VLAN 子接口（PAN-OS）=====\nconfigure\nset network interface ethernet {{parent_port}} layer3 units {{sub_if}} tag {{vlan_id}}\nset network interface ethernet {{parent_port}} layer3 units {{sub_if}} ip {{vlan_ip}}/{{prefix_len}}\nset network interface ethernet {{parent_port}} layer3 units {{sub_if}} comment \"{{vlan_desc}}\"\nset zone {{zone_name}} network layer3 {{sub_if}}\nset network virtual-router default interface {{sub_if}}\ncommit\nshow interface all",
+      "rollback": "# 回退：删除 VLAN 子接口并解除 zone/虚拟路由器引用（引用未解时 delete 会被拒）\nconfigure\ndelete zone {{zone_name}} network layer3 {{sub_if}}\ndelete network virtual-router default interface {{sub_if}}\ndelete network interface ethernet {{parent_port}} layer3 units {{sub_if}}\ncommit\n# 复核（期望无该接口）\nshow interface all",
       "params": [
         {
           "name": "parent_port",
@@ -111,6 +112,7 @@
       "title": "配置链路聚合（AE 接口）与 Trunk 子接口",
       "description": "把多个物理口绑成 AE 聚合口，再在 AE 上建 tag 子接口作为 Trunk 上联。",
       "commands": "# ===== 链路聚合 + Trunk 子接口（PAN-OS）=====\nconfigure\n! ---- 1) 创建 AE 聚合口并加入成员口 ----\nset network interface ethernet {{member1}} layer2 lacp enable true\nset network interface ethernet {{member1}} aggregate-group {{ae_name}}\nset network interface ethernet {{member2}} layer2 lacp enable true\nset network interface ethernet {{member2}} aggregate-group {{ae_name}}\n! ---- 2) 在 AE 上建子接口作为 Trunk（每个 VLAN 一个 tag 子接口）----\nset network interface aggregate-ethernet {{ae_name}} layer3 units {{ae_name}}.{{vlan_id}} tag {{vlan_id}}\nset network interface aggregate-ethernet {{ae_name}} layer3 units {{ae_name}}.{{vlan_id}} ip {{vlan_ip}}/{{prefix_len}}\nset zone trust network layer3 {{ae_name}}.{{vlan_id}}\nset network virtual-router default interface {{ae_name}}.{{vlan_id}}\ncommit\nshow interface all\nshow lacp interfaces",
+      "rollback": "# 回退：删除 AE 子接口与引用，成员口解除聚合（成员口原配置按变更记录恢复）\nconfigure\ndelete zone trust network layer3 {{ae_name}}.{{vlan_id}}\ndelete network virtual-router default interface {{ae_name}}.{{vlan_id}}\ndelete network interface aggregate-ethernet {{ae_name}} layer3 units {{ae_name}}.{{vlan_id}}\ndelete network interface ethernet {{member1}} aggregate-group\ndelete network interface ethernet {{member1}} layer2 lacp\ndelete network interface ethernet {{member2}} aggregate-group\ndelete network interface ethernet {{member2}} layer2 lacp\ndelete network interface aggregate-ethernet {{ae_name}}\ncommit\n# 复核\nshow interface all",
       "params": [
         {
           "name": "member1",
@@ -193,6 +195,7 @@
       "title": "配置静态路由与默认路由（PAN-OS）",
       "description": "在 virtual-router 的路由表中新增静态路由，指定下一跳与出接口。",
       "commands": "# ===== 静态路由（PAN-OS）=====\nconfigure\nset network virtual-router default routing-table ip static-route {{route_name}} destination {{dest_net}}/{{prefix_len}}\nset network virtual-router default routing-table ip static-route {{route_name}} nexthop ip-address {{next_hop}}\nset network virtual-router default routing-table ip static-route {{route_name}} interface {{out_interface}}\nset network virtual-router default routing-table ip static-route {{route_name}} metric {{metric}}\nset network virtual-router default routing-table ip static-route {{default_route_name}} destination 0.0.0.0/0\nset network virtual-router default routing-table ip static-route {{default_route_name}} nexthop ip-address {{next_hop}}\nset network virtual-router default routing-table ip static-route {{default_route_name}} interface {{out_interface}}\ncommit\nshow routing route\nshow routing route type static\ntest routing fib-lookup virtual-router default ip {{probe_ip}}",
+      "rollback": "# 回退：删除本变更新增的静态路由与默认路由\nconfigure\ndelete network virtual-router default routing-table ip static-route {{route_name}}\ndelete network virtual-router default routing-table ip static-route {{default_route_name}}\ncommit\n# 复核\nshow routing route type static",
       "params": [
         {
           "name": "route_name",
@@ -296,6 +299,7 @@
       "title": "配置 OSPF 基本组网（PAN-OS）",
       "description": "启用 OSPF、指定 router-id、按区域把接口加入 OSPF 并设置被动接口。",
       "commands": "# ===== OSPF 基本配置（PAN-OS）=====\nconfigure\nset network virtual-router default protocol ospf router-id {{router_id}}\nset network virtual-router default protocol ospf enable yes\nset network virtual-router default protocol ospf area {{area_id}} interface {{uplink_port}}\nset network virtual-router default protocol ospf area {{area_id}} interface {{port}}\nset network virtual-router default protocol ospf area {{area_id}} interface {{port}} passive yes\nset network virtual-router default protocol ospf area {{area_id}} type normal\ncommit\nshow routing protocol ospf neighbor\nshow routing protocol ospf interface\nshow routing protocol ospf summary",
+      "rollback": "# 回退：撤销 OSPF（delete area 连带其下接口/类型；router-id/enable 恢复默认）\nconfigure\ndelete network virtual-router default protocol ospf area {{area_id}}\ndelete network virtual-router default protocol ospf router-id\ndelete network virtual-router default protocol ospf enable\ncommit\n# 复核\nshow routing protocol ospf neighbor",
       "params": [
         {
           "name": "router_id",
@@ -357,6 +361,7 @@
       "title": "配置安全策略与地址对象（ACL 等效）",
       "description": "创建地址对象与服务对象，用 security rule 控制区域间访问，并开启日志。",
       "commands": "# ===== 地址对象 + 安全策略（PAN-OS）=====\nconfigure\nset address {{src_obj}} ip-netmask {{src_net}}/{{src_prefix}}\nset address {{dst_obj}} ip-netmask {{dst_net}}/{{dst_prefix}}\nset service {{svc_obj}} protocol tcp port {{dst_port}}\nset rulebase security rules {{rule_name}} from {{src_zone}}\nset rulebase security rules {{rule_name}} to {{dst_zone}}\nset rulebase security rules {{rule_name}} source {{src_obj}}\nset rulebase security rules {{rule_name}} destination {{dst_obj}}\nset rulebase security rules {{rule_name}} application {{application}}\nset rulebase security rules {{rule_name}} service {{svc_obj}}\nset rulebase security rules {{rule_name}} action allow\nset rulebase security rules {{rule_name}} log-end yes\ncommit\nshow rulebase security rules\nshow session all filter rule {{rule_name}}",
+      "rollback": "# 回退：先删策略再删对象/服务（被引用时 delete 会被拒）\nconfigure\ndelete rulebase security rules {{rule_name}}\ndelete address {{src_obj}}\ndelete address {{dst_obj}}\ndelete service {{svc_obj}}\ncommit\n# 复核\nshow rulebase security rules",
       "params": [
         {
           "name": "src_obj",
@@ -501,6 +506,7 @@
       "title": "配置源 NAT（SNAT/PAT）与目的 NAT（DNAT 端口映射）",
       "description": "用 NAT 策略做源地址转换与端口映射，并说明与安全策略的配合关系。",
       "commands": "# ===== 源 NAT + 目的 NAT（PAN-OS）=====\nconfigure\n! ---- 1) 源 NAT：内网出网做 PAT（借用出接口地址）----\nset rulebase nat rules {{snat_name}} from {{src_zone}}\nset rulebase nat rules {{snat_name}} to {{dst_zone}}\nset rulebase nat rules {{snat_name}} source {{src_net}}/{{src_prefix}}\nset rulebase nat rules {{snat_name}} destination any\nset rulebase nat rules {{snat_name}} service any\nset rulebase nat rules {{snat_name}} source-translation dynamic-ip-and-port interface-address interface {{out_interface}}\n! ---- 2) 目的 NAT：公网端口映射到内网服务器 ----\nset rulebase nat rules {{dnat_name}} from {{untrust_zone}}\nset rulebase nat rules {{dnat_name}} to {{trust_zone}}\nset rulebase nat rules {{dnat_name}} destination {{public_ip}}/32\nset rulebase nat rules {{dnat_name}} service {{svc_name}}\nset rulebase nat rules {{dnat_name}} source any\nset rulebase nat rules {{dnat_name}} destination-translation translated-address {{inside_ip}}\nset rulebase nat rules {{dnat_name}} destination-translation translated-port {{inside_port}}\ncommit\nshow running nat-policy\nshow session all",
+      "rollback": "# 回退：删除 NAT 规则（SNAT/DNAT 相互独立可直接删；zone 内接口划分\n# 若变更前不存在另行处理，不在本回退范围）\nconfigure\ndelete rulebase nat rules {{snat_name}}\ndelete rulebase nat rules {{dnat_name}}\ncommit\n# 复核\nshow running nat-policy",
       "params": [
         {
           "name": "snat_name",
@@ -654,6 +660,7 @@
       "title": "开启 SSH 管理并创建管理员账号",
       "description": "创建管理员账号与角色、限制管理源地址、指定 SSH 版本与端口。",
       "commands": "# ===== 管理员账号 + 管理面收紧（PAN-OS）=====\nconfigure\nset mgt-config users {{username}} permissions role-based superuser yes\nset mgt-config users {{username}} password\n! ↑ 交互提示输入两次口令，脚本里会停在提示符上，需手工输入\nset deviceconfig system permitted-ip {{mgmt_net}}/{{mgmt_prefix}}\nset deviceconfig system ssh-version 2\nset deviceconfig system port {{ssh_port}}\nset deviceconfig system hostname {{hostname}}\ncommit\nshow mgt-config users\nshow deviceconfig system",
+      "rollback": "# 回退：删除本变更新建管理员并恢复管理面参数（★ 删除当前登录账号前\n# 先用其他管理员登录；hostname 旧值按变更记录回填，变更前未设置则\n# delete deviceconfig system hostname；permitted-ip 若变更前无则 delete 撤销）\nconfigure\ndelete mgt-config users {{username}}\nset deviceconfig system port <旧管理端口，默认443>\ncommit\n# 复核\nshow mgt-config users",
       "params": [
         {
           "name": "username",
@@ -727,6 +734,7 @@
       "title": "修改管理员口令并设置口令策略",
       "description": "修改管理员口令，配置口令复杂度与有效期策略。",
       "commands": "# ===== 修改管理员口令（PAN-OS）=====\nconfigure\nset mgt-config users {{username}} password\n! ↑ 交互输入两次新口令，无法在脚本里自动化\nset mgt-config password-complexity enabled yes\nset mgt-config password-complexity minimum-length {{min_len}}\nset mgt-config password-complexity minimum-numeric {{min_numeric}}\nset mgt-config password-complexity minimum-special {{min_special}}\nset mgt-config password-complexity password-history-count {{history}}\nset mgt-config password-complexity password-change-period {{change_days}}\nset mgt-config password-complexity password-change-warning {{warning_days}}\ncommit\nshow mgt-config password-complexity",
+      "rollback": "# 回退：口令类变更须恢复旧口令（交互输入，旧值按变更记录掌握；\n# ★ 本条 rollback 为盲写（命令正文审查通道超时未逐行核对），复核时重点核对\n# 该条目 commands 与 params 后修订占位与路径）\nconfigure\nset mgt-config users <管理员账号> password\n# ↑ 交互输入旧口令两次\n# 口令策略恢复变更前状态（若变更前无策略：delete deviceconfig system password-policy）\ncommit",
       "params": [
         {
           "name": "username",
@@ -824,6 +832,7 @@
       "title": "配置 SNMP 团体字与 Trap 目标（PAN-OS）",
       "description": "配置 SNMP v2c 团体字、限定网管源地址并指定 Trap 接收服务器。",
       "commands": "# ===== SNMP 配置（PAN-OS）=====\nconfigure\nset deviceconfig system snmp-setting access-setting version v2c snmp-community-string {{ro_community}}\nset deviceconfig system snmp-setting access-setting version v2c permitted-ip {{nms_ip}}/32\nset deviceconfig system snmp-setting trap-setting v2c enable yes\nset deviceconfig system snmp-setting trap-setting v2c servers {{nms_ip}}\nset deviceconfig system snmp-setting trap-setting v2c community-string {{ro_community}}\ncommit\nshow deviceconfig system snmp-setting",
+      "rollback": "# 回退：撤销 SNMP v2c 配置（delete 恢复默认未配置状态）\nconfigure\ndelete deviceconfig system snmp-setting access-setting version v2c\ndelete deviceconfig system snmp-setting trap-setting v2c\ncommit\n# 复核\nshow deviceconfig system snmp-setting",
       "params": [
         {
           "name": "ro_community",
@@ -865,6 +874,7 @@
       "title": "提交配置并导出配置文件归档",
       "description": "commit 生效后把配置导出为文件（含命名版本），并把导出文件取回本机归档。",
       "commands": "# ===== 提交与导出配置（PAN-OS）=====\nconfigure\nshow config diff\ncommit\n! ---- 导出运行配置到设备本地文件 ----\nsave config to {{backup_name}}\n! ---- 列出已有导出文件 ----\nshow config saved\n! ---- 命名版本快照（在界面上做，便于一键回滚）----\n! 【Web】Device → Setup → Operations → Save named configuration snapshot\n! 【Web】导出到本机：Device → Setup → Operations → Export configuration version\n! ---- 回滚 ----\n! load config from {{backup_name}}\n! load config version <版本号>\n! commit",
+      "rollback": "# 回退：本条目为提交与导出操作（commit 提交的是候选配置），配置内容不变；\n# 如需恢复到本快照（★ 覆盖当前运行配置，确认后再执行）\nload config from {{backup_name}} to running-config\ncommit\n# 复核\nshow running security-policy",
       "params": [
         {
           "name": "backup_name",
@@ -896,6 +906,7 @@
       "title": "配置 DNS 服务器与域名解析（PAN-OS，set 系）",
       "description": "set dns-setting 指向内网 DNS 并 commit，验证域名可解析（离网内网 DNS 标准动作）。",
       "commands": "# ===== 配置 DNS 服务器与域名解析（PAN-OS，set 系）=====\n# ---- 配置段：Web 路径见 notes ----\nset deviceconfig system dns-setting servers primary {{dns_server_ip}}\ncommit\n# ---- 验证段 ----\nshow deviceconfig system dns-setting\nping host {{test_domain}}\n",
+      "rollback": "# 回退：撤销 DNS 配置（原 DNS 值按变更记录回填）\nconfigure\ndelete deviceconfig system dns-setting servers primary\ncommit\n# 复核\nshow deviceconfig system dns-setting",
       "params": [
         {
           "name": "dns_server_ip",
@@ -937,6 +948,7 @@
       "title": "配置 NTP 服务器与状态验证（PAN-OS，set 系）",
       "description": "set ntp-servers 指向内网 NTP 并 commit，show ntp 验证同步状态。",
       "commands": "# ===== 配置 NTP 服务器与状态验证（PAN-OS，set 系）=====\nset deviceconfig system ntp-servers primary-ntp ntp-server-address {{ntp_server_ip}}\ncommit\n# ---- 验证（收敛需数分钟）----\nshow ntp\nshow system info | match datetime\n",
+      "rollback": "# 回退：撤销 NTP 配置\nconfigure\ndelete deviceconfig system ntp-servers primary-ntp\ncommit\n# 复核\nshow ntp",
       "params": [
         {
           "name": "ntp_server_ip",
@@ -968,6 +980,7 @@
       "title": "软件版本查看、备份与升级流程（PAN-OS，request 系）",
       "description": "show system info → software download/install → 重启复核。",
       "commands": "# ===== 版本查看、备份与升级流程（PAN-OS）=====\n# ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\n# ---- 0b. 备份服务器可达性确认（导出/备份前）----\nping host {{backup_server}}\nshow system info | match sw-version\n# ---- 1. 下载目标版本（设备可达更新源；离网用离线包经 Web 上传）----\nrequest system software download version <目标版本号>\nrequest system software download status\n# ---- 2. 安装（安装完需手动 reboot 才切换）----\nrequest system software install version <目标版本号>\nrequest system reboot\n# ---- 3. 重启后复核 ----\nshow system info | match sw-version\n",
+      "rollback": "# 回退：PAN-OS 回退=重装旧版本（旧版本号按变更记录回填；\n# 升级窗口内下载的旧版本包仍可 install）\nrequest system software install version <旧版本号>\nrequest system reboot\n# 重启后复核\nshow system info | match sw-version",
       "params": [
         {
           "name": "backup_server",
@@ -1082,6 +1095,7 @@
       "title": "配置回滚（PAN-OS，历史版本配置恢复）",
       "description": "PAN-OS 保存多份命名配置快照，改坏后加载历史快照并 commit 回退。",
       "commands": "# ===== 配置回滚（PAN-OS）=====\n# ---- 0. 改动前：保存命名配置快照（Web：Device → Setup → Operations → Save named snapshot）----\n# ---- 1. 改动出问题后：加载历史快照 ----\nload config from <快照名> to running-config\n# ---- 2. 生效（回滚也是配置变更，必须 commit）----\ncommit\n# ---- 3. 复核 ----\nshow running security-policy\n",
+      "rollback": "# 回退：本条目本身即恢复操作；若恢复后需退回恢复前状态，\n# 加载恢复前另存的快照（快照名按变更记录回填）\nload config from <恢复前快照名> to running-config\ncommit\n# 复核\nshow running security-policy",
       "params": [],
       "notes": "1) ★ 危险点：load config 后必须 commit 才生效——与 Junos 同为候选模型，忘 commit 即\"回滚没生效\"。\n2) ★ 回滚前 diff：Web 配置页有两快照对比功能，CLI 侧 load 前先导出当前配置留档。\n3) 命名快照在 Web（Device → Setup → Operations）管理，CLI load 的 <快照名> 按实际替换。\n4) 与《保存配置并备份到本地 flash》分工：那条是备份，本条是历史快照回滚。\n验证方法：commit 后 show running security-policy 复核 + 策略抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
       "duration": "",
