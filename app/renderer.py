@@ -521,8 +521,8 @@ def check_entry_params(entry):
     # ---- rollback 配对校验（schema 2026-10-09，裁决A1：多行字符串与 commands 同构）----
     #   变更类（classify_entry 判定，fail-safe）rollback 必填；查询类免填。
     #   rollback 占位符必须 ⊆ params 声明（双向对账的 rollback 侧）。
-    #   批1 合入为 WARNING（迁移期宽松：变更类缺口预计 ~264 条属软着陆设计，
-    #   门槛始终 EXIT=0）；任务6（B23 闭环）将以下两条升 ERROR。
+    #   批3 期间为 WARNING 宽容期（218 条缺口分批补齐）；任务6（B23 闭环）起
+    #   以下两条升 ERROR——validate 与 AI 入库钩子同口径拦截，无 [W] 尾巴。
     if isinstance(entry, dict):
         rollback = entry.get("rollback")
         if isinstance(rollback, (list, dict)):
@@ -532,10 +532,10 @@ def check_entry_params(entry):
         rollback = str(rollback or "").strip()
         rtype = classify_entry(entry)
         if rtype == "change" and not rollback:
-            warnings.append("变更类条目缺 rollback（迁移期宽松，任务6 升 ERROR）")
+            problems.append("变更类条目缺 rollback（B23 闭环，ERROR 级）")
         for item in extract_params(rollback):
             if item["name"] not in declared_names:
-                warnings.append("rollback 引用 {{%s}} 未在 params 声明" % item["name"])
+                problems.append("rollback 引用 {{%s}} 未在 params 声明" % item["name"])
 
     return problems, warnings
 
