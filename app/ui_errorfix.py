@@ -911,6 +911,18 @@ class DictManagerDialog(QDialog):
         else:
             self.lbl_test.setText("")
 
+    def select_err(self, err_id):
+        """跨面板跳转定位：选中并滚动到指定字典条目（Ctrl+K 命令面板用）"""
+        if not err_id:
+            return False
+        for r in range(self.table.rowCount()):
+            it = self.table.item(r, 0)
+            if it and it.data(Qt.UserRole) == err_id:
+                self.table.selectRow(r)
+                self.table.scrollToItem(it)
+                return True
+        return False
+
     def _selected(self):
         r = self.table.currentRow()
         if r < 0:
