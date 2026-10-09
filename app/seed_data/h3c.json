@@ -856,6 +856,7 @@
       "title": "配置 AAA 认证与本地兜底（H3C Comware7）",
       "description": "RADIUS 方案 + ISP 域 + 本地兜底 + test-aaa 验证（先验证后退出，见 notes 铁律）。",
       "commands": "# ===== AAA 认证与本地兜底（H3C Comware7）=====\nsystem-view\n# ---- 1. RADIUS 方案 ----\nradius scheme RD1\n primary authentication {{aaa_server_ip}}\n key authentication cipher {{aaa_shared_key}}\nquit\n# ---- 2. ISP 域：先 radius 后 local 兜底 ----\ndomain dm1\n authentication login radius-scheme RD1 local\nquit\n# ---- 3. VTY 引用该域 ----\nline vty 0 4\n authentication-mode scheme\n quit\n# ---- 4. 本地兜底账号 ----\nlocal-user {{local_user}} class manage\n password cipher {{local_password}}\n service-type ssh\n authorization-attribute user-role network-admin\n quit\n# ---- 5. ★ 验证（勿退当前会话）----\ntest-aaa {{test_user}} {{test_password}} radius-scheme RD1\n",
+      "rollback": "# 回退：撤销 AAA（★ 先确认本地/console 仍可登录再退；本地兜底账号若\n# 变更前不存在则一并删除）\nsystem-view\nundo local-user {{local_user}} class manage\nundo domain dm1\nundo radius scheme RD1\nquit\nsave force\n# 复核\ndisplay domain\ndisplay radius scheme",
       "params": [
         {
           "name": "aaa_server_ip",

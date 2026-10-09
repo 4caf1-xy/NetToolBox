@@ -19,6 +19,7 @@
       "title": "创建 VLAN 并把端口划入 Access（ZXR10）",
       "description": "新建业务 VLAN，进接口配 access 模式并加入该 VLAN，最后保存。",
       "commands": "! ===== 创建 VLAN 并划入端口（ZXR10）=====\nenable\nconfigure terminal\nvlan {{vlan_id}}\n name {{vlan_name}}\n exit\ninterface {{port}}\n switchport mode access\n switchport access vlan {{vlan_id}}\n no shutdown\n exit\nexit\nwrite\nshow vlan {{vlan_id}}",
+      "rollback": "! 回退：删除 VLAN 并把端口恢复默认属性（端口原属 VLAN 按变更记录恢复）\nenable\nconfigure terminal\ninterface {{port}}\n no switchport access vlan\n no switchport mode access\n exit\nno vlan {{vlan_id}}\nexit\nwrite\n! 复核\nshow vlan",
       "params": [
         {
           "name": "vlan_id",
@@ -70,6 +71,7 @@
       "title": "配置 Trunk 口并放通 VLAN（ZXR10）",
       "description": "把级联口配成 trunk，放通 VLAN 列表并设置 native VLAN。",
       "commands": "! ===== 配置 Trunk 口（ZXR10）=====\nenable\nconfigure terminal\ninterface {{port}}\n switchport mode trunk\n switchport trunk allowed vlan {{vlan_list}}\n switchport trunk native vlan {{pvid}}\n no shutdown\n exit\nexit\nwrite\nshow interface {{port}} switchport",
+      "rollback": "! 回退：清空 Trunk 放行表并恢复 access（★ 清空前留存原放行表 show 输出，\n! 按变更记录恢复；回退前确认该口未下联交换机防环路）\nenable\nconfigure terminal\ninterface {{port}}\n no switchport trunk allowed vlan\n no switchport trunk native vlan\n no switchport mode trunk\n exit\nexit\nwrite\n! 复核\nshow interface {{port}} switchport",
       "params": [
         {
           "name": "port",
@@ -121,6 +123,7 @@
       "title": "配置静态路由与缺省路由（ZXR10）",
       "description": "配置明细静态路由、缺省路由与浮动备份路由。",
       "commands": "! ===== 静态路由（ZXR10）=====\nenable\nconfigure terminal\nip route {{dest_net}} {{mask}} {{next_hop}}\nip route 0.0.0.0 0.0.0.0 {{next_hop}}\n! 浮动备份：最后一位是优先级/距离，越大越不优先\nip route {{dest_net}} {{mask}} {{backup_hop}} {{distance}}\nexit\nwrite\nshow ip route\nshow ip route {{dest_net}}",
+      "rollback": "! 回退：逐条删除本变更新增的静态/缺省/浮动路由\nenable\nconfigure terminal\nno ip route {{dest_net}} {{mask}} {{next_hop}}\nno ip route 0.0.0.0 0.0.0.0 {{next_hop}}\nno ip route {{dest_net}} {{mask}} {{backup_hop}} {{distance}}\nexit\nwrite\n! 复核\nshow ip route",
       "params": [
         {
           "name": "dest_net",
@@ -193,6 +196,7 @@
       "title": "配置 OSPF 基本组网（ZXR10）",
       "description": "开启 OSPF 进程、设 router-id、宣告网段并设置被动接口。",
       "commands": "! ===== OSPF 基本配置（ZXR10）=====\nenable\nconfigure terminal\nrouter ospf {{process_id}}\n router-id {{router_id}}\n network {{network}} {{wildcard}} area {{area_id}}\n passive-interface {{passive_port}}\n exit\nexit\nwrite\nshow ip ospf neighbor\nshow ip ospf route",
+      "rollback": "! 回退：删除整个 OSPF 进程（进程若预存只是新增 network，则进视图逐条 no network）\nenable\nconfigure terminal\nno router ospf {{process_id}}\nexit\nwrite\n! 复核\nshow ip ospf neighbor",
       "params": [
         {
           "name": "process_id",
@@ -275,6 +279,7 @@
       "title": "配置 ACL 并应用到接口（ZXR10）",
       "description": "创建扩展 ACL 限制网段互访，并绑定到接口方向。",
       "commands": "! ===== ACL 配置与下发（ZXR10）=====\nenable\nconfigure terminal\nacl extend number {{acl_number}}\n rule 1 permit ip {{src_net}} {{src_wild}} {{dst_net}} {{dst_wild}}\n rule 100 deny ip any any\n exit\ninterface {{port}}\n ip access-group {{acl_number}} in\n exit\nexit\nwrite\nshow acl {{acl_number}}",
+      "rollback": "! 回退：先解接口引用，再删 ACL 本体\nenable\nconfigure terminal\ninterface {{port}}\n no ip access-group {{acl_number}} in\n exit\nno acl extend number {{acl_number}}\nexit\nwrite\n! 复核\nshow acl",
       "params": [
         {
           "name": "acl_number",
@@ -357,6 +362,7 @@
       "title": "配置 NAT 地址转换（PAT 复用 / 静态映射）",
       "description": "内网网段通过出接口地址做端口复用，并给出服务器静态映射写法。",
       "commands": "! ===== NAT / PAT 配置（ZXR10）=====\nenable\nconfigure terminal\ninterface {{inside_port}}\n ip address {{inside_ip}} {{inside_mask}}\n ip nat inside\n exit\ninterface {{outside_port}}\n ip address {{outside_ip}} {{outside_mask}}\n ip nat outside\n exit\nacl standard number {{acl_number}}\n rule 1 permit {{src_net}} {{src_wild}}\n exit\nip nat inside source list {{acl_number}} interface {{outside_port}} overload\n! 静态一对一映射（外网访问内网服务器）\nip nat inside source static {{inside_server}} {{public_ip}}\nexit\nwrite\nshow ip nat translations",
+      "rollback": "! 回退：按创建逆序撤销 NAT（接口 IP 若为既有配置勿动 IP 行，只撤 NAT 标记）\nenable\nconfigure terminal\nno ip nat inside source static {{inside_server}} {{public_ip}}\nno ip nat inside source list {{acl_number}} interface {{outside_port}} overload\nno acl standard number {{acl_number}}\ninterface {{inside_port}}\n no ip nat inside\n exit\ninterface {{outside_port}}\n no ip nat outside\n exit\nexit\nwrite\n! 复核\nshow ip nat translations",
       "params": [
         {
           "name": "inside_port",
@@ -489,6 +495,7 @@
       "title": "开启 SSH 并创建本地用户（ZXR10）",
       "description": "配置域名、生成 RSA 密钥、创建特权用户并限制 vty 登录协议。",
       "commands": "! ===== 开启 SSH + 本地用户（ZXR10）=====\nenable\nconfigure terminal\nhostname {{hostname}}\nip domain-name {{domain}}\nusername {{username}} privilege 15 password {{password}}\ncrypto key generate rsa\n! ↑ 部分版本会交互提示输入密钥模数，建议 2048\nip ssh version 2\nline vty 0 4\n login local\n transport input ssh\n exec-timeout {{timeout_min}} 0\n exit\nexit\nwrite\nshow ip ssh",
+      "rollback": "! 回退：恢复 vty 旧认证方式并删除本地用户（hostname/domain 旧值按变更记录恢复；\n! RSA 密钥保留——删除会断掉依赖它的 SSH 会话）\nenable\nconfigure terminal\nno username {{username}}\nline vty 0 4\n no login local\n no transport input ssh\n no exec-timeout\n exit\nexit\nwrite\n! 复核\nshow ip ssh",
       "params": [
         {
           "name": "hostname",
@@ -561,6 +568,7 @@
       "title": "修改 Console 口令与特权密码（ZXR10）",
       "description": "设置 console 口令、空闲超时与特权密码。",
       "commands": "! ===== Console 与特权口令（ZXR10）=====\nenable\nconfigure terminal\nline console 0\n password {{console_password}}\n login\n logging synchronous\n exec-timeout {{timeout_min}} 0\n exit\nenable secret {{enable_secret}}\nexit\nwrite",
+      "rollback": "! 回退：口令类变更须恢复旧口令（旧值按变更记录回填尖括号处）\nenable\nconfigure terminal\nline console 0\n password <旧console口令>\n no logging synchronous\n no exec-timeout\n exit\nenable secret <旧特权口令>\nexit\nwrite",
       "params": [
         {
           "name": "console_password",
@@ -613,6 +621,7 @@
       "title": "配置 SNMP v2c 与 Trap 上报（ZXR10）",
       "description": "配置只读/读写团体字、设备位置联系人，并把 Trap 上报到网管。",
       "commands": "! ===== SNMP 配置（ZXR10）=====\nenable\nconfigure terminal\nsnmp-server community {{ro_community}} ro\nsnmp-server community {{rw_community}} rw\nsnmp-server location {{location}}\nsnmp-server contact {{contact}}\nsnmp-server host {{nms_ip}} trap version 2c {{ro_community}}\nsnmp-server enable trap\nexit\nwrite\nshow snmp community",
+      "rollback": "! 回退：删除本变更新增的 SNMP 配置（location/contact 旧值按变更记录恢复）\nenable\nconfigure terminal\nno snmp-server host {{nms_ip}} trap version 2c {{ro_community}}\nno snmp-server community {{ro_community}} ro\nno snmp-server community {{rw_community}} rw\nno snmp-server location\nno snmp-server contact\nno snmp-server enable trap\nexit\nwrite\n! 复核\nshow snmp community",
       "params": [
         {
           "name": "ro_community",
@@ -684,6 +693,7 @@
       "title": "保存配置并备份到本地 flash",
       "description": "用 write 保存运行配置，并复制一份到 flash 作为回滚点。",
       "commands": "! ===== 保存与本地备份（ZXR10）=====\nenable\nwrite\nshow startup-config\ndir flash:/\ncopy running-config flash:backup-{{backup_tag}}.cfg\ndir flash:/",
+      "rollback": "! 回退：本条目仅保存与备份配置，不改变网络行为，无需配置回退；\n! 如需清理本次备份文件\nenable\ndelete flash:backup-{{backup_tag}}.cfg\ndir flash:/",
       "params": [
         {
           "name": "backup_tag",
@@ -715,6 +725,7 @@
       "title": "配置 DNS 服务器与域名解析（中兴 ZXR10）",
       "description": "指向内网 DNS 服务器，验证域名可解析（离网内网 DNS 标准动作）。",
       "commands": "! ===== 配置 DNS 服务器与域名解析（中兴 ZXR10）=====\n! ---- 配置段 ----\nconfigure terminal\nip name-server {{dns_server_ip}}\nend\n! ---- 验证段 ----\nping {{test_domain}}\n",
+      "rollback": "! 回退：删除 name-server 引用（原 DNS 值按变更记录恢复）\nconfigure terminal\nno ip name-server {{dns_server_ip}}\nend\nwrite\n! 复核\nping {{test_domain}}",
       "params": [
         {
           "name": "dns_server_ip",
@@ -756,6 +767,7 @@
       "title": "配置 NTP 服务器与状态验证（中兴 ZXR10）",
       "description": "指向内网 NTP 服务器并验证时钟同步。",
       "commands": "! ===== 配置 NTP 服务器与状态验证（中兴 ZXR10）=====\nconfigure terminal\nntp server {{ntp_server_ip}}\nend\n! ---- 验证 ----\nshow ntp status\nshow clock\n",
+      "rollback": "! 回退：删除 NTP 服务器引用（时钟恢复本地自由运行）\nconfigure terminal\nno ntp server {{ntp_server_ip}}\nend\nwrite\n! 复核\nshow ntp status\nshow clock",
       "params": [
         {
           "name": "ntp_server_ip",
@@ -787,6 +799,7 @@
       "title": "软件版本查看、备份与升级流程（中兴 ZXR10）",
       "description": "版本/文件查看 → 备份 → TFTP 传输新版本 → 指定启动 → 重启。",
       "commands": "! ===== 版本查看、备份与升级流程（中兴 ZXR10）=====\n! ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\nshow version\ndir flash:\n! ---- 1. 备份配置与当前版本文件（TFTP {{backup_server}}，交互式/命令式因版本而异）----\ncopy flash: tftp:\n! ---- 2. 传输新版本文件 ----\ncopy tftp: flash:\n! ---- 3. 指定下次启动版本（关键字各版本差异以 ? 为准）----\n! config tftp / boot-version / startup 相关命令按 ? 确认后执行\n! ---- 4. ★ 重启生效（备份与回滚方案就绪后再做）----\nreboot\n! ---- 5. 重启后复核 ----\nshow version\n",
+      "rollback": "! 回退：回退到旧版本文件（★ 与变更同门槛：变更窗口/回滚点/带外通道就绪后再做；\n! 启动版本指定关键字各版本差异以 ? 为准——旧版本文件名按变更记录回填）\nenable\n! 按 ? 确认后指定旧版本文件为下次启动\nreboot\n! 重启后复核\nshow version\ndir flash:",
       "params": [
         {
           "name": "backup_server",
@@ -819,6 +832,7 @@
       "title": "配置回滚（中兴 ZXR10，备份恢复式，骨架参照）",
       "description": "改动前备份配置文件，改坏后恢复备份回退；ZXR10 各版本回滚关键字差异大，以 ? 为准。",
       "commands": "! ===== 配置回滚（中兴 ZXR10）=====\n! ---- 0. 改动前：备份当前配置为独立文件 ----\ncopy running-config flash:/{{backup_file}}\n! ---- 1. 改动出问题后：恢复备份（关键字各版本差异以 ? 实测为准）----\n! copy flash:/{{backup_file}} running-config 后按需重启\n! ---- 2. 复核 ----\nshow running-config\n",
+      "rollback": "! 回退：本条目本身即恢复操作（骨架参照）；若恢复后需退回恢复前的配置，\n! 把变更后已保存的配置文件拷回 running-config（关键字按 ? 实测；\n! 文件名按变更记录回填）后按需重启\ncopy flash:/<变更后配置.cfg> running-config\n! 复核\nshow running-config",
       "params": [
         {
           "name": "backup_file",
