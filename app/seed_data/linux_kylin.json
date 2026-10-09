@@ -19,6 +19,7 @@
       "title": "nmcli 配置 IP（麒麟 V10）",
       "description": "麒麟 V10 用 NetworkManager 管网络，nmcli 配置即持久化。",
       "commands": "nmcli con show\nnmcli con mod \"{{con_name}}\" ipv4.method manual ipv4.addresses {{ip_addr}}/{{prefix_len}}\nnmcli con mod \"{{con_name}}\" ipv4.gateway {{gateway}}\nnmcli con mod \"{{con_name}}\" ipv4.dns {{dns_ip}}\nnmcli con up \"{{con_name}}\"\nnmcli con show \"{{con_name}}\"",
+      "rollback": "# 回退：恢复连接旧地址配置（旧值按变更记录回填；变更前若为 DHCP 按下行清空静态项）\nnmcli con mod \"{{con_name}}\" ipv4.method auto ipv4.addresses \"\" ipv4.gateway \"\" ipv4.dns \"\"\nnmcli con up \"{{con_name}}\"\n# 复核\nnmcli con show \"{{con_name}}\"",
       "params": [
         {
           "name": "con_name",
@@ -91,6 +92,7 @@
       "title": "ifcfg 文件永久配置 IP（麒麟 V10）",
       "description": "ifcfg-* 文件方式持久化，与 RHEL 系写法一致。",
       "commands": "cp /etc/sysconfig/network-scripts/ifcfg-{{ifname}} /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.bak\nvi /etc/sysconfig/network-scripts/ifcfg-{{ifname}}\n# DEVICE={{ifname}}\n# BOOTPROTO=static\n# ONBOOT=yes\n# IPADDR={{ip_addr}}\n# PREFIX={{prefix_len}}\n# GATEWAY={{gateway}}\n# DNS1={{dns_ip}}\nsystemctl restart NetworkManager\nnmcli con show",
+      "rollback": "# 回退：恢复变更前备份的 ifcfg 文件并重启网络（★ SSH 走该口会瞬断，用带外/本机操作）\ncp /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.bak /etc/sysconfig/network-scripts/ifcfg-{{ifname}}\nsystemctl restart NetworkManager\n# 复核\nnmcli con show\nip addr show {{ifname}}",
       "params": [
         {
           "name": "ifname",
@@ -163,6 +165,7 @@
       "title": "静态路由（临时 + 持久化，麒麟 V10）",
       "description": "ip route 临时加路由，route-* 文件持久化。",
       "commands": "# ---- 临时 ----\nip route add {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nip route show\n# ---- 持久化：/etc/sysconfig/network-scripts/route-{{ifname}} ----\nvi /etc/sysconfig/network-scripts/route-{{ifname}}\n# {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nsystemctl restart NetworkManager\nip route show",
+      "rollback": "# 回退：临时路由 ip route del；持久化文件变更时未备份——按变更记录恢复原内容\n#（本次新建则删除文件）后重启网络\nip route del {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nrm -f /etc/sysconfig/network-scripts/route-{{ifname}}\nsystemctl restart NetworkManager\n# 复核\nip route show",
       "params": [
         {
           "name": "dest_net",
@@ -225,6 +228,7 @@
       "title": "VLAN 子接口（临时 + 持久化，麒麟 V10）",
       "description": "ip link 临时建 VLAN 子接口，ifcfg 持久化。",
       "commands": "# ---- 临时 ----\nip link add link {{ifname}} name {{ifname}}.{{vlan_id}} type vlan id {{vlan_id}}\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}.{{vlan_id}}\nip link set {{ifname}}.{{vlan_id}} up\n# ---- 持久化 ----\ncat > /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.{{vlan_id}} << 'EOF'\nDEVICE={{ifname}}.{{vlan_id}}\nBOOTPROTO=static\nONBOOT=yes\nVLAN=yes\nPHYSDEV={{ifname}}\nIPADDR={{ip_addr}}\nPREFIX={{prefix_len}}\nEOF\nsystemctl restart NetworkManager\nip -d link show {{ifname}}.{{vlan_id}}",
+      "rollback": "# 回退：删除 VLAN 子接口与持久化文件（本次新建则删文件；若文件此前已存在\n# 按变更记录恢复原内容）后重启网络\nip link del {{ifname}}.{{vlan_id}}\nrm -f /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.{{vlan_id}}\nsystemctl restart NetworkManager\n# 复核（期望报不存在）\nip -d link show {{ifname}}.{{vlan_id}}",
       "params": [
         {
           "name": "ifname",
@@ -287,6 +291,7 @@
       "title": "firewalld 放行端口（麒麟 V10）",
       "description": "firewall-cmd 永久放行端口并验证。",
       "commands": "firewall-cmd --state\nfirewall-cmd --permanent --add-port={{port}}/tcp\nfirewall-cmd --reload\nfirewall-cmd --list-all\nss -tlnp | grep :{{port}}",
+      "rollback": "# 回退：移除本次放行的端口（--permanent 修改须 --reload 生效）\nfirewall-cmd --permanent --remove-port={{port}}/tcp\nfirewall-cmd --reload\n# 复核（期望无该端口）\nfirewall-cmd --list-all",
       "params": [
         {
           "name": "port",
@@ -319,6 +324,7 @@
       "title": "systemctl 服务管理（麒麟 V10）",
       "description": "服务五件套与开机自启。",
       "commands": "systemctl start {{service_name}}\nsystemctl enable --now {{service_name}}\nsystemctl status {{service_name}} -l --no-pager\nsystemctl is-enabled {{service_name}}\njournalctl -u {{service_name}} -n 50 --no-pager",
+      "rollback": "# 回退：本条目为服务管理操作演示，回退目标=恢复变更前服务状态：\n# systemctl stop {{service_name}}（若变更前未运行）；\n# systemctl disable {{service_name}}（若变更前未设自启；enable --now 的反向）\nsystemctl status {{service_name}} --no-pager",
       "params": [
         {
           "name": "service_name",
@@ -350,6 +356,7 @@
       "title": "本地 yum 源（麒麟 ISO 挂载）★ 离网特供",
       "description": "用麒麟 ISO 搭本地源，完全离线装包。",
       "commands": "mkdir -p /mnt/cdrom\nmount -o loop {{iso_path}} /mnt/cdrom\ncat > /etc/yum.repos.d/kylin-local.repo << 'EOF'\n[kylin-local]\nname=Kylin Local ISO\nbaseurl=file:///mnt/cdrom\nenabled=1\ngpgcheck=0\nEOF\nyum clean all\nyum makecache\nyum repolist\nyum install {{pkg_name}} -y",
+      "rollback": "# 回退：删除本地源配置并卸载 ISO（★ 已安装的包保留不影响系统）\nrm -f /etc/yum.repos.d/kylin-local.repo\numount /mnt/cdrom\nyum clean all && yum makecache\n# 复核（期望无 kylin-local 源）\nyum repolist",
       "params": [
         {
           "name": "iso_path",
@@ -391,6 +398,7 @@
       "title": "createrepo 自建源（麒麟 V10）",
       "description": "把收集的 rpm 做成正式源。",
       "commands": "mkdir -p /opt/local-repo\ncp ./*.rpm /opt/local-repo/\ncreaterepo /opt/local-repo\ncat > /etc/yum.repos.d/local-repo.repo << 'EOF'\n[local-repo]\nname=Local Repo\nbaseurl=file:///opt/local-repo\nenabled=1\ngpgcheck=0\nEOF\nyum clean all && yum makecache && yum repolist",
+      "rollback": "# 回退：删除自建源配置与仓库目录（★ 已安装的包保留）\nrm -f /etc/yum.repos.d/local-repo.repo\nrm -rf /opt/local-repo\nyum clean all && yum makecache\n# 复核（期望无 local-repo 源）\nyum repolist",
       "params": [],
       "notes": "1) ★ 待真机核对；加新 rpm 后要重新 createrepo。\n2) createrepo 未装时可从麒麟 ISO 的 Packages 里找。",
       "duration": "perm",
@@ -442,6 +450,7 @@
       "title": "DNS 配置（麒麟 V10）",
       "description": "临时改 resolv.conf + nmcli 持久化。",
       "commands": "echo \"nameserver {{dns_ip}}\" >> /etc/resolv.conf\ndig @{{dns_ip}} {{domain}} +short\nnmcli con mod \"{{con_name}}\" ipv4.dns \"{{dns_ip}}\"\nnmcli con up \"{{con_name}}\"",
+      "rollback": "# 回退：删除 resolv.conf 追加行并恢复 nmcli DNS 旧值（旧值按变更记录回填）\nsed -i '/nameserver {{dns_ip}}/d' /etc/resolv.conf\nnmcli con mod \"{{con_name}}\" ipv4.dns <变更前DNS>\nnmcli con up \"{{con_name}}\"\n# 复核\ncat /etc/resolv.conf\ndig {{domain}} +short",
       "params": [
         {
           "name": "dns_ip",
@@ -608,6 +617,7 @@
       "title": "磁盘与句柄排查（麒麟 V10）",
       "description": "df/du/deleted 句柄 + Too many open files。",
       "commands": "df -h\ndu -sh /* 2>/dev/null | sort -rh | head\nlsof | grep deleted | head\ncat /proc/{{pid}}/limits | grep \"open files\"\nulimit -n",
+      "rollback": "# 回退：本条目为排查命令（df/du/lsof/cat 只读），无配置变更，无需回退",
       "params": [
         {
           "name": "pid",
@@ -660,6 +670,7 @@
       "title": "临时配置 IP 地址（麒麟 V10）",
       "description": "不重启生效的临时地址配置，用于排查期快速验证；持久化走 ifcfg。",
       "commands": "# 临时生效：重启后丢失（持久化见 notes 里的配套条目）\nip link set {{ifname}} up\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}\nip addr show {{ifname}}\nip route get {{ip_addr}}",
+      "rollback": "# 回退：删除临时添加的 IP（临时生效，重启自动消失；手动清除如下）\nip addr del {{ip_addr}}/{{prefix_len}} dev {{ifname}}\n# 复核\nip addr show {{ifname}}",
       "params": [
         {
           "name": "ifname",
@@ -711,6 +722,7 @@
       "title": "临时添加静态路由（麒麟 V10）",
       "description": "临时加一条静态路由并给出 nmcli 持久化写法。",
       "commands": "# 1) 临时生效（重启失效）\nip route add {{dest_net}}/{{prefix_len}} via {{gateway}}\nip route show\n# 2) 持久化（NetworkManager 连接级追加路由）\nnmcli con mod \"{{con_name}}\" +ipv4.routes \"{{dest_net}}/{{prefix_len}} {{gateway}}\"\nnmcli con up \"{{con_name}}\"\n# 3) 复核（重启后再看一次这条还在不在）\nip route show | grep {{dest_net}}",
+      "rollback": "# 回退：临时路由 ip route del；nmcli 持久化路由删除（- 号移除追加项）并重载连接\nip route del {{dest_net}}/{{prefix_len}} via {{gateway}}\nnmcli con mod \"{{con_name}}\" -ipv4.routes \"{{dest_net}}/{{prefix_len}} {{gateway}}\"\nnmcli con up \"{{con_name}}\"\n# 复核（期望无该路由）\nip route show | grep {{dest_net}}",
       "params": [
         {
           "name": "dest_net",
@@ -844,6 +856,7 @@
       "title": "配置 chrony 时间同步（麒麟 V10）",
       "description": "chronyd 指向内网 NTP 并开机自启；国产化环境对表同 RHEL 系。",
       "commands": "# ===== 配置 chrony 时间同步（麒麟 V10）=====\n# ---- 0. 备份配置 ----\ncp /etc/chrony.conf /etc/chrony.conf.bak.$(date +%Y%m%d)\n# ---- 1. 注释掉原 server 行，追加内网 NTP ----\nsed -i 's/^server /#&/' /etc/chrony.conf\necho 'server {{ntp_server_ip}} iburst' >> /etc/chrony.conf\n# ---- 2. 重启并设开机自启 ----\nsystemctl restart chronyd && systemctl enable chronyd\n# ---- 3. 验证 ----\nchronyc sources -v\nchronyc tracking\ndate\n",
+      "rollback": "# 回退：恢复变更日备份的 chrony.conf 并重启服务（备份文件名日期=变更当天）\nls -l /etc/chrony.conf.bak.*\ncp /etc/chrony.conf.bak.<变更日期> /etc/chrony.conf\nsystemctl restart chronyd\n# 复核（原 server 行恢复）\nchronyc sources -v",
       "params": [
         {
           "name": "ntp_server_ip",
