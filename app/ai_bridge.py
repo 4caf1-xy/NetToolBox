@@ -333,7 +333,14 @@ SYSTEM_PROMPT = (
     "默认值、取值范围或可选值；\n"
     "   b. 关键步骤前加一行以 # 开头的注释（独立成行），说明该步做什么、"
     "是否影响转发、是否需要 commit/save 才生效；\n"
-    "   c. 每个参数的说明要写清：控制什么、常用取值、安全注意（禁止只复述参数名充数）。"
+    "   c. 每个参数的说明要写清：控制什么、常用取值、安全注意（禁止只复述参数名充数）；\n"
+    "   d. 参数较多或含枚举/范围时，在命令块之后追加一个『【参数表】』标注的 JSON 代码块，\n"
+    "      数组元素字段：name/type(string|int|enum|ip|flag)/label/required/default/\n"
+    "      description/example/choices(enum 必带)/range(int 建议)；\n"
+    "   e. 命令为变更类（非纯查询，含配置修改/服务重启/文件写入）时，必须在命令块之后\n"
+    "      追加一个『【回退方案】』标注的代码块：与命令同构的多行文本，# 注释行写前置检查\n"
+    "      （如\"# 前置：确认配置已备份\"），undo/no/delete 序列以恢复变更前状态为终点，\n"
+    "      复核命令收尾；只用该厂商真实存在的命令，禁止臆造；查询类免填。"
 )
 
 
@@ -1244,6 +1251,53 @@ def extract_steps_from_response(response_text):
         if not s["title"]:
             s["title"] = "步骤 %d" % i
     return steps, used_markers, extract_cause_section(text)
+
+
+def parse_ai_blocks(reply_text):
+    """
+    从 AI 回复全文解析『【参数表】』与『【回退方案】』标注块（schema 2026-10-09 任务5）。
+
+    约定输出形态（SYSTEM_PROMPT 第 6.d/6.e 条）：
+        【参数表】
+        ```json
+        [ {...}, ... ]
+        ```
+        【回退方案】
+        ```
+        多行回退命令文本
+        ```
+    解析容错：标注行与代码围栏之间允许空行；JSON 解析失败按缺参处理（入库校验
+    会按 check_entry_params 打回，与 validate 同口径）；返回 (params, rollback)。
+    """
+    text = reply_text or ""
+    params, rollback = [], ""
+    # ---- 【参数表】：标注行后第一个 ``` 围栏内的 JSON ----
+    m = re.search(r"【参数表】\s*```[a-zA-Z]*\s*\n(.*?)```", text, re.S)
+    if m:
+        try:
+            data = json.loads(m.group(1).strip())
+            if isinstance(data, list):
+                params = [p for p in data if isinstance(p, dict) and p.get("name")]
+        except Exception:
+            params = []
+    # ---- 【回退方案】：标注行后第一个围栏（有语言标记也认）----
+    m = re.search(r"【回退方案】\s*```[a-zA-Z]*\s*\n(.*?)```", text, re.S)
+    if m:
+        rollback = m.group(1).strip("\n")
+    return params, rollback
+
+
+def strip_ai_blocks(text):
+    """
+    从命令块文本中剥离【参数表】/【回退方案】段（含标注行与围栏），避免随命令入库；
+    无标注时原样返回（逐字不变，供 merge 流程幂等）。
+    """
+    if not text:
+        return text
+    out = re.sub(r"【参数表】\s*```[a-zA-Z]*\s*\n.*?```\s*", "", text, flags=re.S)
+    out = re.sub(r"【回退方案】\s*```[a-zA-Z]*\s*\n.*?```\s*", "", out, flags=re.S)
+    out = out.replace("【参数表】", "").replace("【回退方案】", "").rstrip()
+    return out or text
 
 
 def merge_code_blocks(blocks, vendor, include_notes_blocks=None):

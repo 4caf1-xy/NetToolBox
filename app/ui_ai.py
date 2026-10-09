@@ -2749,6 +2749,13 @@ class AiImportDialog(QDialog):
                      % (self.session_id or "-", self.message_index, self._model, stamp,
                         ("；操作人 %s" % self._operator) if self._operator else ""))
 
+        # 任务5（schema 2026-10-09）：从 AI 回复的非命令块解析【参数表】/【回退方案】，
+        # 入库条目携带结构化 params 与 rollback；入库校验钩子共用 check_entry_params
+        _reply_text = "\n\n".join(
+            r["body"].toPlainText() for r in self.entry_rows
+            if r["kind"] == "non_command" and r["body"].toPlainText().strip())
+        _ai_params, _ai_rollback = ai_bridge.parse_ai_blocks(_reply_text)
+
         def _entry(commands, title, notes, block_index):
             return {
                 "uuid": dbmod.new_uuid(),
@@ -2759,8 +2766,9 @@ class AiImportDialog(QDialog):
                 "category": "AI 草稿",
                 "title": (title or "AI 产出")[:60],
                 "description": "AI 产出入库（未验证）",
-                "commands": commands,
-                "params": [],
+                "commands": ai_bridge.strip_ai_blocks(commands),
+                "params": [dict(p) for p in _ai_params],
+                "rollback": _ai_rollback,
                 "notes": ((notes + "\n\n") if notes else "") + note_head,
                 "verified": 0,
                 "_block_index": block_index,
@@ -3168,6 +3176,9 @@ class AiImportDialog(QDialog):
             node = {"id": "__n%d" % i, "title": title or "步骤 %d" % i,
                     "observe": observe, "explain": ""}
             if commands:
+                # 任务5：步骤命令文本内嵌【参数表】/【回退方案】时剥离并入库
+                _sp_params, _sp_rollback = ai_bridge.parse_ai_blocks(commands)
+                commands = ai_bridge.strip_ai_blocks(commands)
                 entry_uuid = self.db.add_entry({
                     "title": ("树步骤：%s（%s）" % (title or "步骤 %d" % i,
                                                   symptom or "追加步骤"))[:60],
@@ -3175,7 +3186,9 @@ class AiImportDialog(QDialog):
                     "os_family": os_slug, "models": self.ed_model.text().strip(),
                     "category": "AI 草稿",
                     "description": "AI 产出入库·排查树步骤（未验证）",
-                    "commands": commands, "params": [],
+                    "commands": commands,
+                    "params": [dict(p) for p in _sp_params],
+                    "rollback": _sp_rollback,
                     "notes": "来源：AI 会话 %s 消息#%s；未经真机验证。"
                              % (self.session_id or "-", self.message_index),
                     "verified": 0,
@@ -3818,10 +3831,13 @@ class DraftFromAiDialog(QDialog):
         stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
         entries = []
+        # 任务5：整份草稿文本统一解析【参数表】/【回退方案】
+        _all_text = "\n".join(body.toPlainText() for _c, _t, body in self._rows)
+        _ai_params, _ai_rollback = ai_bridge.parse_ai_blocks(_all_text)
         for chk, title, body in self._rows:
             if not chk.isChecked():
                 continue
-            commands = body.toPlainText().strip("\n")
+            commands = ai_bridge.strip_ai_blocks(body.toPlainText().strip("\n"))
             if not commands.strip():
                 continue
             entries.append({
@@ -3835,7 +3851,8 @@ class DraftFromAiDialog(QDialog):
                 "title": (title.text().strip() or "AI 草稿")[:60],
                 "description": "AI 诊断草稿（未验证）",
                 "commands": commands,
-                "params": [],
+                "params": [dict(p) for p in _ai_params],
+                "rollback": _ai_rollback,
                 "notes": ("来源：AI 诊断（模型 %s；%s%s）。\n"
                           "★ 未经真机验证，禁止直接用于生产设备；"
                           "真机执行成功后请右键条目 →「标记已验证」。"
