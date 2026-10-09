@@ -154,7 +154,7 @@
       "category": "网络配置",
       "title": "netplan 配置 VLAN 子接口",
       "description": "在 netplan 里声明 VLAN 子接口并持久化。",
-      "commands": "vi /etc/netplan/01-vlans.yaml\n# ---- 文件内容 ----\n# network:\n#   version: 2\n#   ethernets:\n#     {{ifname}}: {}\n#   vlans:\n#     {{ifname}}.{{vlan_id}}:\n#       id: {{vlan_id}}\n#       link: {{ifname}}\n#       addresses: [{{ip_addr}}/{{prefix_len}}]\n# ------------------------------------\nnetplan apply\nip -d link show {{ifname}}.{{vlan_id}}",
+      "commands": "vi /etc/netplan/01-vlans.yaml\n# ---- 文件内容 ----\n# network:\n#   version: 2\n#   ethernets:\n#     {{ifname}}: {}\n#   vlans:\n#     {{ifname}}.{{vlan_id}}:\n#       id: {{vlan_id}}\n#       link: {{ifname}}\n#       addresses: [{{ip_addr}}/{{prefix_len}}]\n# ------------------------------------\nchmod 600 /etc/netplan/01-vlans.yaml\nnetplan apply\nip -d link show {{ifname}}.{{vlan_id}}",
       "rollback": "# 回退：删除 VLAN 子接口配置文件并应用\nrm -f /etc/netplan/01-vlans.yaml\nnetplan apply\n# 复核（期望报不存在）\nip -d link show {{ifname}}.{{vlan_id}}",
       "params": [
         {
@@ -217,7 +217,7 @@
       "category": "网络配置",
       "title": "netplan 配置双网卡 bond",
       "description": "在 netplan 里声明 bond 做链路冗余，配置持久化。",
-      "commands": "vi /etc/netplan/01-bond.yaml\n# ---- 文件内容 ----\n# network:\n#   version: 2\n#   ethernets:\n#     {{ifname}}: {}\n#     {{ifname2}}: {}\n#   bonds:\n#     bond0:\n#       interfaces: [{{ifname}}, {{ifname2}}]\n#       parameters:\n#         mode: active-backup\n#         mii-monitor-interval: 100\n#       addresses: [{{ip_addr}}/{{prefix_len}}]\n#       routes:\n#         - to: default\n#           via: {{gateway}}\n# ------------------------------------\nnetplan apply\ncat /proc/net/bonding/bond0",
+      "commands": "vi /etc/netplan/01-bond.yaml\n# ---- 文件内容 ----\n# network:\n#   version: 2\n#   ethernets:\n#     {{ifname}}: {}\n#     {{ifname2}}: {}\n#   bonds:\n#     bond0:\n#       interfaces: [{{ifname}}, {{ifname2}}]\n#       parameters:\n#         mode: active-backup\n#         mii-monitor-interval: 100\n#       addresses: [{{ip_addr}}/{{prefix_len}}]\n#       routes:\n#         - to: default\n#           via: {{gateway}}\n# ------------------------------------\nchmod 600 /etc/netplan/01-bond.yaml\nnetplan apply\ncat /proc/net/bonding/bond0",
       "rollback": "# 回退：删除 bond 配置文件并应用（成员口恢复独立；★ 原 IP 若在成员口上\n# 按变更记录配回，期间业务走带外）\nrm -f /etc/netplan/01-bond.yaml\nnetplan apply\n# 复核\ncat /proc/net/bonding/bond0 2>/dev/null || echo 'bond0 已删除'",
       "params": [
         {
@@ -411,12 +411,12 @@
         {
           "name": "service_name",
           "label": "服务名",
-          "default": "sshd",
+          "default": "ssh",
           "required": true,
           "validate": "",
-          "example": "sshd / firewalld / NetworkManager",
+          "example": "ssh / firewalld / NetworkManager",
           "type": "string",
-          "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达"
+          "description": "systemd 服务名（ssh/nginx 等；Ubuntu 单元名是 ssh，sshd 仅为别名，enable/journalctl 须用本名 ssh），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达"
         }
       ],
       "notes": "1) enable --now 一步到位：设自启并立即启动（等价 enable + start）。\n2) disable --now 反过来：停掉并取消自启。",
@@ -442,12 +442,12 @@
         {
           "name": "service_name",
           "label": "服务名",
-          "default": "sshd",
+          "default": "ssh",
           "required": true,
           "validate": "",
-          "example": "sshd / firewalld / NetworkManager",
+          "example": "ssh / firewalld / NetworkManager",
           "type": "string",
-          "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达"
+          "description": "systemd 服务名（ssh/nginx 等；Ubuntu 单元名是 ssh，sshd 仅为别名，enable/journalctl 须用本名 ssh），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达"
         }
       ],
       "notes": "1) is-enabled 输出 enabled/static/disabled；static 表示被依赖拉起，不是自启失败。",
@@ -622,12 +622,12 @@
         {
           "name": "service_name",
           "label": "服务名",
-          "default": "sshd",
+          "default": "ssh",
           "required": true,
           "validate": "",
-          "example": "sshd / firewalld / NetworkManager",
+          "example": "ssh / firewalld / NetworkManager",
           "type": "string",
-          "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达"
+          "description": "systemd 服务名（ssh/nginx 等；Ubuntu 单元名是 ssh，sshd 仅为别名，enable/journalctl 须用本名 ssh），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达"
         }
       ],
       "notes": "1) --since \"10 min ago\" 这类相对时间很顺手；也可用具体时间戳。",

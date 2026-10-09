@@ -37,9 +37,9 @@
           "default": "",
           "required": true,
           "validate": "path",
-          "example": "/backup/",
+          "example": "/backup/openEuler-22.03.iso",
           "type": "string",
-          "description": "拷贝目标路径（本机目录或 remote:/path）；rsync 尾部斜杠语义不同（带斜杠拷内容），先 -n/--dry-run 演练再实跑，防覆盖错目录"
+          "description": "拷贝目标路径（本机文件(含文件名)或 remote:/path）；rsync 尾部斜杠语义不同（带斜杠拷内容），先 -n/--dry-run 演练再实跑，防覆盖错文件(含文件名)"
         }
       ],
       "notes": "1) ★ 危险点：首次必须 -n 演练。rsync 的斜杠语义要命：src 尾部带 /（如 /data/iso/）拷的是\"目录内容\"，不带 / 拷的是\"目录本身\"——演练输出里核对路径再实跑。\n2) 绝不要随手加 --delete：它会把目标侧多余文件删光，先想清楚再上。\n3) 单文件用 sha256sum 两侧比对；目录级粗验用 du -sh，精确校验走《分卷打包与合并校验》条目的 SHA256SUMS 流程。\n4) 两台机器都装了 rsync 才能用远端路径；本地盘/U 盘之间同样可用（rsync /src /mnt/usb/）。\n验证方法：先 -n 演练确认清单，实跑后 sha256sum 两侧比对一致即通过；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -173,9 +173,9 @@
           "default": "",
           "required": true,
           "validate": "path",
-          "example": "/backup/",
+          "example": "/backup/openEuler-22.03.iso",
           "type": "string",
-          "description": "拷贝目标路径（本机目录或 remote:/path）；rsync 尾部斜杠语义不同（带斜杠拷内容），先 -n/--dry-run 演练再实跑，防覆盖错目录"
+          "description": "拷贝目标路径（本机文件(含文件名)或 remote:/path）；rsync 尾部斜杠语义不同（带斜杠拷内容），先 -n/--dry-run 演练再实跑，防覆盖错文件(含文件名)"
         },
         {
           "name": "remote_user",
