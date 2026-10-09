@@ -19,6 +19,7 @@
       "title": "nmcli 配置 IP（openEuler 22.03）",
       "description": "openEuler 用 NetworkManager/dnf 体系，nmcli 配置即持久化。",
       "commands": "nmcli con show\nnmcli con mod \"{{con_name}}\" ipv4.method manual ipv4.addresses {{ip_addr}}/{{prefix_len}}\nnmcli con mod \"{{con_name}}\" ipv4.gateway {{gateway}}\nnmcli con mod \"{{con_name}}\" ipv4.dns {{dns_ip}}\nnmcli con up \"{{con_name}}\"\nip addr show {{ifname}}",
+      "rollback": "# 回退：恢复连接旧地址配置（旧值按变更记录回填；变更前若为 DHCP 按下行清空静态项）\nnmcli con mod \"{{con_name}}\" ipv4.method auto ipv4.addresses \"\" ipv4.gateway \"\" ipv4.dns \"\"\nnmcli con up \"{{con_name}}\"\n# 复核\nnmcli con show \"{{con_name}}\"\nip addr show {{ifname}}",
       "params": [
         {
           "name": "con_name",
@@ -101,6 +102,7 @@
       "title": "本地 dnf/yum 源（openEuler ISO 挂载）★ 离网特供",
       "description": "openEuler ISO 挂载做本地源，完全离线装包。",
       "commands": "mkdir -p /mnt/cdrom\nmount -o loop {{iso_path}} /mnt/cdrom\ncat > /etc/yum.repos.d/local.repo << 'EOF'\n[local-iso]\nname=Local openEuler ISO\nbaseurl=file:///mnt/cdrom\nenabled=1\ngpgcheck=0\nEOF\ndnf clean all\ndnf makecache\ndnf repolist\ndnf install {{pkg_name}} -y",
+      "rollback": "# 回退：删除本地源配置并卸载 ISO（★ 已用该源安装的包保留不影响系统）\nrm -f /etc/yum.repos.d/local.repo\numount /mnt/cdrom\ndnf clean all && dnf makecache\n# 复核（期望无 local-iso 源）\ndnf repolist",
       "params": [
         {
           "name": "iso_path",
@@ -142,6 +144,7 @@
       "title": "firewalld 放行端口（openEuler）",
       "description": "firewall-cmd 永久放行并验证。",
       "commands": "firewall-cmd --permanent --add-port={{port}}/tcp\nfirewall-cmd --reload\nfirewall-cmd --list-all\nss -tlnp | grep :{{port}}",
+      "rollback": "# 回退：移除本次放行的端口（--permanent 修改须 --reload 生效）\nfirewall-cmd --permanent --remove-port={{port}}/tcp\nfirewall-cmd --reload\n# 复核（期望无该端口）\nfirewall-cmd --list-all",
       "params": [
         {
           "name": "port",
@@ -174,6 +177,7 @@
       "title": "静态路由（临时 + 持久化，openEuler）",
       "description": "ip route 临时 + nmcli 持久化。",
       "commands": "# ---- 临时 ----\nip route add {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nip route show\n# ---- 持久化（nmcli）----\nnmcli con mod \"{{con_name}}\" +ipv4.routes \"{{dest_net}}/{{prefix_len}} {{gateway}}\"\nnmcli con up \"{{con_name}}\"\nip route show",
+      "rollback": "# 回退：临时路由 ip route del；nmcli 持久化路由删除并重载连接\nip route del {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nnmcli con mod \"{{con_name}}\" -ipv4.routes \"{{dest_net}}/{{prefix_len}} {{gateway}}\"\nnmcli con up \"{{con_name}}\"\n# 复核（期望无该路由）\nip route show",
       "params": [
         {
           "name": "dest_net",
@@ -246,6 +250,7 @@
       "title": "systemctl 服务管理（openEuler）",
       "description": "服务五件套与自启。",
       "commands": "systemctl status {{service_name}} --no-pager\nsystemctl restart {{service_name}}\nsystemctl enable --now {{service_name}}\njournalctl -u {{service_name}} -n 50 --no-pager",
+      "rollback": "# 回退：本条目为服务管理操作演示，回退目标=恢复变更前服务状态：\n# systemctl stop {{service_name}}（若变更前未运行）；\n# systemctl disable {{service_name}}（若变更前未设自启；enable --now 的反向）\nsystemctl status {{service_name}} --no-pager",
       "params": [
         {
           "name": "service_name",
@@ -339,6 +344,7 @@
       "title": "VLAN 子接口（临时 + 持久化，openEuler）",
       "description": "ip link 临时 + nmcli 持久化。",
       "commands": "# ---- 临时 ----\nip link add link {{ifname}} name {{ifname}}.{{vlan_id}} type vlan id {{vlan_id}}\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}.{{vlan_id}}\nip link set {{ifname}}.{{vlan_id}} up\n# ---- 持久化（nmcli）----\nnmcli con add type vlan con-name vlan{{vlan_id}} ifname {{ifname}}.{{vlan_id}} \\\n  dev {{ifname}} id {{vlan_id}} ipv4.method manual ipv4.addresses {{ip_addr}}/{{prefix_len}}\nnmcli con up vlan{{vlan_id}}\nip -d link show {{ifname}}.{{vlan_id}}",
+      "rollback": "# 回退：删除 VLAN 连接与临时子接口（临时部分重启即消失，手动清理如下）\nnmcli con del vlan{{vlan_id}}\nip link del {{ifname}}.{{vlan_id}}\n# 复核（期望报不存在）\nip -d link show {{ifname}}.{{vlan_id}}\nnmcli con show",
       "params": [
         {
           "name": "ifname",
@@ -421,6 +427,7 @@
       "title": "临时配置 IP 地址（openEuler）",
       "description": "不重启生效的临时地址配置；持久化走 nmcli（见配套条目）。",
       "commands": "# 临时生效：重启后丢失（持久化见 notes 里的配套条目）\nip link set {{ifname}} up\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}\nip addr show {{ifname}}\nip route get {{ip_addr}}",
+      "rollback": "# 回退：删除临时添加的 IP（临时生效，重启自动消失；手动清除如下）\nip addr del {{ip_addr}}/{{prefix_len}} dev {{ifname}}\n# 复核\nip addr show {{ifname}}",
       "params": [
         {
           "name": "ifname",
@@ -472,6 +479,7 @@
       "title": "临时添加静态路由（openEuler）",
       "description": "临时加一条静态路由并给出 nmcli 持久化写法。",
       "commands": "# 1) 临时生效（重启失效）\nip route add {{dest_net}}/{{prefix_len}} via {{gateway}}\nip route show\n# 2) 持久化（NetworkManager 连接级追加路由）\nnmcli con mod \"{{con_name}}\" +ipv4.routes \"{{dest_net}}/{{prefix_len}} {{gateway}}\"\nnmcli con up \"{{con_name}}\"\n# 3) 复核（重启后再看一次这条还在不在）\nip route show | grep {{dest_net}}",
+      "rollback": "# 回退：临时路由 ip route del；nmcli 持久化路由删除并重载连接\nip route del {{dest_net}}/{{prefix_len}} via {{gateway}}\nnmcli con mod \"{{con_name}}\" -ipv4.routes \"{{dest_net}}/{{prefix_len}} {{gateway}}\"\nnmcli con up \"{{con_name}}\"\n# 复核（期望无该路由）\nip route show | grep {{dest_net}}",
       "params": [
         {
           "name": "dest_net",
@@ -533,6 +541,7 @@
       "title": "DNS 配置（openEuler 22.03）",
       "description": "先写临时 resolv.conf 快速验证，再用 nmcli 做持久化。",
       "commands": "# 1) 临时生效（重启/重启网络后会丢）\nprintf 'nameserver {{dns1}}\\nnameserver {{dns2}}\\n' > /etc/resolv.conf\n# 2) 持久化（NetworkManager 连接级）\nnmcli con mod \"{{con_name}}\" ipv4.dns \"{{dns1}} {{dns2}}\"\nnmcli con up \"{{con_name}}\"\n# 3) 复核\ncat /etc/resolv.conf\ngetent hosts {{dns1}}",
+      "rollback": "# 回退：resolv.conf 由 NetworkManager 接管后 nmcli up 会自动重写（临时覆盖无需手动还原）；\n# 持久化 DNS 恢复旧值（旧值按变更记录回填）\nnmcli con mod \"{{con_name}}\" ipv4.dns <变更前DNS>\nnmcli con up \"{{con_name}}\"\n# 复核\ncat /etc/resolv.conf",
       "params": [
         {
           "name": "dns1",
@@ -625,6 +634,7 @@
       "title": "createrepo 自建 dnf 源（openEuler RPM 目录）",
       "description": "把零散 RPM 收进目录做成持久本地源；与《本地 dnf/yum 源（openEuler ISO 挂载）》互补——ISO 源解决装包环境，本条解决自定义包集合分发。",
       "commands": "# ===== createrepo 自建 dnf 源（openEuler RPM 目录）=====\n# ---- 0. ★ 改仓库结构前先备份既有 repo（dnf 报错随时可回滚）----\ncp -r /etc/yum.repos.d /etc/yum.repos.d.bak.$(date +%Y%m%d)\n# ---- 1. 装 createrepo_c：离网侧先按《本地 dnf/yum 源（openEuler ISO 挂载）》挂好 ISO 源再装 ----\ndnf install createrepo_c -y\n# ---- 2. 把 RPM 收进目录（U 盘/scp 均可，见传输工具条目；下面一行按实际介质路径执行）----\nmkdir -p {{repo_dir}}\n# cp /mnt/usb/*.rpm {{repo_dir}}/\ncreaterepo_c {{repo_dir}}\n# ---- 3. 写 repo 文件（gpgcheck=0：自建目录无签名，内网可控可接受）----\ncat > /etc/yum.repos.d/local-dir.repo << 'EOF'\n[local-dir]\nname=Local RPM Directory\nbaseurl=file://{{repo_dir}}\nenabled=1\ngpgcheck=0\nEOF\n# ---- 4. 刷新缓存 + 验证性安装 ----\ndnf clean all\ndnf makecache\ndnf repolist\ndnf install {{pkg_name}} -y\n",
+      "rollback": "# 回退：整个 /etc/yum.repos.d 已在变更前整目录备份——恢复备份目录并重建缓存\nls -d /etc/yum.repos.d.bak.*\nrm -rf /etc/yum.repos.d && cp -r /etc/yum.repos.d.bak.<变更日期> /etc/yum.repos.d\nrm -f /etc/yum.repos.d/local-dir.repo\ndnf clean all && dnf makecache\n# 复核\ndnf repolist",
       "params": [
         {
           "name": "repo_dir",
@@ -661,6 +671,7 @@
       "title": "pip 离线安装（download → --no-index --find-links）",
       "description": "有网侧 pip download 带全依赖，离网侧 --no-index 从本地目录安装；Python 包离网部署标准流程。",
       "commands": "# ===== pip 离线安装 =====\n# ---- 1.【有网侧】下载包及其全部依赖到目录（★ 必须与离网侧同 python 大版本 + 同平台架构）----\npip download {{pkg_name}} -d {{src_path}}\nls {{src_path}}\n# ---- 2. 把整个 {{src_path}} 目录拷到离网机器（U 盘/内网，见传输工具条目）----\n# ---- 3.【离网侧】本地目录安装（--no-index 禁用一切在线源）----\npip install --no-index --find-links {{src_path}} {{pkg_name}}\n# ---- 4. 验证（import 名与包名可能不同，按实际包替换）----\npip show {{pkg_name}}\npython3 -c \"import <模块名>; print('OK')\"\n",
+      "rollback": "# 回退：pip 离线安装的包按需卸载（依赖包一并卸载时注意别误删系统组件；\n# 下载目录 {{src_path}} 仅是离线包缓存，保留无害）\npip uninstall {{pkg_name}} -y\n# 复核（期望报不存在）\npip show {{pkg_name}}",
       "params": [
         {
           "name": "pkg_name",
@@ -696,6 +707,7 @@
       "title": "配置 chrony 时间同步（openEuler 22.03）",
       "description": "chronyd 指向内网 NTP 并开机自启；现场主力系统对表标准动作。",
       "commands": "# ===== 配置 chrony 时间同步（openEuler 22.03）=====\n# ---- 0. 备份配置 ----\ncp /etc/chrony.conf /etc/chrony.conf.bak.$(date +%Y%m%d)\n# ---- 1. 注释掉原 server 行，追加内网 NTP ----\nsed -i 's/^server /#&/' /etc/chrony.conf\necho 'server {{ntp_server_ip}} iburst' >> /etc/chrony.conf\n# ---- 2. 重启并设开机自启 ----\nsystemctl restart chronyd && systemctl enable chronyd\n# ---- 3. 验证 ----\nchronyc sources -v\nchronyc tracking\ndate\n",
+      "rollback": "# 回退：恢复变更日备份的 chrony.conf 并重启服务（备份文件名日期=变更当天）\nls -l /etc/chrony.conf.bak.*\ncp /etc/chrony.conf.bak.<变更日期> /etc/chrony.conf\nsystemctl restart chronyd\n# 复核（原 server 行恢复）\nchronyc sources -v",
       "params": [
         {
           "name": "ntp_server_ip",

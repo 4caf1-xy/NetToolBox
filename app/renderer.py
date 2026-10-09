@@ -70,7 +70,7 @@ QUERY_WHITELIST = (
     "pwd", "ss", "netstat", "lsof", "ps", "uname", "uptime", "free", "df",
     "du", "lsblk", "blkid", "dmesg",     "lscpu", "lshw", "dmidecode", "lspci",
     "lsusb", "lsmod", "iostat", "vmstat", "mpstat", "sar", "ethtool",
-    "top -b",   # top 批处理模式为只读快照；交互式 top 不入名单（可 renice）
+    "top -b", "top -bn",   # top 批处理模式为只读快照（含 -bn1 无空格变体）；交互式 top 不入名单
     "ping", "ping6", "traceroute", "tracepath", "mtr", "dig", "nslookup",
     "host", "arping", "tcpdump", "arp", "id", "who", "w", "whoami", "groups",
     "date", "hostname", "getenforce", "sestatus", "mount", "rpm", "dpkg",
