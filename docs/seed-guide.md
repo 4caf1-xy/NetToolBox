@@ -237,3 +237,14 @@ Linux 条目缺 duration 是 ERROR（validate 拦截），网络侧条目可留�
 - [ ] 变更类条目已写 `rollback`（多行字符串；占位符与 params 同名；写法见四·B 三类典型）
 - [ ] 关键步骤有 `#` 注释行；影响转发 / 需 commit 生效的已注明
 - [ ] 本地 `python app/main.py --validate-seed` 返回 EXIT=0
+
+### rollback 反例清单（批3 起草沉淀，幻觉零容忍案例）
+
+| 反例 | 问题 | 正确写法 |
+|---|---|---|
+| `no username {{x}} privilege 15 secret <...>`（Cisco/锐捷/ZXR10） | `no` 形式不接收属性参数，粘贴报错 | `no username {{x}}` |
+| 删 ACL/策略本体先于解引用 | 引用存在时删除被拒（H3C/FortiOS/PAN-OS）或业务即断 | 先 `undo traffic-filter` / `no ip access-group` / `unset 引用`，再删本体 |
+| 直接删 port-group（华为） | 组态已下发到成员口，删组不撤端口配置 | 先在组内 undo 属性，再删组 |
+| 白名单收裸前缀（`ip addr`、`systemctl`） | `ip addr add` 等变更命令被前缀吞进查询类 | 白名单必须"命令+子命令"精确到词（判定表增补①） |
+| `no username`/口令类回退写死新值 | 回退目标=旧值，参数里没有 | 尖括号人工位 `password <旧console口令>`，注明按变更记录回填 |
+| 升级类 rollback 写"undo reload"类臆造命令 | 该厂商不存在此命令 | 回退=指回旧镜像/旧配置文件 + 重启 + 复核；版本差异以 `?` 实测为准并标注 |
