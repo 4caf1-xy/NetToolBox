@@ -19,6 +19,7 @@
       "title": "创建 VLAN 并把端口划入 Access",
       "description": "新建业务 VLAN 并命名，把一批物理端口批量划为 access 口加入该 VLAN。",
       "commands": "! ===== 创建 VLAN 并划入端口（Cisco IOS）=====\nenable\nconfigure terminal\nvlan {{vlan_id}}\n name {{vlan_name}}\n exit\ninterface range {{port_range}}\n switchport mode access\n switchport access vlan {{vlan_id}}\n no shutdown\n exit\nend\nwrite memory",
+      "rollback": "! 回退：删除 VLAN 并把端口恢复默认属性（端口原属 VLAN 如非 vlan 1，按变更记录恢复）\nenable\nconfigure terminal\ninterface range {{port_range}}\n no switchport access vlan\n no switchport mode access\n exit\nno vlan {{vlan_id}}\nend\nwrite memory\n! 复核\nshow vlan brief",
       "params": [
         {
           "name": "vlan_id",
@@ -71,6 +72,7 @@
       "title": "配置 Trunk 口并放通指定 VLAN",
       "description": "把上行/级联口配成 802.1Q trunk，放通允许通过的 VLAN 并设置 native VLAN。",
       "commands": "! ===== 配置 Trunk 口（Cisco IOS）=====\nenable\nconfigure terminal\ninterface {{port}}\n switchport trunk encapsulation dot1q\n switchport mode trunk\n switchport trunk allowed vlan {{vlan_list}}\n switchport trunk native vlan {{native_vlan}}\n no shutdown\n exit\nend\nwrite memory\nshow interfaces trunk",
+      "rollback": "! 回退：端口恢复 access 模式（★ 回退前确认该口未下联交换机，防止环路/断业务）\nenable\nconfigure terminal\ninterface {{port}}\n no switchport trunk allowed vlan\n no switchport trunk native vlan\n no switchport trunk encapsulation\n switchport mode access\n exit\nend\nwrite memory\n! 复核\nshow interfaces {{port}} switchport\nshow interfaces trunk",
       "params": [
         {
           "name": "port",
@@ -122,6 +124,7 @@
       "title": "配置静态路由与浮动静态路由",
       "description": "新增静态路由指定目的网段与下一跳；用管理距离做浮动备份路由。",
       "commands": "! ===== 配置静态路由（Cisco IOS）=====\nenable\nconfigure terminal\nip route {{dest_net}} {{mask}} {{next_hop}}\n! 浮动静态路由：管理距离设大（默认 1），主路由失效时才生效\nip route {{dest_net}} {{mask}} {{backup_hop}} 200\n! 默认路由\nip route 0.0.0.0 0.0.0.0 {{next_hop}}\nend\nwrite memory\nshow ip route {{dest_net}}",
+      "rollback": "! 回退：逐条删除本变更新增的静态路由（含浮动备份与默认路由）\nenable\nconfigure terminal\nno ip route {{dest_net}} {{mask}} {{next_hop}}\nno ip route {{dest_net}} {{mask}} {{backup_hop}} 200\nno ip route 0.0.0.0 0.0.0.0 {{next_hop}}\nend\nwrite memory\n! 复核：路由表恢复变更前状态\nshow ip route {{dest_net}}",
       "params": [
         {
           "name": "dest_net",
@@ -183,6 +186,7 @@
       "title": "配置 OSPF 基本组网",
       "description": "开启 OSPF 进程、设 router-id、宣告参与组网的网段，并把业务口设为被动接口。",
       "commands": "! ===== OSPF 基本配置（Cisco IOS）=====\nenable\nconfigure terminal\nrouter ospf {{process_id}}\n router-id {{router_id}}\n network {{network}} {{wildcard}} area {{area_id}}\n passive-interface default\n no passive-interface {{uplink_port}}\n exit\nend\nwrite memory\nshow ip ospf neighbor\nshow ip route ospf",
+      "rollback": "! 回退：删除整个 OSPF 进程（★ 仅当进程为本次变更新建时适用；若进程预先存在\n! 只是新增 network，则改为在 router ospf 下逐条 no network / no router-id）\nenable\nconfigure terminal\nno router ospf {{process_id}}\nend\nwrite memory\n! 复核\nshow ip ospf neighbor\nshow ip route ospf",
       "params": [
         {
           "name": "process_id",
@@ -265,6 +269,7 @@
       "title": "配置扩展 ACL 并应用到接口",
       "description": "创建命名扩展 ACL 限制网段互访，并绑定到接口的 in 方向。",
       "commands": "! ===== 扩展 ACL 配置与下发（Cisco IOS）=====\nenable\nconfigure terminal\nip access-list extended {{acl_name}}\n permit ip {{src_net}} {{src_wild}} {{dst_net}} {{dst_wild}}\n deny   ip any any log\n exit\ninterface {{port}}\n ip access-group {{acl_name}} in\n exit\n! 只放通管理网段 SSH 登录 vty\nline vty 0 4\n access-class {{acl_name}} in\n exit\nend\nwrite memory\nshow ip access-lists {{acl_name}}",
+      "rollback": "! 回退：先解接口/vty 引用，再删 ACL 本体（顺序反了会残留引用导致业务中断）\nenable\nconfigure terminal\ninterface {{port}}\n no ip access-group {{acl_name}} in\n exit\nline vty 0 4\n no access-class {{acl_name}} in\n exit\nno ip access-list extended {{acl_name}}\nend\nwrite memory\n! 复核\nshow ip access-lists",
       "params": [
         {
           "name": "acl_name",
@@ -346,6 +351,7 @@
       "title": "配置 NAT 地址转换（PAT 复用）",
       "description": "内网网段通过出接口地址做端口复用（overload），并给出静态一对一映射写法。",
       "commands": "! ===== NAT / PAT 配置（Cisco IOS）=====\nenable\nconfigure terminal\ninterface {{inside_port}}\n ip address {{inside_ip}} {{inside_mask}}\n ip nat inside\n exit\ninterface {{outside_port}}\n ip address {{outside_ip}} {{outside_mask}}\n ip nat outside\n exit\naccess-list {{acl_number}} permit {{src_net}} {{src_wild}}\nip nat inside source list {{acl_number}} interface {{outside_port}} overload\n! 静态一对一映射（外网访问内网服务器）\nip nat inside source static {{inside_server}} {{public_ip}}\nend\nwrite memory\nshow ip nat translations\nshow ip nat statistics",
+      "rollback": "! 回退：按创建逆序撤销 NAT（接口 IP 若为既有配置则不要动 IP 行，只撤 NAT 标记）\nenable\nconfigure terminal\nno ip nat inside source static {{inside_server}} {{public_ip}}\nno ip nat inside source list {{acl_number}} interface {{outside_port}} overload\nno access-list {{acl_number}}\ninterface {{inside_port}}\n no ip nat inside\n exit\ninterface {{outside_port}}\n no ip nat outside\n exit\nend\nwrite memory\n! 复核\nshow ip nat statistics",
       "params": [
         {
           "name": "inside_port",
@@ -478,6 +484,7 @@
       "title": "开启 SSH 并创建本地管理用户",
       "description": "生成 RSA 密钥、限制 vty 只允许 SSH、创建特权 15 的本地用户。",
       "commands": "! ===== 开启 SSH + 本地用户（Cisco IOS）=====\nenable\nconfigure terminal\nhostname {{hostname}}\nip domain-name {{domain}}\nusername {{username}} privilege 15 secret {{password}}\ncrypto key generate rsa modulus 2048\nip ssh version 2\nip ssh time-out 60\nip ssh authentication-retries 3\nline vty 0 4\n login local\n transport input ssh\n exec-timeout {{timeout_min}} 0\n exit\nend\nwrite memory\nshow ip ssh",
+      "rollback": "! 回退：恢复 vty 旧认证方式并删除本变更新增项（hostname/domain/RSA 密钥若为既有则跳过；\n! RSA 密钥不建议删除——会断掉依赖它的 SSH 会话，保留即可）\nenable\nconfigure terminal\nno username {{username}}\nline vty 0 4\n no login local\n no transport input ssh\n no exec-timeout\n exit\nend\nwrite memory\n! 复核\nshow ip ssh",
       "params": [
         {
           "name": "hostname",
@@ -550,6 +557,7 @@
       "title": "修改 Console 口令与特权密码",
       "description": "设置 console 口口令、空闲超时，并改用加密方式保存特权密码。",
       "commands": "! ===== Console 与特权口令（Cisco IOS）=====\nenable\nconfigure terminal\nline console 0\n password {{console_password}}\n login\n logging synchronous\n exec-timeout {{timeout_min}} 0\n exit\nenable secret {{enable_secret}}\nservice password-encryption\nend\nwrite memory",
+      "rollback": "! 回退：口令类变更须恢复旧口令值（旧值不在本条目参数内，按变更记录回填尖括号处）\nenable\nconfigure terminal\nline console 0\n password <旧console口令>\n no logging synchronous\n no exec-timeout\n exit\nenable secret <旧特权口令>\nno service password-encryption\nend\nwrite memory",
       "params": [
         {
           "name": "console_password",
@@ -602,6 +610,7 @@
       "title": "配置 SNMP v2c 团体字与 Trap 上报",
       "description": "配置只读/读写团体字、设备位置联系人，并把 Trap 上报到网管服务器；附 SNMPv3 写法。",
       "commands": "! ===== SNMP 配置（Cisco IOS）=====\nenable\nconfigure terminal\nsnmp-server community {{ro_community}} RO\nsnmp-server community {{rw_community}} RW\nsnmp-server location {{location}}\nsnmp-server contact {{contact}}\nsnmp-server host {{nms_ip}} version 2c {{ro_community}}\nsnmp-server enable traps\n! ---- 更安全的 SNMPv3（推荐生产使用，按需启用）----\nsnmp-server group {{v3_group}} v3 auth\nsnmp-server user {{v3_user}} {{v3_group}} v3 auth sha {{v3_auth_pass}} priv aes 128 {{v3_priv_pass}}\nsnmp-server host {{nms_ip}} version 3 auth {{v3_user}}\nend\nwrite memory\nshow snmp community",
+      "rollback": "! 回退：删除本变更新增的 SNMP 配置（location/contact 若有旧值按变更记录恢复）\nenable\nconfigure terminal\nno snmp-server host {{nms_ip}} version 2c {{ro_community}}\nno snmp-server host {{nms_ip}} version 3 auth {{v3_user}}\nno snmp-server user {{v3_user}} {{v3_group}}\nno snmp-server group {{v3_group}} v3 auth\nno snmp-server community {{ro_community}}\nno snmp-server community {{rw_community}}\nno snmp-server location\nno snmp-server contact\nend\nwrite memory\n! 复核\nshow snmp community",
       "params": [
         {
           "name": "ro_community",
@@ -713,6 +722,7 @@
       "title": "保存配置并备份到本地 flash",
       "description": "把运行配置写入启动配置，并在 flash 里留一份带日期的本地备份（不依赖网络）。",
       "commands": "! ===== 保存与本地备份（Cisco IOS）=====\nenable\nshow clock\nshow running-config\ncopy running-config startup-config\n! 本地 flash 备份（隔离网络下不依赖 TFTP/FTP）\ncopy running-config flash:backup-{{backup_tag}}.cfg\nshow flash:\ndir flash:\n! 需要回滚时（谨慎，会整体替换运行配置）\n! configure replace flash:backup-{{backup_tag}}.cfg force",
+      "rollback": "! 回退：本条目仅做保存与备份，不改变网络行为，无需配置回退；\n! 如需清理本次备份文件再执行（delete 需交互确认文件名）\nenable\ndelete flash:backup-{{backup_tag}}.cfg\nshow flash:",
       "params": [
         {
           "name": "backup_tag",
@@ -744,6 +754,7 @@
       "title": "配置 DNS 服务器与域名解析（Cisco IOS）",
       "description": "指向内网 DNS 服务器并开启域名解析，验证域名可解析（离网内网 DNS 标准动作）。",
       "commands": "! ===== 配置 DNS 服务器与域名解析（Cisco IOS）=====\n! ---- 配置段：指向内网 DNS，开启域名解析 ----\nenable\nconfigure terminal\nip name-server {{dns_server_ip}}\nip domain-lookup\nend\n! ---- 验证段：ping 域名触发解析 + 看解析缓存 ----\nshow hosts\nping {{test_domain}}\n",
+      "rollback": "! 回退：撤销 name-server 并关闭域名解析（恢复未配置 DNS 的默认状态）\nenable\nconfigure terminal\nno ip name-server {{dns_server_ip}}\nno ip domain-lookup\nend\nwrite memory\n! 复核\nshow hosts",
       "params": [
         {
           "name": "dns_server_ip",
@@ -785,6 +796,7 @@
       "title": "配置 NTP 服务器与状态验证（Cisco IOS）",
       "description": "指向内网 NTP 服务器并验证时钟同步（离网统一时基，日志/证书依赖）。",
       "commands": "! ===== 配置 NTP 服务器与状态验证（Cisco IOS）=====\nenable\nconfigure terminal\nntp server {{ntp_server_ip}}\nend\n! ---- 验证：Clock is synchronized + associations 的 ~* 前缀 ----\nshow ntp status\nshow ntp associations\nshow clock detail\n",
+      "rollback": "! 回退：删除 NTP 服务器引用（时钟恢复本地自由运行；如设备原有时钟源按变更记录恢复）\nenable\nconfigure terminal\nno ntp server {{ntp_server_ip}}\nend\nwrite memory\n! 复核\nshow ntp status\nshow clock detail",
       "params": [
         {
           "name": "ntp_server_ip",
@@ -816,6 +828,7 @@
       "title": "软件版本查看、备份与升级流程（Cisco IOS）",
       "description": "show version → 配置/镜像双备份 → md5 校验 → 指定启动镜像 → reload → 复核。",
       "commands": "! ===== 版本查看、备份与升级流程（Cisco IOS）=====\n! ---- 0. ★ 三要素确认：变更窗口 / 回滚点（旧镜像保留）/ 带外 Console 通道 ----\n! ---- 0b. 备份服务器可达性确认（配置/镜像备份前必须 ping 通）----\nping {{backup_server}}\nshow version\n! ---- 1. 备份配置与当前镜像（交互式输入 TFTP 地址与文件名）----\ncopy running-config tftp:\ncopy flash: tftp:\n! ---- 2. 看 flash 空间，传输新镜像（交互式 copy tftp: flash:）----\ndir flash:\ncopy tftp: flash:\n! ---- 3. ★ 校验新镜像（md5 值来自官方下载页；不匹配绝对禁止 reload）----\nverify /md5 flash:{{ios_image}}\n! ---- 4. 指定启动镜像并保存 ----\nconfigure terminal\nboot system flash:{{ios_image}}\nend\nwrite memory\n! ---- 5. 重启加载新版本（★ 备份与回滚方案就绪后再做）----\nreload\n! ---- 6. 重启后复核 ----\nshow version\n",
+      "rollback": "! 回退：回退到旧 IOS 镜像（★ 与变更同门槛：变更窗口/回滚点/带外 Console 就绪后再做；\n! 旧镜像若有显式 boot system 行，按变更记录回填替换 no 行）\nenable\nconfigure terminal\nno boot system flash:{{ios_image}}\nend\nwrite memory\n! 重启加载旧镜像（★ 确认旧镜像仍在 flash）\nreload\n! 重启后复核\nshow version\nshow flash:",
       "params": [
         {
           "name": "backup_server",
@@ -899,6 +912,7 @@
       "title": "配置回滚（Cisco IOS，archive/replace）",
       "description": "改配置前用 archive 存回滚点，改坏后 configure replace 整体回退（比手工 undo 稳）。",
       "commands": "! ===== 配置回滚（Cisco IOS）=====\n! ---- 0. 改动前：建立回滚点（archive 方式，先配置 archive 路径）----\nconfigure terminal\narchive\n path flash:archive-config\n write-memory\nexit\narchive config\nexit\n! ---- 1. 改动出问题后：整体回退到备份文件（★ 回滚前先 diff）----\nshow archive config differences nvram:startup-config flash:{{backup_file}}\nconfigure replace flash:{{backup_file}} force\n! ---- 2. 复核 ----\nshow running-config | include <核对关键字>\n",
+      "rollback": "! 回退：本条目本身即回滚操作；若 configure replace 后需退回 replace 前状态，\n! 对 replace 前自动生成的 archive 存档再次 replace（N 按 show archive 输出确认）\nenable\nshow archive\nconfigure replace flash:archive-config-<N> force\n! 复核\nshow running-config | include <核对关键字>",
       "params": [
         {
           "name": "backup_file",
@@ -930,6 +944,7 @@
       "title": "配置 AAA 认证与本地兜底（Cisco IOS）",
       "description": "radius/tacacs+ 服务器 + 本地兜底顺序 + test aaa 验证（先验证后退出，见 notes 铁律）。",
       "commands": "! ===== AAA 认证与本地兜底（Cisco IOS）=====\nenable\nconfigure terminal\n! ---- 1. AAA 总开关 ----\naaa new-model\n! ---- 2. 服务器组（TACACS+ 为例；RADIUS 换 aaa group server radius）----\ntacacs server TAC1\n address ipv4 {{aaa_server_ip}}\n key {{aaa_shared_key}}\nexit\n! ---- 3. 认证顺序：先服务器，本地兜底 ----\naaa authentication login default group tacacs+ local\naaa authorization exec default group tacacs+ local\n! ---- 4. ★ 验证（新开窗口测，勿退当前会话）----\ntest aaa group tacacs+ {{test_user}} {{test_password}} legacy\n! ---- 5. 本地兜底账号确认存在 ----\nusername {{local_user}} privilege 15 secret {{local_password}}\nend\n",
+      "rollback": "! 回退：撤销 AAA（★ 先确认 console/本地账号仍可登录，再按序撤销；\n! 本地兜底账号若变更前不存在则一并删除）\nenable\nconfigure terminal\nno aaa authentication login default group tacacs+ local\nno aaa authorization exec default group tacacs+ local\nno username {{local_user}}\nno tacacs server TAC1\nno aaa new-model\nend\nwrite memory\n! 复核\nshow running-config | include aaa|tacacs",
       "params": [
         {
           "name": "aaa_server_ip",

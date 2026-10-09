@@ -59,6 +59,8 @@ COMMENT_LINE_RE = re.compile(r"^\s*[!#]")
 #   只读，其后任意子命令都算查询；多义动词（systemctl/ip/iptables 等）必须
 #   带子命令逐个列入。
 QUERY_WHITELIST = (
+    # ---- 会话级命令（进入/退出特权模式、终端显示开关，不改变设备配置状态）----
+    "enable", "disable", "terminal monitor", "terminal no monitor",
     # ---- 网络侧单动词家族（其后子命令均为读操作）----
     "show", "display", "get", "print",
     # ---- Linux 只读命令（单义动词，整词在名单）----
