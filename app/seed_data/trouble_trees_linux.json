@@ -161,7 +161,25 @@
                 "text": "核对链路是否 detected 以及协商速率",
                 "cmd_ref": {
                   "vendor_category": "排查命令",
-                  "title_keyword": "ethtool"
+                  "title_keyword": "ethtool",
+                  "by_vendor": {
+                    "centos": {
+                      "uuid": "ba83f283-c390-5fb6-ad71-14e03f1b62f4",
+                      "title": "ethtool 网卡与光模块诊断"
+                    },
+                    "ubuntu": {
+                      "uuid": "badd911f-39c1-4ec8-aeb3-55d6a4e52992",
+                      "title": "ethtool 网卡链路诊断（Ubuntu）"
+                    },
+                    "kylin": {
+                      "uuid": "8126eb73-bc96-46f9-931e-b020f8e9eb38",
+                      "title": "ethtool 网卡链路诊断（麒麟 V10）"
+                    },
+                    "openeuler": {
+                      "uuid": "613f2357-ccf3-569b-a118-e5d793e3eb5e",
+                      "title": "ethtool 网卡链路诊断（openEuler 22.03）"
+                    }
+                  }
                 }
               },
               "换网线/网口；核对交换机侧 VLAN 与端口状态",
@@ -934,7 +952,25 @@
                 "text": "找到占用该端口的进程",
                 "cmd_ref": {
                   "vendor_category": "排查命令",
-                  "title_keyword": "查端口监听"
+                  "title_keyword": "查端口监听",
+                  "by_vendor": {
+                    "centos": {
+                      "uuid": "7ddb249b-4d42-5f56-b592-36c2cc4b595c",
+                      "title": "查端口监听与占用（ss/netstat）"
+                    },
+                    "ubuntu": {
+                      "uuid": "8ec4a39b-6ad4-5b74-806c-70f307f38479",
+                      "title": "查端口监听与占用（ss）"
+                    },
+                    "kylin": {
+                      "uuid": "5a93bc67-7a4b-5315-a2e8-609ad4d648e1",
+                      "title": "查端口监听（麒麟 V10）"
+                    },
+                    "openeuler": {
+                      "uuid": "42512d69-fe4f-5f7c-8ef4-143b6818b227",
+                      "title": "网络排查三件套（ss / tcpdump / journalctl）"
+                    }
+                  }
                 }
               },
               "停掉冲突服务或改本服务端口",
