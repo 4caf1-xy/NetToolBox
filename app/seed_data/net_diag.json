@@ -446,6 +446,7 @@
       "title": "光功率与错包判读（锐捷 transceiver）",
       "description": "show interfaces transceiver 读光功率 + 错包统计基线（部分型号命令差异以 ? 为准）。",
       "commands": "# ===== 光功率与错包判读（锐捷）=====\n# ---- 1. 光模块 DOM 读数（部分型号命令差异以 ? 为准）----\nshow interfaces transceiver detail\n# ---- 2. 错包基线（清计数前先留存本输出）----\nshow interfaces | include errors|CRC|drops\n# ---- 3. 基线留存后清计数观察增量 ----\nclear counters\n",
+      "rollback": "! 回退：clear counters 仅清空接口计数器、无配置变更，历史计数不可恢复；\n! 如需基线对比，重新留存一次 show interfaces 输出作为新基线即可\nenable\nshow interfaces | include errors|CRC|drops",
       "params": [],
       "notes": "1) ★ 读数判读口径（以厂商 datasheet 为准，以下为通用经验区间）：收光功率 Tx/Rx 在 -5 ~ -15 dBm 为健康区；低于 -20 dBm 告警线（链路质量差/光衰大）；-30 dBm 以下基本断链。发射光功率典型 -5 ~ -9 dBm（多模）/-9 ~ 0 dBm（单模），超发可能烧对端。\n2) ★ 清计数前先留存基线：clear counters / 清错包计数会把历史 CRC/FCS 抹掉——先把 show 输出存档再清，观察增量才有意义。\n3) 光功率骤降优先查：光模块灰尘/老化、尾纤弯折、法兰盘脏污；两端同时判读（一端正常另一端差 = 中间链路问题）。验证方法：读数在健康区间 + 清计数后 CRC 不再增长；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）\n提示：MAC 漂移检测能力暂未收录本厂商专条（漂移排查可先用本条目观察端口错包/表项变化），专条将随 AI 管线扩充。\n",
       "duration": "",

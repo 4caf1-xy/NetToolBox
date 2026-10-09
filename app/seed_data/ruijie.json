@@ -19,6 +19,7 @@
       "title": "创建 VLAN 并把端口划入 Access（锐捷 RGOS）",
       "description": "新建业务 VLAN，用 interface range 批量把端口划为 access 并加入 VLAN。",
       "commands": "! ===== 创建 VLAN 并划入端口（锐捷 RGOS）=====\nenable\nconfigure terminal\nvlan {{vlan_id}}\n name {{vlan_name}}\n exit\ninterface range GigabitEthernet {{port_range}}\n switchport mode access\n switchport access vlan {{vlan_id}}\n no shutdown\n exit\nend\nwrite\nshow vlan",
+      "rollback": "! 回退：删除 VLAN 并把端口恢复默认属性（端口原属 VLAN 按变更记录恢复）\nenable\nconfigure terminal\ninterface range GigabitEthernet {{port_range}}\n no switchport access vlan\n no switchport mode access\n exit\nno vlan {{vlan_id}}\nend\nwrite\n! 复核\nshow vlan",
       "params": [
         {
           "name": "vlan_id",
@@ -71,6 +72,7 @@
       "title": "配置 Trunk 口并放通 VLAN（锐捷 RGOS）",
       "description": "把级联口配成 trunk，用 allowed vlan add 追加放通 VLAN，并设置 native VLAN。",
       "commands": "! ===== 配置 Trunk 口（锐捷 RGOS）=====\nenable\nconfigure terminal\ninterface GigabitEthernet {{port}}\n switchport mode trunk\n switchport trunk allowed vlan add {{vlan_list}}\n switchport trunk native vlan {{pvid}}\n no shutdown\n exit\nend\nwrite\nshow interfaces GigabitEthernet {{port}} switchport",
+      "rollback": "! 回退：精确移除本次放通的 VLAN 与 native vlan（放行表其余部分保持不变；\n! ★ 回退前确认该口未下联交换机，防环路）\nenable\nconfigure terminal\ninterface GigabitEthernet {{port}}\n no switchport trunk allowed vlan {{vlan_list}}\n no switchport trunk native vlan\n no switchport mode trunk\n exit\nend\nwrite\n! 复核\nshow interfaces GigabitEthernet {{port}} switchport",
       "params": [
         {
           "name": "port",
@@ -122,6 +124,7 @@
       "title": "配置静态路由与缺省路由（锐捷 RGOS）",
       "description": "配置明细静态路由、缺省路由与浮动备份路由。",
       "commands": "! ===== 静态路由（锐捷 RGOS）=====\nenable\nconfigure terminal\nip route {{dest_net}} {{mask}} {{next_hop}}\nip route 0.0.0.0 0.0.0.0 {{next_hop}}\nip route {{dest_net}} {{mask}} {{backup_hop}} {{distance}}\nend\nwrite\nshow ip route",
+      "rollback": "! 回退：逐条删除本变更新增的静态/缺省/浮动路由\nenable\nconfigure terminal\nno ip route {{dest_net}} {{mask}} {{next_hop}}\nno ip route 0.0.0.0 0.0.0.0 {{next_hop}}\nno ip route {{dest_net}} {{mask}} {{backup_hop}} {{distance}}\nend\nwrite\n! 复核\nshow ip route",
       "params": [
         {
           "name": "dest_net",
@@ -194,6 +197,7 @@
       "title": "配置 OSPF 基本组网（锐捷 RGOS）",
       "description": "开启 OSPF 进程、设 router-id、宣告网段并静默业务口。",
       "commands": "! ===== OSPF 基本配置（锐捷 RGOS）=====\nenable\nconfigure terminal\nrouter ospf {{process_id}}\n router-id {{router_id}}\n network {{network}} {{wildcard}} area {{area_id}}\n passive-interface {{passive_port}}\n exit\nend\nwrite\nshow ip ospf neighbor\nshow ip route ospf",
+      "rollback": "! 回退：删除整个 OSPF 进程（进程若预存只是新增 network，则进视图逐条 no network）\nenable\nconfigure terminal\nno router ospf {{process_id}}\nend\nwrite\n! 复核\nshow ip ospf neighbor",
       "params": [
         {
           "name": "process_id",
@@ -276,6 +280,7 @@
       "title": "配置扩展 ACL 并应用到接口（锐捷 RGOS）",
       "description": "创建命名扩展 ACL 限制网段互访，并绑定到接口 in 方向。",
       "commands": "! ===== 扩展 ACL 配置与下发（锐捷 RGOS）=====\nenable\nconfigure terminal\nip access-list extended {{acl_name}}\n permit ip {{src_net}} {{src_wild}} {{dst_net}} {{dst_wild}}\n deny ip any any\n exit\ninterface GigabitEthernet {{port}}\n ip access-group {{acl_name}} in\n exit\nend\nwrite\nshow ip access-lists {{acl_name}}",
+      "rollback": "! 回退：先解接口引用，再删 ACL 本体\nenable\nconfigure terminal\ninterface GigabitEthernet {{port}}\n no ip access-group {{acl_name}} in\n exit\nno ip access-list extended {{acl_name}}\nend\nwrite\n! 复核\nshow ip access-lists",
       "params": [
         {
           "name": "acl_name",
@@ -357,6 +362,7 @@
       "title": "配置 NAT 地址转换（PAT 复用 / 静态映射）",
       "description": "内网网段通过出接口地址做端口复用，并给出服务器静态映射写法。",
       "commands": "! ===== NAT / PAT 配置（锐捷 RGOS）=====\nenable\nconfigure terminal\ninterface GigabitEthernet {{inside_port}}\n ip address {{inside_ip}} {{inside_mask}}\n ip nat inside\n exit\ninterface GigabitEthernet {{outside_port}}\n ip address {{outside_ip}} {{outside_mask}}\n ip nat outside\n exit\naccess-list {{acl_number}} permit {{src_net}} {{src_wild}}\nip nat inside source list {{acl_number}} interface GigabitEthernet {{outside_port}} overload\n! 静态一对一映射\nip nat inside source static {{inside_server}} {{public_ip}}\nend\nwrite\nshow ip nat translations",
+      "rollback": "! 回退：按创建逆序撤销 NAT（接口 IP 若为既有配置勿动 IP 行，只撤 NAT 标记）\nenable\nconfigure terminal\nno ip nat inside source static {{inside_server}} {{public_ip}}\nno ip nat inside source list {{acl_number}} interface GigabitEthernet {{outside_port}} overload\nno access-list {{acl_number}}\ninterface GigabitEthernet {{inside_port}}\n no ip nat inside\n exit\ninterface GigabitEthernet {{outside_port}}\n no ip nat outside\n exit\nend\nwrite\n! 复核\nshow ip nat translations",
       "params": [
         {
           "name": "inside_port",
@@ -489,6 +495,7 @@
       "title": "开启 SSH 并创建本地用户（锐捷 RGOS）",
       "description": "配置域名、生成 RSA 密钥、创建特权 15 用户并限制 vty 只用 SSH。",
       "commands": "! ===== 开启 SSH + 本地用户（锐捷 RGOS）=====\nenable\nconfigure terminal\nhostname {{hostname}}\nip domain-name {{domain}}\nusername {{username}} privilege 15 password {{password}}\ncrypto key generate rsa\n! 提示输入密钥模数，建议 2048\nip ssh version 2\nline vty 0 4\n login local\n transport input ssh\n exec-timeout {{timeout_min}} 0\n exit\nend\nwrite\nshow ip ssh",
+      "rollback": "! 回退：恢复 vty 旧认证方式并删除本地用户（hostname/domain 旧值按变更记录恢复；\n! RSA 密钥保留——删除会断掉依赖它的 SSH 会话）\nenable\nconfigure terminal\nno username {{username}}\nline vty 0 4\n no login local\n no transport input ssh\n no exec-timeout\n exit\nend\nwrite\n! 复核\nshow ip ssh",
       "params": [
         {
           "name": "hostname",
@@ -561,6 +568,7 @@
       "title": "修改 Console 口令与特权密码（锐捷 RGOS）",
       "description": "设置 console 口令、空闲超时与特权密码。",
       "commands": "! ===== Console 与特权口令（锐捷 RGOS）=====\nenable\nconfigure terminal\nline console 0\n password {{console_password}}\n login\n logging synchronous\n exec-timeout {{timeout_min}} 0\n exit\nenable secret {{enable_secret}}\nend\nwrite",
+      "rollback": "! 回退：口令类变更须恢复旧口令（旧值按变更记录回填尖括号处）\nenable\nconfigure terminal\nline console 0\n password <旧console口令>\n no logging synchronous\n no exec-timeout\n exit\nenable secret <旧特权口令>\nend\nwrite",
       "params": [
         {
           "name": "console_password",
@@ -613,6 +621,7 @@
       "title": "配置 SNMP v2c 与 Trap 上报（锐捷 RGOS）",
       "description": "配置只读/读写团体字、设备位置联系人，并把 Trap 上报到网管。",
       "commands": "! ===== SNMP 配置（锐捷 RGOS）=====\nenable\nconfigure terminal\nsnmp-server community {{ro_community}} ro\nsnmp-server community {{rw_community}} rw\nsnmp-server location {{location}}\nsnmp-server contact {{contact}}\nsnmp-server host {{nms_ip}} version 2c {{ro_community}}\nsnmp-server enable traps\nend\nwrite\nshow snmp community",
+      "rollback": "! 回退：删除本变更新增的 SNMP 配置（location/contact 旧值按变更记录恢复）\nenable\nconfigure terminal\nno snmp-server host {{nms_ip}} version 2c {{ro_community}}\nno snmp-server community {{ro_community}} ro\nno snmp-server community {{rw_community}} rw\nno snmp-server location\nno snmp-server contact\nno snmp-server enable traps\nend\nwrite\n! 复核\nshow snmp community",
       "params": [
         {
           "name": "ro_community",
@@ -684,6 +693,7 @@
       "title": "保存配置并备份到本地 flash",
       "description": "用 write 保存运行配置，并复制一份到 flash 作为回滚点。",
       "commands": "! ===== 保存与本地备份（锐捷 RGOS）=====\nenable\nwrite\nshow startup-config\ndir flash:/\ncopy running-config flash:backup-{{backup_tag}}.cfg\ndir flash:/",
+      "rollback": "! 回退：本条目仅保存与备份配置，不改变网络行为，无需配置回退；\n! 如需清理本次备份文件（delete 需交互确认）\nenable\ndelete flash:backup-{{backup_tag}}.cfg\ndir flash:/",
       "params": [
         {
           "name": "backup_tag",
@@ -715,6 +725,7 @@
       "title": "配置 DNS 服务器与域名解析（锐捷 RGOS）",
       "description": "指向内网 DNS 服务器，验证域名可解析（离网内网 DNS 标准动作）。",
       "commands": "! ===== 配置 DNS 服务器与域名解析（锐捷 RGOS）=====\n! ---- 配置段 ----\nenable\nconfigure terminal\nip name-server {{dns_server_ip}}\nend\n! ---- 验证段 ----\nshow hosts\nping {{test_domain}}\n",
+      "rollback": "! 回退：删除 name-server 引用（原 DNS 值按变更记录恢复）\nenable\nconfigure terminal\nno ip name-server {{dns_server_ip}}\nend\nwrite\n! 复核\nshow hosts",
       "params": [
         {
           "name": "dns_server_ip",
@@ -756,6 +767,7 @@
       "title": "配置 NTP 服务器与状态验证（锐捷 RGOS）",
       "description": "ntp server 指向内网 NTP 并验证时钟同步（IOS 系同源写法）。",
       "commands": "! ===== 配置 NTP 服务器与状态验证（锐捷 RGOS）=====\nenable\nconfigure terminal\nntp server {{ntp_server_ip}}\nend\n! ---- 验证 ----\nshow ntp status\nshow ntp associations\nshow clock detail\n",
+      "rollback": "! 回退：删除 NTP 服务器引用（时钟恢复本地自由运行）\nenable\nconfigure terminal\nno ntp server {{ntp_server_ip}}\nend\nwrite\n! 复核\nshow ntp status\nshow clock detail",
       "params": [
         {
           "name": "ntp_server_ip",
@@ -787,6 +799,7 @@
       "title": "软件版本查看、备份与升级流程（锐捷 RGOS）",
       "description": "show version → 备份 → 传输新镜像 → boot system 指定 → reload。",
       "commands": "! ===== 版本查看、备份与升级流程（锐捷 RGOS）=====\n! ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\n! ---- 0b. 备份服务器可达性确认（配置/镜像备份前必须 ping 通）----\nping {{backup_server}}\nshow version\ndir flash:\n! ---- 1. 备份配置与当前镜像（交互式输入 TFTP 地址与文件名）----\ncopy running-config tftp:\ncopy flash: tftp:\n! ---- 2. 传输新镜像并校验（交互式；md5 值来自官方下载页）----\ncopy tftp: flash:\nverify /md5 flash:{{rgos_image}}\n! ---- 3. 指定启动镜像并保存 ----\nconfigure terminal\nboot system flash:{{rgos_image}}\nend\nwrite memory\n! ---- 4. ★ 重启生效（备份与回滚方案就绪后再做）----\nreload\n! ---- 5. 重启后复核 ----\nshow version\n",
+      "rollback": "! 回退：回退到旧 RGOS 镜像（★ 与变更同门槛：变更窗口/回滚点/带外 Console 就绪后再做；\n! 旧镜像若有显式 boot system 行按变更记录回填）\nenable\nconfigure terminal\nno boot system flash:{{rgos_image}}\nend\nwrite memory\n! 重启加载旧镜像（★ 确认旧镜像仍在 flash）\nreload\n! 重启后复核\nshow version",
       "params": [
         {
           "name": "backup_server",
@@ -830,6 +843,7 @@
       "title": "配置回滚（锐捷 RGOS，备份恢复式）",
       "description": "改动前备份配置文件，改坏后恢复备份并重启回退（RGOS 路径，各型号关键字以 ? 为准）。",
       "commands": "! ===== 配置回滚（锐捷 RGOS）=====\n! ---- 0. 改动前：备份当前配置为独立文件 ----\ncopy running-config flash:/{{backup_file}}\n! ---- 1. 改动出问题后：diff ----\nshow running-config\n! ---- 2. 恢复备份为启动配置 ----\ncopy flash:/{{backup_file}} running-config\nwrite memory\n! ---- 3. ★ 部分型号需 reload 生效（确认备份与带外通道后再做）----\nreload\n! ---- 4. 复核 ----\nshow running-config | include <核对关键字>\n",
+      "rollback": "! 回退：本条目本身即恢复操作；若恢复后需退回恢复前的配置，\n! 把变更后已保存的配置文件拷回 running-config（文件名按变更记录回填）\ncopy flash:/<变更后配置.cfg> running-config\nwrite memory\n! 复核\nshow running-config | include <核对关键字>",
       "params": [
         {
           "name": "backup_file",
@@ -861,6 +875,7 @@
       "title": "配置 AAA 认证与本地兜底（锐捷 RGOS）",
       "description": "RADIUS/TACACS 服务器组 + 登录认证顺序 + 本地兜底（先验证后退出，见 notes 铁律）。",
       "commands": "! ===== AAA 认证与本地兜底（锐捷 RGOS）=====\nenable\nconfigure terminal\n! ---- 1. RADIUS 服务器 ----\nradius-server host {{aaa_server_ip}} key {{aaa_shared_key}}\n! ---- 2. 认证顺序：先 radius 后 local 兜底 ----\naaa authentication login default radius local\n! ---- 3. 本地兜底账号 ----\nusername {{local_user}} privilege 15 secret {{local_password}}\nend\n! ---- 4. ★ 验证（新开窗口测，勿退当前会话）----\ntest aaa group radius {{test_user}} {{test_password}}\n! 部分版本无 test aaa：用新窗口实登验证\n",
+      "rollback": "! 回退：撤销 AAA（★ 先确认 console/本地账号仍可登录再退；本地兜底账号若\n! 变更前不存在则一并删除）\nenable\nconfigure terminal\nno aaa authentication login default radius local\nno radius-server host {{aaa_server_ip}}\nno username {{local_user}}\nend\nwrite\n! 复核\nshow running-config | include aaa|radius",
       "params": [
         {
           "name": "aaa_server_ip",
