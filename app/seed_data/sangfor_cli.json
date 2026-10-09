@@ -19,6 +19,7 @@
       "title": "创建 VLAN 子接口（CLI 骨架 + Web 对照）",
       "description": "在物理口上创建 VLAN 子接口并配 IP；CLI 为通用骨架，Web 路径可直接照做。",
       "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\ninterface eth{{parent_port_no}}.{{vlan_id}}\n ip address {{vlan_ip}} {{vlan_mask}}\n description {{vlan_desc}}\n no shutdown\n exit\nexit\nwrite\nshow interface\nshow running-config\n#\n# ---- Web 控制台路径（可直接照做）----\n# 网络 → 接口/区域 → 选物理接口 → 新增 → 子接口(VLAN)\n#   VLAN ID {{vlan_id}} / IP {{vlan_ip}} / 掩码 {{vlan_mask}} / 所属区域 {{zone_name}}",
+      "rollback": "# 回退：删除 VLAN 子接口（骨架条目：undo 关键字待真机以 ? 核对；\n# 若已有策略引用该子接口，先在 Web 控制台解除引用）\nenable\nconfigure terminal\ninterface eth{{parent_port_no}}.{{vlan_id}}\n no ip address\n no description\n shutdown\n exit\nno interface eth{{parent_port_no}}.{{vlan_id}}\nexit\nwrite\n# 复核\nshow interface",
       "params": [
         {
           "name": "parent_port_no",
@@ -102,6 +103,7 @@
       "title": "配置链路聚合上联（CLI 骨架 + Web 对照）",
       "description": "把多个物理口聚合成逻辑口用于上联，模式需与对端交换机一致。",
       "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\ninterface aggregate {{agg_name}}\n member eth{{member1_no}} eth{{member2_no}}\n mode {{lacp_mode}}\n exit\nexit\nwrite\nshow interface aggregate\n#\n# ---- Web 控制台路径（可直接照做）----\n# 网络 → 接口/区域 → 新增 → 聚合接口：名称 {{agg_name}} / 成员 eth1 eth2 / 模式 {{lacp_mode}}\n# 再在聚合口下\"新增子接口(VLAN)\"放通业务 VLAN",
+      "rollback": "# 回退：删除聚合口（成员口回独立状态；骨架语法待真机 ? 核对；\n# ★ 删除前确认无策略/路由引用该聚合口）\nenable\nconfigure terminal\nno interface aggregate {{agg_name}}\nexit\nwrite\n# 复核\nshow interface aggregate",
       "params": [
         {
           "name": "agg_name",
@@ -170,6 +172,7 @@
       "title": "配置静态路由与默认路由（CLI 骨架 + Web 对照）",
       "description": "新增明细路由与默认路由，指定网关与出接口。",
       "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nip route {{dest_net}} {{dest_mask}} {{next_hop}}\nip route 0.0.0.0 0.0.0.0 {{next_hop}}\nexit\nwrite\nshow ip route\n#\n# ---- Web 控制台路径（可直接照做）----\n# 网络 → 路由 → 静态路由 → 新增\n#   目的网段 {{dest_net}} / 掩码 {{dest_mask}} / 下一跳 {{next_hop}} / 出接口 eth{{out_no}}",
+      "rollback": "# 回退：逐条删除本变更新增的静态/默认路由（no 前缀骨架语法待真机 ? 核对）\nenable\nconfigure terminal\nno ip route {{dest_net}} {{dest_mask}} {{next_hop}}\nno ip route 0.0.0.0 0.0.0.0 {{next_hop}}\nexit\nwrite\n# 复核\nshow ip route",
       "params": [
         {
           "name": "dest_net",
@@ -233,6 +236,7 @@
       "title": "配置 OSPF 动态路由（CLI 骨架 + Web 对照）",
       "description": "开启 OSPF、指定 router-id 与区域，把接口加入 OSPF。",
       "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nrouter ospf {{process_id}}\n router-id {{router_id}}\n network {{network}} {{wildcard}} area {{area_id}}\n exit\nexit\nwrite\nshow ip ospf neighbor\n#\n# ---- Web 控制台路径（可直接照做）----\n# 网络 → 路由 → 动态路由 → OSPF：Router ID {{router_id}} / 区域 {{area_id}} / 参与接口 eth{{ospf_no}}",
+      "rollback": "# 回退：删除整个 OSPF 进程（骨架语法待真机 ? 核对；进程若预存则逐条撤销新增项）\nenable\nconfigure terminal\nno router ospf {{process_id}}\nexit\nwrite\n# 复核\nshow ip ospf neighbor",
       "params": [
         {
           "name": "process_id",
@@ -317,6 +321,7 @@
       "title": "配置访问控制策略（CLI 骨架 + Web 对照）",
       "description": "用地址对象 + 访问控制策略控制区域间互访，开启日志。",
       "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\naddress-object {{src_obj}} {{src_net}} {{src_mask}}\npolicy name {{policy_name}} from {{src_zone}} to {{dst_zone}}  source {{src_obj}} destination any action permit log enable\nexit\nwrite\nshow policy\n#\n# ---- Web 控制台路径（可直接照做）----\n# 对象 → 地址：新增 {{src_obj}} = {{src_net}} / {{src_mask}}\n# 策略 → 访问控制策略 → 新增：源区域 {{src_zone}} → 目的区域 {{dst_zone}}，\n#   源地址 {{src_obj}}，服务 {{service}}，动作允许，勾选记录日志",
+      "rollback": "# 回退：先删策略再删地址对象（骨架语法待真机 ? 核对；Web 侧等价：\n# 策略 → 访问控制策略删除 {{policy_name}}；对象 → 地址删除 {{src_obj}}）\nenable\nconfigure terminal\nno policy name {{policy_name}}\nno address-object {{src_obj}}\nexit\nwrite\n# 复核\nshow policy",
       "params": [
         {
           "name": "src_obj",
@@ -409,6 +414,7 @@
       "title": "配置源 NAT 与目的 NAT 映射（CLI 骨架 + Web 对照）",
       "description": "内网出网做源 NAT（PAT），服务器对外发布做目的 NAT（端口映射）。",
       "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nnat source {{src_net}} {{src_mask}} outbound-interface eth{{out_no}} mode pat\nnat destination {{public_ip}} {{public_port}} to {{inside_ip}} {{inside_port}} protocol tcp\nexit\nwrite\nshow nat\n#\n# ---- Web 控制台路径（可直接照做）----\n# 策略 → NAT → 源地址转换：源 {{src_net}}/{{src_mask}}，转换方式\"使用出接口地址\"(PAT)\n# 策略 → NAT → 目的地址转换：公网 {{public_ip}}:{{public_port}} → 内网 {{inside_ip}}:{{inside_port}}\n# ★ 之后必须在\"访问控制策略\"里放行对应流量才真正生效",
+      "rollback": "# 回退：删除 NAT 规则（骨架语法待真机 ? 核对；Web 侧等价：\n# 策略 → NAT 删除对应源/目的转换条目）\nenable\nconfigure terminal\nno nat source {{src_net}} {{src_mask}} outbound-interface eth{{out_no}} mode pat\nno nat destination {{public_ip}} {{public_port}} to {{inside_ip}} {{inside_port}} protocol tcp\nexit\nwrite\n# 复核\nshow nat",
       "params": [
         {
           "name": "src_net",
@@ -504,6 +510,7 @@
       "title": "创建管理员并限制登录来源（CLI 骨架 + Web 对照）",
       "description": "新建管理员账号、分配角色并限定登录来源 IP。",
       "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nadmin user {{username}} password {{password}} role {{role}} trusthost {{trust_ip}} {{trust_mask}}\nexit\nwrite\nshow admin user\n#\n# ---- Web 控制台路径（可直接照做）----\n# 系统 → 管理员/权限管理 → 新增：用户名 {{username}}，角色 {{role}}，\n#   允许登录来源 {{trust_ip}} / {{trust_mask}}，允许方式 HTTPS + SSH（不用 Telnet）",
+      "rollback": "# 回退：删除本变更新建管理员（骨架语法待真机 ? 核对；★ 删除当前登录账号前\n# 先用其他管理员登录；Web 侧等价：系统 → 管理员/权限管理 删除 {{username}}）\nenable\nconfigure terminal\nno admin user {{username}}\nexit\nwrite\n# 复核\nshow admin user",
       "params": [
         {
           "name": "username",
@@ -581,6 +588,7 @@
       "title": "修改管理员密码与口令策略（CLI 骨架 + Web 对照）",
       "description": "修改管理员密码，并配置口令复杂度与有效期。",
       "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nadmin user {{username}} password {{password}}\nexit\nwrite\n#\n# ---- Web 控制台路径（可直接照做）----\n# 系统 → 管理员/权限管理 → 选中账号 → 修改密码：{{password}}\n# 系统 → 安全设置：最小长度 {{min_len}} / 有效期 {{change_days}} 天 / 失败锁定 {{lock_times}} 次",
+      "rollback": "# 回退：恢复旧口令与旧口令策略（口令回退=重新设回旧值；★ 骨架条目，CLI 口令命令\n# 以 ? 核对为准，优先走 Web：系统 → 管理员/权限管理 → 修改密码回填旧口令；\n# 系统 → 安全设置回填最小长度/有效期/锁定次数的变更前取值）\nenable\nwrite",
       "params": [
         {
           "name": "username",
@@ -656,6 +664,7 @@
       "title": "配置 SNMP 团体字与 Trap（CLI 骨架 + Web 对照）",
       "description": "开启 SNMP、配置团体字并限定网管主机，设置 Trap 上报。",
       "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nconfigure terminal\nsnmp enable\nsnmp community {{ro_community}} read-only host {{nms_ip}} {{nms_mask}}\nsnmp trap host {{nms_ip}} community {{ro_community}}\nexit\nwrite\nshow snmp\n#\n# ---- Web 控制台路径（可直接照做）----\n# 系统 → SNMP：启用，只读团体字 {{ro_community}}，允许访问主机 {{nms_ip}}/{{nms_mask}}，\n#   Trap 接收地址 {{nms_ip}}，位置 {{location}}，联系人 {{contact}}",
+      "rollback": "# 回退：关闭 SNMP 并删除团体字/Trap 配置（snmp disable 等 undo 关键字待真机 ? 核对；\n# Web 侧等价：系统 → SNMP 关闭并删除对应条目）\nenable\nconfigure terminal\nno snmp community {{ro_community}}\nno snmp trap host {{nms_ip}}\nsnmp disable\nexit\nwrite\n# 复核\nshow snmp",
       "params": [
         {
           "name": "ro_community",
@@ -728,6 +737,7 @@
       "title": "保存配置与备份（CLI 骨架 + Web 对照）",
       "description": "落盘当前配置并导出备份文件归档。",
       "commands": "# ⚠ 待真机核对：本条目为 CLI 骨架 + Web 控制台对照，命令行未在本厂商真机验证过。\n# 核对方法：Console/SSH 登录后先敲 ? 查看当前视图可用命令；\n#          若列表里没有对应命令，直接用下半部分的 Web 控制台路径操作。\n\n# ---- CLI 骨架（关键字待现场用 ? 确认）----\nenable\nwrite\nshow running-config\nexit\n#\n# ---- Web 控制台路径（可直接照做）----\n# 系统 → 配置备份/恢复 → 导出配置文件：AF-EDGE-01-{{backup_tag}}.conf\n# ★ 恢复会覆盖当前全部配置，执行前先备份当前的，并确认无人正在操作设备",
+      "rollback": "# 回退：本条目仅保存配置，不改变网络行为，无需配置回退；\n# Web 侧如需恢复配置：系统 → 配置备份/恢复 → 导入配置文件\n#（★ 覆盖全部配置，执行前先备份当前配置并确认无人正在操作设备）\nenable",
       "params": [
         {
           "name": "backup_tag",
