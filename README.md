@@ -11,7 +11,19 @@
   - **命令库**：按「厂商 → OS → 场景」组织的命令条目，`{{参数}}` 占位渲染、必填/选填校验、一键复制；
   - **报错诊断**：把设备真实报错回显粘贴进来，匹配报错字典直接给出原因与处理步骤；
   - **排查树向导**：按故障场景（接口抖动、广播风暴、升级回滚、AAA 锁死……）逐步引导，步骤内引用命令库条目。
-- **AI 会话入库管线**：与 AI 对话生成的命令/排查树，经结构化校验后一键入库，占位 id 自动重映射，杜绝「复制粘贴进文档再手工整理」。
+- **全局搜索 × 覆盖度仪表盘**
+  - **Ctrl+K 全局命令面板**：任意页面一键唤起，一次输入同时搜命令 / 报错 / 排查树三库，↑↓ 选择、Enter 直接跳转定位；空输入显示「最近使用」。常用快捷键：
+
+    | 快捷键 | 作用 | 快捷键 | 作用 |
+    |---|---|---|---|
+    | `Ctrl+K` | 全局搜索（三库） | `Ctrl+F` | 聚焦本库搜索 |
+    | `Ctrl+G` | 命令生成器 | `Ctrl+B` | 配置包 |
+    | `Ctrl+N` / `Ctrl+E` | 新建 / 编辑条目 | `Ctrl+L` | 库管理器 |
+    | `Ctrl+C` | 复制选中命令块 | `Ctrl+D` | 收藏切换 |
+
+  - **覆盖度仪表盘**：命令库顶部折叠卡片——厂商×分类条目矩阵 + 三库四档验证进度分段条（绿 / 语法核对 / 挂起 / 未验证），口径与 [verify-guide](docs/verify-guide.md) 一致，全部 db 直查只读。
+- **回退安全体系（rollback）**：变更类条目内置 `rollback` 回退序列，详情页折叠面板展示（undo/no/delete 序列以"恢复变更前状态"为终点、复核命令收尾）；**复制变更类命令前弹确认弹窗**，提示回退路径（查询类不弹，全局开关在「视图」菜单）——先想好怎么退，再动手改；种子入库硬校验：`--validate-seed` 对「变更类缺 rollback」报 **[E]** 一律拦截。
+- **AI 会话入库管线**：与 AI 对话生成的命令/排查树，按**结构化 params schema + rollback 产出约定**生成（参数表全字段、变更类必带回退方案块），入库时随条目落库并受同一校验把关；占位 id 自动重映射，杜绝「复制粘贴进文档再手工整理」。
 - **真机验证流转**：每条命令带 `verified` 状态与验证人/型号/日期字段，未验证条目明确标黄；真机验证通过后回填晋升，种子库只进「可信命令」。
 - **离网可用**：零联网运行，SQLite 主库 + JSON 种子全本地；附 `check_db.py` 只读体检工具，U 盘/受限环境可直接跑。
 
@@ -25,7 +37,7 @@
 
 **方式一：下载成品（推荐，免装环境）**
 
-当前版本：**v0.4.0**（与程序「关于」对话框、Release 页保持一致；更新随 [Releases](../../releases) 发布，发版 zip 由 CI 自动构建挂载）。
+当前版本：**v0.5.0**（与程序「关于」对话框、Release 页保持一致；更新随 [Releases](../../releases) 发布，发版 zip 由 CI 自动构建挂载）。
 
 到 [Releases](../../releases) 下载 `NetToolBox_v*.zip`，解压即用：
 
@@ -48,7 +60,7 @@ python scripts/check_db.py        # 主库只读体检
 
 | 库 | 数量 |
 |---|---|
-| 命令条目 | **327** |
+| 命令条目 | **338** |
 | 排查树 | **26** 棵（防火墙 / Linux / 网络 / 运维） |
 | 报错字典 | **82** 条 |
 
@@ -60,7 +72,8 @@ python scripts/check_db.py        # 主库只读体检
 app/            PyQt5 应用（入口 app/main.py）+ seed_data/ 种子库
 scripts/        校验、体检与维护脚本（check_db / backup_db / hooks / build_exe 一键打包）
 docs/           文档体系（索引 docs/README.md）：架构、种子指南、验证手册、部署说明、审计快照
-.github/        CI（validate-seed 质检 / release 自动打包挂载）
+lab/            compose 实验室：FRR / SR Linux / CentOS 7 / Ubuntu 四服务一键验证环境，指南见 [docs/lab/README.md](docs/lab/README.md)（CI lab-smoke 冒烟）
+.github/        CI（validate-seed 质检 / lab-smoke 冒烟 / release 自动打包挂载）
 ```
 
 > 打包说明：`python scripts/build_exe.py`（PyQt5 + PyInstaller）；requests 依赖以 `pip --target` 落在 `_vendor/`（仅构建机本地，随 exe 打包、不入 git）。AI 会话产物落位规范见 [AGENTS.md](AGENTS.md)。

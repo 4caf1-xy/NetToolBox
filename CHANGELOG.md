@@ -3,40 +3,45 @@
 本文件记录 NetToolBox 对外可感知的变更。版本号遵循 semver 口径：
 新功能 / 大改 / 种子扩充 → 次版本 +1；纯修复 → 修订号 +1。
 
-## Unreleased
+## v0.5.0（2026-10-09）
+
+自 v0.4.0 以来的全部变更。主题：**schema 浪潮**（params 结构化收尾 + rollback 配对 + validate [E] 收口）+ **Ctrl+K 全局搜索** + **覆盖度仪表盘** + 扫尾种子 + **compose 实验室**上线。种子规模 327 → **338 条命令 + 26 棵排查树 + 82 条报错字典**。
 
 #### 种子数据
-- **rollback 回退方案全覆盖（B23 闭环）**：变更类 231 条全部内置 rollback（218 条含实体回退序列 + 13 条说明型），15 厂商分 16 个提交点逐批落地（cisco/huawei/h3c/juniper/fortinet/paloalto/sangfor/topsec/centos/kylin/openeuler/ubuntu/ops/ruijie/zte）；undo/no/delete 序列以"恢复变更前状态"为终点、复核命令收尾，口令类以尖括号人工位回填旧值，防火墙四家 51 条对照表经人工复核通过；validate 升 **[E]**——变更类缺 rollback / rollback 占位符未声明一律 ERROR 拦截（AI 入库钩子同口径），全量 validate EXIT=0 零违规；
+- **rollback 回退方案全覆盖（B23 闭环）**：变更类 231 条全部内置 rollback（218 条含实体回退序列 + 13 条说明型），15 厂商分 16 个提交点逐批落地（cisco/huawei/h3c/juniper/fortinet/paloalto/sangfor/topsec/centos/kylin/openeuler/ubuntu/ops/ruijie/zte）；undo/no/delete 序列以"恢复变更前状态"为终点、复核命令收尾，口令类以尖括号人工位回填旧值。注入期 **[W] 缺口 240→0 软着陆**：每厂商批完即 validate，"注入数 + 翻 query 数"逐步核销，全程对账吻合（记录见 docs/dev-notes.md 批3 抽查节）；**防火墙四家 51 条对照表呈人工复核通过后解除硬停**。validate 升 **[E]**——变更类缺 rollback / rollback 占位符未声明一律 ERROR 拦截（AI 入库钩子同口径），宽容期结束，全量 validate EXIT=0 零违规；
 - **desc_pending 迁移机制退役**：986 个死标记全量清扫（描述 100% 已填），结构化条目 description 为空一律 ERROR（单一执法点 renderer.check_entry_params）；清扫过程三不碰探针断言（uuid/verified/notes/exec_level/commands/title 零改动）+ 幂等重跑 0 清理，主库备份 `backup/command_lib-pre-params-20261009.db`；
-- seed-guide 增补四·B 节（rollback 形态/判定表/三类典型写法）+ **rollback 反例清单**六类（no 形式带属性参数、解引用次序、华为 port-group 组内撤销等起草实例）；AGENTS.md 补记主库实际路径与判定表备忘。
+- **扫尾批（覆盖度低洼填平 + B24 树缺口清零）**：命令条目 327 → **338**——zte ×4（CPU / 接口状态 / 系统日志 / BGP 诊断，接口诊断/日志/BGP 三个分类从 0 起步）+ juniper ×4（同场景四条 Junos 命令）+ openEuler ×3（tcpdump 五式 / 连通性三连 / ethtool 链路诊断，对齐兄弟发行版形态）；排查树厂商引用缺口 **84 → 0**（validate 树覆盖度提示清零）：12 棵网络树 by_vendor 回填 zte/juniper uuid 硬引用 80 处，Linux 2 棵树 4 处叶子动作 cmd_ref 改 uuid 硬引用消除歧义；
+- **[W] 参数警告 6 处清零**：U 盘挂载拷贝删冗余 dst_path 参数（目标固定为挂载点）；cisco / 锐捷 / PAN-OS / 天融信 / 深信服 5 条版本升级条目补 backup_server 参数引用（新增 0b 备份服务器可达性确认步）；validate 参数 WARNING 归零，本批起新条目与存量同标准；
+- 冒烟基线重算：覆盖度矩阵逐格对账 227 → 233 格（新增 6 格为 zte/juniper × 接口诊断/日志/BGP），对账逻辑不变 mismatch=0；by_vendor 双向对账 567 处引用 0 异常。
 
 #### 新功能
 - **详情页『回退方案』折叠面板**：变更类条目内置回退序列随条目展示（默认收起，代码块字体 + 命令注释高亮），查询类/未配置条目整页隐藏；**变更类复制确认弹窗**——复制变更类命令前提示回退路径（含"本会话不再提示"复选框，当日有效次日失效，不提供永久永不弹），全局开关在『视图』菜单；查询类不弹；挂点覆盖详情页复制全部/仅复制命令/逐条复制 + 参数化生成器四处；
 - **变更类判定表入库（单一事实源）**：`renderer.QUERY_WHITELIST`（命令+子命令精确词前缀，含强制变更组）+ `classify_entry`（仅扫非注释行，fail-safe 默认变更类），validate 与 AI 入库钩子共用；起草过程 5 轮精化修正 21 条会话级/只读诊断条目的误判（enable/terminal monitor/trapping/monitor start/diagnose sys ha 只读族/top -b 家族/ip -4 变体），消除 21 条凑数 rollback 误报；
 - **AI 管线对齐**：SYSTEM_PROMPT 增补产出约定（【参数表】JSON 块全字段 / 变更类必带【回退方案】块）；`ai_bridge.parse_ai_blocks/strip_ai_blocks` 解析并剥离标注块；三处 AI 入库点接线（合并入库/排查树步骤/诊断草稿），`"params": []` 硬编码清零——AI 草稿自带的参数与回退方案随条目入库并受同一校验把关；
-- **参数面板控件结构化优先**（裁决F）：生成器表单优先按 `type=enum+choices` 渲染下拉、`type=int+range` 渲染数字框，`validate=` 解析降级兜底；条目编辑器参数表补 type/choices/range/description 四列（离网人工补条目免手写 JSON），并修复参数表回读丢失表外字段（on_value 等）的潜在数据丢失。
-
-#### 工程
-- **entries 表新增 rollback 列**（建表 + 老库懒升级 ADD COLUMN）：`.nlb` 导出携带、老文件导入缺字段按空串向后兼容；rollback 进 EDITABLE 白名单（与 P1-2 verified 护栏无冲突）；
-- 新增 `scripts/smoke_schema_rollback.py`（9 项）：[E] 校验口径正反例、判定表词边界/强制组/全注释体、desc_pending 清零终态、备份锚点、回退面板三态、复制确认四分档、AI mock 正反例；全量冒烟 9+43+13+84+93+68 = **310 项全绿**，仪表盘逐格对账 mismatch=0；
-- migrate_params.py 退役标注保留（使命完成），dev-notes 落批3 抽查记录与幻觉反例审计。
-
-#### 种子数据（原扫尾批记录，前移保留）
-- **扫尾批（覆盖度低洼填平 + B24 树缺口清零）**：命令条目 327 → **338**——zte ×4（CPU / 接口状态 / 系统日志 / BGP 诊断，接口诊断/日志/BGP 三个分类从 0 起步）+ juniper ×4（同场景四条 Junos 命令）+ openEuler ×3（tcpdump 五式 / 连通性三连 / ethtool 链路诊断，对齐兄弟发行版形态）；排查树厂商引用缺口 **84 → 0**（validate 树覆盖度提示清零）：12 棵网络树 by_vendor 回填 zte/juniper uuid 硬引用 80 处，Linux 2 棵树 4 处叶子动作 cmd_ref 改 uuid 硬引用消除歧义；
-- **[W] 参数警告 6 处清零**：U 盘挂载拷贝删冗余 dst_path 参数（目标固定为挂载点）；cisco / 锐捷 / PAN-OS / 天融信 / 深信服 5 条版本升级条目补 backup_server 参数引用（新增 0b 备份服务器可达性确认步）；validate 参数 WARNING 归零，本批起新条目与存量同标准；
-- 冒烟基线重算：覆盖度矩阵逐格对账 227 → 233 格（新增 6 格为 zte/juniper × 接口诊断/日志/BGP），对账逻辑不变 mismatch=0；全量冒烟 84+93+68+13+43 全绿；by_vendor 双向对账 567 处引用 0 异常。
-
-#### 新功能
 - **Ctrl+K 全局命令面板**：任意 Tab 一键唤起居中浮层（视图菜单同入口），一次输入同时搜三库——命令复用 `db.search()` 八字段匹配、报错字典匹配 pattern/原因/处置步骤/样例、排查树匹配现象/分类/适用厂商/步骤标题；结果按 [命令]/[报错]/[树] 分组展示（厂商·分类副标题，每组上限 40 条），键盘完整可达（↑↓ 选择、Enter 跳转、Esc/点击面板外关闭），空输入显示「最近使用」分组、空结果给明确文案；跳转自动切 Tab → 复用各库定位机制 → 选中条目并展开详情（报错字典定位到字典维护对话框、排查树直接载入走树）；
 - **最近使用**：面板跳转与详情页打开自动记录（复制不记录），uuid+类型+时间戳随 ui_state.json 持久化，去重置顶上限 10，库中已删除条目自动丢弃；面板空输入即见最近使用，面板内一键清空（带确认）；
 - **覆盖度仪表盘**：命令库顶部折叠卡片，收起时常显一行摘要（总数/绿/挂起/未验证），展开见厂商×分类条目数矩阵（底色深浅映射条目数，灰格=无条目）+ 三库四档验证进度分段条（绿/语法核对/挂起/未验证，色值全走 theme token）；口径与 verify-guide 四档标准一致——「不可验证」类（centos7 systemctl 等 notes 标注）如实计入挂起段，语法核对档（verified-cli 未判绿）独立成段；数据全部 db 直查无缓存、零写入口，只读视图。
 
+#### 界面优化
+- **参数面板控件结构化优先**（裁决F）：生成器表单优先按 `type=enum+choices` 渲染下拉、`type=int+range` 渲染数字框，`validate=` 解析降级兜底；条目编辑器参数表补 type/choices/range/description 四列（离网人工补条目免手写 JSON），并修复参数表回读丢失表外字段（on_value 等）的潜在数据丢失。
+
 #### 工程
+- **compose 实验室上线**：`lab/docker-compose.yml` 四服务（FRR / SR Linux / CentOS 7 / Ubuntu）一键验证环境 + 指南 [docs/lab/README.md](docs/lab/README.md) + CI `lab-smoke` 冒烟（up→wait-healthy→逐服务断言，失败路径全量 annotation 诊断）；随 CI 实证修复一批：frr 改 privileged（cap_sys_admin）、centos7 弃 systemd PID 1 改 sshd 前台直跑 + vault EOL 源、ubuntu 补 systemd-sysv、srlinux 加 tty + mem 2g、wait-healthy 假阳性修正、示例2 断言按实证修正（FRR 不展示下一跳不可达静态路由等）；
+- **entries 表新增 rollback 列**（建表 + 老库懒升级 ADD COLUMN）：`.nlb` 导出携带、老文件导入缺字段按空串向后兼容；rollback 进 EDITABLE 白名单（与 P1-2 verified 护栏无冲突）；
+- **smoke 主库零接触改造**：新增 `scripts/_smoke_env.py` 统一测试环境——db/ai_bridge/theme 路径解析全劫持到一次性临时目录，真主库 sha256 指纹 atexit 复核、不一致退出码 42 硬失败；六套件头部接线，smoke_ai_chat 自带假配置消除隐式读真 `ai_config.json` 的暗接触；310 项全绿且主库指纹前后逐字节一致；
+- 新增 `scripts/smoke_schema_rollback.py`（9 项）：[E] 校验口径正反例、判定表词边界/强制组/全注释体、desc_pending 清零终态、备份锚点、回退面板三态、复制确认四分档、AI mock 正反例；新增 `scripts/smoke_panel_dashboard.py`（43 项）：面板三库命中/激活/空结果、跳转定位、最近使用记录/去重/上限/落盘/清空、仪表盘四档口径与矩阵逐格对账、B14 连点回归、四 Tab 布局与 Splitter 记忆回归；全量冒烟 9+43+13+84+93+68 = **310 项全绿**，仪表盘逐格对账 mismatch=0；
 - **B14 收藏防重入修复**（审计 2026-10-08 遗留）：toggle_favorite 写期间置忙 + 按钮禁用 + 250ms 时间窗，连点不再产生多余 history 记录（回归 smoke_panel_dashboard.py [D]）；
-- 新增 `scripts/smoke_panel_dashboard.py`（43 项）：面板三库命中/激活/空结果、跳转定位、最近使用记录/去重/上限/落盘/清空、仪表盘四档口径与矩阵逐格对账、B14 连点回归、四 Tab 布局与 Splitter 记忆回归；
-- ui_tree_editor 能力清单与差距报告落 `docs/dev-notes.md` 候选池（G1–G7，触发条件制，不立项）。
 - **CI 自动打包发版上线**：新增 `.github/workflows/release.yml`——push `v*` tag 触发，windows-latest 装依赖（PyQt5 / PyInstaller / requests）→ `scripts/build_exe.py` 构建 → 产物断言（exe 存在且体积合理、zip 非空且体积合理、出库包不含密钥/运行时文件）→ 出库组装（exe + 净库重建 `command_lib.db` + `check_db.py` + `seed_data/`，与本地出库纪律一致）→ zip 自动挂载到对应 Release：已存在则 `--clobber` 覆盖同名附件，不存在则建 **draft** 待人核后 publish；CI 只见公开仓内容，构建产物天然无密钥（安全边界写入 workflow 注释）；
-- README「快速开始」补齐当前版本号（与关于对话框 / Release 三处一致），并修正下载包名样例（`NetToolBox-dist-*.zip` → `NetToolBox_v*.zip`）。
+- migrate_params.py 退役标注保留（使命完成）。
+
+#### 文档
+- seed-guide 增补四·B 节（rollback 形态/判定表/三类典型写法）+ **rollback 反例清单**六类（no 形式带属性参数、解引用次序、华为 port-group 组内撤销等起草实例）；AGENTS.md 补记主库实际路径与判定表备忘；
+- dev-notes 落批3 抽查记录（总账/白名单精化 5 轮/幻觉反例/防火墙复核/全查组与分厂商抽查）、ui_tree_editor 能力清单与差距报告候选池（G1–G7，触发条件制，不立项）、smoke 主库零接触改造记录；
+- README 更新至 v0.5.0：新功能入档（Ctrl+K 含快捷键表 / 覆盖度仪表盘 / 回退安全体系 / validate [E] / AI 结构化产参）、种子规模 338、lab/ 目录导引。
+
+## Unreleased
+
+（暂无——下一批变更从这里开始累积。）
 
 ## v0.4.0（2026-09-29 首发，2026-10-08 重新发版）
 

@@ -79,7 +79,7 @@ APP_NAME = "NetToolBox"
 APP_TITLE = "离网网络运维工具箱"
 APP_SUBTITLE = "网络设备 + Linux 命令库 / 排查向导 / 报错诊断"
 # 产品版本（semver；发版时与 tag/Release/CHANGELOG 三处对齐，标题栏与关于对话框均引用此常量）
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
 
 
 def copy_to_clipboard(text):
@@ -2822,8 +2822,8 @@ class MainWindow(QMainWindow):
             "  SSH、密码、SNMP、保存配置 十个场景，全部为『未验证』状态\n"
             "  seed_data/ 目录与程序同目录，直接改 JSON 即可扩充，不需要重新打包 exe\n"
             "  （深信服 AF / 天融信为 Web 控制台操作路径清单，正文首行已标注，勿直接粘贴执行）\n\n"
-            "【快捷键】Ctrl+F 搜索 / Ctrl+G 生成器 / Ctrl+B 配置包 / Ctrl+N 新建 / Ctrl+E 编辑\n"
-            "          Ctrl+L 库管理器 / Ctrl+C 复制命令块 / Ctrl+D 收藏 / F5 刷新 / Ctrl+Q 退出\n\n"
+            "【快捷键】Ctrl+K 全局搜索 / Ctrl+F 搜索 / Ctrl+G 生成器 / Ctrl+B 配置包 / Ctrl+N 新建\n"
+            "          Ctrl+E 编辑 / Ctrl+L 库管理器 / Ctrl+C 复制命令块 / Ctrl+D 收藏 / F5 刷新 / Ctrl+Q 退出\n\n"
             "【数据安全】本机无任何联网行为，命令库随 U 盘走，可导出 .nlb 在团队间同步。")
 
     def show_about(self):
