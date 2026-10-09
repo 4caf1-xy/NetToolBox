@@ -19,6 +19,7 @@
       "title": "创建 VLAN 并把端口划入 Access（S 系列）",
       "description": "新建业务 VLAN，用 port-group 把一批端口批量划为 access 并加入该 VLAN。",
       "commands": "# ===== 创建 VLAN 并划入端口（华为 VRP5 交换机）=====\nsystem-view\nvlan {{vlan_id}}\n description {{vlan_name}}\n quit\nport-group {{group_name}}\n group-member GigabitEthernet {{port_start}} to GigabitEthernet {{port_end}}\n port link-type access\n port default vlan {{vlan_id}}\n quit\nsave\ny",
+      "rollback": "# 回退：先在 port-group 内撤销端口属性（配置已下发到成员口，直接删组不生效），\n# 再删组与 VLAN\nsystem-view\nport-group {{group_name}}\n undo port link-type\n undo port default vlan\n quit\nundo port-group {{group_name}}\nundo vlan {{vlan_id}}\nquit\nsave\ny\n# 复核\ndisplay vlan",
       "params": [
         {
           "name": "vlan_id",
@@ -90,6 +91,7 @@
       "title": "配置 Trunk 口并放通指定 VLAN（S 系列）",
       "description": "把级联口配成 trunk，放通允许的 VLAN 列表并设置 PVID。",
       "commands": "# ===== 配置 Trunk 口（华为 VRP5 交换机）=====\nsystem-view\ninterface GigabitEthernet {{port}}\n port link-type trunk\n port trunk allow-pass vlan {{vlan_list}}\n port trunk pvid vlan {{pvid}}\n undo shutdown\n quit\nsave\ny",
+      "rollback": "# 回退：撤销 Trunk 属性（本变更含 undo shutdown 开启端口，端口开闭状态\n# 按变更记录决定是否 shutdown 恢复；下联口回退前先确认防环路）\nsystem-view\ninterface GigabitEthernet {{port}}\n undo port trunk allow-pass vlan\n undo port trunk pvid vlan\n undo port link-type\n quit\nsave\ny\n# 复核\ndisplay port vlan",
       "params": [
         {
           "name": "port",
@@ -141,6 +143,7 @@
       "title": "配置静态路由与缺省路由（三层交换机）",
       "description": "配置目的网段静态路由、缺省路由与浮动备份路由。",
       "commands": "# ===== 静态路由（华为 VRP5 三层交换机）=====\nsystem-view\nip route-static {{dest_net}} {{mask}} {{next_hop}}\nip route-static 0.0.0.0 0.0.0.0 {{next_hop}}\n! 浮动路由：preference 数值越大越不优先，主路由失效才生效\nip route-static {{dest_net}} {{mask}} {{backup_hop}} preference {{preference}}\ndisplay ip routing-table {{dest_net}}\nsave\ny",
+      "rollback": "# 回退：逐条删除本变更新增的静态/缺省/浮动路由\nsystem-view\nundo ip route-static {{dest_net}} {{mask}} {{next_hop}}\nundo ip route-static 0.0.0.0 0.0.0.0 {{next_hop}}\nundo ip route-static {{dest_net}} {{mask}} {{backup_hop}} preference {{preference}}\nquit\nsave\ny\n# 复核\ndisplay ip routing-table {{dest_net}}",
       "params": [
         {
           "name": "dest_net",
@@ -213,6 +216,7 @@
       "title": "配置 OSPF 基本组网（S 系列）",
       "description": "开启 OSPF 进程、指定 router-id、按区域宣告网段并静默业务口。",
       "commands": "# ===== OSPF 基本配置（华为 VRP5）=====\nsystem-view\nospf {{process_id}} router-id {{router_id}}\n area {{area_id}}\n  network {{network}} {{wildcard}}\n  quit\n silent-interface GigabitEthernet{{silent_port}}\n quit\ndisplay ospf peer\ndisplay ospf routing\nsave\ny",
+      "rollback": "# 回退：删除整个 OSPF 进程（进程若预存只是新增 network，则进视图逐条 undo network）\nsystem-view\nundo ospf {{process_id}}\nquit\nsave\ny\n# 复核\ndisplay ospf peer",
       "params": [
         {
           "name": "process_id",
@@ -295,6 +299,7 @@
       "title": "配置 ACL 并应用到接口流量过滤",
       "description": "创建高级 ACL 限制网段互访，用 traffic-filter 绑到接口入方向。",
       "commands": "# ===== ACL 配置与下发（华为 VRP5）=====\nsystem-view\nacl number {{acl_number}}\n rule 5 permit ip source {{src_net}} {{src_wild}} destination {{dst_net}} {{dst_wild}}\n rule 10 deny ip\n quit\ninterface GigabitEthernet {{port}}\n traffic-filter inbound acl {{acl_number}}\n quit\ndisplay acl {{acl_number}}\nsave\ny",
+      "rollback": "# 回退：先解接口 traffic-filter 引用，再删 ACL 本体\nsystem-view\ninterface GigabitEthernet {{port}}\n undo traffic-filter inbound acl {{acl_number}}\n quit\nundo acl number {{acl_number}}\nquit\nsave\ny\n# 复核\ndisplay acl {{acl_number}}",
       "params": [
         {
           "name": "acl_number",
@@ -377,6 +382,7 @@
       "title": "配置 NAT 地址转换（Easy IP）",
       "description": "内网匹配 ACL 后借用出接口地址做端口复用；也可指定地址池。",
       "commands": "# ===== NAT / Easy IP（华为 VRP5）=====\nsystem-view\nacl number {{acl_number}}\n rule 5 permit source {{src_net}} {{src_wild}}\n quit\ninterface GigabitEthernet {{outside_port}}\n ip address {{outside_ip}} {{outside_mask}}\n quit\n! Easy IP：直接借用出接口地址（最常用）\nnat outbound {{acl_number}}\n! 使用地址池做 PAT：\n! nat address-group {{group_id}}\n!  nat outbound {{acl_number}} address-group {{group_id}}\ndisplay nat outbound\nsave\ny",
+      "rollback": "# 回退：出接口视图撤销 nat outbound 并删除 ACL（接口 IP 若为既有配置勿动；\n# 启用地址池方案的还要 undo nat address-group {{group_id}}）\nsystem-view\ninterface GigabitEthernet {{outside_port}}\n undo nat outbound {{acl_number}}\n quit\nundo acl number {{acl_number}}\nquit\nsave\ny\n# 复核\ndisplay nat outbound",
       "params": [
         {
           "name": "acl_number",
@@ -470,6 +476,7 @@
       "title": "开启 SSH 并创建本地管理用户（S 系列）",
       "description": "生成 RSA 密钥、启用 stelnet、建 AAA 本地用户、限制 vty 只用 SSH。",
       "commands": "# ===== 开启 SSH + 本地用户（华为 VRP5）=====\nsystem-view\nsysname {{hostname}}\nrsa local-key-pair create\n! 提示输入密钥位数，建议 2048\nstelnet server enable\naaa\n local-user {{username}} password irreversible-cipher {{password}}\n local-user {{username}} privilege level 15\n local-user {{username}} service-type ssh\n quit\nuser-interface vty 0 4\n authentication-mode aaa\n protocol inbound ssh\n idle-timeout {{timeout_min}} 0\n quit\nssh user {{username}} authentication-type password\nsave\ny",
+      "rollback": "# 回退：删除 SSH 用户映射与本地用户，恢复 vty 旧认证（sysname 旧值按变更记录恢复；\n# RSA 密钥保留；stelnet 服务如需彻底关闭：undo stelnet server enable，\n# 执行前确认 console 通道可用）\nsystem-view\nundo ssh user {{username}}\nuser-interface vty 0 4\n undo authentication-mode\n undo protocol inbound\n undo idle-timeout\n quit\naaa\n undo local-user {{username}}\n quit\nsave\ny",
       "params": [
         {
           "name": "hostname",
@@ -532,6 +539,7 @@
       "title": "修改 Console 口令与用户级别",
       "description": "设置 console 口认证方式与口令，并配置空闲超时。",
       "commands": "# ===== Console 口令（华为 VRP5）=====\nsystem-view\nuser-interface console 0\n authentication-mode password\n set authentication password cipher {{console_password}}\n user privilege level {{privilege}}\n idle-timeout {{timeout_min}}\n quit\nsave\ny",
+      "rollback": "# 回退：恢复 Console 旧口令与旧级别（旧值按变更记录回填尖括号处；\n# 若变更前 Console 未设口令：undo authentication-mode + undo set authentication password）\nsystem-view\nuser-interface console 0\n set authentication password cipher <旧console口令>\n user privilege level <旧级别>\n undo idle-timeout\n quit\nsave\ny",
       "params": [
         {
           "name": "console_password",
@@ -585,6 +593,7 @@
       "title": "配置 SNMP v2c 与 Trap 上报（S 系列）",
       "description": "开启 SNMP 代理、设置团体字、位置联系人，并把 Trap 上报到网管服务器。",
       "commands": "# ===== SNMP 配置（华为 VRP5）=====\nsystem-view\nsnmp-agent\nsnmp-agent sys-info version v2c\nsnmp-agent community read cipher {{ro_community}}\nsnmp-agent community write cipher {{rw_community}}\nsnmp-agent sys-info location {{location}}\nsnmp-agent sys-info contact {{contact}}\nsnmp-agent target-host trap address udp-domain {{nms_ip}} params securityname cipher {{ro_community}} v2c\nsnmp-agent trap enable\ndisplay snmp-agent community\nsave\ny",
+      "rollback": "# 回退：删除本变更新增的 SNMP 配置（location/contact 旧值按变更记录恢复；\n# 变更前未启用 snmp-agent 的可再执行 undo snmp-agent 彻底关闭）\nsystem-view\nundo snmp-agent trap enable\nundo snmp-agent target-host trap address udp-domain {{nms_ip}} params securityname cipher {{ro_community}}\nundo snmp-agent community cipher {{ro_community}}\nundo snmp-agent community cipher {{rw_community}}\nundo snmp-agent sys-info location\nundo snmp-agent sys-info contact\nquit\nsave\ny\n# 复核\ndisplay snmp-agent community",
       "params": [
         {
           "name": "ro_community",
@@ -656,6 +665,7 @@
       "title": "保存配置并备份到本地 flash",
       "description": "保存当前配置到 vrpcfg.zip，并在 flash 里留一份带日期的备份文件。",
       "commands": "# ===== 保存与本地备份（华为 VRP5）=====\nsave\ny\ndisplay saved-configuration\ndir flash:/\n! 本地备份（隔离网络不依赖 FTP/TFTP）\ncopy flash:/vrpcfg.zip flash:/vrpcfg-{{backup_tag}}.zip\ndir flash:/",
+      "rollback": "# 回退：本条目仅保存与备份配置，不改变网络行为，无需配置回退；\n# 如需清理本次备份文件（delete 需交互确认）\ndelete flash:/vrpcfg-{{backup_tag}}.zip\ndir flash:/",
       "params": [
         {
           "name": "backup_tag",
@@ -687,6 +697,7 @@
       "title": "配置 DNS 服务器与域名解析（华为 VRP5，AR/VRP8 通用）",
       "description": "开启动态域名解析并指向内网 DNS，验证域名可解析（离网内网 DNS 标准动作）。",
       "commands": "# ===== 配置 DNS 服务器与域名解析（华为 VRP5，AR/VRP8 通用）=====\n# ---- 配置段 ----\nsystem-view\ndns resolve\ndns server {{dns_server_ip}}\nquit\n# ---- 验证段 ----\ndisplay dns server\nping {{test_domain}}\n",
+      "rollback": "# 回退：关闭域名解析并删除 DNS 服务器引用\nsystem-view\nundo dns resolve\nundo dns server {{dns_server_ip}}\nquit\n# 复核\ndisplay dns server",
       "params": [
         {
           "name": "dns_server_ip",
@@ -728,6 +739,7 @@
       "title": "配置 NTP 服务器与状态验证（华为 VRP5，AR 通用）",
       "description": "ntp-service unicast-server 指向内网 NTP 并验证时钟同步。",
       "commands": "# ===== 配置 NTP 服务器与状态验证（华为 VRP5，AR 通用）=====\nsystem-view\nntp-service unicast-server {{ntp_server_ip}}\nquit\n# ---- 验证：clock status: synchronized + 会话标记 ----\ndisplay ntp-service status\ndisplay ntp-service sessions\ndisplay clock\n",
+      "rollback": "# 回退：删除 NTP 服务器引用（设备恢复本地时钟；原时钟源按变更记录恢复）\nsystem-view\nundo ntp-service unicast-server {{ntp_server_ip}}\nquit\n# 复核\ndisplay ntp-service status",
       "params": [
         {
           "name": "ntp_server_ip",
@@ -759,6 +771,7 @@
       "title": "软件版本查看、备份与升级流程（华为 VRP5，AR 通用）",
       "description": "display version/startup → 备份 → 传输 .cc → startup system-software → reboot。",
       "commands": "# ===== 版本查看、备份与升级流程（华为 VRP）=====\n# ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\ndisplay version\ndisplay startup\n# ---- 1. 保存并备份配置 + 当前系统软件（TFTP {{backup_server}}）----\nsave\ntftp {{backup_server}} put flash:/vrpcfg.zip\n# tftp {{backup_server}} put flash:/<当前.cc文件名>     ← 按 dir flash: 实际文件名执行\n# ---- 2. 传输新版本 .cc 并校验 ----\n# tftp {{backup_server}} get <新版本.cc> flash:/<新版本.cc>\ndisplay md5 flash:/<新版本.cc>\n# ---- 3. 指定下次启动系统软件（回滚点：旧 .cc 保留在 flash）----\nstartup system-software flash:/<新版本.cc>\ndisplay startup\n# ---- 4. ★ 重启生效（备份与回滚方案就绪后再做）----\nreboot\n# ---- 5. 重启后复核 ----\ndisplay version\ndisplay startup\n",
+      "rollback": "# 回退：回退到旧版本 .cc（旧文件名按变更记录回填；旧 .cc 保留在 flash 即回滚点）\nstartup system-software flash:/<旧版本.cc>\ndisplay startup\n# ★ 重启生效（带外通道确认后再做）\nreboot\n# 重启后复核\ndisplay version",
       "params": [
         {
           "name": "backup_server",
@@ -842,6 +855,7 @@
       "title": "配置回滚（华为 VRP，备份恢复式）",
       "description": "改动前备份配置文件到 flash，改坏后恢复备份文件并重启回退（VRP5 标准路径）。",
       "commands": "# ===== 配置回滚（华为 VRP5）=====\n# ---- 0. 改动前：备份当前配置为独立文件（回滚点）----\nsave flash:/{{backup_file}}\n# ---- 1. 改动出问题后：先 diff 当前运行与备份差异 ----\ncompare configuration\n# ---- 2. 恢复备份文件为启动配置 ----\ncopy flash:/{{backup_file}} flash:/vrpcfg.zip\nstartup saved-configuration flash:/vrpcfg.zip\n# ---- 3. ★ 重启生效（备份与带外通道确认后再做）----\nreboot\n# ---- 4. 重启后复核 ----\ndisplay current-configuration | include <核对关键字>\n",
+      "rollback": "# 回退：本条目本身即恢复操作；若恢复后需退回恢复前的配置，\n# 把变更后已保存的配置文件指回启动项（文件名按变更记录回填）\nstartup saved-configuration flash:/<变更后配置文件.zip>\ndisplay startup\nreboot\n# 复核\ndisplay current-configuration | include <核对关键字>",
       "params": [
         {
           "name": "backup_file",
@@ -873,6 +887,7 @@
       "title": "配置 AAA 认证与本地兜底（华为 VRP5）",
       "description": "RADIUS 服务器模板 + 认证域 + test-aaa 验证 + 本地兜底（先验证后退出，见 notes 铁律）。",
       "commands": "# ===== AAA 认证与本地兜底（华为 VRP5）=====\nsystem-view\n# ---- 1. RADIUS 服务器模板 ----\nradius-server template RD1\n radius-server authentication {{aaa_server_ip}} 1812\n radius-server shared-key cipher {{aaa_shared_key}}\nquit\n# ---- 2. 认证域引用（default域：先 radius 后 local 兜底）----\naaa\n authentication-scheme SCH\n  authentication-mode radius local\n radius-server RD1\n quit\n# ---- 3. ★ 验证（勿退当前会话）----\ntest-aaa {{test_user}} {{test_password}} radius-template RD1\n# ---- 4. 本地兜底账号确认存在 ----\nlocal-user {{local_user}} password irreversible-cipher {{local_password}}\nlocal-user {{local_user}} service-type ssh\nquit\n",
+      "rollback": "# 回退：撤销 AAA（★ 先确认本地/console 仍可登录再退；本地兜底账号若\n# 变更前不存在则一并删除）\nsystem-view\naaa\n undo local-user {{local_user}}\n undo authentication-scheme SCH\n undo radius-server RD1\n quit\nundo radius-server template RD1\nquit\nsave\ny\n# 复核\ndisplay radius-server template",
       "params": [
         {
           "name": "aaa_server_ip",

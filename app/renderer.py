@@ -61,6 +61,7 @@ COMMENT_LINE_RE = re.compile(r"^\s*[!#]")
 QUERY_WHITELIST = (
     # ---- 会话级命令（进入/退出特权模式、终端显示开关，不改变设备配置状态）----
     "enable", "disable", "terminal monitor", "terminal no monitor",
+    "terminal trapping", "terminal no trapping",
     # ---- 网络侧单动词家族（其后子命令均为读操作）----
     "show", "display", "get", "print",
     # ---- Linux 只读命令（单义动词，整词在名单）----

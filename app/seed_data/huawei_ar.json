@@ -19,6 +19,7 @@
       "title": "路由器以太口转二层并划入 VLAN（AR 系列）",
       "description": "AR 路由器默认是三层口，用 portswitch 切成二层口后再划 access VLAN。",
       "commands": "# ===== 以太口转二层并划 VLAN（华为 AR 路由器）=====\nsystem-view\nvlan {{vlan_id}}\n description {{vlan_name}}\n quit\ninterface GigabitEthernet {{port}}\n portswitch\n port link-type access\n port default vlan {{vlan_id}}\n quit\ndisplay port vlan\nsave\ny",
+      "rollback": "# 回退：端口恢复三层模式并删除 VLAN（★ undo portswitch 前必须先清二层属性；\n# 端口原三层 IP 等配置按变更记录恢复）\nsystem-view\ninterface GigabitEthernet {{port}}\n undo port default vlan\n undo port link-type\n undo portswitch\n quit\nundo vlan {{vlan_id}}\nquit\nsave\ny\n# 复核\ndisplay port vlan",
       "params": [
         {
           "name": "vlan_id",
@@ -70,6 +71,7 @@
       "title": "AR 交换口配置 Trunk 上联",
       "description": "把 portswitch 后的交换口配成 trunk，放通 VLAN 并设 PVID。",
       "commands": "# ===== Trunk 上联（华为 AR 路由器）=====\nsystem-view\ninterface GigabitEthernet {{port}}\n portswitch\n port link-type trunk\n port trunk allow-pass vlan {{vlan_list}}\n port trunk pvid vlan {{pvid}}\n quit\nsave\ny",
+      "rollback": "# 回退：撤销 Trunk 属性，端口回默认 access（下联交换机的口回退前先确认，防环路）\nsystem-view\ninterface GigabitEthernet {{port}}\n undo port trunk allow-pass vlan\n undo port trunk pvid vlan\n undo port link-type\n quit\nsave\ny\n# 复核\ndisplay port vlan",
       "params": [
         {
           "name": "port",
@@ -121,6 +123,7 @@
       "title": "配置静态路由、缺省路由与备份路由（AR 系列）",
       "description": "配置明细静态路由、缺省路由，并用 preference 做双出口浮动备份。",
       "commands": "# ===== 静态路由（华为 AR 路由器）=====\nsystem-view\nip route-static {{dest_net}} {{mask}} {{next_hop}}\nip route-static 0.0.0.0 0.0.0.0 {{next_hop}}\n! 双出口浮动备份：主出口 preference 默认 60，备份口设 70\nip route-static 0.0.0.0 0.0.0.0 {{backup_hop}} preference {{preference}}\ndisplay ip routing-table\ndisplay ip routing-table 0.0.0.0\nsave\ny",
+      "rollback": "# 回退：逐条删除本变更新增的静态/缺省/浮动路由\nsystem-view\nundo ip route-static {{dest_net}} {{mask}} {{next_hop}}\nundo ip route-static 0.0.0.0 0.0.0.0 {{next_hop}}\nundo ip route-static 0.0.0.0 0.0.0.0 {{backup_hop}} preference {{preference}}\nquit\nsave\ny\n# 复核\ndisplay ip routing-table",
       "params": [
         {
           "name": "dest_net",
@@ -193,6 +196,7 @@
       "title": "配置 OSPF 并引入静态路由（AR 系列）",
       "description": "开启 OSPF 组网、宣告网段，并把静态路由引入 OSPF 域内。",
       "commands": "# ===== OSPF + 引入静态路由（华为 AR 路由器）=====\nsystem-view\nospf {{process_id}} router-id {{router_id}}\n area {{area_id}}\n  network {{network}} {{wildcard}}\n  quit\n import-route static\n silent-interface GigabitEthernet{{silent_port}}\n quit\ndisplay ospf peer\ndisplay ospf lsdb\nsave\ny",
+      "rollback": "# 回退：删除整个 OSPF 进程（含 import-route static；进程若预存只是新增 network，\n# 则改为进 ospf 视图逐条 undo network / undo import-route static）\nsystem-view\nundo ospf {{process_id}}\nquit\nsave\ny\n# 复核\ndisplay ospf peer\ndisplay ip routing-table protocol ospf",
       "params": [
         {
           "name": "process_id",
@@ -275,6 +279,7 @@
       "title": "配置基本 ACL 与接口流量过滤",
       "description": "用基本 ACL 圈定内网网段供 NAT 使用，并用高级 ACL 过滤接口流量。",
       "commands": "# ===== 基本 ACL + 接口过滤（华为 AR 路由器）=====\nsystem-view\nacl number {{acl_number}}\n rule 5 permit source {{src_net}} {{src_wild}}\n quit\n! 接口双向过滤（inbound / outbound）\ninterface GigabitEthernet {{port}}\n traffic-filter inbound acl {{acl_number}}\n traffic-filter outbound acl {{acl_number}}\n quit\ndisplay acl {{acl_number}}\nsave\ny",
+      "rollback": "# 回退：先解接口 traffic-filter 引用，再删 ACL 本体（顺序反了业务即断）\nsystem-view\ninterface GigabitEthernet {{port}}\n undo traffic-filter inbound acl {{acl_number}}\n undo traffic-filter outbound acl {{acl_number}}\n quit\nundo acl number {{acl_number}}\nquit\nsave\ny\n# 复核\ndisplay acl {{acl_number}}",
       "params": [
         {
           "name": "acl_number",
@@ -337,6 +342,7 @@
       "title": "配置 Easy IP 与地址池 PAT（AR 系列）",
       "description": "内网通过出接口地址做 Easy IP 转换，或使用公网地址池做 PAT；附端口映射写法。",
       "commands": "# ===== NAT / Easy IP + 地址池（华为 AR 路由器）=====\nsystem-view\nacl number {{acl_number}}\n rule 5 permit source {{src_net}} {{src_wild}}\n quit\n! ---- 方案A：Easy IP（借用出接口地址，最常用）----\nnat outbound {{acl_number}}\n! ---- 方案B：公网地址池 PAT ----\n! nat address-group {{group_id}}\n!  section {{section_start}} {{section_end}}\n! nat outbound {{acl_number}} address-group {{group_id}}\n! ---- 服务器端口映射（公网 8080 → 内网 80）----\n! nat server protocol tcp global {{public_ip}} {{public_port}} inside {{inside_server}} {{inside_port}}\ndisplay nat outbound\ndisplay nat session all\nsave\ny",
+      "rollback": "# 回退：进入出接口视图撤销 nat outbound 并删除 ACL（★ 接口名按变更记录回填；\n# 启用了地址池方案的还要 undo nat address-group {{group_id}}）\nsystem-view\ninterface GigabitEthernet <出接口名>\n undo nat outbound {{acl_number}}\n quit\nundo acl number {{acl_number}}\nquit\nsave\ny\n# 复核\ndisplay nat outbound",
       "params": [
         {
           "name": "acl_number",
@@ -462,6 +468,7 @@
       "title": "开启 SSH 并创建本地管理用户（AR 系列）",
       "description": "生成 RSA 密钥、启用 stelnet、建 AAA 本地管理员并限制 vty 登录协议。",
       "commands": "# ===== 开启 SSH + 本地用户（华为 AR 路由器）=====\nsystem-view\nsysname {{hostname}}\nrsa local-key-pair create\n! 提示输入密钥位数，建议 2048\nstelnet server enable\nssh server cipher aes256_ctr aes128_ctr\nssh server hmac sha2_256\naaa\n local-user {{username}} password irreversible-cipher {{password}}\n local-user {{username}} privilege level 15\n local-user {{username}} service-type ssh\n quit\nuser-interface vty 0 4\n authentication-mode aaa\n protocol inbound ssh\n idle-timeout {{timeout_min}} 0\n quit\nsave\ny",
+      "rollback": "# 回退：恢复 vty 旧认证方式并删除本地用户（sysname 旧值按变更记录恢复；\n# RSA 密钥保留不动——删除会断掉依赖它的 SSH 会话；stelnet 服务如需彻底关闭：\n# undo stelnet server enable，执行前确认 console 通道可用）\nsystem-view\nuser-interface vty 0 4\n undo authentication-mode\n undo protocol inbound\n undo idle-timeout\n quit\naaa\n undo local-user {{username}}\n quit\nsave\ny",
       "params": [
         {
           "name": "hostname",
@@ -524,6 +531,7 @@
       "title": "修改 Console 口令并绑定用户级别",
       "description": "设置 console 认证方式与口令、用户级别及空闲超时。",
       "commands": "# ===== Console 口令（华为 AR 路由器）=====\nsystem-view\nuser-interface console 0\n authentication-mode password\n set authentication password cipher {{console_password}}\n user privilege level {{privilege}}\n idle-timeout {{timeout_min}}\n quit\nsave\ny",
+      "rollback": "# 回退：恢复 Console 旧口令与旧级别（旧值按变更记录回填尖括号处；\n# 若变更前 Console 未设口令：undo authentication-mode + undo set authentication password）\nsystem-view\nuser-interface console 0\n set authentication password cipher <旧console口令>\n user privilege level <旧级别>\n undo idle-timeout\n quit\nsave\ny",
       "params": [
         {
           "name": "console_password",
@@ -577,6 +585,7 @@
       "title": "配置 SNMP v2c 与 Trap 上报（AR 系列）",
       "description": "开启 SNMP、设置团体字与设备信息，并指定 Trap 上报目标与源接口。",
       "commands": "# ===== SNMP 配置（华为 AR 路由器）=====\nsystem-view\nsnmp-agent\nsnmp-agent sys-info version v2c\nsnmp-agent community read cipher {{ro_community}}\nsnmp-agent community write cipher {{rw_community}}\nsnmp-agent sys-info location {{location}}\nsnmp-agent sys-info contact {{contact}}\nsnmp-agent target-host trap address udp-domain {{nms_ip}} params securityname cipher {{ro_community}} v2c\nsnmp-agent trap enable\nsnmp-agent trap source GigabitEthernet{{trap_source_port}}\ndisplay snmp-agent sys-info\nsave\ny",
+      "rollback": "# 回退：删除本变更新增的 SNMP 配置（location/contact 旧值按变更记录恢复；\n# 变更前未启用 snmp-agent 的可再执行 undo snmp-agent 彻底关闭）\nsystem-view\nundo snmp-agent trap enable\nundo snmp-agent trap source\nundo snmp-agent target-host trap address udp-domain {{nms_ip}} params securityname cipher {{ro_community}}\nundo snmp-agent community cipher {{ro_community}}\nundo snmp-agent community cipher {{rw_community}}\nundo snmp-agent sys-info location\nundo snmp-agent sys-info contact\nquit\nsave\ny\n# 复核\ndisplay snmp-agent community",
       "params": [
         {
           "name": "ro_community",
@@ -658,6 +667,7 @@
       "title": "保存配置并备份到本地存储",
       "description": "保存配置到 vrpcfg.zip，并在 flash 里留一份可回滚的备份。",
       "commands": "# ===== 保存与本地备份（华为 AR 路由器）=====\nsave\ny\ndisplay saved-configuration\ndir flash:/\ncopy flash:/vrpcfg.zip flash:/vrpcfg-{{backup_tag}}.zip\ndir flash:/\n! 回滚：指定下次启动使用的配置文件（重启后生效）\n! startup saved-configuration vrpcfg-{{backup_tag}}.zip",
+      "rollback": "# 回退：本条目仅保存与备份配置，不改变网络行为，无需配置回退；\n# 如需清理本次备份文件（delete 需交互确认）\ndelete flash:/vrpcfg-{{backup_tag}}.zip\ndir flash:/",
       "params": [
         {
           "name": "backup_tag",
