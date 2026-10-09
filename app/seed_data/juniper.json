@@ -19,6 +19,7 @@
       "title": "创建 VLAN 并把端口划入 Access（Junos）",
       "description": "用 set 形式创建 VLAN，把接口配上 access 模式并加入该 VLAN，最后 commit。",
       "commands": "# ===== 创建 VLAN 并划入端口（Junos EX/QFX）=====\nconfigure\nset vlans {{vlan_name}} vlan-id {{vlan_id}}\nset interfaces {{port}} unit 0 family ethernet-switching interface-mode access\nset interfaces {{port}} unit 0 family ethernet-switching vlan members {{vlan_name}}\nset interfaces {{port}} description \"{{port_desc}}\"\nshow | compare\ncommit and-quit\nshow vlans\nshow ethernet-switching table",
+      "rollback": "# 回退：删除本变更创建的 VLAN 与端口接入配置（candidate 模型，改完必须 commit）\nconfigure\ndelete interfaces {{port}} unit 0 family ethernet-switching vlan members {{vlan_name}}\ndelete interfaces {{port}} unit 0 family ethernet-switching interface-mode\ndelete interfaces {{port}} description\ndelete vlans {{vlan_name}}\ncommit and-quit\n# 复核\nshow vlans\nshow ethernet-switching interfaces {{port}}",
       "params": [
         {
           "name": "vlan_name",
@@ -90,6 +91,7 @@
       "title": "配置 Trunk 口并放通 VLAN（Junos）",
       "description": "把上联口配成 trunk 模式，放通多个 VLAN 并设置 native-vlan-id。",
       "commands": "# ===== 配置 Trunk 口（Junos）=====\nconfigure\nset interfaces {{port}} unit 0 family ethernet-switching interface-mode trunk\nset interfaces {{port}} unit 0 family ethernet-switching vlan members {{vlan_list}}\nset interfaces {{port}} unit 0 family ethernet-switching native-vlan-id {{native_vlan}}\nset interfaces {{port}} description \"{{port_desc}}\"\nshow | compare\ncommit and-quit\nshow interfaces {{port}} | display set",
+      "rollback": "# 回退：撤销 Trunk 属性（下联口回退前先确认防环路）\nconfigure\ndelete interfaces {{port}} unit 0 family ethernet-switching vlan members\ndelete interfaces {{port}} unit 0 family ethernet-switching native-vlan-id\ndelete interfaces {{port}} unit 0 family ethernet-switching interface-mode\ndelete interfaces {{port}} description\ncommit and-quit\n# 复核\nshow interfaces {{port}} | display set",
       "params": [
         {
           "name": "port",
@@ -151,6 +153,7 @@
       "title": "配置静态路由与浮动备份（Junos）",
       "description": "用 CIDR 前缀写静态路由，并给出 qualified-next-hop 做备份的写法。",
       "commands": "# ===== 静态路由（Junos）=====\nconfigure\nset routing-options static route {{dest_net}}/{{prefix_len}} next-hop {{next_hop}}\nset routing-options static route 0.0.0.0/0 next-hop {{next_hop}}\n! 浮动备份：qualified-next-hop + preference（静态路由默认 preference 为 5）\nset routing-options static route {{dest_net}}/{{prefix_len}} preference {{main_preference}}\nset routing-options static route {{dest_net}}/{{prefix_len}} qualified-next-hop {{backup_hop}} preference {{preference}}\nshow | compare\ncommit and-quit\nshow route {{dest_net}}/{{prefix_len}}\nshow route protocol static",
+      "rollback": "# 回退：删除本变更新增的静态路由（delete 整条路由会连带 qualified-next-hop 一并删除；\n# 默认路由若变更前不存在则 delete routing-options static route 0.0.0.0/0）\nconfigure\ndelete routing-options static route {{dest_net}}/{{prefix_len}}\ndelete routing-options static route 0.0.0.0/0 next-hop {{next_hop}}\ncommit and-quit\n# 复核\nshow route {{dest_net}}/{{prefix_len}}",
       "params": [
         {
           "name": "dest_net",
@@ -235,6 +238,7 @@
       "title": "配置 OSPF 基本组网（Junos）",
       "description": "按接口宣告 OSPF（Junos 没有 network 语句），指定区域、router-id 并设置被动接口。",
       "commands": "# ===== OSPF 基本配置（Junos）=====\nconfigure\nset routing-options router-id {{router_id}}\nset protocols ospf area {{area_id}} interface {{uplink_port}}.0\nset protocols ospf area {{area_id}} interface {{port}}.0\nset protocols ospf area {{area_id}} interface {{port}}.0 passive\nset protocols ospf area {{area_id}} interface lo0.0 passive\nshow | compare\ncommit and-quit\nshow ospf neighbor\nshow ospf interface\nshow route protocol ospf",
+      "rollback": "# 回退：删除 OSPF area 配置（★ 该 area 下若有其它既有接口会一并删除，\n# 谨慎起见也可只 delete 本变更新增的 interface 条目；router-id 旧值按变更记录恢复）\nconfigure\ndelete protocols ospf area {{area_id}}\ndelete routing-options router-id\ncommit and-quit\n# 复核\nshow ospf neighbor",
       "params": [
         {
           "name": "router_id",
@@ -296,6 +300,7 @@
       "title": "配置防火墙过滤器（Junos Firewall Filter）并应用",
       "description": "创建 family inet filter，按 term 匹配源/目的并 accept/discard，绑定到接口方向。",
       "commands": "# ===== 防火墙过滤器（Junos）=====\nconfigure\nset firewall family inet filter {{filter_name}} term ALLOW-INTERNAL from source-address {{src_net}}/{{src_prefix}}\nset firewall family inet filter {{filter_name}} term ALLOW-INTERNAL from destination-address {{dst_net}}/{{dst_prefix}}\nset firewall family inet filter {{filter_name}} term ALLOW-INTERNAL then accept\nset firewall family inet filter {{filter_name}} term DENY-LOG from source-address 0.0.0.0/0\nset firewall family inet filter {{filter_name}} term DENY-LOG then count DENY-COUNT\nset firewall family inet filter {{filter_name}} term DENY-LOG then discard\nset interfaces {{port}} unit 0 family inet filter input {{filter_name}}\nshow | compare\ncommit and-quit\nshow firewall filter {{filter_name}}\nshow firewall",
+      "rollback": "# 回退：先解接口 filter 引用，再删 filter 本体（顺序反了 commit 会被拒绝）\nconfigure\ndelete interfaces {{port}} unit 0 family inet filter input {{filter_name}}\ndelete firewall family inet filter {{filter_name}}\ncommit and-quit\n# 复核\nshow firewall",
       "params": [
         {
           "name": "filter_name",
@@ -379,6 +384,7 @@
       "title": "配置源 NAT（PAT）与目的 NAT（端口映射）",
       "description": "SRX 的 NAT 必须配合安全区域与策略：先配 zone、再配 NAT 规则集、最后放行策略。",
       "commands": "# ===== 源 NAT + 目的 NAT（Junos SRX）=====\nconfigure\n! ---- 1) 接口先划入安全区域（NAT 与策略都依赖 zone）----\nset security zones security-zone trust interfaces {{inside_port}}.0\nset security zones security-zone untrust interfaces {{outside_port}}.0\n! ---- 2) 源 NAT（PAT：借用出接口地址）----\nset security nat source rule-set SNAT-RS from zone trust\nset security nat source rule-set SNAT-RS to zone untrust\nset security nat source rule-set SNAT-RS rule SNAT-R1 match source-address {{src_net}}/{{src_prefix}}\nset security nat source rule-set SNAT-RS rule SNAT-R1 then source-nat interface\n! ---- 3) 目的 NAT（公网端口 → 内网服务器端口）----\nset security nat destination pool {{pool_name}} address {{inside_ip}}/32\nset security nat destination pool {{pool_name}} address port {{inside_port}}\nset security nat destination rule-set DNAT-RS from zone untrust\nset security nat destination rule-set DNAT-RS rule DNAT-R1 match destination-address {{public_ip}}/32\nset security nat destination rule-set DNAT-RS rule DNAT-R1 match destination-port {{public_port}}\nset security nat destination rule-set DNAT-RS rule DNAT-R1 then destination-nat pool {{pool_name}}\n! ---- 4) 安全策略放行（不做这步 NAT 生效也不通）----\nset security policies from-zone trust to-zone untrust policy ALLOW-OUT match source-address any\nset security policies from-zone trust to-zone untrust policy ALLOW-OUT match destination-address any\nset security policies from-zone trust to-zone untrust policy ALLOW-OUT match application any\nset security policies from-zone trust to-zone untrust policy ALLOW-OUT then permit\nshow | compare\ncommit and-quit\nshow security nat source summary\nshow security flow session",
+      "rollback": "# 回退：按创建逆序删除 NAT 与安全策略（★ zone 内接口划分若变更前不存在再删，\n# 否则保留——zone 删除会连带影响依赖它的策略）\nconfigure\ndelete security policies from-zone trust to-zone untrust policy ALLOW-OUT\ndelete security nat destination rule-set DNAT-RS\ndelete security nat destination pool {{pool_name}}\ndelete security nat source rule-set SNAT-RS\ndelete security zones security-zone trust interfaces {{inside_port}}.0\ndelete security zones security-zone untrust interfaces {{outside_port}}.0\ncommit and-quit\n# 复核\nshow security nat source summary\nshow security policies",
       "params": [
         {
           "name": "inside_port",
@@ -493,6 +499,7 @@
       "title": "开启 SSH 并创建管理用户（Junos）",
       "description": "配置主机名域名、开启 SSHv2、禁止 root 直登，并创建超级用户。",
       "commands": "# ===== 开启 SSH + 管理用户（Junos）=====\nconfigure\nset system host-name {{hostname}}\nset system domain-name {{domain}}\nset system services ssh protocol-version v2\nset system services ssh root-login deny\nset system services ssh connection-limit 5\nset system login user {{username}} uid {{uid}} class super-user\nset system login user {{username}} authentication encrypted-password \"{{password_hash}}\"\nset system login message \"{{banner}}\"\nshow | compare\ncommit and-quit\nshow system users\nshow system services",
+      "rollback": "# 回退：删除本变更新增项（host-name/domain-name 旧值按变更记录回填；\n# 若变更前未设置则执行 delete system host-name / delete system domain-name）\nconfigure\ndelete system login user {{username}}\ndelete system login message\ndelete system services ssh\ncommit and-quit\n# 复核\nshow system services\nshow system users",
       "params": [
         {
           "name": "hostname",
@@ -575,6 +582,7 @@
       "title": "设置 root 口令与登录用户口令（Junos）",
       "description": "Junos 无独立 console 口令，console 使用 root 或登录用户账号；root 口令必须先设。",
       "commands": "# ===== root 与用户口令（Junos）=====\nconfigure\n! root 口令：是 commit 的门槛（未设 root 口令时无法提交配置）\nset system root-authentication plain-text-password\n! ↑ 交互提示 Enter new password / Retype new password，必须手工输入\n! ---- 新建或改已有管理用户的口令 ----\nset system login user {{username}} class super-user uid {{uid}}\nset system login user {{username}} authentication plain-text-password\n! ↑ 同样交互输入两次\nset system login password minimum-length {{min_len}}\nset system login password change-type character-sets\nshow | compare\ncommit and-quit\nshow system login",
+      "rollback": "# 回退：口令类变更须恢复旧口令（均为交互式输入，旧值按变更记录掌握；\n# root：set system root-authentication plain-text-password；\n# 用户：set system login user {{username}} authentication plain-text-password）\nconfigure\nset system login password minimum-length <旧min_len>\ndelete system login password change-type\ncommit and-quit\n# 复核\nshow system login",
       "params": [
         {
           "name": "username",
@@ -629,6 +637,7 @@
       "title": "配置 SNMP v2c 与 Trap 目标（Junos）",
       "description": "创建只读/读写团体字、设备位置联系人，并指定 Trap 上报目标。",
       "commands": "# ===== SNMP 配置（Junos）=====\nconfigure\nset snmp community {{ro_community}} authorization read-only\nset snmp community {{ro_community}} clients {{nms_ip}}/32\nset snmp community {{rw_community}} authorization read-write\nset snmp location \"{{location}}\"\nset snmp contact \"{{contact}}\"\nset snmp description \"{{description}}\"\nset snmp trap-group {{trap_group}} version v2\nset snmp trap-group {{trap_group}} categories link\nset snmp trap-group {{trap_group}} targets {{nms_ip}}\nshow | compare\ncommit and-quit\nshow snmp community\nshow snmp statistics",
+      "rollback": "# 回退：删除本变更新增的 SNMP 配置（location/contact/description 旧值按变更记录恢复）\nconfigure\ndelete snmp trap-group {{trap_group}}\ndelete snmp community {{ro_community}}\ndelete snmp community {{rw_community}}\ndelete snmp location\ndelete snmp contact\ndelete snmp description\ncommit and-quit\n# 复核\nshow snmp community",
       "params": [
         {
           "name": "ro_community",
@@ -720,6 +729,7 @@
       "title": "提交配置、导出备份与 rescue 救命配置（Junos）",
       "description": "Junos 没有 write memory：配置提交即生效；此处给出导出备份与 rescue 配置做法。",
       "commands": "# ===== 提交、备份与 rescue 配置（Junos）=====\nconfigure\nshow | compare\ncommit comment \"{{commit_comment}}\"\ncommit and-quit\n! ---- 查看当前生效配置 ----\nshow configuration | display set\n! ---- 导出配置到本地文件（隔离网络下最稳的备份方式）----\nsave /var/tmp/{{backup_name}}\n! ---- 查看已有备份文件 ----\nfile list /var/tmp/\n! ---- rescue 救命配置：出问题时一条命令回到这个状态 ----\nrequest system configuration rescue save\n! 恢复方式：rollback rescue 然后 commit\n! ---- 回滚到上一次提交 ----\n! rollback 1\n! commit",
+      "rollback": "# 回退：本条目为提交与备份操作，不改变网络行为（commit 仅提交候选变更）；\n# 如需清理备份文件与 rescue 配置\nfile delete /var/tmp/{{backup_name}}\nrequest system configuration rescue delete",
       "params": [
         {
           "name": "commit_comment",
@@ -761,6 +771,7 @@
       "title": "配置 DNS 服务器与域名解析（Junos，含 commit）",
       "description": "set name-server 指向内网 DNS 并 commit，验证域名可解析（离网内网 DNS 标准动作）。",
       "commands": "# ===== 配置 DNS 服务器与域名解析（Junos，含 commit）=====\n# ---- 配置段：Junos 是 candidate 模型，改完必须 commit 才生效 ----\nconfigure\nset system name-server {{dns_server_ip}}\ncommit and-quit\n# ---- 验证段 ----\nshow configuration system name-server\nping {{test_domain}}\n",
+      "rollback": "# 回退：删除 DNS 服务器引用（原配置按变更记录恢复）\nconfigure\ndelete system name-server {{dns_server_ip}}\ncommit and-quit\n# 复核\nshow configuration system name-server",
       "params": [
         {
           "name": "dns_server_ip",
@@ -802,6 +813,7 @@
       "title": "配置 NTP 服务器与状态验证（Junos，含 commit）",
       "description": "set system ntp server 指向内网 NTP 并 commit，验证时钟同步。",
       "commands": "# ===== 配置 NTP 服务器与状态验证（Junos，含 commit）=====\nconfigure\nset system ntp server {{ntp_server_ip}}\ncommit and-quit\n# ---- 验证（收敛需数分钟）----\nshow ntp associations\nshow system uptime\n",
+      "rollback": "# 回退：删除 NTP 服务器引用（设备恢复本地时钟）\nconfigure\ndelete system ntp server {{ntp_server_ip}}\ncommit and-quit\n# 复核\nshow ntp associations",
       "params": [
         {
           "name": "ntp_server_ip",
@@ -833,6 +845,7 @@
       "title": "软件版本查看、备份与升级流程（Junos，含 snapshot 双备份）",
       "description": "show version → snapshot 双分区快照 → 配置备份 → software add（带 reboot）。",
       "commands": "# ===== 版本查看、备份与升级流程（Junos）=====\n# ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\nshow version\nshow system storage\n# ---- 1. ★ Junos 特色：系统快照到备用分区（升级失败可回退旧系统）----\nrequest system snapshot media internal slice alternate\n# ---- 2. 备份配置 ----\nshow configuration | save /var/tmp/confg-backup.txt\n# ---- 3. 传输新版本并安装（software add 带 reboot 自动重启）----\nfile copy {{backup_server}}:/var/tmp/<新版本.tgz> /var/tmp/\nrequest system software add /var/tmp/<新版本.tgz> reboot\n# ---- 4. 重启后复核 ----\nshow version\nshow system storage\n",
+      "rollback": "# 回退：重装旧版本包（旧包名按变更记录回填；升级时已做 slice alternate 快照，\n# 极端情况可从备用分区引导旧系统）\nrequest system software add /var/tmp/<旧版本.tgz> reboot\n# 重启后复核\nshow version",
       "params": [
         {
           "name": "backup_server",
@@ -865,6 +878,7 @@
       "title": "配置回滚（Junos rollback N + commit）",
       "description": "Junos 天生多回滚点：rollback N 回到历史候选配置，commit 生效（全库唯一原生回滚模型）。",
       "commands": "# ===== 配置回滚（Junos rollback N + commit）=====\n# ---- 1. 查看历史回滚点（0 = 当前生效，1-49 = 历史候选）----\nshow system commit\nshow configuration | compare rollback {{rollback_id}}\n# ---- 2. ★ diff 确认回退范围后回滚并生效 ----\nrollback {{rollback_id}}\ncommit and-quit\n# ---- 3. 复核 ----\nshow configuration | compare rollback 0\n",
+      "rollback": "# 回退：本条目本身即回滚操作；若 rollback 后需回到 rollback 前状态，\n# 按反向编号再 rollback（编号按 show system commit 确认）\nshow system commit\nrollback <rollback前编号>\ncommit and-quit\n# 复核\nshow configuration | compare rollback 0",
       "params": [
         {
           "name": "rollback_id",
@@ -918,6 +932,7 @@
       "title": "配置 RADIUS 认证与本地兜底（Junos）",
       "description": "radius-server + authentication-order（先 radius 后 password 本地兜底）+ 验证（先验证后退出）。",
       "commands": "# ===== RADIUS 认证与本地兜底（Junos）=====\nconfigure\n# ---- 1. RADIUS 服务器 ----\nset system radius-server {{aaa_server_ip}} secret \"{{aaa_shared_key}}\"\n# ---- 2. 认证顺序：先 radius 后本地 password 兜底 ----\nset system authentication-order radius\nset system authentication-order password\n# ---- 3. 本地兜底账号 ----\nset system login user {{local_user}} class super-user\nset system login user {{local_user}} authentication plain-text-password\n# ↑ 交互式输入口令\n# ---- 4. commit（★ 先验证再断当前会话；Junos 有候选模型，错了可 rollback）----\ncommit and-quit\n# ---- 5. 验证：新窗口域账号登录；失败则 rollback 回退 ----\nshow system login\n",
+      "rollback": "# 回退：删除 RADIUS 与认证顺序配置（authentication-order 全删后恢复默认本地认证；\n# 本地兜底账号若变更前不存在则一并删除；★ 先确认 console 仍可登录）\nconfigure\ndelete system radius-server {{aaa_server_ip}}\ndelete system authentication-order radius\ndelete system authentication-order password\ndelete system login user {{local_user}}\ncommit and-quit\n# 复核\nshow system login",
       "params": [
         {
           "name": "aaa_server_ip",
