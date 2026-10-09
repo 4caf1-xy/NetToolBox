@@ -35,7 +35,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QTabWidget, QMessageBox, QFileDialog, QDialog, QFormLayout,
                              QDialogButtonBox, QAction, QShortcut, QMenu,
                              QHeaderView, QAbstractItemView, QTextEdit, QSizePolicy,
-                             QStackedWidget, QToolButton, QFrame)
+                             QStackedWidget, QToolButton, QFrame, QCheckBox)
 
 import renderer
 import db as dbmod
@@ -129,6 +129,60 @@ def guard_skeleton_copy(parent, entry):
     state["skeleton_copy_warned"] = True
     if hasattr(main, "_save_ui_state"):
         main._save_ui_state()
+    return True
+
+
+def guard_rollback_confirm(parent, entry):
+    """
+    变更类条目复制前的回退确认（schema 2026-10-09 任务4.2，与骨架提醒同一模式）：
+        - 查询类条目（renderer.classify_entry == 'query'）不弹；
+        - 全局开关：ui_state 的 rollback_confirm_enabled（『视图』菜单勾选项，默认开）；
+        - 会话抑制：勾选『本会话不再提示』后写 rollback_confirm_date = 今天，
+          当天后续复制放行，次日自动失效——刻意不提供"永久永不弹"；
+    返回 True 表示允许继续复制。与骨架守卫一样挂在主窗 _ui_state 上，
+    详情页与参数化生成器共用。
+    """
+    if not entry:
+        return True
+    try:
+        if renderer.classify_entry(entry) != "change":
+            return True
+    except Exception:
+        return True
+    main = parent
+    state = getattr(main, "_ui_state", None)
+    if state is None:            # 找不到主窗状态（如独立测试调用）→ 不弹，放行
+        return True
+    if state.get("rollback_confirm_enabled", True) is False:
+        return True
+    today = datetime.date.today().isoformat()
+    if state.get("rollback_confirm_date") == today:
+        return True
+    has_rb = bool(str(entry.get("rollback") or "").strip())
+    box = QMessageBox(main)
+    box.setIcon(QMessageBox.Warning)
+    box.setWindowTitle("变更类命令确认")
+    if has_rb:
+        box.setText(
+            "⚠ 本条目为变更类命令——执行后将修改设备/系统状态。\n\n"
+            "回退方案已随条目内置：详情页『回退方案』折叠面板可查看。\n"
+            "建议执行前先确认回退路径可用（备份 / undo 序列 / 复核命令）。\n\n"
+            "确认继续复制？")
+    else:
+        box.setText(
+            "⚠ 本条目为变更类命令，且暂未配置回退方案。\n\n"
+            "执行前请自行准备回退路径（备份 / undo / 复核），并留存变更前状态。\n\n"
+            "确认继续复制？")
+    chk = QCheckBox("本会话不再提示（当日有效；全局开关在『视图』菜单）")
+    box.setCheckBox(chk)
+    box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+    box.setDefaultButton(QMessageBox.No)
+    if box.exec_() != QMessageBox.Yes:
+        return False
+    if chk.isChecked():
+        state["rollback_confirm_date"] = today
+        if hasattr(main, "_save_ui_state"):
+            main._save_ui_state()
     return True
 
 
@@ -554,6 +608,19 @@ class MainWindow(QMainWindow):
         act_fav.toggled.connect(lambda v: (self.tgl_fav.setChecked(v), self.refresh_list()))
         m_view.addAction(act_refresh)
         m_view.addAction(act_fav)
+        m_view.addSeparator()
+        # 变更类复制确认提醒的全局开关（任务4.2：可关但不存在"永久永不弹"单选）
+        act_rb_confirm = QAction("变更类复制时弹回退确认", self)
+        act_rb_confirm.setCheckable(True)
+        act_rb_confirm.setChecked(bool(self._ui_state.get("rollback_confirm_enabled", True)))
+        act_rb_confirm.setToolTip("关闭后，复制变更类命令不再弹回退确认框（当日的会话抑制仍生效）")
+        def _toggle_rb_confirm(v):
+            self._ui_state["rollback_confirm_enabled"] = bool(v)
+            self._save_ui_state()
+            self.statusBar().showMessage("变更类复制回退确认：%s"
+                                         % ("开" if v else "关（当日本会话抑制仍生效）"))
+        act_rb_confirm.toggled.connect(_toggle_rb_confirm)
+        m_view.addAction(act_rb_confirm)
 
         m_help = bar.addMenu("帮助(&H)")
         act_guide = QAction("使用说明 / 免责提示", self)
@@ -1159,6 +1226,30 @@ class MainWindow(QMainWindow):
         self.txt_verify.setReadOnly(True)
         self.txt_verify.setObjectName("InfoPane")
         self.tab_info.addTab(self.txt_verify, "验证信息")
+
+        # ---- 回退方案折叠面板（schema 2026-10-09 任务4.1）----
+        #   与 commands 同构的多行文本（# / ! 注释行灰字），默认收起；
+        #   查询类/未配置 rollback 的条目整页不渲染（_sync_rollback_tab 控制）
+        self.txt_rollback = QPlainTextEdit()
+        self.txt_rollback.setObjectName("CodeBlock")
+        self.txt_rollback.setReadOnly(True)
+        self.txt_rollback.setFont(mono_font())
+        self.txt_rollback.setVisible(False)
+        self.rollback_highlighter = CommandHighlighter(self.txt_rollback.document())
+        self.btn_rollback_toggle = QToolButton()
+        self.btn_rollback_toggle.setObjectName("CollapseHeader")
+        self.btn_rollback_toggle.setCheckable(True)
+        self.btn_rollback_toggle.setChecked(False)
+        self.btn_rollback_toggle.setText("▸ 回退方案")
+        self.btn_rollback_toggle.setToolTip("展开/收起回退方案（变更类条目执行前先确认回退路径）")
+        self.btn_rollback_toggle.clicked.connect(self._toggle_rollback_panel)
+        self.rollback_panel = QWidget()
+        _rbv = QVBoxLayout(self.rollback_panel)
+        _rbv.setContentsMargins(0, 2, 0, 0)
+        _rbv.setSpacing(2)
+        _rbv.addWidget(self.btn_rollback_toggle)
+        _rbv.addWidget(self.txt_rollback)
+        self.tab_info.addTab(self.rollback_panel, "回退方案")
 
         self.tbl_history = QTableWidget(0, 5)
         self.tbl_history.setHorizontalHeaderLabels(["时间", "动作", "变更内容", "操作人", "旧值"])
@@ -1767,6 +1858,11 @@ class MainWindow(QMainWindow):
         self._fill_param_table(specs)
         self._sync_param_tab(specs)
 
+        # 回退方案（schema 2026-10-09 任务4.1：默认收起，无内容整页不渲染）
+        rollback_text = str(entry.get("rollback") or "").strip()
+        self.txt_rollback.setPlainText(rollback_text)
+        self._sync_rollback_tab(rollback_text)
+
         # 备注（P-E：卡片式，左侧 accent 竖条 + 行距 1.5）
         self.txt_notes.setHtml(build_text_card(entry.get("notes") or "（暂无备注）", "info"))
 
@@ -1793,6 +1889,24 @@ class MainWindow(QMainWindow):
         if self.db.readonly:
             self.btn_fav.setEnabled(False)
             self.btn_fav.setToolTip("只读库（U 盘写保护），无法修改收藏状态")
+
+    def _toggle_rollback_panel(self, checked):
+        """回退方案折叠开关：收起只留标题行，展开显示全文"""
+        self.txt_rollback.setVisible(bool(checked))
+        self.btn_rollback_toggle.setText("▾ 回退方案" if checked else "▸ 回退方案")
+
+    def _sync_rollback_tab(self, rollback_text):
+        """无 rollback 的条目：回退方案整页不渲染（查询类/未配置场景）；有内容时默认收起"""
+        idx = self.tab_info.indexOf(self.rollback_panel)
+        if idx < 0:
+            return
+        try:
+            self.tab_info.setTabVisible(idx, bool(rollback_text))
+        except AttributeError:
+            pass    # 老版本 Qt 无 setTabVisible：保留常驻 tab，仅折叠内容兜底
+        self.btn_rollback_toggle.setText("▸ 回退方案")
+        self.btn_rollback_toggle.setChecked(False)
+        self.txt_rollback.setVisible(False)
 
     def _toggle_param_panel(self, checked):
         """折叠面板开关：收起只留标题行，展开显示参数表"""
@@ -1920,6 +2034,8 @@ class MainWindow(QMainWindow):
         self._sync_param_tab([])
         self.txt_notes.setHtml("")
         self.txt_verify.setHtml("")
+        self.txt_rollback.setPlainText("")
+        self._sync_rollback_tab("")
         self.tbl_params.setRowCount(0)
         self.tbl_history.setRowCount(0)
         self.btn_pair.setVisible(False)
@@ -1935,6 +2051,10 @@ class MainWindow(QMainWindow):
         """骨架条目复制前的一次性提醒（审计 P1），状态挂在主窗 _ui_state"""
         return guard_skeleton_copy(self, entry)
 
+    def _rollback_copy_guard(self, entry):
+        """变更类条目复制前的回退确认（任务4.2），状态挂在主窗 _ui_state"""
+        return guard_rollback_confirm(self, entry)
+
     def copy_all(self):
         """复制全部：整块脚本（含注释）原样进剪贴板"""
         if not self.current_text:
@@ -1943,6 +2063,7 @@ class MainWindow(QMainWindow):
         if self._guard_missing_required():
             return
         self._skeleton_copy_guard(self.current_entry)
+        self._rollback_copy_guard(self.current_entry)
         if not copy_to_clipboard(self.current_text):
             self.statusBar().showMessage("复制失败（剪贴板被占用），请手动选中后复制。")
             return
@@ -1958,6 +2079,7 @@ class MainWindow(QMainWindow):
         if self._guard_missing_required():
             return
         self._skeleton_copy_guard(self.current_entry)
+        self._rollback_copy_guard(self.current_entry)
         text = renderer.strip_comments(self.current_text)
         if not copy_to_clipboard(text):
             self.statusBar().showMessage("复制失败（剪贴板被占用），请手动选中后复制。")
@@ -2001,6 +2123,7 @@ class MainWindow(QMainWindow):
         line_no, text = self.line_items[self.line_index]
         self._select_line(line_no)
         self._skeleton_copy_guard(self.current_entry)
+        self._rollback_copy_guard(self.current_entry)
 
         if not copy_to_clipboard(text):
             # 逐条模式下复制失败：明确告知并停在下标，避免"以为复制了"

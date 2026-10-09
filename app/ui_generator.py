@@ -566,8 +566,12 @@ class GeneratorDialog(QDialog):
             self.form.focus_first_error()
             return
         # 骨架条目复制前的一次性提醒（审计 P1，与详情页共用同一守卫/同一状态）
-        from ui_main import guard_skeleton_copy
+        from ui_main import guard_skeleton_copy, guard_rollback_confirm
         guard_skeleton_copy(self.parent(), self.entry)
+        # 变更类条目复制确认（任务4.2，与详情页同一守卫/同一状态）
+        if not guard_rollback_confirm(self.parent(), self.entry):
+            self.lbl_status.setText("已取消复制（回退方案见详情页『回退方案』折叠面板）。")
+            return
         text, _missing = self._rendered_text()
         if commands_only:
             text = renderer.strip_comments(text)
