@@ -28,8 +28,7 @@
           "validate": "path",
           "example": "/data/iso/openEuler-22.03.iso",
           "type": "string",
-          "description": "源文件/目录路径（拷贝/打包起点）；rsync 尾部斜杠语义不同（带斜杠拷内容、不带拷目录本身），先 -n 演练",
-          "desc_pending": true
+          "description": "源文件/目录路径（拷贝/打包起点）；rsync 尾部斜杠语义不同（带斜杠拷内容、不带拷目录本身），先 -n 演练"
         },
         {
           "name": "dst_path",
@@ -39,8 +38,7 @@
           "validate": "path",
           "example": "/backup/",
           "type": "string",
-          "description": "拷贝目标路径（本机目录或 remote:/path）；rsync 尾部斜杠语义不同（带斜杠拷内容），先 -n/--dry-run 演练再实跑，防覆盖错目录",
-          "desc_pending": true
+          "description": "拷贝目标路径（本机目录或 remote:/path）；rsync 尾部斜杠语义不同（带斜杠拷内容），先 -n/--dry-run 演练再实跑，防覆盖错目录"
         }
       ],
       "notes": "1) ★ 危险点：首次必须 -n 演练。rsync 的斜杠语义要命：src 尾部带 /（如 /data/iso/）拷的是\"目录内容\"，不带 / 拷的是\"目录本身\"——演练输出里核对路径再实跑。\n2) 绝不要随手加 --delete：它会把目标侧多余文件删光，先想清楚再上。\n3) 单文件用 sha256sum 两侧比对；目录级粗验用 du -sh，精确校验走《分卷打包与合并校验》条目的 SHA256SUMS 流程。\n4) 两台机器都装了 rsync 才能用远端路径；本地盘/U 盘之间同样可用（rsync /src /mnt/usb/）。\n验证方法：先 -n 演练确认清单，实跑后 sha256sum 两侧比对一致即通过；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -71,8 +69,7 @@
           "validate": "path",
           "example": "/data/iso/openEuler-22.03.iso",
           "type": "string",
-          "description": "源文件/目录路径（拷贝/打包起点）；rsync 尾部斜杠语义不同（带斜杠拷内容、不带拷目录本身），先 -n 演练",
-          "desc_pending": true
+          "description": "源文件/目录路径（拷贝/打包起点）；rsync 尾部斜杠语义不同（带斜杠拷内容、不带拷目录本身），先 -n 演练"
         },
         {
           "name": "dst_path",
@@ -82,8 +79,7 @@
           "validate": "path",
           "example": "/backup/",
           "type": "string",
-          "description": "拷贝目标路径（本机目录或 remote:/path）；rsync 尾部斜杠语义不同（带斜杠拷内容），先 -n/--dry-run 演练再实跑，防覆盖错目录",
-          "desc_pending": true
+          "description": "拷贝目标路径（本机目录或 remote:/path）；rsync 尾部斜杠语义不同（带斜杠拷内容），先 -n/--dry-run 演练再实跑，防覆盖错目录"
         },
         {
           "name": "chunk_size",
@@ -93,8 +89,7 @@
           "validate": "",
           "example": "2G / 500M",
           "type": "string",
-          "description": "split 分卷大小（如 4G / 500M），控制大文件切分粒度；按中转介质单文件上限取值（FAT32 为 4G），分卷合并用 cat",
-          "desc_pending": true
+          "description": "split 分卷大小（如 4G / 500M），控制大文件切分粒度；按中转介质单文件上限取值（FAT32 为 4G），分卷合并用 cat"
         }
       ],
       "notes": "1) ★ 危险点：合并与解压前必须先 sha256sum -c 全绿——少一卷/坏一卷时 cat 出来的 tar 解压必报错甚至静默丢数据。\n2) split -b 的 {{chunk_size}} 写法：2G / 500M / 100k（tar 命令本身也认 -b 但这里给 split 用，注意单位大小写）。\n3) 卷文件名前缀 bundle.tar.gz. 末尾的点是刻意的（split 自动补 aa/ab），别手抖删掉。\n4) 解压报\"unexpected EOF\"九成是卷不全或合并前没校验；tar tzf 列表预览可再验一次压缩包完整性。\n验证方法：打包后随机删改一卷跑 sha256sum -c 应报 FAILED（负例），全量重拷后 -c 全过再解压成功；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -125,8 +120,7 @@
           "validate": "path",
           "example": "/data/iso/openEuler-22.03.iso",
           "type": "string",
-          "description": "源文件/目录路径（拷贝/打包起点）；rsync 尾部斜杠语义不同（带斜杠拷内容、不带拷目录本身），先 -n 演练",
-          "desc_pending": true
+          "description": "源文件/目录路径（拷贝/打包起点）；rsync 尾部斜杠语义不同（带斜杠拷内容、不带拷目录本身），先 -n 演练"
         },
         {
           "name": "usb_dev",
@@ -136,8 +130,7 @@
           "validate": "",
           "example": "sdb1",
           "type": "string",
-          "description": "U 盘设备名（如 sdb1），挂载离网拷贝介质；mount 前用 lsblk/dmesg 确认设备名——认错盘会挂错文件系统甚至误格式化",
-          "desc_pending": true
+          "description": "U 盘设备名（如 sdb1），挂载离网拷贝介质；mount 前用 lsblk/dmesg 确认设备名——认错盘会挂错文件系统甚至误格式化"
         }
       ],
       "notes": "1) ★ 危险点（高危）：/dev/{{usb_dev}} 必须是分区（sdb1）不是整盘（sdb），更不能是系统盘——mount 前用 lsblk 核对容量与 MODEL 字段，现场血泪教训多为错插错挂。\n2) ★ 拔盘前必须 sync：U 盘写缓存未落盘就拔 = 文件损坏；cp 完成只代表进了缓存。\n3) NTFS/exFAT 支持需 ntfs-3g / exfat-utils 包（离网安装见本地源条目）；都不支持时退回 FAT32 中转（单文件 ≤4G 限制要留意）。\n4) umount 报 target is busy：cd 出挂载点、lsof +D /mnt/usb 找占用进程，别硬拔。\n验证方法：挂载后 df -h /mnt/usb 看容量与文件系统、cp 后 sync + ls -l 对比大小、umount 无报错；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -168,8 +161,7 @@
           "validate": "path",
           "example": "/data/iso/openEuler-22.03.iso",
           "type": "string",
-          "description": "源文件/目录路径（拷贝/打包起点）；rsync 尾部斜杠语义不同（带斜杠拷内容、不带拷目录本身），先 -n 演练",
-          "desc_pending": true
+          "description": "源文件/目录路径（拷贝/打包起点）；rsync 尾部斜杠语义不同（带斜杠拷内容、不带拷目录本身），先 -n 演练"
         },
         {
           "name": "dst_path",
@@ -179,8 +171,7 @@
           "validate": "path",
           "example": "/backup/",
           "type": "string",
-          "description": "拷贝目标路径（本机目录或 remote:/path）；rsync 尾部斜杠语义不同（带斜杠拷内容），先 -n/--dry-run 演练再实跑，防覆盖错目录",
-          "desc_pending": true
+          "description": "拷贝目标路径（本机目录或 remote:/path）；rsync 尾部斜杠语义不同（带斜杠拷内容），先 -n/--dry-run 演练再实跑，防覆盖错目录"
         },
         {
           "name": "remote_user",
@@ -190,8 +181,7 @@
           "validate": "",
           "example": "root",
           "type": "string",
-          "description": "远端登录用户名，scp/rsync 认证身份；须对目标路径有写权限",
-          "desc_pending": true
+          "description": "远端登录用户名，scp/rsync 认证身份；须对目标路径有写权限"
         },
         {
           "name": "remote_ip",
@@ -201,8 +191,7 @@
           "validate": "ipv4",
           "example": "192.0.2.14",
           "type": "ip",
-          "description": "远端主机 IP（scp/rsync 拷贝目标），跨机传输去向；先确认 SSH 可达且免密/凭据就绪再跑大文件",
-          "desc_pending": true
+          "description": "远端主机 IP（scp/rsync 拷贝目标），跨机传输去向；先确认 SSH 可达且免密/凭据就绪再跑大文件"
         }
       ],
       "notes": "1) scp -l 是 Kbit/s、rsync --bwlimit 是 KB/s——差 8 倍，同一个\"8000\"含义完全不同，别混。\n2) scp 大文件中断只能重来；传 ISO 这类大文件优先 rsync -avP（见 rsync 条目），scp 留给小文件/单次快传。\n3) 首连会问 host key（yes 确认）；目标端口非 22 用 scp -P 大写、rsync -e \"ssh -p 端口\"。\n验证方法：传输完成 sha256sum 与源端比对一致即通过；限速生效用 -v 或传输速率目测核对；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -233,8 +222,7 @@
           "validate": "path",
           "example": "/data/share",
           "type": "string",
-          "description": "源文件/目录路径（拷贝/打包起点）；rsync 尾部斜杠语义不同（带斜杠拷内容、不带拷目录本身），先 -n 演练",
-          "desc_pending": true
+          "description": "源文件/目录路径（拷贝/打包起点）；rsync 尾部斜杠语义不同（带斜杠拷内容、不带拷目录本身），先 -n 演练"
         },
         {
           "name": "port",
@@ -245,8 +233,7 @@
           "example": "8000",
           "type": "int",
           "range": "1024-65535",
-          "description": "临时 HTTP 服务的监听端口（python3 -m http.server），供接收侧浏览器/wget 下载；选 1024 以上空闲端口，避免与业务端口冲突",
-          "desc_pending": true
+          "description": "临时 HTTP 服务的监听端口（python3 -m http.server），供接收侧浏览器/wget 下载；选 1024 以上空闲端口，避免与业务端口冲突"
         }
       ],
       "notes": "1) ★ 危险点：http.server 无鉴权，同网段任何人可浏览/下载 {{src_path}} 全部内容——只放待分发文件，用完 Ctrl+C 立即关；绝不要起在 / 或含敏感数据的目录。\n2) 防火墙会拦 {{port}}：放行见 firewalld/ufw 条目（或临时 systemctl stop firewalld 用完恢复，不建议）。\n3) python3 为 Linux 通行自带（RHEL/Debian 系都预装）；需要上传能力则换 ssh/scp 条目，http.server 只做单向分发。\n验证方法：接收侧 wget 拉取一个文件 + sha256sum 与分发侧比对一致；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",

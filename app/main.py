@@ -425,8 +425,8 @@ def validate_seed(db_path=None):
 
         # 参数对账 + 结构化 params 校验（schema 升级 2026-09-30）：
         #   ERROR：占位引用未定义 / 结构化字段缺失非法 / default 违反 type-choices-range
-        #          / 新条目（无 desc_pending 标记）description 为空
-        #   WARNING（进 unused 列表，不阻塞）：定义未引用 / 迁移期 desc_pending 描述待补
+        #          / description 为空（desc_pending 机制 2026-10-09 退役后无豁免）
+        #   WARNING（进 unused 列表，不阻塞）：定义未引用 / 变更类缺 rollback（宽容期）
         #   与 AI 入库钩子共用 renderer.check_entry_params 同一口径，避免规则漂移
         p_problems, p_warnings = renderer.check_entry_params(entry)
         for item in p_problems:
@@ -637,7 +637,8 @@ def validate_seed(db_path=None):
 
     print("-" * 66)
     if unused:
-        print("[W] 参数 WARNING %d 处（定义未引用 / 迁移期描述待补，不阻塞打包）：" % len(unused))
+        print("[W] 参数 WARNING %d 处（变更类缺 rollback / 定义未引用，宽容期不阻塞打包；"
+              "任务6 升 ERROR 后清零）：" % len(unused))
         for item in unused[:10]:
             print("   - " + item)
         if len(unused) > 10:

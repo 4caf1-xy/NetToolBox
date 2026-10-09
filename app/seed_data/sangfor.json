@@ -28,8 +28,7 @@
           "validate": "",
           "example": "VLAN10-OFFICE",
           "type": "string",
-          "description": "子接口名称（ethX.VLAN 形式），VLAN 三层终结点；Web 控制台配置项，须与交换机侧 Trunk 放行对应",
-          "desc_pending": true
+          "description": "子接口名称（ethX.VLAN 形式），VLAN 三层终结点；Web 控制台配置项，须与交换机侧 Trunk 放行对应"
         },
         {
           "name": "parent_port",
@@ -39,8 +38,7 @@
           "validate": "",
           "example": "eth2",
           "type": "string",
-          "description": "VLAN 子接口的父物理口，子接口流量承载在其上；父口 down 则其下所有子接口全部 down",
-          "desc_pending": true
+          "description": "VLAN 子接口的父物理口，子接口流量承载在其上；父口 down 则其下所有子接口全部 down"
         },
         {
           "name": "vlan_id",
@@ -50,8 +48,7 @@
           "validate": "vlan",
           "example": "10",
           "type": "string",
-          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务",
-          "desc_pending": true
+          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务"
         },
         {
           "name": "vlan_ip",
@@ -61,8 +58,7 @@
           "validate": "ipv4",
           "example": "192.168.10.1",
           "type": "ip",
-          "description": "VLAN 子接口/网关 IP，该网段终端的默认网关；须与终端同网段；改网关地址需同步终端配置",
-          "desc_pending": true
+          "description": "VLAN 子接口/网关 IP，该网段终端的默认网关；须与终端同网段；改网关地址需同步终端配置"
         },
         {
           "name": "vlan_mask",
@@ -72,8 +68,7 @@
           "validate": "masklen",
           "example": "255.255.255.0",
           "type": "string",
-          "description": "VLAN 子接口的子网掩码，与 vlan_ip 配套决定网段大小",
-          "desc_pending": true
+          "description": "VLAN 子接口的子网掩码，与 vlan_ip 配套决定网段大小"
         },
         {
           "name": "zone_name",
@@ -83,8 +78,7 @@
           "validate": "",
           "example": "内网区域 / 外网区域 / DMZ",
           "type": "string",
-          "description": "安全区域名（trust/untrust/dmz），接口的 zone 归属决定策略方向匹配；接口须先加入 zone 才能被策略引用",
-          "desc_pending": true
+          "description": "安全区域名（trust/untrust/dmz），接口的 zone 归属决定策略方向匹配；接口须先加入 zone 才能被策略引用"
         }
       ],
       "notes": "1) AF 的 VLAN 是\"物理口上的子接口\"，父接口的 IP 若已被占用需先处理，否则子接口起不来。\n2) 区域（内网/外网/DMZ）决定策略方向，配错区域会出现\"策略写了不通\"。\n3) 接口的\"管理方式\"要按需勾选 HTTPS/Ping/SSH，勾多了等于扩大攻击面，按最小化原则勾。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
@@ -115,8 +109,7 @@
           "validate": "",
           "example": "AGG-WAN",
           "type": "string",
-          "description": "聚合接口名称（如 agg1 / link-aggregation1），标识一条聚合链路；须与对端聚合组一一对应；重命名/删除会断开现有聚合",
-          "desc_pending": true
+          "description": "聚合接口名称（如 agg1 / link-aggregation1），标识一条聚合链路；须与对端聚合组一一对应；重命名/删除会断开现有聚合"
         },
         {
           "name": "member_ports",
@@ -126,8 +119,7 @@
           "validate": "",
           "example": "eth1、eth2",
           "type": "string",
-          "description": "聚合组成员口列表（空格分隔多个），一次纳入聚合的物理口集合；成员口状态/速率须一致，异常成员不参与转发",
-          "desc_pending": true
+          "description": "聚合组成员口列表（空格分隔多个），一次纳入聚合的物理口集合；成员口状态/速率须一致，异常成员不参与转发"
         },
         {
           "name": "lacp_mode",
@@ -141,8 +133,7 @@
             "静态聚合",
             "动态 LACP"
           ],
-          "description": "聚合工作模式（static 静态聚合 / lacp 动态协商），必须与对端设备一致——一端静态一端 LACP 链路起不来",
-          "desc_pending": true
+          "description": "聚合工作模式（static 静态聚合 / lacp 动态协商），必须与对端设备一致——一端静态一端 LACP 链路起不来"
         },
         {
           "name": "agg_ip",
@@ -152,8 +143,7 @@
           "validate": "ipv4",
           "example": "200.1.1.2",
           "type": "ip",
-          "description": "链路聚合口的三层 IP 地址，作为该聚合链路的本端地址；须与对端同网段；配错聚合链路不通，业务随之中断",
-          "desc_pending": true
+          "description": "链路聚合口的三层 IP 地址，作为该聚合链路的本端地址；须与对端同网段；配错聚合链路不通，业务随之中断"
         },
         {
           "name": "agg_mask",
@@ -163,8 +153,7 @@
           "validate": "masklen",
           "example": "255.255.255.0",
           "type": "string",
-          "description": "聚合口 IP 的子网掩码，决定聚合口所属网段范围；须与对端一致，配错引发路由不可达",
-          "desc_pending": true
+          "description": "聚合口 IP 的子网掩码，决定聚合口所属网段范围；须与对端一致，配错引发路由不可达"
         },
         {
           "name": "zone_name",
@@ -174,8 +163,7 @@
           "validate": "",
           "example": "外网区域",
           "type": "string",
-          "description": "安全区域名（trust/untrust/dmz），接口的 zone 归属决定策略方向匹配；接口须先加入 zone 才能被策略引用",
-          "desc_pending": true
+          "description": "安全区域名（trust/untrust/dmz），接口的 zone 归属决定策略方向匹配；接口须先加入 zone 才能被策略引用"
         }
       ],
       "notes": "1) 聚合模式必须与对端交换机一致：对端配 LACP（active）则本端选动态，否则用静态聚合。\n2) 成员口加入聚合后会继承聚合口配置，原成员口上的 IP 会失效，规划要提前做。\n3) 上联核心交换机做双链路时，注意两端都要做聚合，单端做会出现环路或断流。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
@@ -206,8 +194,7 @@
           "validate": "ipv4",
           "example": "192.168.20.0",
           "type": "ip",
-          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略",
-          "desc_pending": true
+          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略"
         },
         {
           "name": "dest_mask",
@@ -217,8 +204,7 @@
           "validate": "masklen",
           "example": "255.255.255.0",
           "type": "string",
-          "description": "目的网段的点分十进制掩码，与 dest_net 配套圈定策略匹配范围；掩码写宽会误匹配其他网段、扩大放行面",
-          "desc_pending": true
+          "description": "目的网段的点分十进制掩码，与 dest_net 配套圈定策略匹配范围；掩码写宽会误匹配其他网段、扩大放行面"
         },
         {
           "name": "next_hop",
@@ -228,8 +214,7 @@
           "validate": "ipv4",
           "example": "10.0.0.2",
           "type": "ip",
-          "description": "下一跳 IP，路由/策略转发的去向；必须是本机直连可达地址，写错路由成『黑洞』",
-          "desc_pending": true
+          "description": "下一跳 IP，路由/策略转发的去向；必须是本机直连可达地址，写错路由成『黑洞』"
         },
         {
           "name": "out_interface",
@@ -239,8 +224,7 @@
           "validate": "",
           "example": "eth1",
           "type": "string",
-          "description": "NAT/策略的出接口名，流量转发的物理出口；必须与真实外网口一致，写错 NAT 不生效",
-          "desc_pending": true
+          "description": "NAT/策略的出接口名，流量转发的物理出口；必须与真实外网口一致，写错 NAT 不生效"
         },
         {
           "name": "priority",
@@ -251,8 +235,7 @@
           "example": "越小越优先",
           "type": "int",
           "range": "1-255",
-          "description": "路由优先级（深信服/天融信），数值越小越优先；多出口场景主链路设小值，备份链路设大值",
-          "desc_pending": true
+          "description": "路由优先级（深信服/天融信），数值越小越优先；多出口场景主链路设小值，备份链路设大值"
         },
         {
           "name": "comment",
@@ -262,8 +245,7 @@
           "validate": "",
           "example": "to-核心交换机",
           "type": "string",
-          "description": "对象的描述文字，仅运维辨识用途、不参与策略匹配；建议写明用途与申请人",
-          "desc_pending": true
+          "description": "对象的描述文字，仅运维辨识用途、不参与策略匹配；建议写明用途与申请人"
         }
       ],
       "notes": "1) AF 上\"出接口\"与\"网关\"建议都填：只填网关时，出接口链路 down 后路由不会立即失效。\n2) 双出口做备份靠优先级；切换行为受会话保持影响，割接前建议先用诊断工具验证。\n3) 有 NAT 场景时注意：内网出网的路由 + 源地址转换（NAT）是两件事，都要配。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
@@ -294,8 +276,7 @@
           "validate": "ipv4",
           "example": "8.8.8.8",
           "type": "ip",
-          "description": "OSPF Router ID（IPv4 格式），区域内唯一标识本路由器；重复会引发邻居震荡与路由抖动，建议用 loopback 接口地址",
-          "desc_pending": true
+          "description": "OSPF Router ID（IPv4 格式），区域内唯一标识本路由器；重复会引发邻居震荡与路由抖动，建议用 loopback 接口地址"
         },
         {
           "name": "area_id",
@@ -305,8 +286,7 @@
           "validate": "",
           "example": "0.0.0.0",
           "type": "string",
-          "description": "OSPF 区域 ID，控制该网段归属哪个 OSPF 区域；骨干区域固定 0.0.0.0，非骨干区域须与骨干直连（或虚链路）；填错邻居起不来、路由学不到",
-          "desc_pending": true
+          "description": "OSPF 区域 ID，控制该网段归属哪个 OSPF 区域；骨干区域固定 0.0.0.0，非骨干区域须与骨干直连（或虚链路）；填错邻居起不来、路由学不到"
         },
         {
           "name": "ospf_interface",
@@ -316,8 +296,7 @@
           "validate": "",
           "example": "eth1",
           "type": "string",
-          "description": "参与 OSPF 宣告的接口名，该接口所在网段被通告进 OSPF；Web 控制台配置项，改动后注意邻接关系重建",
-          "desc_pending": true
+          "description": "参与 OSPF 宣告的接口名，该接口所在网段被通告进 OSPF；Web 控制台配置项，改动后注意邻接关系重建"
         },
         {
           "name": "passive_interface",
@@ -327,8 +306,7 @@
           "validate": "",
           "example": "eth2",
           "type": "string",
-          "description": "OSPF 被动接口（只宣告网段、不收发 Hello），业务接入口设为被动防止与终端误建邻居关系",
-          "desc_pending": true
+          "description": "OSPF 被动接口（只宣告网段、不收发 Hello），业务接入口设为被动防止与终端误建邻居关系"
         }
       ],
       "notes": "1) 部分 AF 版本默认不开动态路由，需先确认授权/版本是否支持 OSPF。\n2) 邻居起不来先核对：区域 ID、Hello/Dead 定时器、认证方式、MTU（大包丢会卡在 ExStart）。\n3) 业务接入口设为被动接口，避免向终端发 Hello 报文。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
@@ -359,8 +337,7 @@
           "validate": "",
           "example": "OBJ-OFFICE",
           "type": "string",
-          "description": "源地址对象名（FortiGate/PaloAlto 等），先建对象再被策略引用；修改对象影响所有引用它的策略",
-          "desc_pending": true
+          "description": "源地址对象名（FortiGate/PaloAlto 等），先建对象再被策略引用；修改对象影响所有引用它的策略"
         },
         {
           "name": "src_net",
@@ -370,8 +347,7 @@
           "validate": "ipv4",
           "example": "192.168.10.0",
           "type": "ip",
-          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
-          "desc_pending": true
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制"
         },
         {
           "name": "src_mask",
@@ -381,8 +357,7 @@
           "validate": "masklen",
           "example": "255.255.255.0",
           "type": "string",
-          "description": "源网段点分十进制掩码（FortiGate 子网对象写法），与 src_net 圈定来源范围；写宽扩大放行面",
-          "desc_pending": true
+          "description": "源网段点分十进制掩码（FortiGate 子网对象写法），与 src_net 圈定来源范围；写宽扩大放行面"
         },
         {
           "name": "policy_name",
@@ -392,8 +367,7 @@
           "validate": "",
           "example": "OFFICE-to-SERVER",
           "type": "string",
-          "description": "防火墙策略名称，运维辨识用途；建议『源_到_目的_动作』命名法，策略多了不迷路",
-          "desc_pending": true
+          "description": "防火墙策略名称，运维辨识用途；建议『源_到_目的_动作』命名法，策略多了不迷路"
         },
         {
           "name": "src_zone",
@@ -403,8 +377,7 @@
           "validate": "",
           "example": "内网区域",
           "type": "string",
-          "description": "源安全区域，策略入方向区域匹配；报文入接口必须真属于该 zone；修改后须 commit",
-          "desc_pending": true
+          "description": "源安全区域，策略入方向区域匹配；报文入接口必须真属于该 zone；修改后须 commit"
         },
         {
           "name": "dst_zone",
@@ -414,8 +387,7 @@
           "validate": "",
           "example": "DMZ",
           "type": "string",
-          "description": "目的安全区域（trust/dmz/untrust），策略的目的方向匹配；报文出接口必须真属于该 zone，否则策略永不命中；改后须 commit",
-          "desc_pending": true
+          "description": "目的安全区域（trust/dmz/untrust），策略的目的方向匹配；报文出接口必须真属于该 zone，否则策略永不命中；改后须 commit"
         },
         {
           "name": "dst_obj",
@@ -425,8 +397,7 @@
           "validate": "",
           "example": "OBJ-SERVER",
           "type": "string",
-          "description": "PaloAlto 目的地址对象名，先建对象再被安全策略引用；修改对象网段会影响所有引用它的策略，改后须 commit",
-          "desc_pending": true
+          "description": "PaloAlto 目的地址对象名，先建对象再被安全策略引用；修改对象网段会影响所有引用它的策略，改后须 commit"
         },
         {
           "name": "service",
@@ -436,8 +407,7 @@
           "validate": "",
           "example": "HTTP / HTTPS / Any",
           "type": "string",
-          "description": "策略引用的服务对象名（HTTP/HTTPS/ALL 等），四层端口匹配的集合；可用预定义或自建对象；改对象影响所有引用它的策略",
-          "desc_pending": true
+          "description": "策略引用的服务对象名（HTTP/HTTPS/ALL 等），四层端口匹配的集合；可用预定义或自建对象；改对象影响所有引用它的策略"
         }
       ],
       "notes": "1) AF 的策略是\"区域对区域 + 地址对象\"，先建对象再写策略，否则下拉框里选不到。\n2) 策略自上而下匹配，先匹配生效；新策略默认加在末尾，改管理类放通策略时要特别小心顺序。\n3) 一定要勾选日志，否则排障时没有任何线索可用。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
@@ -468,8 +438,7 @@
           "validate": "",
           "example": "SNAT-TO-INTERNET",
           "type": "string",
-          "description": "SNAT 规则名，标识一条源地址转换（内网出去的方向）；修改后须 commit 才生效",
-          "desc_pending": true
+          "description": "SNAT 规则名，标识一条源地址转换（内网出去的方向）；修改后须 commit 才生效"
         },
         {
           "name": "src_zone",
@@ -479,8 +448,7 @@
           "validate": "",
           "example": "内网区域",
           "type": "string",
-          "description": "源安全区域，策略入方向区域匹配；报文入接口必须真属于该 zone；修改后须 commit",
-          "desc_pending": true
+          "description": "源安全区域，策略入方向区域匹配；报文入接口必须真属于该 zone；修改后须 commit"
         },
         {
           "name": "dst_zone",
@@ -490,8 +458,7 @@
           "validate": "",
           "example": "外网区域",
           "type": "string",
-          "description": "目的安全区域（trust/dmz/untrust），策略的目的方向匹配；报文出接口必须真属于该 zone，否则策略永不命中；改后须 commit",
-          "desc_pending": true
+          "description": "目的安全区域（trust/dmz/untrust），策略的目的方向匹配；报文出接口必须真属于该 zone，否则策略永不命中；改后须 commit"
         },
         {
           "name": "src_net",
@@ -501,8 +468,7 @@
           "validate": "ipv4",
           "example": "192.168.10.0",
           "type": "ip",
-          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
-          "desc_pending": true
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制"
         },
         {
           "name": "src_mask",
@@ -512,8 +478,7 @@
           "validate": "masklen",
           "example": "255.255.255.0",
           "type": "string",
-          "description": "源网段点分十进制掩码（FortiGate 子网对象写法），与 src_net 圈定来源范围；写宽扩大放行面",
-          "desc_pending": true
+          "description": "源网段点分十进制掩码（FortiGate 子网对象写法），与 src_net 圈定来源范围；写宽扩大放行面"
         },
         {
           "name": "dnat_name",
@@ -523,8 +488,7 @@
           "validate": "",
           "example": "DNAT-WEB-8443",
           "type": "string",
-          "description": "DNAT/NAT 规则名，标识一条目的地址转换（外部访问内部服务的映射入口）；名称建议带业务语义；修改后须 commit 才生效",
-          "desc_pending": true
+          "description": "DNAT/NAT 规则名，标识一条目的地址转换（外部访问内部服务的映射入口）；名称建议带业务语义；修改后须 commit 才生效"
         },
         {
           "name": "untrust_zone",
@@ -534,8 +498,7 @@
           "validate": "",
           "example": "外网区域",
           "type": "string",
-          "description": "非受信安全区域名（外网侧），DNAT/策略的来源区域匹配",
-          "desc_pending": true
+          "description": "非受信安全区域名（外网侧），DNAT/策略的来源区域匹配"
         },
         {
           "name": "trust_zone",
@@ -545,8 +508,7 @@
           "validate": "",
           "example": "内网区域",
           "type": "string",
-          "description": "受信/目的安全区域名，NAT 与安全策略的区域匹配；与区域规划一致，改后须 commit",
-          "desc_pending": true
+          "description": "受信/目的安全区域名，NAT 与安全策略的区域匹配；与区域规划一致，改后须 commit"
         },
         {
           "name": "public_ip",
@@ -556,8 +518,7 @@
           "validate": "ipv4",
           "example": "200.1.1.30",
           "type": "ip",
-          "description": "对外发布的公网/映射 IP，NAT 后外部访问的地址；须在上联口网段内且未被占用，冲突会绑定失败",
-          "desc_pending": true
+          "description": "对外发布的公网/映射 IP，NAT 后外部访问的地址；须在上联口网段内且未被占用，冲突会绑定失败"
         },
         {
           "name": "public_port",
@@ -568,8 +529,7 @@
           "example": "8443",
           "type": "int",
           "range": "1-65535",
-          "description": "对外映射端口号，DNAT 的外部端口；可与内部端口不同（如 8443→443）；与现有监听冲突会绑定失败",
-          "desc_pending": true
+          "description": "对外映射端口号，DNAT 的外部端口；可与内部端口不同（如 8443→443）；与现有监听冲突会绑定失败"
         },
         {
           "name": "inside_ip",
@@ -579,8 +539,7 @@
           "validate": "ipv4",
           "example": "192.168.10.100",
           "type": "ip",
-          "description": "NAT 映射的内网真实 IP（被发布服务器的地址），DNAT 后流量的真正去向；填错把外部流量引到错误主机",
-          "desc_pending": true
+          "description": "NAT 映射的内网真实 IP（被发布服务器的地址），DNAT 后流量的真正去向；填错把外部流量引到错误主机"
         },
         {
           "name": "inside_port",
@@ -591,8 +550,7 @@
           "example": "8443",
           "type": "int",
           "range": "1-65535",
-          "description": "内网侧接口名或映射端口号，DNAT 流量的内部接收方向；写错映射不生效",
-          "desc_pending": true
+          "description": "内网侧接口名或映射端口号，DNAT 流量的内部接收方向；写错映射不生效"
         }
       ],
       "notes": "1) ★ 只配 NAT 不配访问控制策略，流量不会通过 —— 这是深信服 AF 上最常见的\"配了不通\"。\n2) 端口映射的公网端口与内网端口容易写反，配完必须从外部网络实测。\n3) 内网用户通过公网地址访问内部服务器（回环）需要额外配置，属常见坑。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
@@ -623,8 +581,7 @@
           "validate": "",
           "example": "netadmin",
           "type": "string",
-          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号",
-          "desc_pending": true
+          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号"
         },
         {
           "name": "password",
@@ -634,8 +591,7 @@
           "validate": "",
           "example": "现场生成：>=12位，含大小写/数字/符号",
           "type": "string",
-          "description": "账号登录口令，认证凭据；配置中可能明文/弱加密存储，导出配置时必须脱敏；遵循强口令并定期轮换",
-          "desc_pending": true
+          "description": "账号登录口令，认证凭据；配置中可能明文/弱加密存储，导出配置时必须脱敏；遵循强口令并定期轮换"
         },
         {
           "name": "role",
@@ -650,8 +606,7 @@
             "审计员",
             "只读用户"
           ],
-          "description": "管理员角色（超级管理员/审计员/只读），决定账号权限边界；遵循最小权限原则，日常运维勿用超管账号",
-          "desc_pending": true
+          "description": "管理员角色（超级管理员/审计员/只读），决定账号权限边界；遵循最小权限原则，日常运维勿用超管账号"
         },
         {
           "name": "trust_ip",
@@ -661,8 +616,7 @@
           "validate": "ipv4",
           "example": "10.0.0.0",
           "type": "ip",
-          "description": "管理面允许登录的来源 IP（trusthost 白名单），限定谁能访问设备管理；改前确认当前管理机 IP 在名单内，否则当场失联",
-          "desc_pending": true
+          "description": "管理面允许登录的来源 IP（trusthost 白名单），限定谁能访问设备管理；改前确认当前管理机 IP 在名单内，否则当场失联"
         },
         {
           "name": "trust_mask",
@@ -672,8 +626,7 @@
           "validate": "masklen",
           "example": "255.255.255.0",
           "type": "string",
-          "description": "登录来源 IP 的掩码，与 trust_ip 配套；0.0.0.0 0.0.0.0 等于不限制来源（不建议）",
-          "desc_pending": true
+          "description": "登录来源 IP 的掩码，与 trust_ip 配套；0.0.0.0 0.0.0.0 等于不限制来源（不建议）"
         },
         {
           "name": "timeout_min",
@@ -684,8 +637,7 @@
           "example": "10",
           "type": "int",
           "range": "0-35791",
-          "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险",
-          "desc_pending": true
+          "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
       "notes": "1) 按最小权限建账号：日常查看用只读/审计员，超级管理员只在变更时使用。\n2) 登录来源限制（trusthost）必须配，不配等于管理面暴露给全网。\n3) 等保要求：管理员账户实名、口令复杂度达标、开启登录失败锁定与操作审计。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。\n5) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
@@ -716,8 +668,7 @@
           "validate": "",
           "example": "现场生成：>=12位，含大小写/数字/符号",
           "type": "string",
-          "description": "账号登录口令，认证凭据；配置中可能明文/弱加密存储，导出配置时必须脱敏；遵循强口令并定期轮换",
-          "desc_pending": true
+          "description": "账号登录口令，认证凭据；配置中可能明文/弱加密存储，导出配置时必须脱敏；遵循强口令并定期轮换"
         },
         {
           "name": "min_len",
@@ -728,8 +679,7 @@
           "example": "建议 12 以上",
           "type": "int",
           "range": "8-32",
-          "description": "口令最小长度，常见 8-12 位；配合复杂度策略（数字/特殊字符下限）使用",
-          "desc_pending": true
+          "description": "口令最小长度，常见 8-12 位；配合复杂度策略（数字/特殊字符下限）使用"
         },
         {
           "name": "change_days",
@@ -740,8 +690,7 @@
           "example": "90",
           "type": "int",
           "range": "0-365",
-          "description": "口令有效期（天），超过后系统强制改密；常见 90 天；设得过短会逼出弱口令习惯，配合到期提前告警（warning_days）使用",
-          "desc_pending": true
+          "description": "口令有效期（天），超过后系统强制改密；常见 90 天；设得过短会逼出弱口令习惯，配合到期提前告警（warning_days）使用"
         },
         {
           "name": "history",
@@ -752,8 +701,7 @@
           "example": "5",
           "type": "int",
           "range": "0-20",
-          "description": "口令历史记忆次数，禁止与最近 N 次口令重复；常见 5 次；配合有效期使用防止『改回旧口令』绕过轮换",
-          "desc_pending": true
+          "description": "口令历史记忆次数，禁止与最近 N 次口令重复；常见 5 次；配合有效期使用防止『改回旧口令』绕过轮换"
         },
         {
           "name": "lock_times",
@@ -764,8 +712,7 @@
           "example": "5",
           "type": "int",
           "range": "1-20",
-          "description": "允许的连续登录失败次数，超过即锁定账号；常见 5 次；设太小易误伤正常运维输入",
-          "desc_pending": true
+          "description": "允许的连续登录失败次数，超过即锁定账号；常见 5 次；设太小易误伤正常运维输入"
         },
         {
           "name": "lock_minutes",
@@ -776,8 +723,7 @@
           "example": "30",
           "type": "int",
           "range": "1-1440",
-          "description": "登录连续失败后的锁定时长（分钟），防暴力破解；现场输错触发锁定后该期间无法登录，留 console 兜底",
-          "desc_pending": true
+          "description": "登录连续失败后的锁定时长（分钟），防暴力破解；现场输错触发锁定后该期间无法登录，留 console 兜底"
         }
       ],
       "notes": "1) console 与 Web/SSH 共用管理员账号，改口令是全套生效。\n2) 忘记超级管理员口令时只能走串口 + 厂商恢复流程（可能需要重新部署），\n   所以口令一定要纳入密码管理系统并双人保管。\n3) 安全基线：长度 ≥12、复杂度三选三、有效期 ≤90 天、失败锁定 ≤5 次。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。\n5) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
@@ -808,8 +754,7 @@
           "validate": "",
           "example": "RO@Public1",
           "type": "string",
-          "description": "SNMP 只读团体字，等同口令——网管凭它采集设备数据；禁用 public 等弱值并限定来源；只读为主，写权限单独管理",
-          "desc_pending": true
+          "description": "SNMP 只读团体字，等同口令——网管凭它采集设备数据；禁用 public 等弱值并限定来源；只读为主，写权限单独管理"
         },
         {
           "name": "rw_community",
@@ -819,8 +764,7 @@
           "validate": "",
           "example": "RW@Public1",
           "type": "string",
-          "description": "SNMP 读写团体字——持有即可远程修改设备配置，权限极高；仅必要时配置，务必限定来源网段并使用强值",
-          "desc_pending": true
+          "description": "SNMP 读写团体字——持有即可远程修改设备配置，权限极高；仅必要时配置，务必限定来源网段并使用强值"
         },
         {
           "name": "nms_ip",
@@ -830,8 +774,7 @@
           "validate": "ipv4",
           "example": "10.0.0.100",
           "type": "ip",
-          "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明",
-          "desc_pending": true
+          "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明"
         },
         {
           "name": "nms_mask",
@@ -841,8 +784,7 @@
           "validate": "masklen",
           "example": "255.255.255.0",
           "type": "string",
-          "description": "SNMP 服务允许来源的掩码，与 nms_ip 配套限定采集来源范围；配宽了等于向多余网段开放 SNMP",
-          "desc_pending": true
+          "description": "SNMP 服务允许来源的掩码，与 nms_ip 配套限定采集来源范围；配宽了等于向多余网段开放 SNMP"
         },
         {
           "name": "location",
@@ -852,8 +794,7 @@
           "validate": "",
           "example": "IDC-A-机柜12",
           "type": "string",
-          "description": "SNMP 系统位置（sysLocation）字段，标明设备物理位置（机房/机柜/U 位），告警现场定位依据；纯展示不影响功能",
-          "desc_pending": true
+          "description": "SNMP 系统位置（sysLocation）字段，标明设备物理位置（机房/机柜/U 位），告警现场定位依据；纯展示不影响功能"
         },
         {
           "name": "contact",
@@ -863,8 +804,7 @@
           "validate": "",
           "example": "网络运维组",
           "type": "string",
-          "description": "SNMP 系统联系人（sysContact）字段，网管告警时定位责任人的依据；纯展示不影响功能",
-          "desc_pending": true
+          "description": "SNMP 系统联系人（sysContact）字段，网管告警时定位责任人的依据；纯展示不影响功能"
         }
       ],
       "notes": "1) 团体字不用 public/private；\"允许访问主机\"必须限定为网管服务器地址。\n2) 只做采集时不要开读写团体字，减少被下发配置的风险。\n3) Trap 报文的源地址通常是管理口地址，注意中间防火墙是否放通 UDP 162。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",
@@ -895,8 +835,7 @@
           "validate": "",
           "example": "20260920 或变更单号",
           "type": "string",
-          "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本",
-          "desc_pending": true
+          "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本"
         }
       ],
       "notes": "1) 每次变更前后各导出一次配置，形成\"变更前基线 + 变更后结果\"两份归档。\n2) 恢复配置属于破坏性操作：会覆盖当前全部策略、对象、账号，务必双人确认。\n3) 配置文件可能包含口令密文，归档时注意存放位置与权限（不要放共享盘随意存取）。\n4) ★ 本条是界面操作路径，不是可直接粘贴执行的命令。",

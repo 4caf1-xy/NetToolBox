@@ -28,8 +28,7 @@
           "validate": "",
           "example": "VLAN10-OFFICE",
           "type": "string",
-          "description": "VLAN 名称，二层辨识用途；建议按业务语义命名（如 OA_BIZ），纯展示不影响转发",
-          "desc_pending": true
+          "description": "VLAN 名称，二层辨识用途；建议按业务语义命名（如 OA_BIZ），纯展示不影响转发"
         },
         {
           "name": "vlan_id",
@@ -39,8 +38,7 @@
           "validate": "vlan",
           "example": "10",
           "type": "string",
-          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务",
-          "desc_pending": true
+          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务"
         },
         {
           "name": "vlan_name",
@@ -50,8 +48,7 @@
           "validate": "",
           "example": "OFFICE",
           "type": "string",
-          "description": "VLAN 名称，二层辨识用途；建议按业务语义命名（如 OA_BIZ），纯展示不影响转发",
-          "desc_pending": true
+          "description": "VLAN 名称，二层辨识用途；建议按业务语义命名（如 OA_BIZ），纯展示不影响转发"
         },
         {
           "name": "port",
@@ -61,8 +58,7 @@
           "validate": "port",
           "example": "ge-0/0/1",
           "type": "string",
-          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
-          "desc_pending": true
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故"
         },
         {
           "name": "port_desc",
@@ -72,8 +68,7 @@
           "validate": "",
           "example": "to-办公区",
           "type": "string",
-          "description": "接口描述文字，标注对端设备/用途；纯展示不影响转发",
-          "desc_pending": true
+          "description": "接口描述文字，标注对端设备/用途；纯展示不影响转发"
         }
       ],
       "notes": "1) Junos 改完必须 commit 才生效；commit and-quit 提交并退出配置模式，\n   rollback 0 丢弃未提交改动，rollback 1 回到上一次提交。\n2) members 写 VLAN 名称还是 VLAN ID 取决于版本：新版(15.1+)用名称，老版本可直接写 VLAN ID；\n   写错会提示对象不存在。\n3) 接口名是两段式 ge-0/0/1（FPC/PIC/端口），QFX 上常见 xe-/et- 前缀，别按思科 0/1 敲。\n4) show | compare 是 Junos 上最好用的自检命令，提交前一定要看一眼改了什么。",
@@ -104,8 +99,7 @@
           "validate": "port",
           "example": "ge-0/0/24",
           "type": "string",
-          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
-          "desc_pending": true
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故"
         },
         {
           "name": "vlan_list",
@@ -115,8 +109,7 @@
           "validate": "",
           "example": "空格分隔的 VLAN 名称列表",
           "type": "string",
-          "description": "Trunk 放行 VLAN 列表（如 10,20,30-40），控制哪些 VLAN 流量可通过该链路；漏放行业务 VLAN 会当场断流，改动立即生效",
-          "desc_pending": true
+          "description": "Trunk 放行 VLAN 列表（如 10,20,30-40），控制哪些 VLAN 流量可通过该链路；漏放行业务 VLAN 会当场断流，改动立即生效"
         },
         {
           "name": "native_vlan",
@@ -126,8 +119,7 @@
           "validate": "vlan",
           "example": "1",
           "type": "string",
-          "description": "Trunk 口 Native VLAN（untagged 承载的 VLAN），两端必须一致否则原生流量跨链路丢失；安全上建议改掉默认 VLAN 1，设为闲置 VLAN",
-          "desc_pending": true
+          "description": "Trunk 口 Native VLAN（untagged 承载的 VLAN），两端必须一致否则原生流量跨链路丢失；安全上建议改掉默认 VLAN 1，设为闲置 VLAN"
         },
         {
           "name": "port_desc",
@@ -137,8 +129,7 @@
           "validate": "",
           "example": "to-核心交换机",
           "type": "string",
-          "description": "接口描述文字，标注对端设备/用途；纯展示不影响转发",
-          "desc_pending": true
+          "description": "接口描述文字，标注对端设备/用途；纯展示不影响转发"
         }
       ],
       "notes": "1) Junos 的成员列表是\"空格分隔\"，与思科/华为的逗号或 to 段完全不同：\n   set ... vlan members VLAN10-OFFICE VLAN20-FINANCE\n2) native-vlan-id 写在 family ethernet-switching 层，不是写在 unit 上。\n3) trunk 放通全部用 vlan members all；生产上建议显式列举，便于审计。",
@@ -169,8 +160,7 @@
           "validate": "ipv4",
           "example": "192.168.20.0",
           "type": "ip",
-          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略",
-          "desc_pending": true
+          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略"
         },
         {
           "name": "prefix_len",
@@ -181,8 +171,7 @@
           "example": "24（Junos 用 CIDR 不用掩码）",
           "type": "int",
           "range": "0-32",
-          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
-          "desc_pending": true
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH"
         },
         {
           "name": "next_hop",
@@ -192,8 +181,7 @@
           "validate": "ipv4",
           "example": "10.0.0.2",
           "type": "ip",
-          "description": "下一跳 IP，路由/策略转发的去向；必须是本机直连可达地址，写错路由成『黑洞』",
-          "desc_pending": true
+          "description": "下一跳 IP，路由/策略转发的去向；必须是本机直连可达地址，写错路由成『黑洞』"
         },
         {
           "name": "backup_hop",
@@ -203,8 +191,7 @@
           "validate": "ipv4",
           "example": "10.0.0.3",
           "type": "ip",
-          "description": "浮动静态路由的备份下一跳，主路径失效后才接管转发；其管理距离/优先级必须大于主路由；须保证与本端直连可达",
-          "desc_pending": true
+          "description": "浮动静态路由的备份下一跳，主路径失效后才接管转发；其管理距离/优先级必须大于主路由；须保证与本端直连可达"
         },
         {
           "name": "preference",
@@ -215,8 +202,7 @@
           "example": "备份写 10，比主路由 5 大",
           "type": "int",
           "range": "1-255",
-          "description": "路由优先级（华为/H3C/Juniper），数值越小越优先（华为/H3C 静态默认 60）；浮动静态路由把备份侧 preference 调大",
-          "desc_pending": true
+          "description": "路由优先级（华为/H3C/Juniper），数值越小越优先（华为/H3C 静态默认 60）；浮动静态路由把备份侧 preference 调大"
         },
         {
           "name": "main_preference",
@@ -227,8 +213,7 @@
           "example": "静态默认 5",
           "type": "int",
           "range": "1-255",
-          "description": "Juniper 静态路由 preference（默认 5），数值越小越优先；备份路由把 preference 调大实现浮动切换",
-          "desc_pending": true
+          "description": "Juniper 静态路由 preference（默认 5），数值越小越优先；备份路由把 preference 调大实现浮动切换"
         }
       ],
       "notes": "1) Junos 写 CIDR 前缀（192.168.20.0/24），不能写点分掩码，这是最容易出错的地方。\n2) preference 越小越优先：静态默认 5、OSPF 内部 10、BGP 170。做备份把 preference 调大即可。\n3) 删路由用整条 delete：delete routing-options static route 192.168.20.0/24\n4) show route protocol static 只看静态路由，比看全表快得多。",
@@ -259,8 +244,7 @@
           "validate": "ipv4",
           "example": "1.1.1.1",
           "type": "ip",
-          "description": "OSPF Router ID（IPv4 格式），区域内唯一标识本路由器；重复会引发邻居震荡与路由抖动，建议用 loopback 接口地址",
-          "desc_pending": true
+          "description": "OSPF Router ID（IPv4 格式），区域内唯一标识本路由器；重复会引发邻居震荡与路由抖动，建议用 loopback 接口地址"
         },
         {
           "name": "area_id",
@@ -270,8 +254,7 @@
           "validate": "",
           "example": "0.0.0.0（Junos 用点分格式）",
           "type": "string",
-          "description": "OSPF 区域 ID，控制该网段归属哪个 OSPF 区域；骨干区域固定 0.0.0.0，非骨干区域须与骨干直连（或虚链路）；填错邻居起不来、路由学不到",
-          "desc_pending": true
+          "description": "OSPF 区域 ID，控制该网段归属哪个 OSPF 区域；骨干区域固定 0.0.0.0，非骨干区域须与骨干直连（或虚链路）；填错邻居起不来、路由学不到"
         },
         {
           "name": "port",
@@ -281,8 +264,7 @@
           "validate": "port",
           "example": "ge-0/0/1",
           "type": "string",
-          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
-          "desc_pending": true
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故"
         },
         {
           "name": "uplink_port",
@@ -292,8 +274,7 @@
           "validate": "port",
           "example": "ge-0/0/24",
           "type": "string",
-          "description": "OSPF 上联接口——被动接口策略中的例外口，no passive 恢复收发 Hello 建邻居；只放开必要上联口",
-          "desc_pending": true
+          "description": "OSPF 上联接口——被动接口策略中的例外口，no passive 恢复收发 Hello 建邻居；只放开必要上联口"
         }
       ],
       "notes": "1) Junos 的 OSPF 是\"接口级宣告\"，没有 network 语句；接口必须带 unit 号（ge-0/0/1.0）。\n2) 区域号用点分格式 0.0.0.0；写 0 会被 Junos 自动展开，但显式写更清楚。\n3) 被动接口就是在同一行末尾加 passive（不用另起 passive-interface 命令）。\n4) 改 router-id 后需要 clear ospf neighbor 或重启路由进程才生效，生产环境慎用。",
@@ -324,8 +305,7 @@
           "validate": "",
           "example": "FILTER-IN-OFFICE",
           "type": "string",
-          "description": "Juniper 防火墙过滤器（firewall filter）名，定义流量匹配与动作；应用到接口 family inet 后生效，配错可能把管理流量一起过滤掉",
-          "desc_pending": true
+          "description": "Juniper 防火墙过滤器（firewall filter）名，定义流量匹配与动作；应用到接口 family inet 后生效，配错可能把管理流量一起过滤掉"
         },
         {
           "name": "src_net",
@@ -335,8 +315,7 @@
           "validate": "ipv4",
           "example": "192.168.10.0",
           "type": "ip",
-          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
-          "desc_pending": true
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制"
         },
         {
           "name": "src_prefix",
@@ -347,8 +326,7 @@
           "example": "24",
           "type": "int",
           "range": "0-32",
-          "description": "源网段前缀长度（0-32），与 src_net 组成 CIDR",
-          "desc_pending": true
+          "description": "源网段前缀长度（0-32），与 src_net 组成 CIDR"
         },
         {
           "name": "dst_net",
@@ -358,8 +336,7 @@
           "validate": "ipv4",
           "example": "10.10.0.0",
           "type": "ip",
-          "description": "目的网段（ACL/防火墙策略匹配字段），0.0.0.0/0 表示任意目的；与反掩码/前缀长度配套使用；范围写宽会扩大放行面",
-          "desc_pending": true
+          "description": "目的网段（ACL/防火墙策略匹配字段），0.0.0.0/0 表示任意目的；与反掩码/前缀长度配套使用；范围写宽会扩大放行面"
         },
         {
           "name": "dst_prefix",
@@ -370,8 +347,7 @@
           "example": "16",
           "type": "int",
           "range": "0-32",
-          "description": "目的网段前缀长度（0-32），与 dst_net 组成 CIDR；写宽扩大匹配面，放行面随之变大",
-          "desc_pending": true
+          "description": "目的网段前缀长度（0-32），与 dst_net 组成 CIDR；写宽扩大匹配面，放行面随之变大"
         },
         {
           "name": "port",
@@ -381,8 +357,7 @@
           "validate": "port",
           "example": "ge-0/0/1",
           "type": "string",
-          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
-          "desc_pending": true
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故"
         }
       ],
       "notes": "1) Junos filter 未匹配任何 term 时默认丢弃（与思科隐含 deny 一致），所以放通规则要写在前面。\n2) term 按书写顺序匹配，先匹配先生效；要插规则得用 insert 或调整顺序。\n3) 绑定方向必须写明 input/output：set interfaces ge-0/0/1 unit 0 family inet filter input <名称>。\n4) 加 then count 统计命中，show firewall 能看到每个 term 的实际命中数，排查特别快。",
@@ -413,8 +388,7 @@
           "validate": "port",
           "example": "ge-0/0/1",
           "type": "string",
-          "description": "内网侧接口名或映射端口号，DNAT 流量的内部接收方向；写错映射不生效",
-          "desc_pending": true
+          "description": "内网侧接口名或映射端口号，DNAT 流量的内部接收方向；写错映射不生效"
         },
         {
           "name": "outside_port",
@@ -424,8 +398,7 @@
           "validate": "port",
           "example": "ge-0/0/0",
           "type": "string",
-          "description": "外网侧接口名，NAT outside 方向的接口绑定；内外口方向标反 NAT 完全不生效",
-          "desc_pending": true
+          "description": "外网侧接口名，NAT outside 方向的接口绑定；内外口方向标反 NAT 完全不生效"
         },
         {
           "name": "src_net",
@@ -435,8 +408,7 @@
           "validate": "ipv4",
           "example": "192.168.10.0",
           "type": "ip",
-          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
-          "desc_pending": true
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制"
         },
         {
           "name": "src_prefix",
@@ -447,8 +419,7 @@
           "example": "24",
           "type": "int",
           "range": "0-32",
-          "description": "源网段前缀长度（0-32），与 src_net 组成 CIDR",
-          "desc_pending": true
+          "description": "源网段前缀长度（0-32），与 src_net 组成 CIDR"
         },
         {
           "name": "pool_name",
@@ -458,8 +429,7 @@
           "validate": "",
           "example": "DNAT-POOL-WEB",
           "type": "string",
-          "description": "DHCP 地址池名称，查询/管理地址池的对象名（display ip pool name 使用）",
-          "desc_pending": true
+          "description": "DHCP 地址池名称，查询/管理地址池的对象名（display ip pool name 使用）"
         },
         {
           "name": "inside_ip",
@@ -469,8 +439,7 @@
           "validate": "ipv4",
           "example": "192.168.10.100",
           "type": "ip",
-          "description": "NAT 映射的内网真实 IP（被发布服务器的地址），DNAT 后流量的真正去向；填错把外部流量引到错误主机",
-          "desc_pending": true
+          "description": "NAT 映射的内网真实 IP（被发布服务器的地址），DNAT 后流量的真正去向；填错把外部流量引到错误主机"
         },
         {
           "name": "inside_port",
@@ -481,8 +450,7 @@
           "example": "80",
           "type": "int",
           "range": "1-65535",
-          "description": "内网侧接口名或映射端口号，DNAT 流量的内部接收方向；写错映射不生效",
-          "desc_pending": true
+          "description": "内网侧接口名或映射端口号，DNAT 流量的内部接收方向；写错映射不生效"
         },
         {
           "name": "public_ip",
@@ -492,8 +460,7 @@
           "validate": "ipv4",
           "example": "200.1.1.30",
           "type": "ip",
-          "description": "对外发布的公网/映射 IP，NAT 后外部访问的地址；须在上联口网段内且未被占用，冲突会绑定失败",
-          "desc_pending": true
+          "description": "对外发布的公网/映射 IP，NAT 后外部访问的地址；须在上联口网段内且未被占用，冲突会绑定失败"
         },
         {
           "name": "public_port",
@@ -504,8 +471,7 @@
           "example": "8080",
           "type": "int",
           "range": "1-65535",
-          "description": "对外映射端口号，DNAT 的外部端口；可与内部端口不同（如 8443→443）；与现有监听冲突会绑定失败",
-          "desc_pending": true
+          "description": "对外映射端口号，DNAT 的外部端口；可与内部端口不同（如 8443→443）；与现有监听冲突会绑定失败"
         }
       ],
       "notes": "1) SRX 的 NAT 一定要\"接口划 zone → NAT 规则集 → 安全策略\"三步齐全，缺一步表现为\"配了不通\"。\n2) source-nat interface 就是 PAT（借用出接口地址）；要指定地址池用 source-nat pool <池名>。\n3) 目的 NAT 的端口写在 pool 的 address ... port 上，公网端口写在 match destination-port。\n4) show security flow session 看会话是否建立，是排查 SRX 转发问题最快的办法。",
@@ -536,8 +502,7 @@
           "validate": "",
           "example": "SW-CORE-01",
           "type": "string",
-          "description": "设备主机名，标识作用不影响转发；修改后提示符与日志来源同步变化，网管侧如按主机名建资产需同步更新",
-          "desc_pending": true
+          "description": "设备主机名，标识作用不影响转发；修改后提示符与日志来源同步变化，网管侧如按主机名建资产需同步更新"
         },
         {
           "name": "domain",
@@ -547,8 +512,7 @@
           "validate": "",
           "example": "corp.local",
           "type": "string",
-          "description": "设备域名后缀（ip domain-name / domain-name），用于 DNS 解析补全与 SSH RSA 密钥生成；改后提示符与解析习惯同步变化",
-          "desc_pending": true
+          "description": "设备域名后缀（ip domain-name / domain-name），用于 DNS 解析补全与 SSH RSA 密钥生成；改后提示符与解析习惯同步变化"
         },
         {
           "name": "username",
@@ -558,8 +522,7 @@
           "validate": "",
           "example": "netadmin",
           "type": "string",
-          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号",
-          "desc_pending": true
+          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号"
         },
         {
           "name": "uid",
@@ -570,8 +533,7 @@
           "example": "2001（不要用 0）",
           "type": "int",
           "range": "100-64000",
-          "description": "Juniper 用户 UID（系统内部编号），同设备内必须唯一；冲突会导致权限判定混乱",
-          "desc_pending": true
+          "description": "Juniper 用户 UID（系统内部编号），同设备内必须唯一；冲突会导致权限判定混乱"
         },
         {
           "name": "password_hash",
@@ -581,8 +543,7 @@
           "validate": "",
           "example": "Junos 的 $1$/$6$ 加密串",
           "type": "string",
-          "description": "Juniper 已加密口令哈希（encrypted-password），直接写入配置完成认证设定；哈希与设备算法须匹配，从他机导入时确认来源可靠",
-          "desc_pending": true
+          "description": "Juniper 已加密口令哈希（encrypted-password），直接写入配置完成认证设定；哈希与设备算法须匹配，从他机导入时确认来源可靠"
         },
         {
           "name": "banner",
@@ -592,8 +553,7 @@
           "validate": "",
           "example": "仅授权人员可登录",
           "type": "string",
-          "description": "登录公告文字，用户认证前显示的法律/告警声明；纯提示不影响认证；含空格须整体引号包裹",
-          "desc_pending": true
+          "description": "登录公告文字，用户认证前显示的法律/告警声明；纯提示不影响认证；含空格须整体引号包裹"
         }
       ],
       "notes": "1) Junos 上没有\"明文口令\"参数可安全用于脚本：set ... authentication plain-text-password\n   会交互提示输入两次口令，脚本粘贴进去会停在提示符上不动 —— 现场必须手工敲。\n2) 想在脚本里一次配好，用 encrypted-password 直接贴 $1$/$6$ 加密串\n   （可先在设备上用 plain-text-password 配好，再 show configuration 取出复用）。\n3) root-login deny 是安全基线要求；uid 不要用 0（0 是 root）。\n4) class 决定权限：super-user / operator / read-only，管理用 super-user。",
@@ -624,8 +584,7 @@
           "validate": "",
           "example": "netadmin",
           "type": "string",
-          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号",
-          "desc_pending": true
+          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号"
         },
         {
           "name": "uid",
@@ -636,8 +595,7 @@
           "example": "2001",
           "type": "int",
           "range": "100-64000",
-          "description": "Juniper 用户 UID（系统内部编号），同设备内必须唯一；冲突会导致权限判定混乱",
-          "desc_pending": true
+          "description": "Juniper 用户 UID（系统内部编号），同设备内必须唯一；冲突会导致权限判定混乱"
         },
         {
           "name": "min_len",
@@ -648,8 +606,7 @@
           "example": "6-20，建议 12",
           "type": "int",
           "range": "6-20",
-          "description": "口令最小长度，常见 8-12 位；配合复杂度策略（数字/特殊字符下限）使用",
-          "desc_pending": true
+          "description": "口令最小长度，常见 8-12 位；配合复杂度策略（数字/特殊字符下限）使用"
         }
       ],
       "notes": "1) Junos 的 console 没有独立口令：console 登录用 root 或普通用户账号，改口令就是改账号口令。\n2) set system root-authentication plain-text-password 是**交互式**命令：粘贴脚本后会停在\n   \"Enter new password:\" 等待输入，这是 Junos 上最常见的\"脚本卡住\"原因。\n3) 忘记 root 口令的恢复方式：重启，在 loader 提示符下 boot -s 进单用户模式改配置，\n   属破坏性操作，需现场做且建议先导出配置。\n4) 安全基线：口令长度 ≥12、启用复杂度（change-type character-sets）、root-login deny。",
@@ -681,8 +638,7 @@
           "validate": "",
           "example": "RO@Public1",
           "type": "string",
-          "description": "SNMP 只读团体字，等同口令——网管凭它采集设备数据；禁用 public 等弱值并限定来源；只读为主，写权限单独管理",
-          "desc_pending": true
+          "description": "SNMP 只读团体字，等同口令——网管凭它采集设备数据；禁用 public 等弱值并限定来源；只读为主，写权限单独管理"
         },
         {
           "name": "rw_community",
@@ -692,8 +648,7 @@
           "validate": "",
           "example": "RW@Public1",
           "type": "string",
-          "description": "SNMP 读写团体字——持有即可远程修改设备配置，权限极高；仅必要时配置，务必限定来源网段并使用强值",
-          "desc_pending": true
+          "description": "SNMP 读写团体字——持有即可远程修改设备配置，权限极高；仅必要时配置，务必限定来源网段并使用强值"
         },
         {
           "name": "location",
@@ -703,8 +658,7 @@
           "validate": "",
           "example": "IDC-A-机柜12",
           "type": "string",
-          "description": "SNMP 系统位置（sysLocation）字段，标明设备物理位置（机房/机柜/U 位），告警现场定位依据；纯展示不影响功能",
-          "desc_pending": true
+          "description": "SNMP 系统位置（sysLocation）字段，标明设备物理位置（机房/机柜/U 位），告警现场定位依据；纯展示不影响功能"
         },
         {
           "name": "contact",
@@ -714,8 +668,7 @@
           "validate": "",
           "example": "网络运维组",
           "type": "string",
-          "description": "SNMP 系统联系人（sysContact）字段，网管告警时定位责任人的依据；纯展示不影响功能",
-          "desc_pending": true
+          "description": "SNMP 系统联系人（sysContact）字段，网管告警时定位责任人的依据；纯展示不影响功能"
         },
         {
           "name": "nms_ip",
@@ -725,8 +678,7 @@
           "validate": "ipv4",
           "example": "10.0.0.100",
           "type": "ip",
-          "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明",
-          "desc_pending": true
+          "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明"
         },
         {
           "name": "description",
@@ -736,8 +688,7 @@
           "validate": "",
           "example": "SW-CORE-01",
           "type": "string",
-          "description": "接口/SNMP 的描述文字（如接口对端、设备位置），仅运维辨识用途、不影响转发与匹配",
-          "desc_pending": true
+          "description": "接口/SNMP 的描述文字（如接口对端、设备位置），仅运维辨识用途、不影响转发与匹配"
         },
         {
           "name": "trap_group",
@@ -747,8 +698,7 @@
           "validate": "",
           "example": "NMS-TRAP",
           "type": "string",
-          "description": "Juniper SNMP trap 组名，定义告警类别（link/startup/authentication 等）与 SNMP 版本；网管按组接收告警",
-          "desc_pending": true
+          "description": "Juniper SNMP trap 组名，定义告警类别（link/startup/authentication 等）与 SNMP 版本；网管按组接收告警"
         }
       ],
       "notes": "1) 强烈建议给团体字加 clients 限制源地址（set snmp community X clients <网管IP>/32），\n   不加等于对全网开放，安全审计必查。\n2) trap-group 的 targets 逐条设置即可添加多个上报目标。\n3) location/contact/description 都要带引号，含空格也能正常保存。\n4) show snmp statistics 能看收发包计数，判断网管是否真的在采集。",
@@ -779,8 +729,7 @@
           "validate": "",
           "example": "变更单号，便于事后审计",
           "type": "string",
-          "description": "Juniper commit 留痕说明，写入配置版本历史；回滚排查时靠它定位每次变更意图——务必写清变更原因与工单号",
-          "desc_pending": true
+          "description": "Juniper commit 留痕说明，写入配置版本历史；回滚排查时靠它定位每次变更意图——务必写清变更原因与工单号"
         },
         {
           "name": "backup_name",
@@ -790,8 +739,7 @@
           "validate": "",
           "example": "SW-CORE-01-20260920.conf",
           "type": "string",
-          "description": "配置/镜像备份在本地（flash/USB）的保存文件名；仅本机留痕，建议再 execute backup 到 TFTP 异机一份防单点",
-          "desc_pending": true
+          "description": "配置/镜像备份在本地（flash/USB）的保存文件名；仅本机留痕，建议再 execute backup 到 TFTP 异机一份防单点"
         }
       ],
       "notes": "1) Junos 是\"候选配置 + commit\"模型：改完不 commit 不生效，也没有 write memory。\n2) commit comment 会把变更单号写进提交记录，show system commit 可查历史，审计很好用。\n3) request system configuration rescue save 保存\"救命配置\"，现场改坏了 rollback rescue 即可恢复；\n   上生产前建议先做一次 rescue。\n4) 备份文件在 /var/tmp 或 /config 下；要取回本机需用 SCP/USB，隔离网络下建议直接留档在设备上。",
@@ -822,8 +770,7 @@
           "validate": "ipv4",
           "example": "192.168.66.10",
           "type": "ip",
-          "description": "设备侧 DNS 服务器地址，用于域名解析（ping 域名、日志主机名反查）；须网络可达；改动立即生效",
-          "desc_pending": true
+          "description": "设备侧 DNS 服务器地址，用于域名解析（ping 域名、日志主机名反查）；须网络可达；改动立即生效"
         },
         {
           "name": "test_domain",
@@ -833,8 +780,7 @@
           "validate": "",
           "example": "gw.corp.local",
           "type": "string",
-          "description": "DNS/连通性测试域名，ping 它通 = 网络+解析都正常；不通时分层排查（先 IP 后域名）",
-          "desc_pending": true
+          "description": "DNS/连通性测试域名，ping 它通 = 网络+解析都正常；不通时分层排查（先 IP 后域名）"
         }
       ],
       "notes": "1) 忘记 commit 是 Junos\"配了不生效\"第一名：set 只进候选库，commit and-quit 才落盘并生效。\n2) show system name-server 仅 Junos 17.3+ 支持，通用写法是 show configuration system name-server（本条用后者）。\n3) 重复 set system name-server 可追加备用 DNS；删除用 delete system name-server <IP>。\n验证方法：show configuration system name-server + ping test_domain，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -865,8 +811,7 @@
           "validate": "ipv4",
           "example": "192.168.66.10",
           "type": "ip",
-          "description": "NTP 时间源地址，统一设备时钟；时间漂移会导致证书校验失败、日志排序混乱；须网络可达，内网建议指向专用 NTP",
-          "desc_pending": true
+          "description": "NTP 时间源地址，统一设备时钟；时间漂移会导致证书校验失败、日志排序混乱；须网络可达，内网建议指向专用 NTP"
         }
       ],
       "notes": "1) 改完必须 commit；Junos 的 NTP 配置在 system 层级。\n2) show ntp associations 输出 ^* = 选中源；show system uptime 的 time 源显示 ntp 即已同步。\n3) 关联不通查 UDP 123 与源端可达性。\n验证方法：show ntp associations 见 ^* + show system uptime 时钟准确，收敛后 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -898,8 +843,7 @@
           "validate": "ipv4",
           "example": "192.168.66.20",
           "type": "ip",
-          "description": "TFTP/SFTP 备份服务器地址，配置与镜像的异地留痕去向；升级/回滚前先从设备 ping 通确认可达；注意该地址可能出现在配置明文中",
-          "desc_pending": true
+          "description": "TFTP/SFTP 备份服务器地址，配置与镜像的异地留痕去向；升级/回滚前先从设备 ping 通确认可达；注意该地址可能出现在配置明文中"
         }
       ],
       "notes": "1) ★ 危险点（变更窗口/回滚点/带外通道三要素先行）：software add 带 reboot 参数会在安装完自动重启——三要素确认后再敲。\n2) Junos 双分区是天生回滚点：snapshot 把当前系统拍到 alternate 分区，升级失败可在 loader 下从备用分区启动回滚；升级成功后建议再做一次 snapshot 把新系统同步到备用区。\n3) <新版本.tgz> 按实际文件名替换；存储不足先 request system storage cleanup。\n验证方法：升级后 show version 新版本 + show system storage 正常 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -931,8 +875,7 @@
           "example": "2",
           "type": "int",
           "range": "0-49",
-          "description": "Juniper 回滚点编号（0-49），rollback N 整体恢复到第 N 份历史配置；回滚是全量替换动作，执行前先 show | compare rollback N 看差异",
-          "desc_pending": true
+          "description": "Juniper 回滚点编号（0-49），rollback N 整体恢复到第 N 份历史配置；回滚是全量替换动作，执行前先 show | compare rollback N 看差异"
         }
       ],
       "notes": "1) ★ 危险点：rollback 只切候选库，commit 才生效——rollback 后忘 commit 是\"回滚没生效\"第一原因。\n2) ★ 回滚前先 show configuration | compare rollback N 做 diff。\n3) show system commit 列历史提交记录（编号即 rollback 目标）；0 号 = 当前运行配置。\n4) 与《保存配置并备份到本地 flash》分工：Junos 无需手工保存配置，rollback 即回滚体系。\n验证方法：compare 显示差异收敛 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -984,8 +927,7 @@
           "validate": "ipv4",
           "example": "192.168.66.30",
           "type": "ip",
-          "description": "AAA/RADIUS/TACACS 服务器地址，决定设备把认证/授权/审计请求发往哪台服务器；填内网可达的管理网段 IP；配错将导致所有远程登录认证失败，建议先 ping 通再下发",
-          "desc_pending": true
+          "description": "AAA/RADIUS/TACACS 服务器地址，决定设备把认证/授权/审计请求发往哪台服务器；填内网可达的管理网段 IP；配错将导致所有远程登录认证失败，建议先 ping 通再下发"
         },
         {
           "name": "aaa_shared_key",
@@ -995,8 +937,7 @@
           "validate": "",
           "example": "现场生成强密钥",
           "type": "string",
-          "description": "AAA 服务器共享密钥，用于设备与服务器间认证报文的加密校验；必须与服务器侧完全一致；配置中可能弱加密存储，导出配置时注意脱敏",
-          "desc_pending": true
+          "description": "AAA 服务器共享密钥，用于设备与服务器间认证报文的加密校验；必须与服务器侧完全一致；配置中可能弱加密存储，导出配置时注意脱敏"
         },
         {
           "name": "local_user",
@@ -1006,8 +947,7 @@
           "validate": "",
           "example": "netadmin",
           "type": "string",
-          "description": "本地登录用户名，设备本地认证的身份标识；其权限等级（privilege/level）决定可执行命令范围，遵循最小权限",
-          "desc_pending": true
+          "description": "本地登录用户名，设备本地认证的身份标识；其权限等级（privilege/level）决定可执行命令范围，遵循最小权限"
         }
       ],
       "notes": "1) ★ 危险点（AAA 第一铁律）：配置 AAA 后**不要退出当前会话**——先用新开窗口验证能登录，确认兜底本地账号可用再断开；配置错误把自己锁外面只能 Console 救。\n2) ★ 保留 Console 通道：AAA 服务器不可达时 Console 是最后生命线（console 上配置本地兜底）。\n3) 本地兜底顺序必须显式配置（radius/tacacs 之后跟 local），服务器全挂时才回落本地账号。\n4) Junos 是候选模型：AAA 配错可 rollback 0 回退——这本身就是兜底优势，但也要新窗口验证后再退会话。\n5) authentication-order 的顺序即兜底顺序。\n验证方法：新窗口域账号登录成功 + 停 RADIUS 后本地账号可登录；（验证人/型号/日期验证通过后回填 verified，属下轮真机验证会重点对象）",

@@ -2,15 +2,20 @@
 """
 migrate_params.py —— 存量种子 params 结构化迁移（schema 升级 2026-09-30）
 
+【退役声明 2026-10-09 批2】
+    desc_pending 标记机制已退役：全库 986 个标记已清扫完毕，validate 对
+    结构化条目空 description 一律 ERROR（renderer.check_entry_params 单一执法点）。
+    本脚本使命完成：migrate 侧 997/997 spec 早已结构化；strip 侧已空转（重跑 0 清理）。
+    保留代码作历史参考与新库兜底工具；下次工程清理批可评估删除。
+
 功能：
     扫描 seed_data/*.json 全部 command 条目，把旧格式 params（name/label/default/
     required/validate/example）升级为结构化 params：
         + type     : 从 validate 推导（ipv4→ip / int:→int+range / enum:→enum+choices /
                      其余→string；显式 validate 原样保留，不合并不删除）
         + description : 迁移骨架一律留空（后续 AI 分批补齐），打 desc_pending 标记
-        + desc_pending : 迁移期标记——validate_seed 对带标记的空 description 只报
-                     WARNING；全量补完 description 后由 --strip-pending 清扫掉，
-                     之后 description 为空一律 ERROR
+        + desc_pending : 【已退役】迁移期标记——原 validate_seed 对带标记的空
+                     description 只报 WARNING；现空 description 一律 ERROR
 
 纪律（对齐任务书硬约束）：
     · 默认 dry-run：只输出统计，不改任何文件

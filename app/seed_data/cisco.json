@@ -28,8 +28,7 @@
           "validate": "vlan",
           "example": "10",
           "type": "string",
-          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务",
-          "desc_pending": true
+          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务"
         },
         {
           "name": "vlan_name",
@@ -39,8 +38,7 @@
           "validate": "",
           "example": "OFFICE",
           "type": "string",
-          "description": "VLAN 名称，二层辨识用途；建议按业务语义命名（如 OA_BIZ），纯展示不影响转发",
-          "desc_pending": true
+          "description": "VLAN 名称，二层辨识用途；建议按业务语义命名（如 OA_BIZ），纯展示不影响转发"
         },
         {
           "name": "port_range",
@@ -51,8 +49,7 @@
           "example": "0/1-0/10 或 Gi0/1-0/10",
           "expand": "port",
           "type": "string",
-          "description": "端口范围表达式（如 0/1-0/10、0/1,0/3,0/5-0/7），生成器按厂商命名规则展开为接口列表；展开结果先在预览区核对再执行",
-          "desc_pending": true
+          "description": "端口范围表达式（如 0/1-0/10、0/1,0/3,0/5-0/7），生成器按厂商命名规则展开为接口列表；展开结果先在预览区核对再执行"
         }
       ],
       "notes": "1) interface range 语法 IOS 12.2(55)SE 之后才支持，更老的版本要逐口敲。\n2) 端口短写 Gi0/1 与全写 GigabitEthernet0/1 等价；堆叠机框写 1/0/1。\n3) 只 end 不 write memory，重启后配置全丢，务必保存。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
@@ -83,8 +80,7 @@
           "validate": "port",
           "example": "0/24 或 1/0/24",
           "type": "string",
-          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
-          "desc_pending": true
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故"
         },
         {
           "name": "vlan_list",
@@ -94,8 +90,7 @@
           "validate": "",
           "example": "10,20,30 或 10-20",
           "type": "string",
-          "description": "Trunk 放行 VLAN 列表（如 10,20,30-40），控制哪些 VLAN 流量可通过该链路；漏放行业务 VLAN 会当场断流，改动立即生效",
-          "desc_pending": true
+          "description": "Trunk 放行 VLAN 列表（如 10,20,30-40），控制哪些 VLAN 流量可通过该链路；漏放行业务 VLAN 会当场断流，改动立即生效"
         },
         {
           "name": "native_vlan",
@@ -105,8 +100,7 @@
           "validate": "vlan",
           "example": "1",
           "type": "string",
-          "description": "Trunk 口 Native VLAN（untagged 承载的 VLAN），两端必须一致否则原生流量跨链路丢失；安全上建议改掉默认 VLAN 1，设为闲置 VLAN",
-          "desc_pending": true
+          "description": "Trunk 口 Native VLAN（untagged 承载的 VLAN），两端必须一致否则原生流量跨链路丢失；安全上建议改掉默认 VLAN 1，设为闲置 VLAN"
         }
       ],
       "notes": "1) switchport trunk encapsulation dot1q 只有 3560/3750 这类支持多封装的老平台需要；\n   2960/9300 敲了会报 Invalid input，直接跳过这条即可。\n2) allowed vlan 用逗号列举(10,20,30)、短横线区间(10-20)，两者可混写(10,20-25,30)。\n3) 两端 native VLAN 必须一致，否则会报 native vlan mismatch 且生成树异常。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
@@ -137,8 +131,7 @@
           "validate": "ipv4",
           "example": "192.168.20.0",
           "type": "ip",
-          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略",
-          "desc_pending": true
+          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略"
         },
         {
           "name": "mask",
@@ -148,8 +141,7 @@
           "validate": "masklen",
           "example": "24 或 255.255.255.0",
           "type": "string",
-          "description": "静态路由的点分十进制掩码，与 dest_net 圈定路由前缀；掩码写宽会吞掉相邻网段的路由匹配",
-          "desc_pending": true
+          "description": "静态路由的点分十进制掩码，与 dest_net 圈定路由前缀；掩码写宽会吞掉相邻网段的路由匹配"
         },
         {
           "name": "next_hop",
@@ -159,8 +151,7 @@
           "validate": "ipv4",
           "example": "10.0.0.2",
           "type": "ip",
-          "description": "下一跳 IP，路由/策略转发的去向；必须是本机直连可达地址，写错路由成『黑洞』",
-          "desc_pending": true
+          "description": "下一跳 IP，路由/策略转发的去向；必须是本机直连可达地址，写错路由成『黑洞』"
         },
         {
           "name": "backup_hop",
@@ -170,8 +161,7 @@
           "validate": "ipv4",
           "example": "10.0.0.3",
           "type": "ip",
-          "description": "浮动静态路由的备份下一跳，主路径失效后才接管转发；其管理距离/优先级必须大于主路由；须保证与本端直连可达",
-          "desc_pending": true
+          "description": "浮动静态路由的备份下一跳，主路径失效后才接管转发；其管理距离/优先级必须大于主路由；须保证与本端直连可达"
         }
       ],
       "notes": "1) 管理距离（最后那个数字）越小越优先：直连 0、静态 1、EIGRP 90、OSPF 110、RIP 120。\n2) 跟踪接口状态的写法要加出接口：ip route 0.0.0.0 0.0.0.0 Gi0/0 10.0.0.2，\n   这样出接口 down 时路由自动撤销；只写下一跳则不会。\n3) show ip route 里 S 表示静态路由、S* 表示默认路由，排查时先看这两行。",
@@ -203,8 +193,7 @@
           "example": "1",
           "type": "int",
           "range": "1-65535",
-          "description": "OSPF 进程号（仅本机有效），标识一个 OSPF 实例；两端进程号可以不同，但网段/区域/认证必须匹配",
-          "desc_pending": true
+          "description": "OSPF 进程号（仅本机有效），标识一个 OSPF 实例；两端进程号可以不同，但网段/区域/认证必须匹配"
         },
         {
           "name": "router_id",
@@ -214,8 +203,7 @@
           "validate": "ipv4",
           "example": "1.1.1.1",
           "type": "ip",
-          "description": "OSPF Router ID（IPv4 格式），区域内唯一标识本路由器；重复会引发邻居震荡与路由抖动，建议用 loopback 接口地址",
-          "desc_pending": true
+          "description": "OSPF Router ID（IPv4 格式），区域内唯一标识本路由器；重复会引发邻居震荡与路由抖动，建议用 loopback 接口地址"
         },
         {
           "name": "network",
@@ -225,8 +213,7 @@
           "validate": "ipv4",
           "example": "10.0.0.0",
           "type": "ip",
-          "description": "OSPF 宣告网段，匹配哪些接口参与 OSPF 进程；与 wildcard 配套使用；宣告漏了/错了邻居和路由直接缺失",
-          "desc_pending": true
+          "description": "OSPF 宣告网段，匹配哪些接口参与 OSPF 进程；与 wildcard 配套使用；宣告漏了/错了邻居和路由直接缺失"
         },
         {
           "name": "wildcard",
@@ -236,8 +223,7 @@
           "validate": "masklen",
           "example": "0.0.0.255",
           "type": "string",
-          "description": "OSPF/ACL 反掩码（wildcard），0 位精确匹配、1 位任意；0.0.0.255 对应 /24；写错宣告/匹配范围不对",
-          "desc_pending": true
+          "description": "OSPF/ACL 反掩码（wildcard），0 位精确匹配、1 位任意；0.0.0.255 对应 /24；写错宣告/匹配范围不对"
         },
         {
           "name": "area_id",
@@ -247,8 +233,7 @@
           "validate": "",
           "example": "0 或 0.0.0.1",
           "type": "string",
-          "description": "OSPF 区域 ID，控制该网段归属哪个 OSPF 区域；骨干区域固定 0.0.0.0，非骨干区域须与骨干直连（或虚链路）；填错邻居起不来、路由学不到",
-          "desc_pending": true
+          "description": "OSPF 区域 ID，控制该网段归属哪个 OSPF 区域；骨干区域固定 0.0.0.0，非骨干区域须与骨干直连（或虚链路）；填错邻居起不来、路由学不到"
         },
         {
           "name": "uplink_port",
@@ -258,8 +243,7 @@
           "validate": "port",
           "example": "0/0",
           "type": "string",
-          "description": "OSPF 上联接口——被动接口策略中的例外口，no passive 恢复收发 Hello 建邻居；只放开必要上联口",
-          "desc_pending": true
+          "description": "OSPF 上联接口——被动接口策略中的例外口，no passive 恢复收发 Hello 建邻居；只放开必要上联口"
         }
       ],
       "notes": "1) network 后面跟的是反掩码（wildcard）：24 位网段写 0.0.0.255，别写 255.255.255.0。\n2) 改 router-id 后必须 clear ip ospf process 才生效，会短暂中断邻居，别在业务高峰期做。\n3) passive-interface default + no passive-interface 上行口最省事，比逐个口 passive 不易漏。",
@@ -290,8 +274,7 @@
           "validate": "",
           "example": "ACL-MGMT-01",
           "type": "string",
-          "description": "命名 ACL 的名称，控制哪些流量放行/拒绝；名称区分大小写；ip access-group 应用到接口方向后立即生效，配错可能当场切断管理流量",
-          "desc_pending": true
+          "description": "命名 ACL 的名称，控制哪些流量放行/拒绝；名称区分大小写；ip access-group 应用到接口方向后立即生效，配错可能当场切断管理流量"
         },
         {
           "name": "src_net",
@@ -301,8 +284,7 @@
           "validate": "ipv4",
           "example": "192.168.10.0",
           "type": "ip",
-          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
-          "desc_pending": true
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制"
         },
         {
           "name": "src_wild",
@@ -312,8 +294,7 @@
           "validate": "masklen",
           "example": "0.0.0.255",
           "type": "string",
-          "description": "源网段反掩码（wildcard mask），0 位精确匹配、1 位任意；与掩码写法相反（0.0.0.255 对应 /24）",
-          "desc_pending": true
+          "description": "源网段反掩码（wildcard mask），0 位精确匹配、1 位任意；与掩码写法相反（0.0.0.255 对应 /24）"
         },
         {
           "name": "dst_net",
@@ -323,8 +304,7 @@
           "validate": "ipv4",
           "example": "10.10.0.0",
           "type": "ip",
-          "description": "目的网段（ACL/防火墙策略匹配字段），0.0.0.0/0 表示任意目的；与反掩码/前缀长度配套使用；范围写宽会扩大放行面",
-          "desc_pending": true
+          "description": "目的网段（ACL/防火墙策略匹配字段），0.0.0.0/0 表示任意目的；与反掩码/前缀长度配套使用；范围写宽会扩大放行面"
         },
         {
           "name": "dst_wild",
@@ -334,8 +314,7 @@
           "validate": "masklen",
           "example": "0.0.255.255",
           "type": "string",
-          "description": "目的网段反掩码（wildcard mask），0 位精确匹配、1 位任意；与子网掩码写法相反（0.0.0.255 对应 /24），写错匹配范围全错",
-          "desc_pending": true
+          "description": "目的网段反掩码（wildcard mask），0 位精确匹配、1 位任意；与子网掩码写法相反（0.0.0.255 对应 /24），写错匹配范围全错"
         },
         {
           "name": "port",
@@ -345,8 +324,7 @@
           "validate": "port",
           "example": "0/1",
           "type": "string",
-          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故",
-          "desc_pending": true
+          "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故"
         }
       ],
       "notes": "1) 每个 ACL 末尾都隐含 deny any any，看不到但一定生效；要放通必须显式写 permit。\n2) in / out 是\"相对设备\"的方向：in = 从该接口进来的流量，最容易搞反。\n3) 命名 ACL 想插规则要带序号（如 permit 15 ...），直接改文本会整段重排导致序号变化。",
@@ -377,8 +355,7 @@
           "validate": "port",
           "example": "0/0",
           "type": "string",
-          "description": "内网侧接口名或映射端口号，DNAT 流量的内部接收方向；写错映射不生效",
-          "desc_pending": true
+          "description": "内网侧接口名或映射端口号，DNAT 流量的内部接收方向；写错映射不生效"
         },
         {
           "name": "inside_ip",
@@ -388,8 +365,7 @@
           "validate": "ipv4",
           "example": "192.168.1.1",
           "type": "ip",
-          "description": "NAT 映射的内网真实 IP（被发布服务器的地址），DNAT 后流量的真正去向；填错把外部流量引到错误主机",
-          "desc_pending": true
+          "description": "NAT 映射的内网真实 IP（被发布服务器的地址），DNAT 后流量的真正去向；填错把外部流量引到错误主机"
         },
         {
           "name": "inside_mask",
@@ -399,8 +375,7 @@
           "validate": "masklen",
           "example": "255.255.255.0",
           "type": "string",
-          "description": "内网接口的子网掩码，决定 inside 接口网段范围；须与内网地址规划一致",
-          "desc_pending": true
+          "description": "内网接口的子网掩码，决定 inside 接口网段范围；须与内网地址规划一致"
         },
         {
           "name": "outside_port",
@@ -410,8 +385,7 @@
           "validate": "port",
           "example": "0/1",
           "type": "string",
-          "description": "外网侧接口名，NAT outside 方向的接口绑定；内外口方向标反 NAT 完全不生效",
-          "desc_pending": true
+          "description": "外网侧接口名，NAT outside 方向的接口绑定；内外口方向标反 NAT 完全不生效"
         },
         {
           "name": "outside_ip",
@@ -421,8 +395,7 @@
           "validate": "ipv4",
           "example": "200.1.1.2",
           "type": "ip",
-          "description": "外网口 IP，NAT 转换后对外呈现的地址所在接口；须与上联网段规划一致且未被占用",
-          "desc_pending": true
+          "description": "外网口 IP，NAT 转换后对外呈现的地址所在接口；须与上联网段规划一致且未被占用"
         },
         {
           "name": "outside_mask",
@@ -432,8 +405,7 @@
           "validate": "masklen",
           "example": "255.255.255.0",
           "type": "string",
-          "description": "外网口子网掩码，与 outside_ip 配套",
-          "desc_pending": true
+          "description": "外网口子网掩码，与 outside_ip 配套"
         },
         {
           "name": "src_net",
@@ -443,8 +415,7 @@
           "validate": "ipv4",
           "example": "192.168.10.0",
           "type": "ip",
-          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制",
-          "desc_pending": true
+          "description": "源网段地址，ACL/策略的来源匹配字段；0.0.0.0/0 表示任意来源；范围写宽等于放宽访问控制"
         },
         {
           "name": "src_wild",
@@ -454,8 +425,7 @@
           "validate": "masklen",
           "example": "0.0.0.255",
           "type": "string",
-          "description": "源网段反掩码（wildcard mask），0 位精确匹配、1 位任意；与掩码写法相反（0.0.0.255 对应 /24）",
-          "desc_pending": true
+          "description": "源网段反掩码（wildcard mask），0 位精确匹配、1 位任意；与掩码写法相反（0.0.0.255 对应 /24）"
         },
         {
           "name": "acl_number",
@@ -466,8 +436,7 @@
           "example": "1-99 标准 ACL",
           "type": "int",
           "range": "1-199",
-          "description": "ACL 编号，标识一条访问控制列表；Cisco 1-99 为标准 IP ACL、100-199 为扩展 IP ACL，华为/H3C 段位含义类似；改动后立即影响命中流量，nat outbound 等引用处需同步核对",
-          "desc_pending": true
+          "description": "ACL 编号，标识一条访问控制列表；Cisco 1-99 为标准 IP ACL、100-199 为扩展 IP ACL，华为/H3C 段位含义类似；改动后立即影响命中流量，nat outbound 等引用处需同步核对"
         },
         {
           "name": "inside_server",
@@ -477,8 +446,7 @@
           "validate": "ipv4",
           "example": "192.168.1.100",
           "type": "ip",
-          "description": "内网服务器真实 IP（NAT 发布的后端），对外映射的源地址；该主机须可达且服务在监听，否则映射是『空转』",
-          "desc_pending": true
+          "description": "内网服务器真实 IP（NAT 发布的后端），对外映射的源地址；该主机须可达且服务在监听，否则映射是『空转』"
         },
         {
           "name": "public_ip",
@@ -488,8 +456,7 @@
           "validate": "ipv4",
           "example": "200.1.1.3",
           "type": "ip",
-          "description": "对外发布的公网/映射 IP，NAT 后外部访问的地址；须在上联口网段内且未被占用，冲突会绑定失败",
-          "desc_pending": true
+          "description": "对外发布的公网/映射 IP，NAT 后外部访问的地址；须在上联口网段内且未被占用，冲突会绑定失败"
         }
       ],
       "notes": "1) ip nat inside / outside 标错接口是 NAT 不生效的头号原因，配完先 show ip nat statistics 看命中。\n2) overload 就是 PAT（端口复用）；不写 overload 则是动态地址池，无法多地址共用。\n3) 静态映射双向生效，私网地址在前、公网地址在后。",
@@ -520,8 +487,7 @@
           "validate": "",
           "example": "SW-CORE-01",
           "type": "string",
-          "description": "设备主机名，标识作用不影响转发；修改后提示符与日志来源同步变化，网管侧如按主机名建资产需同步更新",
-          "desc_pending": true
+          "description": "设备主机名，标识作用不影响转发；修改后提示符与日志来源同步变化，网管侧如按主机名建资产需同步更新"
         },
         {
           "name": "domain",
@@ -531,8 +497,7 @@
           "validate": "",
           "example": "corp.local",
           "type": "string",
-          "description": "设备域名后缀（ip domain-name / domain-name），用于 DNS 解析补全与 SSH RSA 密钥生成；改后提示符与解析习惯同步变化",
-          "desc_pending": true
+          "description": "设备域名后缀（ip domain-name / domain-name），用于 DNS 解析补全与 SSH RSA 密钥生成；改后提示符与解析习惯同步变化"
         },
         {
           "name": "username",
@@ -542,8 +507,7 @@
           "validate": "",
           "example": "netadmin",
           "type": "string",
-          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号",
-          "desc_pending": true
+          "description": "登录账号名，认证身份标识；按人名/工号命名便于审计追责，禁用共享账号"
         },
         {
           "name": "password",
@@ -553,8 +517,7 @@
           "validate": "",
           "example": "现场生成：>=12位，含大小写/数字/符号",
           "type": "string",
-          "description": "账号登录口令，认证凭据；配置中可能明文/弱加密存储，导出配置时必须脱敏；遵循强口令并定期轮换",
-          "desc_pending": true
+          "description": "账号登录口令，认证凭据；配置中可能明文/弱加密存储，导出配置时必须脱敏；遵循强口令并定期轮换"
         },
         {
           "name": "timeout_min",
@@ -565,8 +528,7 @@
           "example": "10",
           "type": "int",
           "range": "0-35791",
-          "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险",
-          "desc_pending": true
+          "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
       "notes": "1) 必须先生成 RSA 密钥，且要先有 hostname 和 ip domain-name，\n   否则提示 \"% Please define a domain-name first\"。\n2) modulus 低于 768 时 IOS 15 会拒绝启用 SSHv2，建议 2048。\n3) transport input ssh 会一并关掉 Telnet，改之前确认 SSH 已能登录，别把自己锁在外面。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
@@ -597,8 +559,7 @@
           "validate": "",
           "example": "C0nsole@123",
           "type": "string",
-          "description": "Console 串口登录口令，控制带外接入认证；是网络故障时的最后生命线，遗忘只能走 recovery 流程；配置后立即生效",
-          "desc_pending": true
+          "description": "Console 串口登录口令，控制带外接入认证；是网络故障时的最后生命线，遗忘只能走 recovery 流程；配置后立即生效"
         },
         {
           "name": "enable_secret",
@@ -608,8 +569,7 @@
           "validate": "",
           "example": "En@ble@12345",
           "type": "string",
-          "description": "特权模式（enable）口令，加密存储于配置；控制进入最高权限级的入口，务必强口令并定期轮换",
-          "desc_pending": true
+          "description": "特权模式（enable）口令，加密存储于配置；控制进入最高权限级的入口，务必强口令并定期轮换"
         },
         {
           "name": "timeout_min",
@@ -620,8 +580,7 @@
           "example": "10",
           "type": "int",
           "range": "0-35791",
-          "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险",
-          "desc_pending": true
+          "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
       "notes": "1) enable secret 用强哈希存储，enable password 是弱加密（7 类），新设备只用 secret；\n   两者同时存在时 secret 优先生效。\n2) console 下只写 login 用的是 line password（权限 1）；要直进特权 15 用 login local + 本地用户。\n3) logging synchronous 防止日志把正在敲的命令冲散，强烈建议加上。",
@@ -652,8 +611,7 @@
           "validate": "",
           "example": "RO@Public1",
           "type": "string",
-          "description": "SNMP 只读团体字，等同口令——网管凭它采集设备数据；禁用 public 等弱值并限定来源；只读为主，写权限单独管理",
-          "desc_pending": true
+          "description": "SNMP 只读团体字，等同口令——网管凭它采集设备数据；禁用 public 等弱值并限定来源；只读为主，写权限单独管理"
         },
         {
           "name": "rw_community",
@@ -663,8 +621,7 @@
           "validate": "",
           "example": "RW@Public1",
           "type": "string",
-          "description": "SNMP 读写团体字——持有即可远程修改设备配置，权限极高；仅必要时配置，务必限定来源网段并使用强值",
-          "desc_pending": true
+          "description": "SNMP 读写团体字——持有即可远程修改设备配置，权限极高；仅必要时配置，务必限定来源网段并使用强值"
         },
         {
           "name": "location",
@@ -674,8 +631,7 @@
           "validate": "",
           "example": "IDC-A-机柜12",
           "type": "string",
-          "description": "SNMP 系统位置（sysLocation）字段，标明设备物理位置（机房/机柜/U 位），告警现场定位依据；纯展示不影响功能",
-          "desc_pending": true
+          "description": "SNMP 系统位置（sysLocation）字段，标明设备物理位置（机房/机柜/U 位），告警现场定位依据；纯展示不影响功能"
         },
         {
           "name": "contact",
@@ -685,8 +641,7 @@
           "validate": "",
           "example": "网络运维组",
           "type": "string",
-          "description": "SNMP 系统联系人（sysContact）字段，网管告警时定位责任人的依据；纯展示不影响功能",
-          "desc_pending": true
+          "description": "SNMP 系统联系人（sysContact）字段，网管告警时定位责任人的依据；纯展示不影响功能"
         },
         {
           "name": "nms_ip",
@@ -696,8 +651,7 @@
           "validate": "ipv4",
           "example": "10.0.0.100",
           "type": "ip",
-          "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明",
-          "desc_pending": true
+          "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明"
         },
         {
           "name": "v3_group",
@@ -707,8 +661,7 @@
           "validate": "",
           "example": "NMS-GROUP",
           "type": "string",
-          "description": "SNMPv3 组名，绑定安全级别（auth/priv）与读写视图；组配置决定该组用户的权限边界",
-          "desc_pending": true
+          "description": "SNMPv3 组名，绑定安全级别（auth/priv）与读写视图；组配置决定该组用户的权限边界"
         },
         {
           "name": "v3_user",
@@ -718,8 +671,7 @@
           "validate": "",
           "example": "nmsuser",
           "type": "string",
-          "description": "SNMPv3 用户名，绑定认证/加密口令；网管以 user+auth+priv 三元组访问设备",
-          "desc_pending": true
+          "description": "SNMPv3 用户名，绑定认证/加密口令；网管以 user+auth+priv 三元组访问设备"
         },
         {
           "name": "v3_auth_pass",
@@ -729,8 +681,7 @@
           "validate": "",
           "example": "Auth@12345",
           "type": "string",
-          "description": "SNMPv3 认证口令（SHA 算法），防报文冒充与篡改；与网管侧配置一致；优先用 v3 替代 v2c 明文团体字",
-          "desc_pending": true
+          "description": "SNMPv3 认证口令（SHA 算法），防报文冒充与篡改；与网管侧配置一致；优先用 v3 替代 v2c 明文团体字"
         },
         {
           "name": "v3_priv_pass",
@@ -740,8 +691,7 @@
           "validate": "",
           "example": "Priv@12345",
           "type": "string",
-          "description": "SNMPv3 加密口令（AES-128），对报文内容加密；与网管侧配置一致",
-          "desc_pending": true
+          "description": "SNMPv3 加密口令（AES-128），对报文内容加密；与网管侧配置一致"
         }
       ],
       "notes": "1) 团体字别用 public/private，等保与安全审计会直接判违规；改写后记得同步网管侧。\n2) 只读团体字给网管采集（RO），读写团体字仅在有配置下发需求时开，用完即删。\n3) SNMPv3 的 auth sha + priv aes 128 是常用组合；v2c 团体字在网上是明文传输的。",
@@ -772,8 +722,7 @@
           "validate": "",
           "example": "20260920 或变更单号",
           "type": "string",
-          "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本",
-          "desc_pending": true
+          "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本"
         }
       ],
       "notes": "1) copy run start 会二次确认 Destination filename，脚本里直接回车即可。\n2) 隔离网络不要用 copy running-config tftp:，改存 flash: 更稳，配合变更单编号命名。\n3) configure replace 是整段替换（会对比差异）比直接 copy 安全，但执行前务必确认备份可用。",
@@ -804,8 +753,7 @@
           "validate": "ipv4",
           "example": "192.168.66.10",
           "type": "ip",
-          "description": "设备侧 DNS 服务器地址，用于域名解析（ping 域名、日志主机名反查）；须网络可达；改动立即生效",
-          "desc_pending": true
+          "description": "设备侧 DNS 服务器地址，用于域名解析（ping 域名、日志主机名反查）；须网络可达；改动立即生效"
         },
         {
           "name": "test_domain",
@@ -815,8 +763,7 @@
           "validate": "",
           "example": "gw.corp.local",
           "type": "string",
-          "description": "DNS/连通性测试域名，ping 它通 = 网络+解析都正常；不通时分层排查（先 IP 后域名）",
-          "desc_pending": true
+          "description": "DNS/连通性测试域名，ping 它通 = 网络+解析都正常；不通时分层排查（先 IP 后域名）"
         }
       ],
       "notes": "1) IOS exec 无 nslookup 子命令（部分新 IOS-XE 才有）：验证解析用 ping 域名，回显 Translating \"xxx\"...domain server (IP) 即 DNS 生效。\n2) show hosts 查看已解析缓存；ping 解析成功后该域名会以临时条目出现在 hosts 表。\n3) ip domain-lookup 默认开启；若历史配置 no 掉过，ping 域名直接报 % Unrecognized host，先补回该命令。\n验证方法：show run | include name-server 确认服务器已写入 + ping test_domain（内网任意域名），60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -847,8 +794,7 @@
           "validate": "ipv4",
           "example": "192.168.66.10",
           "type": "ip",
-          "description": "NTP 时间源地址，统一设备时钟；时间漂移会导致证书校验失败、日志排序混乱；须网络可达，内网建议指向专用 NTP",
-          "desc_pending": true
+          "description": "NTP 时间源地址，统一设备时钟；时间漂移会导致证书校验失败、日志排序混乱；须网络可达，内网建议指向专用 NTP"
         }
       ],
       "notes": "1) show ntp status 里 Clock is synchronized、stratum 有值才算同步——刚配置要等 2-5 分钟收敛，别急着判失败。\n2) associations 输出前缀 ~* = 当前选中的同步源；~x = 该源不可用（地址错/UDP 123 被拦）。\n3) NTP 认证（ntp authenticate）与访问控制本条不含；show clock detail 应显示时间来源为 NTP。\n验证方法：show ntp status synchronized + show clock detail，收敛后 60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -880,8 +826,7 @@
           "validate": "ipv4",
           "example": "192.168.66.20",
           "type": "ip",
-          "description": "TFTP/SFTP 备份服务器地址，配置与镜像的异地留痕去向；升级/回滚前先从设备 ping 通确认可达；注意该地址可能出现在配置明文中",
-          "desc_pending": true
+          "description": "TFTP/SFTP 备份服务器地址，配置与镜像的异地留痕去向；升级/回滚前先从设备 ping 通确认可达；注意该地址可能出现在配置明文中"
         },
         {
           "name": "ios_image",
@@ -892,8 +837,7 @@
           "validate": "",
           "example": "c1100-universalk9.17.06.05.SPA.bin",
           "type": "string",
-          "description": "Cisco IOS 镜像文件名（flash 内），boot system 启动项指向；升级/更换前必须 verify /md5 校验，镜像损坏设备起不来",
-          "desc_pending": true
+          "description": "Cisco IOS 镜像文件名（flash 内），boot system 启动项指向；升级/更换前必须 verify /md5 校验，镜像损坏设备起不来"
         }
       ],
       "notes": "1) ★ 危险点：全流程含 reload（重启断业务）——必须在变更窗口；回滚点 = 旧镜像仍在 flash（空间紧张删最老的，别删当前运行版）；带外 Console 是升级失败唯一救命通道。\n2) IOS-XE 16/17 走 install 模式（request platform software system upgrade / install add file xxx.bin），与本条 boot system 流程不同——先 show version 看清 IOS/XE 再选条目。\n3) verify /md5 不匹配 = 传输损坏，重传，绝不能 reload。\n4) 交互式 copy 会依次询问地址/源/目的文件名，照实回答即可。\n验证方法：升级后 show version 新版本号 + show flash 镜像齐全 + 业务连通抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -964,8 +908,7 @@
           "validate": "",
           "example": "confg-bak-20260928.cfg",
           "type": "string",
-          "description": "备份配置在设备存储中的文件名（如 old-cfg.cfg）；configure replace 会以它整体回滚配置——回滚是全量替换动作，执行前先 diff 确认目标文件内容",
-          "desc_pending": true
+          "description": "备份配置在设备存储中的文件名（如 old-cfg.cfg）；configure replace 会以它整体回滚配置——回滚是全量替换动作，执行前先 diff 确认目标文件内容"
         }
       ],
       "notes": "1) ★ 危险点：configure replace 是整体替换运行配置——替换前先 show archive config differences 做 diff，确认只回退不该回退的没有。\n2) configure replace 需要 archive 配置过；未配 archive 的老平台用 copy flash:xxx running-config 替代（注意是 merge 不是 replace，效果不同）。\n3) 与《保存配置并备份到本地 flash》分工：那条是\"改动后保存\"，本条是\"改坏后回退\"——先有保存的备份才有回滚点。\n4) 回滚后 write memory 与否取决于你要不要把回滚态固化（默认固化）。\n验证方法：diff 确认差异仅目标改动 + replace 后 show running-config 复核 + 业务抽测；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
@@ -996,8 +939,7 @@
           "validate": "ipv4",
           "example": "192.168.66.30",
           "type": "ip",
-          "description": "AAA/RADIUS/TACACS 服务器地址，决定设备把认证/授权/审计请求发往哪台服务器；填内网可达的管理网段 IP；配错将导致所有远程登录认证失败，建议先 ping 通再下发",
-          "desc_pending": true
+          "description": "AAA/RADIUS/TACACS 服务器地址，决定设备把认证/授权/审计请求发往哪台服务器；填内网可达的管理网段 IP；配错将导致所有远程登录认证失败，建议先 ping 通再下发"
         },
         {
           "name": "aaa_shared_key",
@@ -1007,8 +949,7 @@
           "validate": "",
           "example": "现场生成强密钥",
           "type": "string",
-          "description": "AAA 服务器共享密钥，用于设备与服务器间认证报文的加密校验；必须与服务器侧完全一致；配置中可能弱加密存储，导出配置时注意脱敏",
-          "desc_pending": true
+          "description": "AAA 服务器共享密钥，用于设备与服务器间认证报文的加密校验；必须与服务器侧完全一致；配置中可能弱加密存储，导出配置时注意脱敏"
         },
         {
           "name": "test_user",
@@ -1018,8 +959,7 @@
           "validate": "",
           "example": "netadmin",
           "type": "string",
-          "description": "AAA 测试用户名，验证 RADIUS/TACACS 服务器联通性；测试失败优先查共享密钥与 NAS IP 配置",
-          "desc_pending": true
+          "description": "AAA 测试用户名，验证 RADIUS/TACACS 服务器联通性；测试失败优先查共享密钥与 NAS IP 配置"
         },
         {
           "name": "test_password",
@@ -1029,8 +969,7 @@
           "validate": "",
           "example": "现场生成强口令",
           "type": "string",
-          "description": "AAA 测试口令，test aaa/test-aaa 验证服务器认证链路；与正式口令一致即可，仅测试用途",
-          "desc_pending": true
+          "description": "AAA 测试口令，test aaa/test-aaa 验证服务器认证链路；与正式口令一致即可，仅测试用途"
         },
         {
           "name": "local_user",
@@ -1040,8 +979,7 @@
           "validate": "",
           "example": "netadmin",
           "type": "string",
-          "description": "本地登录用户名，设备本地认证的身份标识；其权限等级（privilege/level）决定可执行命令范围，遵循最小权限",
-          "desc_pending": true
+          "description": "本地登录用户名，设备本地认证的身份标识；其权限等级（privilege/level）决定可执行命令范围，遵循最小权限"
         },
         {
           "name": "local_password",
@@ -1051,8 +989,7 @@
           "validate": "",
           "example": "现场生成强口令",
           "type": "string",
-          "description": "本地账号口令，控制该用户登录认证；privilege 15 级账号等同最高权限，口令泄露等于设备失守；配置中可能弱加密存储，导出时脱敏",
-          "desc_pending": true
+          "description": "本地账号口令，控制该用户登录认证；privilege 15 级账号等同最高权限，口令泄露等于设备失守；配置中可能弱加密存储，导出时脱敏"
         }
       ],
       "notes": "1) ★ 危险点（AAA 第一铁律）：配置 AAA 后**不要退出当前会话**——先用新开窗口验证能登录，确认兜底本地账号可用再断开；配置错误把自己锁外面只能 Console 救。\n2) ★ 保留 Console 通道：AAA 服务器不可达时 Console 是最后生命线（console 上配置本地兜底）。\n3) 本地兜底顺序必须显式配置（radius/tacacs 之后跟 local），服务器全挂时才回落本地账号。\n4) test aaa 返回 PASSED 才算服务器侧通；返回 FAIL 要区分口令错还是服务器拒绝。\n5) 与《开启 SSH 并创建本地管理用户》配套：本地兜底账号就是那条建的用户。\n验证方法：test aaa PASSED + 新窗口用域账号登录成功 + 拔服务器线后本地账号仍可登录；（验证人/型号/日期验证通过后回填 verified，属下轮真机验证会重点对象）",

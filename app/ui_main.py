@@ -1851,8 +1851,9 @@ class MainWindow(QMainWindow):
                 notes.append("端口范围展开")
             body = str(spec.get("description") or "").strip()
             if not body:
-                # 迁移期(desc_pending)/旧格式条目：描述待补，用灰字占位（不复述参数名充数）
-                body = "（描述待补）" if (stype or spec.get("desc_pending")) else (ex or "—")
+                # desc_pending 迁移机制已于 2026-10-09 退役（标记已全量清扫）：
+                # 结构化条目缺描述经 validate ERROR 拦截，此处仅剩旧格式兜底显示
+                body = (ex or "—")
             desc_html = html.escape(body)
             if notes:
                 desc_html += "<br><span style='color:%s;'>%s</span>" % (

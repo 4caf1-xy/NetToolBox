@@ -28,8 +28,7 @@
           "validate": "",
           "example": "nmcli con show 查看，一般等于网卡名",
           "type": "string",
-          "description": "NetworkManager 连接配置名，nmcli 按它修改网卡参数；先 nmcli con show 确认名字再改，改错连接会断网（远程操作务必留 console/带外兜底）",
-          "desc_pending": true
+          "description": "NetworkManager 连接配置名，nmcli 按它修改网卡参数；先 nmcli con show 确认名字再改，改错连接会断网（远程操作务必留 console/带外兜底）"
         },
         {
           "name": "ip_addr",
@@ -39,8 +38,7 @@
           "validate": "ipv4",
           "example": "192.168.10.50",
           "type": "ip",
-          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底",
-          "desc_pending": true
+          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底"
         },
         {
           "name": "prefix_len",
@@ -51,8 +49,7 @@
           "example": "24（不是 255.255.255.0）",
           "type": "int",
           "range": "0-32",
-          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
-          "desc_pending": true
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH"
         },
         {
           "name": "gateway",
@@ -62,8 +59,7 @@
           "validate": "ipv4",
           "example": "192.168.10.1",
           "type": "ip",
-          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效",
-          "desc_pending": true
+          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效"
         },
         {
           "name": "dns_ip",
@@ -73,8 +69,7 @@
           "validate": "ipv4",
           "example": "223.5.5.5",
           "type": "ip",
-          "description": "DNS 服务器 IP，写入网卡连接配置；填错表现为 ping IP 通、域名解析失败——是『能 ping 通打不开网页』的典型根因",
-          "desc_pending": true
+          "description": "DNS 服务器 IP，写入网卡连接配置；填错表现为 ping IP 通、域名解析失败——是『能 ping 通打不开网页』的典型根因"
         }
       ],
       "notes": "1) ★ 待真机核对：麒麟 V10 基于 RHEL 8 系（部分包混合 7 系），命令未经真机验证，\n   现场先 nmcli --version 确认。\n2) ipv4.method manual 别漏；连接名用 nmcli con show 查。\n3) 部分麒麟版本网络服务叫 network 而不是 NetworkManager，systemctl list-unit-files |\n   grep -i network 确认。",
@@ -105,8 +100,7 @@
           "validate": "ifname",
           "example": "eth0 / ens33 / enp3s0 / bond0",
           "type": "string",
-          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
-          "desc_pending": true
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）"
         },
         {
           "name": "ip_addr",
@@ -116,8 +110,7 @@
           "validate": "ipv4",
           "example": "192.168.10.50",
           "type": "ip",
-          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底",
-          "desc_pending": true
+          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底"
         },
         {
           "name": "prefix_len",
@@ -128,8 +121,7 @@
           "example": "24（不是 255.255.255.0）",
           "type": "int",
           "range": "0-32",
-          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
-          "desc_pending": true
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH"
         },
         {
           "name": "gateway",
@@ -139,8 +131,7 @@
           "validate": "ipv4",
           "example": "192.168.10.1",
           "type": "ip",
-          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效",
-          "desc_pending": true
+          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效"
         },
         {
           "name": "dns_ip",
@@ -150,8 +141,7 @@
           "validate": "ipv4",
           "example": "223.5.5.5",
           "type": "ip",
-          "description": "DNS 服务器 IP，写入网卡连接配置；填错表现为 ping IP 通、域名解析失败——是『能 ping 通打不开网页』的典型根因",
-          "desc_pending": true
+          "description": "DNS 服务器 IP，写入网卡连接配置；填错表现为 ping IP 通、域名解析失败——是『能 ping 通打不开网页』的典型根因"
         }
       ],
       "notes": "1) ★ 待真机核对：麒麟 V10 重启网络用 systemctl restart NetworkManager，\n   老版本可能是 network 服务，systemctl list-unit-files 确认。\n2) PREFIX 写掩码长度；ONBOOT=yes。",
@@ -182,8 +172,7 @@
           "validate": "ipv4",
           "example": "10.20.0.0",
           "type": "ip",
-          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略",
-          "desc_pending": true
+          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略"
         },
         {
           "name": "prefix_len",
@@ -194,8 +183,7 @@
           "example": "24（不是 255.255.255.0）",
           "type": "int",
           "range": "0-32",
-          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
-          "desc_pending": true
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH"
         },
         {
           "name": "gateway",
@@ -205,8 +193,7 @@
           "validate": "ipv4",
           "example": "192.168.10.1",
           "type": "ip",
-          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效",
-          "desc_pending": true
+          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效"
         },
         {
           "name": "ifname",
@@ -216,8 +203,7 @@
           "validate": "ifname",
           "example": "eth0 / ens33 / enp3s0 / bond0",
           "type": "string",
-          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
-          "desc_pending": true
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）"
         }
       ],
       "notes": "1) ★ 待真机核对：route-* 文件格式与 RHEL 一致，服务名按实际版本确认。\n2) 临时验证通过后再持久化，改文件前备份。",
@@ -248,8 +234,7 @@
           "validate": "ifname",
           "example": "eth0 / ens33 / enp3s0 / bond0",
           "type": "string",
-          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
-          "desc_pending": true
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）"
         },
         {
           "name": "vlan_id",
@@ -259,8 +244,7 @@
           "validate": "vlan",
           "example": "10",
           "type": "string",
-          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务",
-          "desc_pending": true
+          "description": "VLAN 编号，二层广播域标识；有效范围 1-4094（1 为默认 VLAN、1002-1005 系统保留）；Trunk 两端放行列表与 PVID 必须配套，改错会隔离业务"
         },
         {
           "name": "ip_addr",
@@ -270,8 +254,7 @@
           "validate": "ipv4",
           "example": "192.168.10.50",
           "type": "ip",
-          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底",
-          "desc_pending": true
+          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底"
         },
         {
           "name": "prefix_len",
@@ -282,8 +265,7 @@
           "example": "24（不是 255.255.255.0）",
           "type": "int",
           "range": "0-32",
-          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
-          "desc_pending": true
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH"
         }
       ],
       "notes": "1) ★ 待真机核对：ifcfg 的 VLAN 字段与 RHEL 一致，重启服务名按版本确认。\n2) 交换机侧 trunk + 放通该 VLAN；验证 cat /proc/net/vlan/config。",
@@ -315,8 +297,7 @@
           "example": "8080",
           "type": "int",
           "range": "1-65535",
-          "description": "TCP 端口号（0-65535），firewalld 放行与 ss 查监听的对象；--permanent 后须 firewall-cmd --reload 才生效",
-          "desc_pending": true
+          "description": "TCP 端口号（0-65535），firewalld 放行与 ss 查监听的对象；--permanent 后须 firewall-cmd --reload 才生效"
         }
       ],
       "notes": "1) ★ 待真机核对：麒麟 V10 默认带 firewalld，用法与 RHEL 一致。\n2) --permanent 与 --reload 成对出现；应用没监听（ss 查）不是防火墙问题。",
@@ -347,8 +328,7 @@
           "validate": "",
           "example": "sshd / firewalld / NetworkManager",
           "type": "string",
-          "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达",
-          "desc_pending": true
+          "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达"
         }
       ],
       "notes": "1) enable --now 一步到位；起不来先看 journalctl 最后几行。",
@@ -379,8 +359,7 @@
           "validate": "path",
           "example": "/opt/CentOS-7-x86_64-DVD-2009.iso",
           "type": "string",
-          "description": "本地 ISO 镜像文件路径，loop 挂载为本地安装源；写错路径 mount 失败；写入 /etc/fstab 前先手动挂载验证（配错 fstab 重启起不来）",
-          "desc_pending": true
+          "description": "本地 ISO 镜像文件路径，loop 挂载为本地安装源；写错路径 mount 失败；写入 /etc/fstab 前先手动挂载验证（配错 fstab 重启起不来）"
         },
         {
           "name": "pkg_name",
@@ -390,8 +369,7 @@
           "validate": "",
           "example": "createrepo",
           "type": "string",
-          "description": "软件包名（yum/apt/rpm 的操作对象）；离网环境先在异机下载（pip download / yumdownloader）再拷入安装",
-          "desc_pending": true
+          "description": "软件包名（yum/apt/rpm 的操作对象）；离网环境先在异机下载（pip download / yumdownloader）再拷入安装"
         }
       ],
       "notes": "1) ★ 待真机核对：麒麟 ISO 的 repo 目录层级可能与 CentOS 不同，\n   挂载后先 ls /mnt/cdrom 找到含 repodata/ 的目录再写 baseurl。\n2) 开机自动挂载写 /etc/fstab；gpgcheck=0 免导 key。",
@@ -442,8 +420,7 @@
           "validate": "",
           "example": "createrepo",
           "type": "string",
-          "description": "软件包名（yum/apt/rpm 的操作对象）；离网环境先在异机下载（pip download / yumdownloader）再拷入安装",
-          "desc_pending": true
+          "description": "软件包名（yum/apt/rpm 的操作对象）；离网环境先在异机下载（pip download / yumdownloader）再拷入安装"
         }
       ],
       "notes": "1) ★ 待真机核对；rpm -qpR 查依赖，依赖包放同目录一起 rpm -Uvh ./*.rpm。",
@@ -474,8 +451,7 @@
           "validate": "ipv4",
           "example": "223.5.5.5",
           "type": "ip",
-          "description": "DNS 服务器 IP，写入网卡连接配置；填错表现为 ping IP 通、域名解析失败——是『能 ping 通打不开网页』的典型根因",
-          "desc_pending": true
+          "description": "DNS 服务器 IP，写入网卡连接配置；填错表现为 ping IP 通、域名解析失败——是『能 ping 通打不开网页』的典型根因"
         },
         {
           "name": "domain",
@@ -485,8 +461,7 @@
           "validate": "",
           "example": "www.example.com",
           "type": "string",
-          "description": "设备域名后缀（ip domain-name / domain-name），用于 DNS 解析补全与 SSH RSA 密钥生成；改后提示符与解析习惯同步变化",
-          "desc_pending": true
+          "description": "设备域名后缀（ip domain-name / domain-name），用于 DNS 解析补全与 SSH RSA 密钥生成；改后提示符与解析习惯同步变化"
         },
         {
           "name": "con_name",
@@ -496,8 +471,7 @@
           "validate": "",
           "example": "nmcli con show 查看，一般等于网卡名",
           "type": "string",
-          "description": "NetworkManager 连接配置名，nmcli 按它修改网卡参数；先 nmcli con show 确认名字再改，改错连接会断网（远程操作务必留 console/带外兜底）",
-          "desc_pending": true
+          "description": "NetworkManager 连接配置名，nmcli 按它修改网卡参数；先 nmcli con show 确认名字再改，改错连接会断网（远程操作务必留 console/带外兜底）"
         }
       ],
       "notes": "1) ★ 待真机核对；有 NM 时 resolv.conf 是临时的，持久化走 nmcli/ifcfg。",
@@ -529,8 +503,7 @@
           "example": "8080",
           "type": "int",
           "range": "1-65535",
-          "description": "TCP 端口号（0-65535），firewalld 放行与 ss 查监听的对象；--permanent 后须 firewall-cmd --reload 才生效",
-          "desc_pending": true
+          "description": "TCP 端口号（0-65535），firewalld 放行与 ss 查监听的对象；--permanent 后须 firewall-cmd --reload 才生效"
         }
       ],
       "notes": "1) LISTEN 没有 → 服务没起；有但不通 → 查 firewalld。",
@@ -561,8 +534,7 @@
           "validate": "ifname",
           "example": "eth0 / ens33 / enp3s0 / bond0",
           "type": "string",
-          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
-          "desc_pending": true
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）"
         },
         {
           "name": "peer_ip",
@@ -572,8 +544,7 @@
           "validate": "ipv4",
           "example": "192.168.10.1",
           "type": "ip",
-          "description": "对端/目标 IP，ping/traceroute/tcpdump 等诊断命令的过滤与测试对象；仅诊断用途不影响配置",
-          "desc_pending": true
+          "description": "对端/目标 IP，ping/traceroute/tcpdump 等诊断命令的过滤与测试对象；仅诊断用途不影响配置"
         },
         {
           "name": "port",
@@ -584,8 +555,7 @@
           "example": "8080",
           "type": "int",
           "range": "1-65535",
-          "description": "TCP 端口号（0-65535），firewalld 放行与 ss 查监听的对象；--permanent 后须 firewall-cmd --reload 才生效",
-          "desc_pending": true
+          "description": "TCP 端口号（0-65535），firewalld 放行与 ss 查监听的对象；--permanent 后须 firewall-cmd --reload 才生效"
         }
       ],
       "notes": "1) ★ 待真机核对：tcpdump 未装时从麒麟 ISO 找包安装。",
@@ -616,8 +586,7 @@
           "validate": "",
           "example": "sshd / firewalld / NetworkManager",
           "type": "string",
-          "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达",
-          "desc_pending": true
+          "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达"
         }
       ],
       "notes": "1) 用法与 RHEL 一致。",
@@ -649,8 +618,7 @@
           "example": "1234",
           "type": "int",
           "range": "1-4194304",
-          "description": "进程号（PID），ss/cat /proc/PID 定位进程资源与监听；kill 前先 ps 确认进程归属，误杀系统进程会宕机",
-          "desc_pending": true
+          "description": "进程号（PID），ss/cat /proc/PID 定位进程资源与监听；kill 前先 ps 确认进程归属，误杀系统进程会宕机"
         }
       ],
       "notes": "1) 持久化调大句柄：/etc/security/limits.conf + systemd unit 的 LimitNOFILE。",
@@ -701,8 +669,7 @@
           "validate": "ifname",
           "example": "eth0",
           "type": "string",
-          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
-          "desc_pending": true
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）"
         },
         {
           "name": "ip_addr",
@@ -712,8 +679,7 @@
           "validate": "ipv4",
           "example": "192.168.1.100",
           "type": "ip",
-          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底",
-          "desc_pending": true
+          "description": "接口 IP 地址，本机网络身份；改错/地址冲突会当场断 SSH——远程改网卡务必留 console 或带外兜底"
         },
         {
           "name": "prefix_len",
@@ -723,8 +689,7 @@
           "validate": "masklen",
           "example": "24",
           "type": "string",
-          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
-          "desc_pending": true
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH"
         }
       ],
       "notes": "1) 临时生效，重启即失效；持久化改用配套条目。\n2) PREFIX 是掩码**长度**（24），不是点分掩码（255.255.255.0）。\n3) 配套条目：《ifcfg 文件永久配置 IP（麒麟 V10）》",
@@ -755,8 +720,7 @@
           "validate": "ipv4",
           "example": "10.0.0.0",
           "type": "ip",
-          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略",
-          "desc_pending": true
+          "description": "目的网段地址，路由/策略匹配的目标方向；0.0.0.0/0 表示任意目的；方向写反会导致流量走错策略"
         },
         {
           "name": "prefix_len",
@@ -766,8 +730,7 @@
           "validate": "masklen",
           "example": "8",
           "type": "string",
-          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH",
-          "desc_pending": true
+          "description": "前缀长度（0-32），与 IP 组成 CIDR（如 /24）；写错网段判定全错，远程操作可能当场断 SSH"
         },
         {
           "name": "gateway",
@@ -777,8 +740,7 @@
           "validate": "ipv4",
           "example": "192.168.1.1",
           "type": "ip",
-          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效",
-          "desc_pending": true
+          "description": "网关 IP，本网段出方向的下一跳；配错表现为同网段通、跨网段断；nmcli 修改后需重新激活连接生效"
         },
         {
           "name": "con_name",
@@ -788,8 +750,7 @@
           "validate": "",
           "example": "eth0",
           "type": "string",
-          "description": "NetworkManager 连接配置名，nmcli 按它修改网卡参数；先 nmcli con show 确认名字再改，改错连接会断网（远程操作务必留 console/带外兜底）",
-          "desc_pending": true
+          "description": "NetworkManager 连接配置名，nmcli 按它修改网卡参数；先 nmcli con show 确认名字再改，改错连接会断网（远程操作务必留 console/带外兜底）"
         }
       ],
       "notes": "1) 本条目同时给出**临时**与**持久化**两套做法，按现场需要取用。\n2) 只配去程不够：对端也要有回程路由，否则单向不通。\n3) 临时路由重启必丢，做变更请用第 2) 段的 nmcli 方式。",
@@ -820,8 +781,7 @@
           "validate": "ifname",
           "example": "eth0",
           "type": "string",
-          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）",
-          "desc_pending": true
+          "description": "Linux 网卡名（eth0/ens33/bond0 等），操作的目标接口；先 ip link 确认存在再操作，选错网卡会当场断 SSH（远程操作务必留带外兜底）"
         }
       ],
       "notes": "1) Link detected: no 说明物理层没起来（线缆/网口/对端）。\n2) 协商速率与预期不符时先查线缆等级与对端配置。",
@@ -852,8 +812,7 @@
           "validate": "ipv4",
           "example": "223.5.5.5",
           "type": "ip",
-          "description": "连通性测试目标（IP 或域名），ping/traceroute 的对象；先测 IP 再测域名可分离网络故障与 DNS 故障",
-          "desc_pending": true
+          "description": "连通性测试目标（IP 或域名），ping/traceroute 的对象；先测 IP 再测域名可分离网络故障与 DNS 故障"
         },
         {
           "name": "domain",
@@ -863,8 +822,7 @@
           "validate": "",
           "example": "www.baidu.com",
           "type": "string",
-          "description": "设备域名后缀（ip domain-name / domain-name），用于 DNS 解析补全与 SSH RSA 密钥生成；改后提示符与解析习惯同步变化",
-          "desc_pending": true
+          "description": "设备域名后缀（ip domain-name / domain-name），用于 DNS 解析补全与 SSH RSA 密钥生成；改后提示符与解析习惯同步变化"
         }
       ],
       "notes": "1) 能 ping 通 IP 但 dig 不通 → 查 DNS 配置（不是连通性问题）。\n2) traceroute 卡在某跳 → 从那一跳往两边查。",
@@ -895,8 +853,7 @@
           "validate": "ipv4",
           "example": "192.168.66.10",
           "type": "ip",
-          "description": "NTP 时间源地址，统一设备时钟；时间漂移会导致证书校验失败、日志排序混乱；须网络可达，内网建议指向专用 NTP",
-          "desc_pending": true
+          "description": "NTP 时间源地址，统一设备时钟；时间漂移会导致证书校验失败、日志排序混乱；须网络可达，内网建议指向专用 NTP"
         }
       ],
       "notes": "1) 麒麟 V10 的 chrony 与 RHEL 系完全同构（/etc/chrony.conf、chronyc 命令一致）。\n2) sources 见 ^* 才是真同步；^? 先查 UDP 123 与 NTP 服务端 allow 配置。\n3) 若系统用 ntpd 而非 chrony（少数老装机构建）：systemctl status ntpd 区分，别混配。\n验证方法：chronyc sources 见 ^* + date 一致，60 秒完成；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
