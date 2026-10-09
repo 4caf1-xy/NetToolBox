@@ -2,7 +2,11 @@ FROM centos:7
 
 # CentOS 7 is EOL (2024-06): official mirrorlist is gone, switch to vault.
 # sed recipe from the official CentOS EOL FAQ.
-RUN sed -i 's/mirror.centos.org/vault.centos.org/g; s/^#.*baseurl=http/baseurl=http/g; s/^mirrorlist=http/#mirrorlist=http/g' /etc/yum.repos.d/CentOS-*.repo && \
+# VAULT_MIRROR: vault.centos.org is CloudFront geo-blocked on some networks
+# (403 from CN networks, 2026-10 session-1 verified) — override with e.g.
+# mirrors.aliyun.com/centos-vault or mirrors.tuna.tsinghua.edu.cn/centos-vault.
+ARG VAULT_MIRROR=vault.centos.org
+RUN sed -i "s|mirror.centos.org|${VAULT_MIRROR}|g; s/^#.*baseurl=http/baseurl=http/g; s/^mirrorlist=http/#mirrorlist=http/g" /etc/yum.repos.d/CentOS-*.repo && \
     yum install -y openssh-server systemd iproute net-tools iputils tcpdump \
         curl bind-utils nmap-ncat ethtool psmisc vim-enhanced less sudo && \
     yum clean all && \
