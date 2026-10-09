@@ -43,3 +43,9 @@
 - AI 回复 = **全宽内容卡片**（对话区宽度减两侧 24px 边距），代码块等宽字体 + pre-wrap 自动换行 + 换行悬挂缩进，杜绝横向裁剪；代码块右上角"复制"浮层复制原始文本；用户消息保持右侧气泡（上限 80% 视口）。**此为对上一轮"气泡上限 80%"规则的修订**（修订依据：长命令在窄柱内被裁剪不可用）。
 - Tab 内分栏一律 QSplitter（GripSplitter）+ 状态记忆：`split_state()` / `restore_split_state()` 进 ui_state.json（key 按 Tab 命名，恢复时校验尺寸合理性，坏值回退默认），禁止写死分割尺寸；分隔条默认隐形、hover 显主色高亮线。
 - 样式只走 theme.qss token（theme.py 内置兜底副本逐字同步，构建自检比对），QSplitter 嵌套 ≤2 层；渲染/布局改动不得触碰业务信号槽。**豁免：ui_main 列表行的厂商色块（ui_main `setStyleSheet` 唯一合法调用点）**——颜色按厂商 slug 数据驱动，静态 qss 无法表达（2026-10-08 裁决）；富文本内联色的颜色值一律取 theme.py 常量（含 `ERROR_LINE_BG` / `TREE_CATEGORY_COLORS`），不得手写十六进制。
+
+## 7. 主库与种子路径备忘（2026-10-09 批3 补记）
+
+- 开发态主库实际路径：`dist_package/command_lib.db`（app/ 下无库；源码运行默认"程序同目录"在打包语境下即 dist_package）。备份统一落 `backup/`（如 `command_lib-pre-params-20261009.db`），不入库。
+- 变更类判定表唯一事实源：`app/renderer.py` 的 `QUERY_WHITELIST` / `CHANGE_FORCE_PREFIXES`；文档与 AI prompt 只引用不改写。改白名单必须重跑 `--validate-seed` 并核对 [W] 增减对账。
+- rollback 字段（schema 2026-10-09）：条目级多行字符串，与 commands 同构（# / ! 注释行同约定）；变更类必填、查询类免填；validate 当前宽容期已结束——[E] 级拦截见任务6。
