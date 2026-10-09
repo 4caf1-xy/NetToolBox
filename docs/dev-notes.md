@@ -103,3 +103,27 @@
 | 扫尾A | zte ×4 | 真机验证会 | ZXR10 命令名按常见写法给出，现场以 ? 实测为准；核对通过后按 seed-guide 回填 |
 | 扫尾B | 12 棵树 by_vendor + 4 处动作引用 | 验证会抽查 | 排查向导逐树走查：zte/juniper 分支命令渲染非空、无歧义告警 |
 
+
+## 批3 rollback 判断批 · 抽查记录（2026-10-09）
+
+**总账**：218 条 rollback 落地（15 厂商），变更类 231 条全覆盖，validate EXIT=0 且 [W]=0。每厂商批完即 validate，[W] 240→0 全程对账吻合（注入数+翻 query 数逐步核销）。
+
+**判定表白名单精化记录**（批3 中发现即修，共 5 轮）：enable/disable/terminal monitor → terminal trapping → monitor start/stop/list → diagnose sys ha 只读族 → top -b/top -bn/top -bn1 + ip -4/-6 addr/route show。合计 21 条会话级/只读诊断条目从误判变更类翻回查询类（免 rollback），消除 21 条"凑数 rollback"误报。
+
+**幻觉退回修正实例（沉淀用反例）**：
+1. cisco AAA：`no username {{x}} privilege 15 secret <...>` —— `no` 形式不接收属性参数，正确为 `no username {{x}}`。起草时自查发现即改（未入提交）。
+2. h3c AAA：批3 h3c 提交时漏注入 1 条（15 条变更只注入 14）——靠"缺 rollback 清单逐条核对"在 zte 批前抓回补齐。教训：每厂商注入必须以 validate 后的缺口清单为终态对账，不能信计划 JSON（其分类快照会过期）。
+3. paloalto 口令条：命令正文经内容审查通道超时无法逐行核对，rollback 为盲写——已在 rollback 文本内标注"复核重点"，防火墙复核时置顶确认。
+
+**防火墙四家复核**：fortinet 17 / paloalto 14 / sangfor 10 / topsec 10 = 51 条对照表（.workbuddy/防火墙四家rollback复核对照表.md）呈送本人复核，2026-10-09 用户裁决"复核通过"，硬停解除。
+
+**全查组 100%**：reload/erase/restart/reboot/format 类 27 条，三段对照表（.workbuddy/全查组27条三段对照.md）生成待人工过目；要点：各厂商升级回退全部走"指回旧镜像/旧配置文件 + 重启 + show version 复核"路径，Linux systemctl restart 类回退=恢复配置文件 + 重启服务 + status 复核。
+
+**分厂商 ≥30% 抽查**（起草时逐条对照 commands 完成第一遍，此处为复核抽样清单）：
+- cisco 17 抽 6（VLAN/ACL/NAT/SSH/AAA/升级）：undo 次序、引用先行解绑、口令人工位 ✓
+- huawei 27 抽 9（VLAN/Trunk/OSPF/ACL/SSH/SNMP/升级/回滚/port-group）：port-group 组内撤销语义 ✓
+- h3c 16 抽 5（VLAN/ACL/NAT/升级/AAA 补漏条）✓
+- juniper 15 抽 5（VLAN/静态路由/firewall filter/SNAT-DNAT/RADIUS）：delete+commit 精确撤销 ✓
+- fortinet 17 抽 6 / paloalto 14 抽 5 / sangfor 10 抽 3 / topsec 10 抽 3：防火墙组已整批硬停复核通过 ✓
+- centos 19 抽 6 / kylin 13 抽 4 / openeuler 12 抽 4 / ubuntu 13 抽 4 / ops 5 抽 2：备份恢复/反向命令对称/rm 限定本次产物 ✓
+- ruijie 16 抽 5 / zte 14 抽 5：RGOS/ZXR10 类 IOS no 前缀 + ? 口径标注 ✓
