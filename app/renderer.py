@@ -80,6 +80,7 @@ QUERY_WHITELIST = (
     #     startswith("ip addr ") 吞进查询类（裁决B增补① 明令禁止的形态）
     "ip addr show", "ip link show", "ip route show", "ip neigh show",
     "ip rule show", "ip maddr show", "ip -s link show", "ip -s addr show",
+    "ip -4 addr show", "ip -4 route show", "ip -6 addr show", "ip -6 route show",
     "systemctl status", "systemctl is-active", "systemctl is-enabled",
     "systemctl is-failed", "systemctl list-units", "systemctl list-unit-files",
     "systemctl list-dependencies", "systemctl list-timers", "systemctl show",

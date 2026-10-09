@@ -19,6 +19,7 @@
       "title": "rsync 断点续传同步大文件（先 -n 演练）",
       "description": "离网/半离网环境传 ISO、日志包、备份目录：rsync -avP 中断后重跑同命令即续传。",
       "commands": "# ===== rsync 断点续传同步大文件（先 -n 演练）=====\n# ---- 0. ★ 首次务必 -n 演练（dry run）：确认将同步/覆盖的清单再实跑 ----\nrsync -avn --progress {{src_path}} {{dst_path}}\n# ---- 1. 实跑（-P = --partial --progress；中断后重跑同一条命令即断点续传）----\nrsync -avP {{src_path}} {{dst_path}}\n# ---- 2. 校验（单文件全量比对；目录用 du -sh 两侧对比先粗验）----\nsha256sum {{src_path}}\nsha256sum {{dst_path}}\n",
+      "rollback": "# 回退：删除本次同步到目标的产物（★ 确认目标路径无他人文件后再删；\n# 若目标原已有同名旧版本且需恢复，按变更前备份回填）\nrm -rf {{dst_path}}\n# 复核\nls {{dst_path}} 2>/dev/null || echo '目标已清空'",
       "params": [
         {
           "name": "src_path",
@@ -60,6 +61,7 @@
       "title": "分卷打包与合并校验（tar + split + sha256）",
       "description": "大目录/大文件切成小卷过 U 盘或受限通道：打包分卷、逐卷校验、合并解压三段流程。",
       "commands": "# ===== 分卷打包与合并校验（tar + split + sha256）=====\n# ---- 1.【打包机】打包并按卷大小切分（-l 是小写 L；卷名以 .aa/.ab… 结尾）----\ntar czf - {{src_path}} | split -b {{chunk_size}} - {{dst_path}}/bundle.tar.gz.\n# ---- 2.【打包机】生成逐卷校验清单（清单要随卷一起带走）----\nsha256sum {{dst_path}}/bundle.tar.gz.* > {{dst_path}}/SHA256SUMS\n# ---- 3.【接收机】★ 合并前先逐卷校验，任何一行 FAILED 都不许往下走 ----\ncd {{dst_path}} && sha256sum -c SHA256SUMS\n# ---- 4.【接收机】校验全过才合并解压（-C 恢复目录自行替换）----\ncat {{dst_path}}/bundle.tar.gz.* > {{dst_path}}/bundle.tar.gz\ntar xzf {{dst_path}}/bundle.tar.gz -C /恢复目录\n",
+      "rollback": "# 回退：删除分卷、合并包与解压产物（★ 仅清理本变更产生的 bundle.* 与 SHA256SUMS，\n# 别误删目标目录原有文件）\nrm -f {{dst_path}}/bundle.tar.gz* {{dst_path}}/SHA256SUMS\n# 复核\nls {{dst_path}}",
       "params": [
         {
           "name": "src_path",
@@ -111,6 +113,7 @@
       "title": "U 盘挂载拷贝（ntfs-3g/exfat，认准设备名防错盘）",
       "description": "物理介质离线搬运：识别设备、按文件系统类型挂载、拷贝落盘、安全卸载。",
       "commands": "# ===== U 盘挂载拷贝（ntfs-3g/exfat）=====\n# ---- 0. ★ 认准设备名：lsblk 核对容量/型号，别凭 sda/sdb 惯性猜 ----\nlsblk -o NAME,SIZE,MODEL,FSTYPE,MOUNTPOINT\n# ---- 1. 挂载（挂载点必须是空目录；NTFS 用 ntfs-3g，exFAT 用 exfat-fuse，FAT32 直接 mount vfat）----\nmkdir -p /mnt/usb\nmount.ntfs-3g /dev/{{usb_dev}} /mnt/usb\nmount | grep /mnt/usb\n# ---- 2. 拷贝 + 强制落盘 ----\ncp -av {{src_path}} /mnt/usb/\nsync\n# ---- 3. 安全卸载（卸载成功才拔盘）----\numount /mnt/usb\n",
+      "rollback": "# 回退：删除本次拷入 U 盘的文件并卸载（先 sync 再 umount，卸载成功才拔盘）\nrm -ri /mnt/usb/$(basename {{src_path}})\nsync && umount /mnt/usb",
       "params": [
         {
           "name": "src_path",
@@ -152,6 +155,7 @@
       "title": "scp 限速传输（-l 限速，避免占满管理口带宽）",
       "description": "半离网内网走 ssh 通道传文件：scp -l 限速；更长清单推荐 rsync --bwlimit（可续传）。",
       "commands": "# ===== scp 限速传输 =====\n# ---- scp：-l 单位 Kbit/s（8000 ≈ 1 MB/s），给管理口留出带宽数量级 ----\nscp -l 8000 {{src_path}} {{remote_user}}@{{remote_ip}}:{{dst_path}}\n# ---- 备选：rsync --bwlimit 单位 KB/s（断点续传、目录递归更省心，二选一）----\nrsync -avP --bwlimit=8000 {{src_path}} {{remote_user}}@{{remote_ip}}:{{dst_path}}\n# ---- 接收侧校验 ----\nsha256sum {{dst_path}}\n",
+      "rollback": "# 回退：删除传输到远端/本地的目标产物（远端路径按变更记录）\nrm -f {{dst_path}}\n# 复核\nls {{dst_path}} 2>/dev/null || echo '目标已清空'",
       "params": [
         {
           "name": "src_path",
@@ -213,6 +217,7 @@
       "title": "python3 http.server 临时文件分发（半离网）",
       "description": "内网无 FTP/samba 时零安装起临时下载点：python3 自带 http.server，浏览器/wget 即取。",
       "commands": "# ===== python3 http.server 临时文件分发 =====\n# ---- 0. 确认要分发的目录与本机 IP ----\nls {{src_path}}\nhostname -I\n# ---- 1. 起临时 HTTP 服务（前台运行，Ctrl+C 即停；卡住终端可放 tmux/screen 里跑）----\ncd {{src_path}} && python3 -m http.server {{port}}\n# ---- 2. 接收侧下载（浏览器打开 http://<hostname -I 显示的IP>:{{port}}/ 点选文件；或命令行）----\n# wget http://<本机IP>:{{port}}/文件名\n# curl -O http://<本机IP>:{{port}}/文件名\n# ---- 3. 下载完校验（分发侧先生成清单放进 {{src_path}} 更省事）----\n# sha256sum -c SHA256SUMS\n",
+      "rollback": "# 回退：临时 HTTP 服务为前台进程，Ctrl+C 即停（tmux/screen 里跑的先切回窗口再停）；\n# 确认端口已释放\nss -tlnp | grep :{{port}} || echo '端口已释放'",
       "params": [
         {
           "name": "src_path",
