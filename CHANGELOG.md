@@ -41,7 +41,25 @@
 
 ## Unreleased
 
-（暂无——下一批变更从这里开始累积。）
+#### 验证会（2026-10-09 实验室场 1：聚焦切片）
+
+- **首次真机级验证回填**：lab 实验室（ubuntu 22.04 / centos7 / FRR 容器）实测 40 条——
+  **绿 20 / 语法核对 7 / 红 2 / 挂起 11**，err_unresolved 喂入 7 条真实回显（D-Bus 死结、
+  RTNETLINK 无 CAP_NET_ADMIN、FRR ospfd 实例化失败、sha256sum 目录参数、enable 别名拒绝、
+  netplan 权限告警、timesync1 总线缺失）。回退三段实战 10 条：6 条干净回退（含 FRR 静态路由
+  语法级回退）、4 条失败/滞后样本完整留档（回退链断裂、netplan 回退地址残留、VLAN 时序竞态）。
+  证据进伴生仓 `docs/verify/20261009-lab-session1/`（tag `verify-20261009-lab-session1`）。
+- **种子修正 7 条（借真回显核对正文）**：Ubuntu 三个 systemd 条目 `service_name` 默认值
+  `sshd`→`ssh`（实证：enable 操作别名报 Refusing to operate、journalctl -u sshd 静默返回空，
+  单元本名是 ssh）；netplan VLAN/bond 两条补 `chmod 600`（644 时 apply 告警 Permissions too
+  open）；rsync/scp 两条 `dst_path` 示例值目录改文件路径（`sha256sum /backup/` 报 Is a directory、
+  回退 `rm -rf` 渲染也随之收敛到文件级）。validate EXIT=0。
+- **实验室工程**：`lab/linux-centos7/Dockerfile` 新增 `ARG VAULT_MIRROR`（默认
+  vault.centos.org 不变，该站对本机网络 403，可用 `--build-arg VAULT_MIRROR=mirrors.aliyun.com/centos-vault`
+  等镜像站覆盖）；新增验证会执行工具 `scripts/lab_exec.py`（容器内跑脚本 + 证据落盘伴生仓）。
+- 已知环境项：srlinux 镜像 ghcr 白名单被 daocloud 拒（Nokia 预留，不影响现有验证）；FRR ospfd
+  在 WSL2 容器实例化失败（zebra/staticd/bgp 正常），OSPF 条目红档留真机；centos7 容器无
+  CAP_NET_ADMIN（未 privileged），网络变更类命令 RTNETLINK 拒绝。
 
 ## v0.4.0（2026-09-29 首发，2026-10-08 重新发版）
 

@@ -140,3 +140,29 @@
 - 已知边界：panel_dashboard 的 B14 类 250ms 时序检查在多套件背靠背满负载下出现过一次 42/43 抖动（单独复跑 3×43/43 稳定），非本改造引入。
 
 **边界备忘（同日补记）**：`db.py::_migrate()` 每次开库无条件执行 `PRAGMA user_version` 写头部——正常应用（含 exe）启动都会重写主库 header 字节（sha256 变化、逻辑零变化，338/82/26 与 history 均不动）。主库指纹断言的"零变化"口径仅对**不打开真库的进程**（smoke 套件，`:memory:`/临时库）成立；v0.5.0 发版日实测：六次 smoke 全程 hash 恒 `6441ea7d…`，exe 启动冒烟后变为 `bc47922a…`（纯 header 重写，逻辑规模复核一致）。
+
+
+## 验证会场 1（2026-10-09，实验室聚焦切片）——档位分布与异常清单
+
+**范围**：lab 覆盖子集（ubuntu+ops 30 全验 + cisco/ios 4 语法核对 + 变更类抽 10 做 rollback 三段）；
+skeleton 41 条（防火墙×38 + 中兴交换机×3）映射表确认 lab 全不可吃 → 按手册"不动状态字段"仅登记挂起清单。
+**四档分布（实测回填 db）**：绿 20 / 语法核对 7 / 红 2 / 挂起 11；仪表盘四档 0/0/41/297 → 20/7/52/259。
+**err_unresolved**：+7（D-Bus 死结 / RTNETLINK 无 CAP_NET_ADMIN / FRR ospfd 实例化 / sha256sum 目录参数 / enable 别名拒绝 / netplan 权限告警 / timesync1 总线缺失）。
+
+**环境坑实录（复现要点）**：
+1. compose v5 `up --build` 撞 bake 失败 → 直接 `docker build` 两镜像后 `up -d`（COMPOSE_BAKE=false 亦无效）；
+2. vault.centos.org 对本机网络 403（CloudFront 地域限制）→ Dockerfile 加 `ARG VAULT_MIRROR`，本地 aliyun 构建；sed 分隔符须用 `|`（镜像站值含 `/`）；
+3. docker-credential-desktop 不在 Git Bash PATH → `export PATH="/e/DockerDesktop/resources/bin:$PATH"`（本机 Docker 装在 E 盘）；daemon.json 走镜像源未做，改用"镜像站前缀 pull + retag"；
+4. `bash -s` 脚本内**不得**放 apt-get/yum——其 stdin 会吃掉脚本剩余字节（B2 批脚本半截蒸发根因）；
+5. lab_exec 的 `wait` 会等到脚本内 nohup 常驻进程 → 显式 `wait $PID`。
+
+**种子修正 7 条**（走 seed→validate EXIT=0→import_seed_dir updated=7）：ubuntu service_name 默认 sshd→ssh ×3（enable 别名拒绝 + journalctl 空回显实证）；netplan VLAN/bond 补 chmod 600 ×2；rsync/scp dst_path 示例目录→文件 ×2（顺带修复 rollback rm -rf 渲染粒度）。
+
+**回退三段实战样本**：干净回退 6（临时IP/临时路由/本地源/DNS/systemctl 服务管理/ufw + FRR 静态路由语法级）；
+失败/滞后 4：① centos ifcfg 回退链断裂（备份步失败→回退全断）；② netplan IP 回退地址残留（滞后收敛，无基线 yaml 所致）；
+③ netplan VLAN 时序竞态（apply 后接口未现、回退后反而出现）——唯一直接红档；④ centos systemctl/firewalld/kylin route 组：D-Bus 死结 / command not found / RTNETLINK 拒绝，均环境性归挂起。
+
+**待真机清单（下轮排期）**：OSPF/NAT（FRR 等价性不足）、防火墙 38 skeleton + 中兴 3（模拟器会话）、
+centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try 交互路径、审计/时间同步毫秒级判读。
+
+**候选案例 3 篇**：伴生仓 `docs/verify/20261009-lab-session1/cases/`（回退链断裂 / netplan 回退滞后 / ssh 单元名闭环）。
