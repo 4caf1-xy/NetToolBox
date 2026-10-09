@@ -1035,7 +1035,7 @@
       "category": "版本升级",
       "title": "软件版本查看、备份与升级流程（PAN-OS，request 系）",
       "description": "show system info → software download/install → 重启复核。",
-      "commands": "# ===== 版本查看、备份与升级流程（PAN-OS）=====\n# ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\nshow system info | match sw-version\n# ---- 1. 下载目标版本（设备可达更新源；离网用离线包经 Web 上传）----\nrequest system software download version <目标版本号>\nrequest system software download status\n# ---- 2. 安装（安装完需手动 reboot 才切换）----\nrequest system software install version <目标版本号>\nrequest system reboot\n# ---- 3. 重启后复核 ----\nshow system info | match sw-version\n",
+      "commands": "# ===== 版本查看、备份与升级流程（PAN-OS）=====\n# ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\n# ---- 0b. 备份服务器可达性确认（导出/备份前）----\nping host {{backup_server}}\nshow system info | match sw-version\n# ---- 1. 下载目标版本（设备可达更新源；离网用离线包经 Web 上传）----\nrequest system software download version <目标版本号>\nrequest system software download status\n# ---- 2. 安装（安装完需手动 reboot 才切换）----\nrequest system software install version <目标版本号>\nrequest system reboot\n# ---- 3. 重启后复核 ----\nshow system info | match sw-version\n",
       "params": [
         {
           "name": "backup_server",

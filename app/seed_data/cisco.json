@@ -869,7 +869,7 @@
       "category": "版本升级",
       "title": "软件版本查看、备份与升级流程（Cisco IOS）",
       "description": "show version → 配置/镜像双备份 → md5 校验 → 指定启动镜像 → reload → 复核。",
-      "commands": "! ===== 版本查看、备份与升级流程（Cisco IOS）=====\n! ---- 0. ★ 三要素确认：变更窗口 / 回滚点（旧镜像保留）/ 带外 Console 通道 ----\nshow version\n! ---- 1. 备份配置与当前镜像（交互式输入 TFTP 地址与文件名）----\ncopy running-config tftp:\ncopy flash: tftp:\n! ---- 2. 看 flash 空间，传输新镜像（交互式 copy tftp: flash:）----\ndir flash:\ncopy tftp: flash:\n! ---- 3. ★ 校验新镜像（md5 值来自官方下载页；不匹配绝对禁止 reload）----\nverify /md5 flash:{{ios_image}}\n! ---- 4. 指定启动镜像并保存 ----\nconfigure terminal\nboot system flash:{{ios_image}}\nend\nwrite memory\n! ---- 5. 重启加载新版本（★ 备份与回滚方案就绪后再做）----\nreload\n! ---- 6. 重启后复核 ----\nshow version\n",
+      "commands": "! ===== 版本查看、备份与升级流程（Cisco IOS）=====\n! ---- 0. ★ 三要素确认：变更窗口 / 回滚点（旧镜像保留）/ 带外 Console 通道 ----\n! ---- 0b. 备份服务器可达性确认（配置/镜像备份前必须 ping 通）----\nping {{backup_server}}\nshow version\n! ---- 1. 备份配置与当前镜像（交互式输入 TFTP 地址与文件名）----\ncopy running-config tftp:\ncopy flash: tftp:\n! ---- 2. 看 flash 空间，传输新镜像（交互式 copy tftp: flash:）----\ndir flash:\ncopy tftp: flash:\n! ---- 3. ★ 校验新镜像（md5 值来自官方下载页；不匹配绝对禁止 reload）----\nverify /md5 flash:{{ios_image}}\n! ---- 4. 指定启动镜像并保存 ----\nconfigure terminal\nboot system flash:{{ios_image}}\nend\nwrite memory\n! ---- 5. 重启加载新版本（★ 备份与回滚方案就绪后再做）----\nreload\n! ---- 6. 重启后复核 ----\nshow version\n",
       "params": [
         {
           "name": "backup_server",

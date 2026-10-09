@@ -837,7 +837,7 @@
       "category": "版本升级",
       "title": "软件版本查看、备份与升级流程（锐捷 RGOS）",
       "description": "show version → 备份 → 传输新镜像 → boot system 指定 → reload。",
-      "commands": "! ===== 版本查看、备份与升级流程（锐捷 RGOS）=====\n! ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\nshow version\ndir flash:\n! ---- 1. 备份配置与当前镜像（交互式输入 TFTP 地址与文件名）----\ncopy running-config tftp:\ncopy flash: tftp:\n! ---- 2. 传输新镜像并校验（交互式；md5 值来自官方下载页）----\ncopy tftp: flash:\nverify /md5 flash:{{rgos_image}}\n! ---- 3. 指定启动镜像并保存 ----\nconfigure terminal\nboot system flash:{{rgos_image}}\nend\nwrite memory\n! ---- 4. ★ 重启生效（备份与回滚方案就绪后再做）----\nreload\n! ---- 5. 重启后复核 ----\nshow version\n",
+      "commands": "! ===== 版本查看、备份与升级流程（锐捷 RGOS）=====\n! ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\n! ---- 0b. 备份服务器可达性确认（配置/镜像备份前必须 ping 通）----\nping {{backup_server}}\nshow version\ndir flash:\n! ---- 1. 备份配置与当前镜像（交互式输入 TFTP 地址与文件名）----\ncopy running-config tftp:\ncopy flash: tftp:\n! ---- 2. 传输新镜像并校验（交互式；md5 值来自官方下载页）----\ncopy tftp: flash:\nverify /md5 flash:{{rgos_image}}\n! ---- 3. 指定启动镜像并保存 ----\nconfigure terminal\nboot system flash:{{rgos_image}}\nend\nwrite memory\n! ---- 4. ★ 重启生效（备份与回滚方案就绪后再做）----\nreload\n! ---- 5. 重启后复核 ----\nshow version\n",
       "params": [
         {
           "name": "backup_server",

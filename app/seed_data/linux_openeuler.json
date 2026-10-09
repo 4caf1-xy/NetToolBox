@@ -6,7 +6,7 @@
   "vendor_slug": "openeuler",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 19,
+  "count": 22,
   "entries": [
     {
       "uuid": "54f524f2-7b5d-5c92-899e-a2bd2fb92df5",
@@ -807,6 +807,133 @@
       "commands": "# ===== 光模块读数与网卡错包判读（ethtool -m，openEuler 22.03）=====\n# ---- 1. 光模块 DOM 读数（Rx/Tx 功率；不支持 DOM 的电口模块无输出）----\nethtool -m <网卡名>\n# ---- 2. 错包统计基线（留存本输出再观察增量）----\nip -s link show <网卡名>\nethtool -S <网卡名> | head -20\n# ---- 3. 判读口径见 notes；CRC 持续增长 = 光衰/模块/对端问题 ----\n",
       "params": [],
       "notes": "1) ethtool -m 输出 RX Power/TX Power 判读口径与网络侧一致（-5 ~ -15 dBm 健康区，低于 -20 告警）。\n2) ethtool -S 的 rx_crc_errors / rx_no_buffer 持续增长：CRC 查光衰与模块，no_buffer 查 CPU 负载与缓冲。\n3) 判读口径以网卡/模块厂商 datasheet 为准；先留存基线再观察增量。\n验证方法：ethtool -m 读数健康 + 基线后 CRC 不再增长；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "9e8fce7a-2958-5bdd-95ce-882ff407a9b9",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "排查命令",
+      "title": "tcpdump 抓包入门五式（openEuler）",
+      "description": "按主机/端口抓包定位流量是否到达本机：五式覆盖定点抓包、排除 SSH 防刷屏、落盘 pcap 离线分析与回放，远程排查时先排除自己的连接再定过滤。",
+      "commands": "# ===== tcpdump 抓包入门五式（openEuler）=====\n# ---- 1. 按对端主机抓（最常用）----\ntcpdump -i {{ifname}} -nn host {{peer_ip}} -c 100\n# ---- 2. 按端口抓 ----\ntcpdump -i {{ifname}} -nn port {{port}} -c 100\n# ---- 3. 远程排查：排除自己的 SSH，防刷屏 ----\ntcpdump -i {{ifname}} -nn not port 22 -c 200\n# ---- 4. 落盘成 pcap（带回工作机用 Wireshark 分析）----\ntcpdump -i {{ifname}} -nn -w /tmp/capture.pcap -c 1000\n# ---- 5. 回放读包（服务器上快速核对内容）----\ntcpdump -nn -r /tmp/capture.pcap | head -40",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "type": "string",
+          "required": true,
+          "default": "ens192",
+          "example": "eth0 / ens192 / enp3s0 / bond0",
+          "validate": "ifname",
+          "description": "抓包的目标网卡（ip link 确认存在与状态），抓错网卡等于没抓；虚拟机常见 ens192/ens160；只读抓包不改配置"
+        },
+        {
+          "name": "peer_ip",
+          "label": "对端 IP",
+          "type": "ip",
+          "required": true,
+          "default": "192.0.2.10",
+          "example": "192.0.2.10",
+          "validate": "ipv4",
+          "description": "过滤的对端/目标地址，确认该主机的流量是否到达本机；抓包是只读诊断，但完整抓到敏感流量时注意 pcap 的留存范围"
+        },
+        {
+          "name": "port",
+          "label": "端口号",
+          "type": "int",
+          "required": true,
+          "default": "8080",
+          "example": "8080",
+          "range": "1-65535",
+          "validate": "int:1-65535",
+          "description": "过滤的 TCP/UDP 端口号（1-65535），确认服务端口的流量是否到达；先 ss -lntp 确认服务在监听再抓，抓包无流量可能是上游没到"
+        }
+      ],
+      "notes": "1) -nn 不解析域名端口名，回显快且不受 DNS 影响；远程排查务必 not port 22 排除自己。\n2) tcpdump 未装：dnf install tcpdump（离网场景见本地源条目）。\n3) 与「网络排查三件套」分工：三件套管 ss/tcpdump/journalctl 起手，本条是 tcpdump 专精深化。",
+      "_file": "seed_data/linux_openeuler.json",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "3aa06616-3ba9-5a1a-8378-548300b4548e",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "排查命令",
+      "title": "连通性排查三连（openEuler）",
+      "description": "ping / traceroute / dig 三连：先确认三层可达，再定位路径断点，最后分离 DNS 问题——IP 通但域名不通是 DNS 配置问题，不是连通性问题。",
+      "commands": "# ===== 连通性排查三连（openEuler）=====\n# ---- 1. 基础连通（能通 = 二层+三层可达）----\nping -c 4 {{target}}\n# ---- 2. 路径定位（-n 不解析域名，出在那一跳）----\ntraceroute -n {{target}}\n# ---- 3. DNS 解析（IP 通但这里不通 = DNS 问题）----\ndig +short {{domain}}",
+      "params": [
+        {
+          "name": "target",
+          "label": "目标地址",
+          "type": "ip",
+          "required": true,
+          "default": "223.5.5.5",
+          "example": "223.5.5.5",
+          "validate": "ipv4",
+          "description": "连通性测试目标（先测 IP 再测域名，分离网络故障与 DNS 故障）；只做探测不影响转发；经防火墙环境注意 ICMP/UDP 可能被策略拦"
+        },
+        {
+          "name": "domain",
+          "label": "待解析域名",
+          "type": "string",
+          "required": false,
+          "default": "www.baidu.com",
+          "example": "www.baidu.com",
+          "validate": "",
+          "description": "用于验证 DNS 解析链路的域名，dig 不通时查 /etc/resolv.conf 与防火墙 53 端口；只读查询不改配置"
+        }
+      ],
+      "notes": "1) traceroute 默认 UDP 高端口，被策略过滤时改 tracepath（openEuler 默认自带）或 traceroute -I 走 ICMP。\n2) ping 通 IP 但 dig 不通 → 查 /etc/resolv.conf 与到 53 端口的可达性。\n3) 与「网络排查三件套」分工：三件套起手概览，本条专精连通性三连。",
+      "_file": "seed_data/linux_openeuler.json",
+      "duration": "temp",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "613f2357-ccf3-569b-a118-e5d793e3eb5e",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "排查命令",
+      "title": "ethtool 网卡链路诊断（openEuler 22.03）",
+      "description": "物理层排查入口：Link detected 判断线缆/网口/对端是否起来，速率双工是否协商正常，错包计数与内核统计交叉核对，区分物理层问题与协议层问题。",
+      "commands": "# ===== ethtool 网卡链路诊断（openEuler）=====\n# ---- 1. 物理层状态（Link detected 是核心判据）----\nethtool {{ifname}}\n# ---- 2. 网卡计数器（错包/丢包趋势）----\nethtool -S {{ifname}} | head -40\n# ---- 3. 内核侧统计交叉核对 ----\nip -s link show {{ifname}}",
+      "params": [
+        {
+          "name": "ifname",
+          "label": "网卡名",
+          "type": "string",
+          "required": false,
+          "default": "ens192",
+          "example": "eth0 / ens192",
+          "validate": "ifname",
+          "description": "诊断的目标网卡（ip link 先确认存在），查看链路与计数不改任何配置；选错网卡会看到别人的正常状态造成误判"
+        }
+      ],
+      "notes": "1) Link detected: no → 线缆/网口/对端/端口组逐段查；虚拟机另核对 vSphere 端口组与虚拟网卡对应关系。\n2) 与「光模块读数与网卡错包判读（ethtool -m）」分工：本条管链路与计数基线，-m 条管光模块读数专精。\n3) 清计数前留基线（对比趋势用），排查树「同网段 ping 不通（Linux）」物理层分支引用本条。",
+      "_file": "seed_data/linux_openeuler.json",
       "duration": "temp",
       "verified": 0,
       "verified_by": "",

@@ -129,17 +129,6 @@
           "desc_pending": true
         },
         {
-          "name": "dst_path",
-          "label": "目标路径",
-          "default": "",
-          "required": true,
-          "validate": "path",
-          "example": "/backup/",
-          "type": "string",
-          "description": "拷贝目标路径（本机目录或 remote:/path）；rsync 尾部斜杠语义不同（带斜杠拷内容），先 -n/--dry-run 演练再实跑，防覆盖错目录",
-          "desc_pending": true
-        },
-        {
           "name": "usb_dev",
           "label": "U 盘分区设备名（lsblk 确认）",
           "default": "",

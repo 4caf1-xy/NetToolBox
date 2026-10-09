@@ -6,7 +6,7 @@
   "vendor_slug": "zte",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 16,
+  "count": 20,
   "entries": [
     {
       "uuid": "b2f47889-8b45-55e0-8cb6-625459ca06ef",
@@ -958,6 +958,112 @@
       "verified_date": "",
       "favorite": 0,
       "exec_level": "skeleton"
+    },
+    {
+      "uuid": "16a56984-ebc7-5e03-8764-762c743afbd3",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5250 / 5950 / 6900 系列",
+      "category": "接口诊断",
+      "title": "CPU 与内存诊断（show cpu，ZXR10）",
+      "description": "CPU 或内存占用突增（整机卡顿、BGP/OSPF 邻居震荡、ping 延迟抖动）时的第一步定位：确认占用率高低与走势，再决定是否进一步查进程、广播风暴或攻击面。",
+      "commands": "! ===== CPU 与内存诊断（ZXR10）=====\n! ---- 1. CPU 占用（连续观察几次，排除定时任务的瞬时峰值）----\nshow cpu\n! ---- 2. 内存使用（占用率与水位）----\nshow memory\n! ---- 3. 部分版本关键字不同（show cpu 无效时用 ? 逐级确认）----\n! show cpu-usage\n! show process cpu",
+      "params": [],
+      "notes": "1) 判读：持续 >70% 需定位来源（广播风暴/路由震荡/攻击），结合接口错包与系统日志交叉核对。\n2) ★ 各版本 CPU 命令关键字差异较大，本条命令名按 ZXR10 常见写法给出，现场以 ? 实测为准。\n验证方法：show cpu / show memory 真机有输出且数值合理；（验证人/型号/日期验证通过后回填 verified）",
+      "_file": "seed_data/zte.json",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "6613ce62-88bc-563b-a6ef-264131c47c28",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5250 / 5950 / 6900 系列",
+      "category": "接口诊断",
+      "title": "接口状态诊断（show interfaces 族，ZXR10）",
+      "description": "端口 down/翻动、错包增长、协商异常时的接口侧体检：单口详查状态与计数，三层口另看 IP 与协议状态；配合光功率读数可下钻到物理层。",
+      "commands": "! ===== 接口状态诊断（ZXR10）=====\n! ---- 1. 单口详查（端口名按现场：gei-/xgei- 前缀，如 gei-0/1/0/1）----\nshow interface {{port}}\n! ---- 2. 三层接口与 IP 速览 ----\nshow ip interface\n! ---- 3. 全口状态速览（部分版本为 brief/description 子命令，? 实测）----\n! show interface brief",
+      "params": [
+        {
+          "name": "port",
+          "label": "接口名",
+          "type": "string",
+          "required": true,
+          "default": "gei-0/1/0/1",
+          "example": "gei-0/1/0/1 / xgei-0/2/0/1",
+          "validate": "port",
+          "description": "ZXR10 接口名（gei-/xgei- 前缀按速率），本条诊断的目标口；先看物理口再看三层口，选错口会得出误判；只做 show 只读操作不影响转发"
+        }
+      ],
+      "notes": "1) 判读：up/down 状态、速率双工协商、CRC/错包计数；错包持续增长先换线/换口再做协议层结论。\n2) ★ 端口命名与 brief 子命令随版本有差异，现场以 ? 实测为准。\n验证方法：show interface 真机回显含状态与计数字段；（验证人/型号/日期验证通过后回填 verified）",
+      "_file": "seed_data/zte.json",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "401fd7e4-6910-590c-83b8-eb54c68f28cc",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5250 / 5950 / 6900 系列",
+      "category": "日志",
+      "title": "系统日志排查（show logging，ZXR10）",
+      "description": "设备异常（端口翻动、协议邻居掉线、CPU 突增）后翻日志找时间线：缓存日志看最近事件，告警历史看硬件与端口类告警，确定故障窗口后再缩范围。",
+      "commands": "! ===== 系统日志排查（ZXR10）=====\n! ---- 1. 缓存日志（最近事件）----\nshow logging\n! ---- 2. 告警历史（硬件/端口类告警常在这里先出现）----\nshow alarm\n! ---- 3. syslog 服务器方向核查（已配置日志外发时）----\n! show logging server",
+      "params": [],
+      "notes": "1) 缓存日志重启即清：关键窗口的事件要在重启前抓出来，或确认已外发 syslog。\n2) ★ logging 子命令随版本差异大，外发核查行按 ? 实测。\n验证方法：show logging 真机有历史事件回显；（验证人/型号/日期验证通过后回填 verified）",
+      "_file": "seed_data/zte.json",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
+    },
+    {
+      "uuid": "3e5b3287-107b-50e1-b608-a0ac3fe2a823",
+      "platform": "network",
+      "device_type": "路由器",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 路由器 / 三层交换机",
+      "category": "BGP",
+      "title": "BGP 邻居与路由状态核查（ZXR10）",
+      "description": "BGP 邻居 Idle/震荡、收发路由数异常时的状态核查：先看会话汇总确定邻居状态与路由量，再下钻单邻居看 Last Event 与 Flap 计数定位震荡原因。",
+      "commands": "! ===== BGP 邻居与路由状态核查（ZXR10）=====\n! ---- 1. 邻居会话汇总（看 State/PfxRcd：Established 且收到路由数正常）----\nshow ip bgp summary\n! ---- 2. 单邻居详查（Last Event、Flap 计数、收发路由数）----\nshow ip bgp neighbor {{neighbor_ip}}\n! ---- 3. 本机 BGP 路由表 ----\nshow ip bgp",
+      "params": [
+        {
+          "name": "neighbor_ip",
+          "label": "邻居地址",
+          "type": "ip",
+          "required": true,
+          "default": "",
+          "example": "198.51.100.9",
+          "validate": "ipv4",
+          "description": "要下钻的 BGP 邻居更新源地址（summary 里 Neighbor 列），单邻居详查的对象；先从 summary 确认邻居在列再填，填错看的是别人的会话；只做 show 只读操作"
+        }
+      ],
+      "notes": "1) 判读：Idle/Cardinal 常见原因是 ACL/认证/更新源不可达；Established 但 PfxRcd 骤降查出口策略。\n2) ★ ZXR10 BGP 显示命令与 Cisco 同构，个别子命令按 ? 实测。\n验证方法：summary 真机回显邻居状态列；（验证人/型号/日期验证通过后回填 verified）",
+      "_file": "seed_data/zte.json",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0
     }
   ]
 }
