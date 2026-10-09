@@ -447,6 +447,8 @@ class MainWindow(QMainWindow):
         self.operator = ""              # 当前操作人（写进 history / 配置包头部）
         self._importing = False         # 导入进行中标志（防事件重入，见 _do_seed_import）
         self._ui_state = load_ui_state()   # 上次关闭时的窗口尺寸 + 三栏比例（可能为 {}）
+        self._recent = self._load_recent()  # 最近使用（面板跳转/详情打开时记录）
+        self._recent_suppress = False    # 面板跳转重置筛选时暂时不记"详情打开"
 
         self.setWindowTitle("%s v%s · %s" % (APP_TITLE, APP_VERSION, APP_NAME))
         self.resize(1420, 900)
@@ -462,7 +464,13 @@ class MainWindow(QMainWindow):
         if self.db.readonly:
             self.setWindowTitle(self.windowTitle() + " [只读模式]")
 
-        self.refresh_all()
+        # 启动期 refresh_all 的自动选中（setCurrentRow(0)）不算"详情打开"，
+        # 不记最近使用；此后恢复正常记录
+        self._recent_suppress = True
+        try:
+            self.refresh_all()
+        finally:
+            self._recent_suppress = False
         QTimer.singleShot(300, self.startup_flow)
 
     # ==================================================================
@@ -531,6 +539,12 @@ class MainWindow(QMainWindow):
         m_cmd.addAction(act_lib)
 
         m_view = bar.addMenu("视图(&V)")
+        act_palette = QAction("全局搜索（命令 / 报错 / 排查树）…", self)
+        act_palette.setShortcut(QKeySequence("Ctrl+K"))
+        act_palette.setToolTip("三库统一搜索浮层，Enter 直接跳转定位")
+        act_palette.triggered.connect(self.open_command_palette)
+        m_view.addAction(act_palette)
+        m_view.addSeparator()
         act_refresh = QAction("刷新列表", self)
         act_refresh.setShortcut(QKeySequence("F5"))
         act_refresh.triggered.connect(self.refresh_all)
@@ -674,6 +688,10 @@ class MainWindow(QMainWindow):
         tv = QVBoxLayout(top)
         tv.setContentsMargins(SPACE_MD, SPACE_MD, SPACE_LG, SPACE_XS)   # 右侧 16px 安全边距
         tv.setSpacing(SPACE_SM)
+        # 覆盖度仪表盘（任务3：顶部折叠卡片，只读直查 db，默认收起一行摘要）
+        from ui_dashboard import CoverageDashboard
+        self.dashboard = CoverageDashboard(self.db)
+        tv.addWidget(self.dashboard)
         tv.addLayout(row1)
         tv.addLayout(row2)
         tv.addWidget(self.list_stack, 1)
@@ -866,6 +884,7 @@ class MainWindow(QMainWindow):
                 "center_split": list(self.center_split.sizes()),
             }
             payload.update(self._sub_tab_split_state())
+            payload[self.RECENT_KEY] = list(self._recent)
         except Exception:
             return
         save_ui_state(payload)
@@ -1191,6 +1210,10 @@ class MainWindow(QMainWindow):
         sc_edit = QShortcut(QKeySequence("Ctrl+E"), self)
         sc_edit.activated.connect(self.on_edit_entry)
 
+        # 全局命令面板（Ctrl+K；菜单项也注册了同一快捷键，与 Ctrl+G 等既有做法一致）
+        sc_palette = QShortcut(QKeySequence("Ctrl+K"), self)
+        sc_palette.activated.connect(self.open_command_palette)
+
     # ==================================================================
     # 刷新
     # ==================================================================
@@ -1203,6 +1226,12 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self.refresh_list()
         self._refresh_stats()
+        # 覆盖度仪表盘摘要（直查 db 无缓存；构造失败不拖垮主窗刷新）
+        if hasattr(self, "dashboard"):
+            try:
+                self.dashboard.refresh()
+            except Exception:
+                pass
         # 排查向导未成功构造（命令库缺表）时是占位页，没有 refresh() 方法
         if getattr(self, "_tab_ts_ok", False):
             self.tab_troubleshoot.refresh()
@@ -1610,6 +1639,9 @@ class MainWindow(QMainWindow):
             return
         self.current_entry = entry
         self._render_detail(entry)
+        # 最近使用记录点：详情页打开（面板跳转重置筛选期间由 _recent_suppress 抑制）
+        if not self._recent_suppress:
+            self._record_recent("entry", entry_uuid)
 
     def on_ctrl_c(self):
         """Ctrl+C：详情编辑器里有选中就用系统复制，否则复制整个命令块"""
@@ -1990,13 +2022,20 @@ class MainWindow(QMainWindow):
         self.txt_commands.centerCursor()
 
     def toggle_favorite(self):
-        """Ctrl+D：收藏 / 取消收藏当前条目"""
+        """Ctrl+D：收藏 / 取消收藏当前条目（B14：UI 层防重入，250ms 内连点只算一次）"""
         if not self.current_entry:
             self.statusBar().showMessage("先选中一个条目再收藏。")
             return
         if self.db.readonly:
             QMessageBox.warning(self, "只读模式", "命令库处于只读状态（U 盘写保护），无法修改收藏。")
             return
+        # B14（审计 2026-10-08）：连点会产生多余 history 记录 ——
+        # 写期间置忙标志 + 按钮禁用，250ms 时间窗内的重复触发直接忽略
+        if getattr(self, "_fav_busy", False):
+            return
+        self._fav_busy = True
+        self.btn_fav.setEnabled(False)
+        QTimer.singleShot(250, self._fav_release)
         new_value = self.db.toggle_favorite(self.current_entry.get("uuid"))
         self.current_entry["favorite"] = new_value
         # 星形 toggle 同步（★ 实心 = 已收藏）。
@@ -2005,6 +2044,11 @@ class MainWindow(QMainWindow):
         self.btn_fav.setText("★" if new_value else "☆")
         self.refresh_list()
         self.statusBar().showMessage("已收藏。" if new_value else "已取消收藏。")
+
+    def _fav_release(self):
+        """B14：250ms 防重入时间窗解除"""
+        self._fav_busy = False
+        self.btn_fav.setEnabled(True)
 
     def _flash(self, text, button, keep_text=None):
         """按钮短暂显示反馈文字，1.2 秒后还原"""
@@ -2159,6 +2203,76 @@ class MainWindow(QMainWindow):
             if entry.get("uuid") == entry_uuid:
                 self.list_entries.setCurrentRow(row)
                 return
+
+    # ==================================================================
+    # 全局命令面板（Ctrl+K）与最近使用（任务1/2，ui_state.json 持久化）
+    # ==================================================================
+    RECENT_KEY = "recent_used"
+    RECENT_LIMIT = 10
+
+    def _load_recent(self):
+        """从 ui_state.json 读最近使用；坏值/越界一律丢弃（离网现场不因状态文件出错）"""
+        raw = (self._ui_state or {}).get(self.RECENT_KEY)
+        if not isinstance(raw, list):
+            return []
+        out = []
+        for rec in raw:
+            if (isinstance(rec, dict) and rec.get("kind") in ("entry", "err", "tree")
+                    and rec.get("id")):
+                out.append({"kind": rec["kind"], "id": str(rec["id"]),
+                            "ts": str(rec.get("ts") or "")})
+        return out
+
+    def _record_recent(self, kind, target_id):
+        """记录点：面板跳转 + 详情页打开。去重置顶，上限 10，随 ui_state.json 落盘"""
+        if not target_id:
+            return
+        self._recent = [r for r in self._recent
+                        if not (r["kind"] == kind and r["id"] == str(target_id))]
+        self._recent.insert(0, {"kind": kind, "id": str(target_id),
+                                "ts": dbmod.now_str()})
+        del self._recent[self.RECENT_LIMIT:]
+        self._save_ui_state()
+
+    def _clear_recent(self):
+        self._recent = []
+        self._save_ui_state()
+        self.statusBar().showMessage("最近使用记录已清空。")
+
+    def open_command_palette(self):
+        """Ctrl+K：三库统一搜索浮层，选中后跳转"""
+        if self.db.closed:
+            return
+        from ui_panel import CommandPalette
+        dlg = CommandPalette(self.db, recent=self._recent,
+                             on_clear_recent=self._clear_recent, parent=self)
+        dlg.exec_()
+        if dlg.choice:
+            self.jump_to(dlg.choice["kind"], dlg.choice["id"])
+
+    def jump_to(self, kind, target_id):
+        """面板/最近使用的跳转：切 Tab → 复用各库定位机制 → 选中展开 → 记最近使用"""
+        if not target_id:
+            return
+        if kind == "entry":
+            self.tabs.setCurrentIndex(0)
+            # 重置筛选保证目标可见；重置期间的自动选中不记"详情打开"
+            self._recent_suppress = True
+            try:
+                self.reset_filters()
+            finally:
+                self._recent_suppress = False
+            self.select_by_uuid(target_id)
+        elif kind == "err":
+            self.tabs.setCurrentIndex(self.tabs.indexOf(self.tab_errorfix))
+            from ui_errorfix import DictManagerDialog
+            dlg = DictManagerDialog(self.db, self)
+            dlg.select_err(target_id)
+            dlg.exec_()
+        elif kind == "tree":
+            self.tabs.setCurrentIndex(self.tabs.indexOf(self.tab_troubleshoot))
+            self.tab_troubleshoot.focus_category(tree_id=target_id)
+        self._record_recent(kind, target_id)
 
     # ==================================================================
     # 右键菜单 / 验证
