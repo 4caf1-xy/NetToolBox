@@ -6,9 +6,14 @@
 ## Unreleased
 
 #### 新功能
-- **compose 实验室（一键验证环境）**：新增 `lab/`——4 个固定容器名服务（`ntbx-lab-ubuntu` 2222，systemd 作 PID 1，`systemctl` 类可验证；`ntbx-lab-centos7` 2223，sshd 前台直跑——centos7 systemd 219 与 cgroup v2 宿主结构性不兼容、服务无法启动（CI 实测），`systemctl` 类条目如实标注不可验证；`ntbx-lab-frr` vtysh 经典 CLI（privileged），启用 zebra/staticd/bgpd/ospfd/bfdd；`ntbx-lab-srlinux` Nokia 免许可 NOS，回路练习/预留），全部免许可可直接拉取镜像，运行合计 ≤2GB，数据全在容器内 `down -v` 即重置；指南 `docs/lab/README.md`（拉起/进入/设备映射表/2 条完整验证示例/FAQ），verify-guide 环境映射表同步增补"compose 实验室"列、验证会流程新增"起环境"步；新增 `lab-smoke` workflow（lab 链路变更时 CI 全服务拉起 + 示例条目实测）。防火墙类无免许可容器化路径，如实标注"真机专权"，不硬凑。
+- **Ctrl+K 全局命令面板**：任意 Tab 一键唤起居中浮层（视图菜单同入口），一次输入同时搜三库——命令复用 `db.search()` 八字段匹配、报错字典匹配 pattern/原因/处置步骤/样例、排查树匹配现象/分类/适用厂商/步骤标题；结果按 [命令]/[报错]/[树] 分组展示（厂商·分类副标题，每组上限 40 条），键盘完整可达（↑↓ 选择、Enter 跳转、Esc/点击面板外关闭），空输入显示「最近使用」分组、空结果给明确文案；跳转自动切 Tab → 复用各库定位机制 → 选中条目并展开详情（报错字典定位到字典维护对话框、排查树直接载入走树）；
+- **最近使用**：面板跳转与详情页打开自动记录（复制不记录），uuid+类型+时间戳随 ui_state.json 持久化，去重置顶上限 10，库中已删除条目自动丢弃；面板空输入即见最近使用，面板内一键清空（带确认）；
+- **覆盖度仪表盘**：命令库顶部折叠卡片，收起时常显一行摘要（总数/绿/挂起/未验证），展开见厂商×分类条目数矩阵（底色深浅映射条目数，灰格=无条目）+ 三库四档验证进度分段条（绿/语法核对/挂起/未验证，色值全走 theme token）；口径与 verify-guide 四档标准一致——「不可验证」类（centos7 systemctl 等 notes 标注）如实计入挂起段，语法核对档（verified-cli 未判绿）独立成段；数据全部 db 直查无缓存、零写入口，只读视图。
 
 #### 工程
+- **B14 收藏防重入修复**（审计 2026-10-08 遗留）：toggle_favorite 写期间置忙 + 按钮禁用 + 250ms 时间窗，连点不再产生多余 history 记录（回归 smoke_panel_dashboard.py [D]）；
+- 新增 `scripts/smoke_panel_dashboard.py`（43 项）：面板三库命中/激活/空结果、跳转定位、最近使用记录/去重/上限/落盘/清空、仪表盘四档口径与矩阵逐格对账、B14 连点回归、四 Tab 布局与 Splitter 记忆回归；
+- ui_tree_editor 能力清单与差距报告落 `docs/dev-notes.md` 候选池（G1–G7，触发条件制，不立项）。
 - **CI 自动打包发版上线**：新增 `.github/workflows/release.yml`——push `v*` tag 触发，windows-latest 装依赖（PyQt5 / PyInstaller / requests）→ `scripts/build_exe.py` 构建 → 产物断言（exe 存在且体积合理、zip 非空且体积合理、出库包不含密钥/运行时文件）→ 出库组装（exe + 净库重建 `command_lib.db` + `check_db.py` + `seed_data/`，与本地出库纪律一致）→ zip 自动挂载到对应 Release：已存在则 `--clobber` 覆盖同名附件，不存在则建 **draft** 待人核后 publish；CI 只见公开仓内容，构建产物天然无密钥（安全边界写入 workflow 注释）；
 - README「快速开始」补齐当前版本号（与关于对话框 / Release 三处一致），并修正下载包名样例（`NetToolBox-dist-*.zip` → `NetToolBox_v*.zip`）。
 

@@ -65,3 +65,30 @@
 - **.git 两次被移入回收站**（10:22 与 10:35），触发点均为 `git stash` / `git checkout` 操作。已从回收站按内容哈希全量恢复对象库（fsck 干净）并重建 HEAD/config/index。**本机此仓库禁用 git stash/checkout 切换**，未提交改动需保留时用文件级备份。
 - PyQt5 关闭期崩溃（退出码 127）根因：带 parent 的运行中 QThread 在 QApplication 析构期被级联删除。NetworkProbe 刻意不挂 parent（ui_ai.start_probe 注释），勿回加。
 
+
+## ui_tree_editor 能力清单与差距报告（2026-10-09，只报告不立项）
+
+背景：评估"排查树维护界面能否替代手改 seed JSON"。逐行核查 ui_tree_editor.py（701 行）后的结论：**树的主干编辑已闭环，两个功能缺口是替代手改 JSON 的主要障碍**。
+
+### 已有能力（实测代码路径，非纸面）
+- 树级：新建 / 复制 / 删除 / 保存（add_tree / update_tree / delete_tree 全落 history）；现象 / 现象分类（TREE_CATEGORIES 下拉）/ vendor_hint（逗号分隔 slug，normalize_vendor 归一化）
+- 步骤：增 / 改 / 删 / 上移 / 下移；步骤 id 树内唯一校验、分支 goto 目标存在性校验（on_save）
+- cmd_ref：vendor_category + title_keyword + uuid 三要素可视化编辑；"非叶子必须填 cmd_ref"守卫
+- 分支：when → goto 表格增删；叶子：结论 + 处理动作（动作 cmd_ref 保留只读）
+
+### 差距（对照"替代手改 JSON"）
+| # | 缺口 | 现状 | 影响 |
+|---|---|---|---|
+| G1 | 叶子动作的 cmd_ref 不可编辑 | _add_action 把命令来源列设为只读（Qt.ItemIsEnabled），编辑文本时仅保留旧引用；新建动作无法挂命令来源 | 手改 JSON 才能补动作命令来源 |
+| G2 | 无 mark_tree_verified 入口 | 排查树验证标记只在 ui_troubleshoot"标记整树已验证"按钮；维护对话框里看不到/改不了验证态 | 验证回填要开另一个入口 |
+| G3 | 无单树导入/导出 JSON | 只能整库 .nlb 或维护界面逐项点 | 跨库搬树仍靠手改 |
+| G4 | vendor_hint 无合法性反馈 | normalize_vendor 静默归一化，占位厂商/拼错 slug 无提示 | 拼错只会在排查向导里"命令渲染不出来"才发现 |
+| G5 | 无未保存关闭确认 | 关闭对话框直接丢内存改动（refresh 前 self.tree 改动不落库） | 误关即丢编辑 |
+| G6 | 无步骤拖拽排序 | 只有上移/下移 | 长树重排繁琐 |
+| G7 | cmd_ref 场景分类下拉不分厂商 | entries category ∪ ALL_CATEGORIES 全量平铺 | 同场景多厂商靠 title_keyword 收敛，新手不易命中唯一 |
+
+### 候选池登记（延后，触发条件制）
+- [ ] G1 叶子动作 cmd_ref 可编辑——触发条件：**下次手改 JSON 补动作命令来源时**
+- [ ] G2 维护对话框内显示/流转验证标记——触发条件：**下次验证会回填树时**
+- [ ] G5 未保存关闭确认——下次触碰 ui_tree_editor.py 时顺手
+- [ ] G4/G6/G7——无触发不做
