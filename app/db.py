@@ -37,7 +37,7 @@ NLB_FORMAT = "netcmdl - command library"  # .nlb 文件标识（JSON 内 format 
 # v2.1 新增：exec_level(命令可用性标记)、interactive(交互式命令标记) —— 审计 P1/P4 整改
 ENTRY_FIELDS = [
     "uuid", "platform", "device_type", "vendor", "os_family", "models",
-    "category", "title", "description", "commands", "params",
+    "category", "title", "description", "commands", "rollback", "params",
     "notes", "duration", "verified", "verified_by", "verified_model", "verified_date",
     "favorite", "created_at", "updated_at",
     "exec_level", "interactive",
@@ -46,7 +46,7 @@ ENTRY_FIELDS = [
 # 允许被编辑/导入覆盖的字段（uuid/created_at 不可由导入方随意改动）
 EDITABLE_FIELDS = [
     "platform", "device_type", "vendor", "os_family", "models",
-    "category", "title", "description", "commands", "params",
+    "category", "title", "description", "commands", "rollback", "params",
     "notes", "duration", "verified", "verified_by", "verified_model", "verified_date",
     "favorite", "updated_at",
     "exec_level", "interactive",
@@ -632,6 +632,7 @@ class Database(object):
                 title           TEXT NOT NULL,  -- 标题
                 description     TEXT,           -- 描述
                 commands        TEXT,           -- 命令全文，含 {{参数}} 占位
+                rollback        TEXT,           -- 回退方案：多行文本与 commands 同构（# 注释同约定），查询类免填
                 params          TEXT,           -- JSON 数组：[{name,label,default,required,validate,example}]
                 notes           TEXT,           -- 坑点备注
                 duration        TEXT DEFAULT '',-- temp/perm/both，仅 linux 条目使用
@@ -777,6 +778,10 @@ class Database(object):
                                   "WHERE platform IS NULL OR platform = ''")
             if "duration" not in cols:
                 self.conn.execute("ALTER TABLE entries ADD COLUMN duration TEXT DEFAULT ''")
+            # v2.2（schema 2026-10-09 rollback 配对）：回退方案列，老库自动补列；
+            #   种子/.nlb 导入时缺该字段按空串向后兼容（裁决D），不报错
+            if "rollback" not in cols:
+                self.conn.execute("ALTER TABLE entries ADD COLUMN rollback TEXT DEFAULT ''")
             # v2.1（审计 P1/P4 整改）：骨架标记 + 交互式标记，老库自动补列
             if "exec_level" not in cols:
                 self.conn.execute("ALTER TABLE entries ADD COLUMN exec_level TEXT DEFAULT ''")
@@ -892,6 +897,10 @@ class Database(object):
         # 类型归位
         data["uuid"] = str(data["uuid"] or new_uuid())
         data["params"] = self._dump_params(raw.get("params", "[]"))
+        # rollback 容错（裁决D）：list/dict 一律按空串落地（校验层会另行拦截），
+        # 老库/老 .nlb 缺该字段经 ENTRY_FIELDS 兜底为 ""，向后兼容
+        if not isinstance(data.get("rollback"), str):
+            data["rollback"] = ""
         for f in ENTRY_FIELDS:
             if data[f] is None:
                 data[f] = ""

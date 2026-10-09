@@ -38,6 +38,112 @@ _RE_INT_RANGE = re.compile(r"^\s*(-?\d+)\s*-\s*(-?\d+)\s*$")
 # 注释行判定：! 或 # 开头的行（允许前置空白）
 COMMENT_LINE_RE = re.compile(r"^\s*[!#]")
 
+# ---------------------------------------------------------------------------
+# 一·B、变更类判定表（裁决B 2026-10-09，schema 升级 rollback 配对）
+# ---------------------------------------------------------------------------
+# ★ 本数据是判定表的**唯一事实源**：seed-guide.md / AI prompt 只引用不改写，
+#   禁止在文档或别处另写一份导致漂移（裁决B增补②）。
+#
+# 判定规则（fail-safe 默认：分不清就当变更类——宁误报不漏报）：
+#   1. 取 commands 全部**非注释行**（# / ! 开头不计，裁决B增补③），
+#      逐行规范化（小写、压缩空白）；
+#   2. 任一行命中【强制变更组】→ 变更类（clear/debug/reload/erase 等无论
+#      上下文一律按变更对待，rollback 必须给出对应撤销动作）；
+#   3. 全部行命中【查询类白名单】→ 查询类（rollback 免填）；
+#   4. 其余任何情况 → 变更类。
+#
+# 白名单按"命令+子命令"精确前缀匹配（裁决B增补①）：
+#   systemctl status 在名单 ≠ systemctl 在名单；display current 类变体逐个列。
+#   匹配口径：规范化行 == 前缀，或以「前缀 + 一个空格」开头（词边界，杜绝
+#   showtech-support 之类误命中）。单动词家族（show/display/get/print）本身
+#   只读，其后任意子命令都算查询；多义动词（systemctl/ip/iptables 等）必须
+#   带子命令逐个列入。
+QUERY_WHITELIST = (
+    # ---- 网络侧单动词家族（其后子命令均为读操作）----
+    "show", "display", "get", "print",
+    # ---- Linux 只读命令（单义动词，整词在名单）----
+    "cat", "ls", "less", "more", "grep", "head", "tail", "wc", "file", "stat",
+    "pwd", "ss", "netstat", "lsof", "ps", "uname", "uptime", "free", "df",
+    "du", "lsblk", "blkid", "dmesg", "lscpu", "lshw", "dmidecode", "lspci",
+    "lsusb", "lsmod", "iostat", "vmstat", "mpstat", "sar", "ethtool",
+    "ping", "ping6", "traceroute", "tracepath", "mtr", "dig", "nslookup",
+    "host", "arping", "tcpdump", "arp", "id", "who", "w", "whoami", "groups",
+    "date", "hostname", "getenforce", "sestatus", "mount", "rpm", "dpkg",
+    "journalctl", "history", "last", "lastlog", "env", "printenv",
+    # ---- Linux 多义动词：命令+子命令精确前缀 ----
+    #   ★ 不收裸前缀（ip addr / ip route 这类）——"ip addr add" 会被
+    #     startswith("ip addr ") 吞进查询类（裁决B增补① 明令禁止的形态）
+    "ip addr show", "ip link show", "ip route show", "ip neigh show",
+    "ip rule show", "ip maddr show", "ip -s link show", "ip -s addr show",
+    "systemctl status", "systemctl is-active", "systemctl is-enabled",
+    "systemctl is-failed", "systemctl list-units", "systemctl list-unit-files",
+    "systemctl list-dependencies", "systemctl list-timers", "systemctl show",
+    "systemctl cat", "systemctl get-default",
+    "service --status-all", "status",
+    "hostnamectl status", "timedatectl status",
+    "nmcli device show", "nmcli dev status", "nmcli connection show",
+    "nmcli general status", "nmcli general",
+    "firewall-cmd --state", "firewall-cmd --list-all",
+    "firewall-cmd --list-all-zones", "firewall-cmd --get-active-zones",
+    "firewall-cmd --get-zones", "firewall-cmd --get-services",
+    "firewall-cmd --get-default-zone", "firewall-cmd --info-zone",
+    "firewall-cmd --info-service",
+    "iptables -L", "iptables -S", "iptables -vnL", "iptables -t nat -L",
+    "iptables -t mangle -L", "iptables -t filter -L",
+    "rpm -qa", "rpm -q", "rpm -qi", "rpm -ql",
+    "dpkg -l", "dpkg -s", "dpkg -L",
+    "yum list", "yum info", "dnf list", "dnf info",
+    "apt list", "apt show", "apt-cache policy", "apt-cache show",
+    "crontab -l", "lsscsi", "fdisk -l", "sfdisk -l",
+)
+
+# 强制变更组（词前缀匹配，命中即变更类，优先级高于白名单）：
+#   这些动词有即时/持久化副作用，混在查询序列里也必须按变更对待。
+CHANGE_FORCE_PREFIXES = (
+    "clear", "undebug", "no debug", "debug", "reload", "erase", "undo",
+    "reset", "restart", "write", "save", "commit", "delete", "format",
+    "restore", "shutdown", "reboot", "poweroff", "halt", "kill", "pkill",
+    "killall", "init 0", "init 6", "dd", "mkfs", "useradd", "userdel",
+    "usermod", "passwd", "chmod", "chown", "chattr", "swapoff", "swapon",
+    "insmod", "rmmod", "modprobe", "setenforce", "truncate",
+)
+
+
+def _norm_cmd_line(line):
+    """命令行规范化：去首尾空白、转小写、压缩连续空白（供判定表匹配）"""
+    return " ".join((line or "").strip().lower().split())
+
+
+def _prefix_hit(norm, prefixes):
+    """词边界前缀命中：norm == p 或 norm 以「p + 空格」开头"""
+    for p in prefixes:
+        if norm == p or norm.startswith(p + " "):
+            return True
+    return False
+
+
+def classify_entry(entry):
+    """
+    变更类/查询类判定（裁决B，schema 2026-10-09）。
+    返回 "query"（查询类，rollback 免填）或 "change"（变更类，rollback 必填）。
+    判定仅扫描 commands 的非注释行；rollback 文本不参与判定。
+    validate_seed / AI 入库钩子共用（经由 check_entry_params），单一执法点。
+
+    语义补充：commands 全部为注释行（典型：Web 控制台路径条目，正文是
+    操作路径说明而非 CLI 命令）或为空 → 没有可执行命令、没有 CLI 回退对象，
+    判查询类（rollback 免填）。这是刻意设计，不是真空真理的巧合。
+    """
+    text = (entry.get("commands") if isinstance(entry, dict) else "") or ""
+    for ln in split_command_lines(text, skip_comments=True):
+        norm = _norm_cmd_line(ln)
+        if not norm:
+            continue
+        if _prefix_hit(norm, CHANGE_FORCE_PREFIXES):
+            return "change"
+        if not _prefix_hit(norm, QUERY_WHITELIST):
+            return "change"
+    return "query"
+
 
 def extract_params(text):
     """
@@ -346,7 +452,8 @@ def check_entry_params(entry):
     返回 (problems, warnings)：
         problems  —— ERROR 级：占位引用未定义、结构化字段缺失/非法、
                      default 违反自身 type/choices/range、新条目 description 为空
-        warnings  —— WARNING 级：参数定义未引用、迁移期(desc_pending) description 为空
+        warnings  —— WARNING 级：参数定义未引用、
+                     变更类缺 rollback / rollback 占位符未声明（迁移期宽松，任务6 升 ERROR）
 
     兼容策略：spec 没有 type 字段 = 旧格式，只做对账与 default 自校验，其余放行；
     有 type = 结构化校验生效（name/type/description 必填，enum 必带 choices）。
@@ -380,10 +487,8 @@ def check_entry_params(entry):
             problems.append("参数 %s 的 type 非法（%s），只允许 %s"
                             % (name, stype, "/".join(PARAM_TYPES)))
         if structured and not str(spec.get("description") or "").strip():
-            if spec.get("desc_pending"):
-                warnings.append("参数 %s 的 description 待补（迁移期）" % name)
-            else:
-                problems.append("参数 %s 缺 description（结构化条目必填）" % name)
+            # desc_pending 迁移机制 2026-10-09 退役：结构化条目缺 description 一律 ERROR
+            problems.append("参数 %s 缺 description（结构化条目必填）" % name)
         if structured and stype == "enum" and not (spec.get("choices") or []):
             problems.append("enum 参数 %s 缺 choices（必须给出可选值全集）" % name)
 
@@ -403,6 +508,25 @@ def check_entry_params(entry):
         problems.append("命令里的 {{%s}} 没有在 params 中声明" % name)
     for name in sorted(declared_names - used_names):
         warnings.append("参数 %s 已声明但命令里未使用" % name)
+
+    # ---- rollback 配对校验（schema 2026-10-09，裁决A1：多行字符串与 commands 同构）----
+    #   变更类（classify_entry 判定，fail-safe）rollback 必填；查询类免填。
+    #   rollback 占位符必须 ⊆ params 声明（双向对账的 rollback 侧）。
+    #   批1 合入为 WARNING（迁移期宽松：变更类缺口预计 ~264 条属软着陆设计，
+    #   门槛始终 EXIT=0）；任务6（B23 闭环）将以下两条升 ERROR。
+    if isinstance(entry, dict):
+        rollback = entry.get("rollback")
+        if isinstance(rollback, (list, dict)):
+            problems.append("rollback 必须是多行字符串（与 commands 同构），不能是 %s"
+                            % type(rollback).__name__)
+            rollback = ""
+        rollback = str(rollback or "").strip()
+        rtype = classify_entry(entry)
+        if rtype == "change" and not rollback:
+            warnings.append("变更类条目缺 rollback（迁移期宽松，任务6 升 ERROR）")
+        for item in extract_params(rollback):
+            if item["name"] not in declared_names:
+                warnings.append("rollback 引用 {{%s}} 未在 params 声明" % item["name"])
 
     return problems, warnings
 

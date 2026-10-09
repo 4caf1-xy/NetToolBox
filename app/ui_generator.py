@@ -123,14 +123,20 @@ class ParamFormWidget(QWidget):
         self.validate_all(silent=True)
 
     def _make_editor(self, spec):
-        """按校验规则选控件类型；默认值预填"""
+        """按校验规则选控件类型；默认值预填。
+        裁决F（2026-10-09）：控件选择**结构化字段优先**（type/choices/range），
+        validate= 解析降级为兜底——两路并存以结构化为准，杜绝
+        "type=enum+choices 但没写 validate=enum:" 被降级成普通文本框。
+        """
+        spec = renderer.normalize_spec(spec)   # type/choices/range → validate 推导（兜底链）
         rule = (spec.get("validate") or "").strip()
         default = spec.get("default")
         default = "" if default is None else str(default)
+        stype = (spec.get("type") or "").strip()
 
         # flag 型参数（schema 升级 2026-09-30）：勾选 → 渲染 on_value（默认参数名），
         # 不勾选 → 占位整体消失。UI 表达就是开关本身，不做文本输入。
-        if (spec.get("type") or "").strip() == "flag":
+        if stype == "flag":
             chk = QCheckBox()
             on_value = str(spec.get("on_value") or spec.get("example") or spec["name"])
             chk.setProperty("on_value", on_value)
@@ -139,6 +145,30 @@ class ParamFormWidget(QWidget):
             chk.toggled.connect(self._on_changed)
             return chk
 
+        # ---- 结构化优先：type=enum + choices → 下拉框 ----
+        if stype == "enum" and (spec.get("choices") or []):
+            cmb = QComboBox()
+            for value in [str(c) for c in spec["choices"] if str(c).strip()]:
+                cmb.addItem(value)
+            idx = cmb.findText(default)
+            cmb.setCurrentIndex(idx if idx >= 0 else 0)
+            cmb.currentIndexChanged.connect(self._on_changed)
+            return cmb
+
+        # ---- 结构化优先：type=int + range → 数字框 ----
+        if stype == "int":
+            m = re.match(r"^\s*(-?\d+)\s*-\s*(-?\d+)\s*$", str(spec.get("range") or ""))
+            if m:
+                spin = QSpinBox()
+                spin.setRange(int(m.group(1)), int(m.group(2)))
+                try:
+                    spin.setValue(int(default) if default else int(m.group(1)))
+                except ValueError:
+                    spin.setValue(int(m.group(1)))
+                spin.valueChanged.connect(self._on_changed)
+                return spin
+
+        # ---- 兜底：validate 规则解析（存量条目 / 未标 type 的旧格式）----
         if rule.startswith("enum:"):
             cmb = QComboBox()
             for value in [v for v in rule[5:].split("|") if v]:

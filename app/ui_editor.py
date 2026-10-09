@@ -47,8 +47,13 @@ VALIDATE_RULES = [
     "enum:enable|disable", "regex:",
 ]
 
-# 参数表列定义
-PARAM_COLUMNS = ["参数名", "显示名", "默认值", "必填", "校验规则", "示例", "端口展开"]
+# 参数表列定义（裁决F 2026-10-09：补 type/choices/range/description 四列，
+# 离网人工补条目不再需要手写 JSON；0-6 列序保持不变，新列追加在 7-10）
+PARAM_COLUMNS = ["参数名", "显示名", "默认值", "必填", "校验规则", "示例", "端口展开",
+                 "类型", "可选值", "范围", "参数说明"]
+
+# 结构化 type 五类（与 renderer.PARAM_TYPES 同源；空 = 旧格式未标类型）
+PARAM_TYPE_CHOICES = ["", "string", "int", "enum", "ip", "flag"]
 
 
 def mono_font(size=10):
@@ -74,6 +79,7 @@ class ParamTableWidget(QWidget):
 
     def __init__(self, parent=None):
         super(ParamTableWidget, self).__init__(parent)
+        self._row_specs = []        # 行号 → 原始 spec（未知键留档，防 params() 回读丢字段）
         self._build()
 
     def _build(self):
@@ -90,6 +96,10 @@ class ParamTableWidget(QWidget):
         header.setSectionResizeMode(4, QHeaderView.Stretch)
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(6, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(8, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(9, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(10, QHeaderView.Stretch)
 
         btn_extract = QPushButton("从命令提取参数")
         btn_extract.setObjectName("Ghost")
@@ -179,16 +189,39 @@ class ParamTableWidget(QWidget):
         expand_item.setToolTip("勾选后，该参数按厂商接口命名规则展开成多口列表\n"
                                "（如 0/1-0/10 → 华为 Eth0/0/1…Eth0/0/10）")
         self.table.setItem(row, 6, expand_item)
+
+        # ---- 结构化四列（裁决F）：type 下拉 / choices / range / description ----
+        type_combo = QComboBox()
+        type_combo.addItems(PARAM_TYPE_CHOICES)
+        type_combo.setCurrentText(str(spec.get("type") or ""))
+        type_combo.setToolTip("结构化类型：string/int/enum/ip/flag；\n"
+                              "enum 必须配可选值，int 建议配范围（生成器按此渲染控件）")
+        self.table.setCellWidget(row, 7, type_combo)
+
+        choices = spec.get("choices") or []
+        choices_text = "|".join(str(c) for c in choices) if isinstance(choices, list) \
+            else str(choices)
+        self.table.setItem(row, 8, QTableWidgetItem(choices_text))
+
+        self.table.setItem(row, 9, QTableWidgetItem(str(spec.get("range") or "")))
+        self.table.setItem(row, 10, QTableWidgetItem(str(spec.get("description") or "")))
+
+        # 原始 spec 留档：params() 回读时把表外的未知键原样带回（防丢字段）
+        while len(self._row_specs) <= row:
+            self._row_specs.append({})
+        self._row_specs[row] = dict(spec)
         return row
 
     def remove_selected(self):
-        """删除选中的行（倒序删，避免行号漂移）"""
+        """删除选中的行（倒序删，避免行号漂移；原始 spec 留档同步清理）"""
         rows = sorted(set(index.row() for index in self.table.selectedIndexes()), reverse=True)
         if not rows:
             QMessageBox.information(self, "未选中行", "请先在参数表里点选要删除的行。")
             return
         for row in rows:
             self.table.removeRow(row)
+            if 0 <= row < len(self._row_specs):
+                self._row_specs.pop(row)
 
     def move_selected(self, delta):
         """上移/下移选中的行"""
@@ -206,7 +239,7 @@ class ParamTableWidget(QWidget):
 
     # ---------------- 读写 ----------------
     def params(self):
-        """读成 params JSON 数组结构"""
+        """读成 params JSON 数组结构（含结构化四列；表外未知键从原始 spec 带回）"""
         result = []
         for row in range(self.table.rowCount()):
             name_item = self.table.item(row, 0)
@@ -222,23 +255,44 @@ class ParamTableWidget(QWidget):
             expand_item = self.table.item(row, 6)
             combo = self.table.cellWidget(row, 4)
             rule = combo.currentText().strip() if isinstance(combo, QComboBox) else ""
+            type_combo = self.table.cellWidget(row, 7)
+            stype = type_combo.currentText().strip() if isinstance(type_combo, QComboBox) else ""
 
-            spec = {
+            # 原始 spec 留档打底：on_value 等表外编辑的键不丢；表内列随后覆盖
+            orig = self._row_specs[row] if row < len(self._row_specs) else {}
+            spec = dict(orig)
+
+            choices_text = _text(8)
+            choices = [c for c in choices_text.split("|") if c] if choices_text else []
+            spec.update({
                 "name": name,
                 "label": _text(1) or name,
                 "default": _text(2),
                 "required": bool(req_item and req_item.checkState() == Qt.Checked),
                 "validate": rule,
                 "example": _text(5),
-            }
+                "type": stype,
+                "choices": choices,
+                "range": _text(9),
+                "description": _text(10),
+            })
             if expand_item and expand_item.checkState() == Qt.Checked:
                 spec["expand"] = "port"
+            else:
+                spec.pop("expand", None)
+            # 空结构化字段不落库（保持数据干净：type 空 = 旧格式条目）
+            for k in ("type", "range", "description"):
+                if not spec[k]:
+                    spec.pop(k, None)
+            if not spec["choices"]:
+                spec.pop("choices", None)
             result.append(spec)
         return result
 
     def set_params(self, specs):
         """整表覆盖写入"""
         self.table.setRowCount(0)
+        self._row_specs = []
         for spec in specs or []:
             if isinstance(spec, dict):
                 self.add_row(spec)

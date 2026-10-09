@@ -1,4 +1,4 @@
-# 种子贡献指南 —— params 结构化参数写法（schema 2026-09-30）
+# 种子贡献指南 —— params 结构化参数写法（schema 2026-09-30 / rollback 配对 2026-10-09）
 
 > 受众：向 `app/seed_data/` 贡献条目的种子作者 ｜ 更新时机：schema 或校验规则变更时。
 > **新条目一律使用结构化 params**；`validate-seed`（CI 硬门槛，EXIT=0 才能合入）会做
@@ -19,9 +19,9 @@
 | `label` | 建议 | 界面显示名（中文） |
 | `validate` | 建议 | 细粒度校验规则：`vlan` / `ipv4` / `masklen` / `int:lo-hi` / `port` / `port_range` / `ifname` / `path` / `enum:a\|b\|c` / `regex:^…$`；显式写了一律优先于 type 推导 |
 
-> 兼容约定：不带 `type` 的旧格式 spec 仍可通过 validate（存量 987 个正在迁移）；
-> 新条目必须结构化。`desc_pending: true` 是迁移期标记（空 description 只报 WARNING），
-> 新条目**不要带**这个标记——缺 description 直接 ERROR。
+> 兼容约定：`desc_pending` 迁移标记**已于 2026-10-09 退役**（全库标记清扫完毕）——
+> 结构化条目 `description` 为空一律 ERROR，无豁免；不带 `type` 的旧格式 spec 仍兼容
+> 放行，新条目必须结构化。
 
 ## 二、type 五类怎么选
 
@@ -98,10 +98,78 @@
       "example": "description access-vlan"
     }
   ],
+  "rollback": "no vlan {{vlan_id}}\n# 逐口恢复原状态：把端口移回原 VLAN 后再删本 VLAN\ninterface range {{port_range}}\n no switchport access vlan {{vlan_id}}\n exit\nend\nwrite memory",
   "notes": "坑点：……",
   "verified": 0
 }
 ```
+
+## 四·B、rollback 回退方案与变更类判定（schema 2026-10-09）
+
+### rollback 字段形态（裁决A1）
+
+`rollback` 是**条目级字段**（与 `commands` 平级，不是 params 里的一项）：
+**多行字符串，与 commands 同构**——每行一条命令，`#`（或 `!`）开头的注释行独立成行，
+渲染层按注释灰字处理，"仅复制命令"会自动剔除。不做数组、不做对象结构。
+
+- 变更类条目：**必填**；查询类条目：**免填**（写了也不报错）；
+- rollback 里引用的 `{{占位符}}` 必须与本条目 params 声明同名（对账校验）；
+- rollback 描述的是"这条命令改坏了以后怎么退回"，不是另一条教程——写最小必要动作。
+
+### 变更类判定（裁决B，fail-safe）
+
+判定由 `renderer.classify_entry` 自动执行（`check_entry_params` 单一执法点，
+validate 与 AI 入库钩子同口径），**无需作者标注**：
+
+1. 扫描 commands 全部**非注释行**（`#` / `!` 开头不计）；
+2. 任一行命中**强制变更组** → 变更类。强制变更组（词前缀，全文如下，
+   代码事实源 `renderer.CHANGE_FORCE_PREFIXES`）：
+   `clear / debug / undebug / no debug / reload / erase / undo / reset / restart /
+   write / save / commit / delete / format / restore / shutdown / reboot /
+   poweroff / halt / kill / pkill / killall / init 0 / init 6 / dd / mkfs /
+   useradd / userdel / usermod / passwd / chmod / chown / chattr / swapoff /
+   swapon / insmod / rmmod / modprobe / setenforce / truncate`；
+3. 全部行命中**查询类白名单** → 查询类；
+4. 其余任何情况 → **变更类**（分不清就当变更类——宁误报不漏报）。
+
+特例：commands 全为注释行（Web 控制台路径条目）或为空 → 无可执行 CLI 命令、
+无回退对象 → 判查询类（rollback 免填，刻意设计）。
+
+查询类白名单按"命令+子命令"精确前缀匹配（`systemctl status` 在名单 ≠ `systemctl`
+在名单；`display current-configuration` 类变体逐个列）。**唯一事实源是
+`app/renderer.py` 的 `QUERY_WHITELIST` 数据**，本文档只列家族概要、不逐条复制
+（防止两处漂移）：网络侧 `show / display / get / print` 单动词家族；Linux 只读
+单义命令（`cat / ss / df / journalctl / ping / dig / tcpdump …`）；多义动词
+（`ip / systemctl / nmcli / iptables / rpm / yum / apt …`）仅其只读子命令精确列入。
+新厂商/新命令要进白名单 → 改 `QUERY_WHITELIST` 数据并跑 validate，**别在本页加字**。
+
+### 三类典型 rollback 写法
+
+**① 恢复备份型**（改前有备份文件，改坏后回滚文件）：
+
+```
+rollback: "copy running-config tftp://192.0.2.10/pre-change.cfg\n# 前置：确认配置已备份（见上文第一步）\nconfigure replace flash:/pre-change.cfg\nend"
+```
+
+**② undo 型**（华为/H3C/ZTE 风格，逐条反向）：
+
+```
+rollback: "undo acl 3001\n# 删除引用后一并回收 ACL 本体\nundo traffic-filter inbound acl 3001\nquit\nsave"
+```
+
+**③ undebug 型**（调试类：恢复到"调试关闭"的原始状态）：
+
+```
+rollback: "undebug all\n# debug 类命令即时生效无持久化，关闭即回退\nterminal monitor"
+```
+
+写法约定：rollback 里**不要**写注释以外的解释性散文；动作次序与 commands 的
+变更次序严格相反或成对（先开的先关）；涉及 `write/save/commit` 的条目，rollback
+末步要考虑"恢复后是否需要再保存一次"。
+
+> 兼容备注：Wave 2 既定约定不变——Linux 条目缺 `duration` 仍为 ERROR；
+> 排查树 `by_vendor` uuid 硬引用约定见第五节。rollback 校验当前为 WARNING
+> 宽容期（变更类缺口 ~264 条属迁移软着陆），任务6 升 ERROR 后缺填即拦截。
 
 ## 五、命名 / 分类 / 厂商代码约定（从现有种子归纳，不新造）
 
@@ -166,5 +234,6 @@ Linux 条目缺 duration 是 ERROR（validate 拦截），网络侧条目可留�
 - [ ] `type` 五选一；enum 必带 `choices`；int 建议 `range`
 - [ ] `description` 三要素齐全（控制什么 / 取值范围 / 安全注意），没有复述参数名
 - [ ] `default` 非空时能通过自身 type/choices/range 校验（`python app/main.py --validate-seed` 会替你查）
+- [ ] 变更类条目已写 `rollback`（多行字符串；占位符与 params 同名；写法见四·B 三类典型）
 - [ ] 关键步骤有 `#` 注释行；影响转发 / 需 commit 生效的已注明
 - [ ] 本地 `python app/main.py --validate-seed` 返回 EXIT=0
