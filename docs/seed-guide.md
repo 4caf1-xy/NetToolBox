@@ -119,8 +119,16 @@ Linux 侧 `centos7` / `ubuntu2204` / `kylinV10` / `openeuler2203`，通用 Linux
 **category**：网络侧沿用十类骨架 `VLAN` / `Trunk` / `静态路由` / `OSPF` / `ACL` / `NAT` /
 `SSH管理` / `密码` / `SNMP` / `保存配置`，扩展类 `接口诊断` / `BGP` / `DNS域名解析` /
 `时间同步` / `版本升级` / `HA/双机` / `地址分配` / `配置回滚` / `AAA认证` / `防火墙诊断` /
-`环路检测` / `传输工具`；Linux 侧 `网络配置` / `排查命令` / `本地源` / `防火墙` / `服务管理` /
+`环路检测` / `日志` / `传输工具`；Linux 侧 `网络配置` / `排查命令` / `本地源` / `防火墙` / `服务管理` /
 `日志` / `磁盘` / `系统资源` / `进程管理` / `审计日志`。新分类先在 Issue 提出再入库。
+
+**duration（Linux 侧条目必填）**：`temp`（排查/诊断类临时命令）/ `perm`（常备配置）/ `both`；
+Linux 条目缺 duration 是 ERROR（validate 拦截），网络侧条目可留空。
+
+**排查树引用约定（2026-10-09 扫尾批沉淀）**：树 cmd_ref 靠 `vendor_category + title_keyword`
+模糊匹配是兜底路径，**条目改名/同名多候选即漂移**；新条目入库后应把受影响树的
+`by_vendor` 补上 `{vendor: {uuid, title}}` 硬引用（确定性，validate 树覆盖度提示据此清零）。
+反向对账：by_vendor 引用的条目必须存在且厂商一致（567 处基线，validate ERROR 级）。
 
 **uuid**：uuidv5 风格小写（示例见第四节）；同一实体跨批次迁移**保持 uuid 不变**，
 这是 `.nlb` 合并去重与主库同步的身份键。

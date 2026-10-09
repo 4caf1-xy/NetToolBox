@@ -92,3 +92,14 @@
 - [ ] G2 维护对话框内显示/流转验证标记——触发条件：**下次验证会回填树时**
 - [ ] G5 未保存关闭确认——下次触碰 ui_tree_editor.py 时顺手
 - [ ] G4/G6/G7——无触发不做
+
+## 扫尾批验证安排（2026-10-09 登记，e133a83 / d61e524）
+
+本批 11 条新条目（zte ×4 / juniper ×4 / openeuler ×3）全部 verified=0 入库，不预填验证态；41 条挂起维持不动（systemctl 类按 lab 映射表口径属正当挂起）。验证触发条件：**等 Wave 3 params 定型 + compose 环境本机就绪后，随验证会统一回填**。
+
+| 批次 | 条目 | 验证通道 | 方法要点 |
+|---|---|---|---|
+| 扫尾A | juniper ×4 / openeuler ×3 | compose 实验室（ubuntu 容器近似 opendeploy 不行——juniper 无免许可容器，走真机） | juniper 走 EX/SRX 真机或 vSRX；openeuler 三条可直接在测试环境 openEuler 22.03 虚机实跑——ss/tcpdump/ethtool/dig/traceroute/tracepath 均为只读命令 |
+| 扫尾A | zte ×4 | 真机验证会 | ZXR10 命令名按常见写法给出，现场以 ? 实测为准；核对通过后按 seed-guide 回填 |
+| 扫尾B | 12 棵树 by_vendor + 4 处动作引用 | 验证会抽查 | 排查向导逐树走查：zte/juniper 分支命令渲染非空、无歧义告警 |
+
