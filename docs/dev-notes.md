@@ -127,3 +127,14 @@
 - fortinet 17 抽 6 / paloalto 14 抽 5 / sangfor 10 抽 3 / topsec 10 抽 3：防火墙组已整批硬停复核通过 ✓
 - centos 19 抽 6 / kylin 13 抽 4 / openeuler 12 抽 4 / ubuntu 13 抽 4 / ops 5 抽 2：备份恢复/反向命令对称/rm 限定本次产物 ✓
 - ruijie 16 抽 5 / zte 14 抽 5：RGOS/ZXR10 类 IOS no 前缀 + ? 口径标注 ✓
+
+
+## smoke 主库零接触改造（2026-10-09 登记，v0.5.0 发版前置）
+
+**挂账**：smoke 套件此前"恰好不写主库"靠的是部分套件各自劫持（panel_dashboard 劫持 state 路径、stage2/3 劫持 config/sessions），结构性无保证；排查中实证一处**暗接触**——smoke_ai_chat 隐式读取开发者真 `app/ai_config.json`（真 key）判定"已配置"分支，且未配置路径会弹模态框导致套件挂死。**本节即登记+清偿闭环。**
+
+**清偿**（commit 见 git log）：
+- 新增 `scripts/_smoke_env.py`：① 路径全劫持——`db.get_base_dir`/`db.get_db_path`/`ai_bridge._base_dir`（sessions/cases/config 三处共用）/`theme.state_file_path` 全部指向一次性临时目录，`setup()` 必须先于 app 模块导入（ui_main 按名绑定 `from db import get_base_dir`）；② 主库零写权断言——setup 时对真主库 `dist_package/command_lib.db`（另防御性监视 `app/command_lib.db`）取 sha256，atexit 复核不一致则 `os._exit(42)` 硬失败，"碰了主库"不可能静默通过；
+- 六个 smoke 套件头部统一接线 `_se.setup()`；smoke_ai_chat 自带假配置（`api_key=smoke-fake-key` 写入临时区 config_path），CI 无真配置也能跑，暗接触消除；
+- **实证**：全量 310 项（9+43+13+93+68+84）EXIT=0；主库 sha256 改造前后均为 `6441ea7d…19b` 逐字节一致；每套件尾部打印 `[SMOKE-ENV] 主库零接触实证：指纹前后一致`。
+- 已知边界：panel_dashboard 的 B14 类 250ms 时序检查在多套件背靠背满负载下出现过一次 42/43 抖动（单独复跑 3×43/43 稳定），非本改造引入。

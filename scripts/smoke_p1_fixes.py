@@ -20,6 +20,8 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(APP_DIR, "app"))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QT_QPA_FONTDIR", r"C:\Windows\Fonts")
+import _smoke_env as _se
+_se.setup()  # 主库零接触：路径全劫持到临时区 + 真库指纹 atexit 断言
 
 RESULTS = []
 def check(name, cond, detail=""):

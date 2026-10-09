@@ -7,8 +7,18 @@ import tempfile
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import _smoke_env as _se
+_se.setup()  # 主库零接触：路径全劫持到临时区 + 真库指纹 atexit 断言
+import json
 import ai_bridge
 import ui_ai
+
+# 自带假配置（api_key 非空即判"已配置"）：改造前本套件隐式读取开发者真
+# app/ai_config.json 判定已配置分支——这是零接触改造要消除的暗接触；
+# 劫持后 config 指向临时区，套件必须自带假配置，CI 无真配置也能跑。
+with open(ai_bridge.config_path(), "w", encoding="utf-8") as _fp:
+    json.dump({"api_key": "smoke-fake-key", "model": "smoke-model",
+               "operator": "smoke"}, _fp)
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QApplication
 

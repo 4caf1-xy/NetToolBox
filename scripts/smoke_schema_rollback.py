@@ -20,6 +20,8 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO, "app"))
+import _smoke_env as _se
+_se.setup()  # 主库零接触：路径全劫持到临时区 + 真库指纹 atexit 断言
 
 PASS = []
 FAIL = []

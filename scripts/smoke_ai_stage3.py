@@ -5,6 +5,8 @@ import sys
 import time
 import tempfile
 
+import _smoke_env as _se
+_se.setup()  # 主库零接触：路径全劫持到临时区 + 真库指纹 atexit 断言
 import dedupe
 import db as dbmod
 
