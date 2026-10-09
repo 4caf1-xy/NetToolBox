@@ -68,8 +68,9 @@ QUERY_WHITELIST = (
     # ---- Linux 只读命令（单义动词，整词在名单）----
     "cat", "ls", "less", "more", "grep", "head", "tail", "wc", "file", "stat",
     "pwd", "ss", "netstat", "lsof", "ps", "uname", "uptime", "free", "df",
-    "du", "lsblk", "blkid", "dmesg", "lscpu", "lshw", "dmidecode", "lspci",
+    "du", "lsblk", "blkid", "dmesg",     "lscpu", "lshw", "dmidecode", "lspci",
     "lsusb", "lsmod", "iostat", "vmstat", "mpstat", "sar", "ethtool",
+    "top -b",   # top 批处理模式为只读快照；交互式 top 不入名单（可 renice）
     "ping", "ping6", "traceroute", "tracepath", "mtr", "dig", "nslookup",
     "host", "arping", "tcpdump", "arp", "id", "who", "w", "whoami", "groups",
     "date", "hostname", "getenforce", "sestatus", "mount", "rpm", "dpkg",

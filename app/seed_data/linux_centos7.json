@@ -19,6 +19,7 @@
       "title": "临时配置 IP 地址（ip 命令族）",
       "description": "用 ip 命令给网卡临时加 IP，立即生效，重启网络或机器后失效。",
       "commands": "# ⚠ 临时生效：重启网络/机器后失效，持久化见配套条目：《永久配置 IP（ifcfg-* 文件）》\nip addr show\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}\nip link set {{ifname}} up\nip addr show {{ifname}}\n# 验证连通\nping -c 2 {{gateway}}\n# 清除该 IP（需要时）：\n# ip addr del {{ip_addr}}/{{prefix_len}} dev {{ifname}}",
+      "rollback": "# 回退：删除临时添加的 IP（临时生效，重启网络/机器自动消失；手动清除如下）\nip addr del {{ip_addr}}/{{prefix_len}} dev {{ifname}}\n# 复核\nip addr show {{ifname}}",
       "params": [
         {
           "name": "ifname",
@@ -81,6 +82,7 @@
       "title": "永久配置 IP（ifcfg-* 文件）",
       "description": "改 ifcfg-* 配置文件实现 IP 持久化，重启后仍生效。",
       "commands": "# 持久化配置：/etc/sysconfig/network-scripts/ifcfg-{{ifname}}\n# 改之前先备份！\ncp /etc/sysconfig/network-scripts/ifcfg-{{ifname}} /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.bak\nvi /etc/sysconfig/network-scripts/ifcfg-{{ifname}}\n# ---- 文件内容（按现场实际填写）----\n# DEVICE={{ifname}}\n# BOOTPROTO=static\n# ONBOOT=yes\n# IPADDR={{ip_addr}}\n# PREFIX={{prefix_len}}\n# GATEWAY={{gateway}}\n# DNS1={{dns_ip}}\n# ------------------------------------\nsystemctl restart network\nip addr show {{ifname}}\nip route show",
+      "rollback": "# 回退：恢复变更前备份的 ifcfg 文件并重启网络\n#（★ SSH 走该口时重启 network 会瞬断，用带外/本机 console 操作）\ncp /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.bak /etc/sysconfig/network-scripts/ifcfg-{{ifname}}\nsystemctl restart network\n# 复核\nip addr show {{ifname}}\nip route show",
       "params": [
         {
           "name": "ifname",
@@ -153,6 +155,7 @@
       "title": "nmcli 永久配置 IP（推荐）",
       "description": "用 nmcli 修改连接配置：写入持久化配置且立即生效，一条命令两件事都办。",
       "commands": "nmcli con show\nnmcli con mod \"{{con_name}}\" ipv4.method manual ipv4.addresses {{ip_addr}}/{{prefix_len}}\nnmcli con mod \"{{con_name}}\" ipv4.gateway {{gateway}}\nnmcli con mod \"{{con_name}}\" ipv4.dns {{dns_ip}}\nnmcli con up \"{{con_name}}\"\nnmcli con show \"{{con_name}}\"\nip addr show {{ifname}}",
+      "rollback": "# 回退：恢复连接旧地址配置（nmcli 无历史快照——旧值按变更记录回填；\n# 变更前若为 DHCP 则按下行清空静态项）\nnmcli con mod \"{{con_name}}\" ipv4.method auto ipv4.addresses \"\" ipv4.gateway \"\" ipv4.dns \"\"\nnmcli con up \"{{con_name}}\"\n# 复核\nnmcli con show \"{{con_name}}\"\nip addr show {{ifname}}",
       "params": [
         {
           "name": "con_name",
@@ -235,6 +238,7 @@
       "title": "临时添加静态路由（ip route）",
       "description": "用 ip route 加静态路由，立即生效，重启后失效。",
       "commands": "# ⚠ 临时生效：持久化见配套条目：《静态路由持久化（route-* 文件）》\nip route show\nip route add {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nip route show\n# 删除该路由（需要时）：\n# ip route del {{dest_net}}/{{prefix_len}} via {{gateway}}",
+      "rollback": "# 回退：删除临时添加的路由（临时生效，重启网络自动消失；手动清除如下）\nip route del {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\n# 复核\nip route show",
       "params": [
         {
           "name": "dest_net",
@@ -297,6 +301,7 @@
       "title": "静态路由持久化（route-* 文件）",
       "description": "用 route-* 配置文件持久化静态路由，重启后仍生效。",
       "commands": "# 持久化：/etc/sysconfig/network-scripts/route-{{ifname}}\nvi /etc/sysconfig/network-scripts/route-{{ifname}}\n# ---- 文件内容（每行一条路由）----\n# {{dest_net}}/{{prefix_len}} via {{gateway}} dev {{ifname}}\nsystemctl restart network\nip route show",
+      "rollback": "# 回退：变更时未备份 route-{{ifname}} 文件——按变更记录恢复原内容\n#（若该文件为本次新建则直接删除）后重启网络\nvi /etc/sysconfig/network-scripts/route-{{ifname}}\nsystemctl restart network\n# 复核\nip route show",
       "params": [
         {
           "name": "dest_net",
@@ -359,6 +364,7 @@
       "title": "临时创建 VLAN 子接口（802.1Q）",
       "description": "用 ip link 创建 VLAN 子接口，立即生效，重启后失效。",
       "commands": "# ⚠ 临时生效：持久化见配套条目：《VLAN 子接口持久化（ifcfg 文件）》\n# 前提：交换机侧该口已配 trunk 并放通该 VLAN\nmodprobe 8021q\nip link add link {{ifname}} name {{ifname}}.{{vlan_id}} type vlan id {{vlan_id}}\nip addr add {{ip_addr}}/{{prefix_len}} dev {{ifname}}.{{vlan_id}}\nip link set {{ifname}}.{{vlan_id}} up\nip -d link show {{ifname}}.{{vlan_id}}",
+      "rollback": "# 回退：删除临时 VLAN 子接口（临时生效；8021q 模块保留无害不必卸载）\nip link del {{ifname}}.{{vlan_id}}\n# 复核（期望报不存在）\nip -d link show {{ifname}}.{{vlan_id}}",
       "params": [
         {
           "name": "ifname",
@@ -421,6 +427,7 @@
       "title": "VLAN 子接口持久化（ifcfg 文件）",
       "description": "用 ifcfg 持久化 VLAN 子接口，重启后仍生效。",
       "commands": "# 持久化：/etc/sysconfig/network-scripts/ifcfg-{{ifname}}.{{vlan_id}}\ncat > /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.{{vlan_id}} << 'EOF'\nDEVICE={{ifname}}.{{vlan_id}}\nBOOTPROTO=static\nONBOOT=yes\nVLAN=yes\nPHYSDEV={{ifname}}\nIPADDR={{ip_addr}}\nPREFIX={{prefix_len}}\nEOF\nsystemctl restart network\nip -d link show {{ifname}}.{{vlan_id}}",
+      "rollback": "# 回退：变更时未备份 ifcfg 文件——本次新建则直接删除后重启网络\n#（若该文件此前已存在，按变更记录恢复原内容）\nrm -f /etc/sysconfig/network-scripts/ifcfg-{{ifname}}.{{vlan_id}}\nsystemctl restart network\n# 复核（期望报不存在）\nip -d link show {{ifname}}.{{vlan_id}}",
       "params": [
         {
           "name": "ifname",
@@ -483,6 +490,7 @@
       "title": "双网卡绑定 bond（nmcli 方式）",
       "description": "把两块网卡绑成一个 bond 口做链路冗余/带宽，配置持久化。",
       "commands": "nmcli con add type bond con-name bond0 ifname bond0 \\\n  bond.options \"mode=active-backup,miimon=100\"\nnmcli con add type bond-slave con-name slave-{{ifname}} ifname {{ifname}} master bond0\nnmcli con add type bond-slave con-name slave-{{ifname2}} ifname {{ifname2}} master bond0\nnmcli con mod bond0 ipv4.method manual ipv4.addresses {{ip_addr}}/{{prefix_len}} \\\n  ipv4.gateway {{gateway}}\nnmcli con up bond0\ncat /proc/net/bonding/bond0",
+      "rollback": "# 回退：删除 bond 连接与两个 slave 连接（成员口恢复独立可用；\n# ★ 原成员口 IP 配置按变更记录恢复，恢复期间业务走带外）\nnmcli con del bond0\nnmcli con del slave-{{ifname}}\nnmcli con del slave-{{ifname2}}\n# 复核\nnmcli con show\ncat /proc/net/bonding/bond0",
       "params": [
         {
           "name": "ifname",
@@ -555,6 +563,7 @@
       "title": "DNS 配置（临时 + 持久化）",
       "description": "临时改 /etc/resolv.conf 立即生效；持久化走 nmcli 或 ifcfg 的 DNS 字段。",
       "commands": "# ---- 临时：直接改 resolv.conf（NetworkManager 管理时重启网络会被覆盖）----\necho \"nameserver {{dns_ip}}\" >> /etc/resolv.conf\ncat /etc/resolv.conf\n# 验证\ndig @{{dns_ip}} {{domain}} +short\n# ---- 持久化（推荐 nmcli）----\nnmcli con mod \"{{con_name}}\" ipv4.dns \"{{dns_ip}}\"\nnmcli con up \"{{con_name}}\"",
+      "rollback": "# 回退：删除 resolv.conf 追加行并恢复 nmcli DNS 旧值（旧值按变更记录回填）\nsed -i '/nameserver {{dns_ip}}/d' /etc/resolv.conf\nnmcli con mod \"{{con_name}}\" ipv4.dns <变更前DNS>\nnmcli con up \"{{con_name}}\"\n# 复核\ncat /etc/resolv.conf\ndig {{domain}} +short",
       "params": [
         {
           "name": "dns_ip",
@@ -606,6 +615,7 @@
       "title": "systemctl 服务管理五件套",
       "description": "启动/停止/重启/查状态/开机自启，含查看为什么起不来。",
       "commands": "systemctl start {{service_name}}\nsystemctl stop {{service_name}}\nsystemctl restart {{service_name}}\nsystemctl status {{service_name}} --no-pager\nsystemctl is-enabled {{service_name}}\n# 开机自启 / 取消自启\nsystemctl enable {{service_name}}\nsystemctl disable {{service_name}}\n# 起不来时看细节\nsystemctl status {{service_name}} -l --no-pager\njournalctl -u {{service_name}} -n 50 --no-pager",
+      "rollback": "# 回退：本条目为服务管理操作演示，回退目标=恢复变更前服务状态：\n# systemctl start/stop {{service_name}} 回原运行态；\n# systemctl enable/disable {{service_name}} 回原自启态（原状态按变更记录）\nsystemctl status {{service_name}} --no-pager",
       "params": [
         {
           "name": "service_name",
@@ -668,6 +678,7 @@
       "title": "firewalld 放行端口与服务",
       "description": "用 firewall-cmd 永久放行端口/服务，含验证与排错。",
       "commands": "firewall-cmd --state\nfirewall-cmd --get-active-zones\n# 永久放行端口\nfirewall-cmd --permanent --add-port={{port}}/tcp\nfirewall-cmd --permanent --add-service=https\nfirewall-cmd --reload\nfirewall-cmd --list-all\n# 验证（本机监听 + 远端 telnet）\nss -tlnp | grep :{{port}}",
+      "rollback": "# 回退：移除本次放行的端口与服务（--permanent 修改须 --reload 生效）\nfirewall-cmd --permanent --remove-port={{port}}/tcp\nfirewall-cmd --permanent --remove-service=https\nfirewall-cmd --reload\n# 复核（期望无该端口/服务）\nfirewall-cmd --list-all",
       "params": [
         {
           "name": "port",
@@ -700,6 +711,7 @@
       "title": "firewalld 富规则（只放行指定源 IP）",
       "description": "用富规则实现「只允许某网段访问某端口」，比全开放安全。",
       "commands": "firewall-cmd --permanent --add-rich-rule='rule family=\"ipv4\" \\\n  source address=\"{{src_net}}/{{prefix_len}}\" \\\n  port protocol=\"tcp\" port=\"{{port}}\" accept'\nfirewall-cmd --permanent --add-rich-rule='rule family=\"ipv4\" \\\n  source address=\"0.0.0.0/0\" \\\n  port protocol=\"tcp\" port=\"{{port}}\" drop'\nfirewall-cmd --reload\nfirewall-cmd --list-rich-rules",
+      "rollback": "# 回退：删除本次添加的两条富规则并重载（remove 参数须与 add 时逐字一致）\nfirewall-cmd --permanent --remove-rich-rule='rule family=\"ipv4\" source address=\"{{src_net}}/{{prefix_len}}\" port protocol=\"tcp\" port=\"{{port}}\" accept'\nfirewall-cmd --permanent --remove-rich-rule='rule family=\"ipv4\" source address=\"0.0.0.0/0\" port protocol=\"tcp\" port=\"{{port}}\" drop'\nfirewall-cmd --reload\n# 复核（期望为空）\nfirewall-cmd --list-rich-rules",
       "params": [
         {
           "name": "src_net",
@@ -753,6 +765,7 @@
       "title": "iptables 基础（临时规则）",
       "description": "查看与添加 iptables 规则；与 firewalld 同时用会打架，二选一。",
       "commands": "iptables -L -n -v --line-numbers\n# 放行端口（插到最前面）\niptables -I INPUT 1 -p tcp --dport {{port}} -j ACCEPT\n# 只放行指定网段\niptables -A INPUT -p tcp -s {{src_net}}/{{prefix_len}} --dport {{port}} -j ACCEPT\n# 拒绝其它\niptables -A INPUT -p tcp --dport {{port}} -j DROP\n# 保存（重启后仍生效，需要 iptables-services 包）\niptables-save > /etc/sysconfig/iptables",
+      "rollback": "# 回退：删除本变更新增的 INPUT 规则（按行号倒序删，编号现场确认后回填），\n# 已 iptables-save 落盘的重新保存\niptables -L INPUT -n -v --line-numbers\niptables -D INPUT <行号>\niptables-save > /etc/sysconfig/iptables\n# 复核\niptables -L INPUT -n -v --line-numbers",
       "params": [
         {
           "name": "port",
@@ -942,6 +955,7 @@
       "title": "连通性排查三连（ping/traceroute/dig）",
       "description": "从链路层到应用层快速定位网络不通的点。",
       "commands": "ping -c 4 {{peer_ip}}\ntraceroute {{peer_ip}}\ndig @{{dns_ip}} {{domain}} +short\n# 指定出口网卡 ping（多网卡/策略路由场景）\nping -I {{ifname}} -c 4 {{peer_ip}}\n# 端口级连通（比 telnet 直观）\ncurl -v telnet://{{peer_ip}}:{{port}} --connect-timeout 3",
+      "rollback": "# 回退：本条目为连通性诊断（ping/traceroute/dig/curl 探测均只读），\n# 无配置变更，无需回退",
       "params": [
         {
           "name": "peer_ip",
@@ -1076,6 +1090,7 @@
       "title": "本地 yum 源（ISO 挂载）★ 离网特供",
       "description": "用 ISO 镜像搭本地 yum 源，完全离线装包——隔离网最高频场景。",
       "commands": "mkdir -p /mnt/cdrom\nmount -o loop {{iso_path}} /mnt/cdrom\n# 物理光驱则：mount /dev/cdrom /mnt/cdrom\ncat > /etc/yum.repos.d/local.repo << 'EOF'\n[local-iso]\nname=Local ISO Repo\nbaseurl=file:///mnt/cdrom\nenabled=1\ngpgcheck=0\nEOF\nyum clean all\nyum makecache\nyum repolist\nyum install {{pkg_name}} -y",
+      "rollback": "# 回退：删除 local.repo 并卸载 ISO（★ 已用该源安装的包保留不影响系统）\nrm -f /etc/yum.repos.d/local.repo\numount /mnt/cdrom\nyum clean all && yum makecache\n# 复核（期望无 local-iso 源）\nyum repolist",
       "params": [
         {
           "name": "iso_path",
@@ -1117,6 +1132,7 @@
       "title": "createrepo 自建 yum 源",
       "description": "把收集来的 rpm 做成正式 yum 源，供本机或内网其它机器使用。",
       "commands": "mkdir -p /opt/local-repo\ncp ./*.rpm /opt/local-repo/\ncreaterepo /opt/local-repo\ncat > /etc/yum.repos.d/local-repo.repo << 'EOF'\n[local-repo]\nname=Local Created Repo\nbaseurl=file:///opt/local-repo\nenabled=1\ngpgcheck=0\nEOF\nyum clean all\nyum makecache\nyum repolist",
+      "rollback": "# 回退：删除自建源配置与仓库目录（★ 已安装的包保留）\nrm -f /etc/yum.repos.d/local-repo.repo\nrm -rf /opt/local-repo\nyum clean all && yum makecache\n# 复核（期望无 local-repo 源）\nyum repolist",
       "params": [],
       "notes": "1) ★ 每次往目录里加了新 rpm 都要重新 createrepo /opt/local-repo，否则 yum 看不到。\n2) createrepo 命令本身没装：从 ISO 的 Packages 里找出\n   createrepo / deltarpm / python-deltarpm 三个包 rpm -Uvh 安装。\n3) 给内网其它机器用：/opt/local-repo 用 HTTP 发出去（python -m http.server 8000 也行）。",
       "duration": "perm",
@@ -1168,6 +1184,7 @@
       "title": "磁盘空间排查（df/du/deleted 句柄）",
       "description": "定位磁盘被什么占满，含「df 满但 du 找不到」的经典坑。",
       "commands": "df -h\ndu -sh /* 2>/dev/null | sort -rh | head -10\ndu -sh /var/log/* | sort -rh | head -10\n# df 满、du 找不到大文件 → 八成是被删文件还被进程占着\nlsof | grep deleted | head\n# 找到进程后重启它释放空间，或：\n: > /var/log/bigfile.log",
+      "rollback": "# 回退：本条目为排查演示；\": >\" 截断示例日志文件的内容已清空且不可恢复，\n# 如该文件是业务日志需从应用侧重建或恢复轮转；其余均为只读命令无需回退",
       "params": [],
       "notes": "1) df 满、du 加起来不大 → 查 lsof | grep deleted：日志被删了但进程还握着句柄。\n2) 清理正在写的日志用 : > 文件（截断），不要 rm —— rm 了空间不会立刻释放。\n3) inode 用满也是 \"No space left on device\"：df -i 看节点数，海量小文件场景。\n4) ★ 截断文件（: > 大文件）前先确认属主与进程占用：lsof | grep 文件名；正在被进程写入的日志直接清空可能导致句柄错乱，优先用 journalctl --vacuum-size 等正规收缩手段。\n",
       "duration": "temp",
@@ -1188,6 +1205,7 @@
       "title": "文件句柄不足排查（Too many open files）",
       "description": "查系统与进程的句柄使用，定位并临时调大限制。",
       "commands": "cat /proc/sys/fs/file-nr\nulimit -n\ncat /proc/{{pid}}/limits | grep \"open files\"\nlsof -p {{pid}} | wc -l\n# 临时调大（重启失效，持久化改 /etc/security/limits.conf）\nulimit -n 65535",
+      "rollback": "# 回退：ulimit -n 调大仅影响当前 shell 会话，重新登录即恢复默认；\n# 若持久化改过 /etc/security/limits.conf，按变更记录回填原值",
       "params": [
         {
           "name": "pid",
@@ -1240,6 +1258,7 @@
       "title": "配置 chrony 时间同步（CentOS 7）",
       "description": "chronyd 指向内网 NTP 并开机自启；证书/日志/数据库全依赖时间，部署应用前先对表。",
       "commands": "# ===== 配置 chrony 时间同步（CentOS 7，指向内网 NTP）=====\n# ---- 0. 备份配置 ----\ncp /etc/chrony.conf /etc/chrony.conf.bak.$(date +%Y%m%d)\n# ---- 1. 注释掉原 server 行（离网防连公网超时），追加内网 NTP ----\nsed -i 's/^server /#&/' /etc/chrony.conf\necho 'server {{ntp_server_ip}} iburst' >> /etc/chrony.conf\n# ---- 2. 重启并设开机自启 ----\nsystemctl restart chronyd && systemctl enable chronyd\n# ---- 3. 验证（^* = 已同步，^? = 未同步上）----\nchronyc sources -v\nchronyc tracking\ndate\n",
+      "rollback": "# 回退：恢复变更日备份的 chrony.conf 并重启服务（备份文件名日期=变更当天）\nls -l /etc/chrony.conf.bak.*\ncp /etc/chrony.conf.bak.<变更日期> /etc/chrony.conf\nsystemctl restart chronyd\n# 复核（原 server 行恢复）\nchronyc sources -v",
       "params": [
         {
           "name": "ntp_server_ip",
