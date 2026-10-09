@@ -99,6 +99,9 @@ QUERY_WHITELIST = (
     "yum list", "yum info", "dnf list", "dnf info",
     "apt list", "apt show", "apt-cache policy", "apt-cache show",
     "crontab -l", "lsscsi", "fdisk -l", "sfdisk -l",
+    # ---- FortiOS HA 只读诊断（精确前缀；diagnose 族整体有副作用命令，不整族入名单）----
+    "diagnose sys ha checksum cluster", "diagnose sys ha heartbeat",
+    "diagnose sys ha status", "diagnose sys ha history",
 )
 
 # 强制变更组（词前缀匹配，命中即变更类，优先级高于白名单）：

@@ -19,6 +19,7 @@
       "title": "创建 VLAN 子接口并开放管理协议",
       "description": "在物理口上建 VLAN 子接口、配 IP 与允许的管理协议（FortiGate 的 VLAN 即子接口）。",
       "commands": "# ===== 创建 VLAN 子接口（FortiOS）=====\nconfig system interface\n    edit \"{{vlan_name}}\"\n        set vdom \"root\"\n        set interface \"{{parent_port}}\"\n        set vlanid {{vlan_id}}\n        set ip {{vlan_ip}} {{vlan_mask}}\n        set allowaccess ping https ssh\n        set role lan\n        set description \"{{vlan_desc}}\"\n    next\nend\nshow system interface {{vlan_name}}",
+      "rollback": "# 回退：删除 VLAN 子接口（★ 若已有策略/路由引用该接口，先解除引用再删）\nconfig system interface\n    delete \"{{vlan_name}}\"\nend\n# 复核（期望无输出）\nshow system interface | grep {{vlan_name}}",
       "params": [
         {
           "name": "vlan_name",
@@ -100,6 +101,7 @@
       "title": "配置端口聚合（Aggregate / LACP）",
       "description": "把多个物理口组成聚合接口，用于上联交换机做链路捆绑（链路冗余/带宽叠加）。",
       "commands": "# ===== 端口聚合（FortiOS）=====\nconfig system interface\n    edit \"{{agg_name}}\"\n        set vdom \"root\"\n        set type aggregate\n        set member {{member_ports}}\n        set lacp-mode {{lacp_mode}}\n        set vlanforward enable\n        set description \"{{agg_desc}}\"\n    next\nend\nshow system interface {{agg_name}}\ndiagnose netlink aggregate name {{agg_name}}",
+      "rollback": "# 回退：删除聚合口（成员口自动回到独立状态；★ 删除前确认无路由/策略引用；\n# 成员口原配置如有变更按变更记录恢复）\nconfig system interface\n    delete \"{{agg_name}}\"\nend\n# 复核（期望无输出）\nshow system interface | grep {{agg_name}}",
       "params": [
         {
           "name": "agg_name",
@@ -166,6 +168,7 @@
       "title": "配置静态路由与默认路由",
       "description": "在路由表里新增明细路由或默认路由，指定网关、出接口与管理距离。",
       "commands": "# ===== 静态路由（FortiOS）=====\nconfig router static\n    edit {{seq}}\n        set dst {{dest_net}} {{dest_mask}}\n        set gateway {{gateway}}\n        set device \"{{out_interface}}\"\n        set distance {{distance}}\n        set comment \"{{comment}}\"\n    next\n    edit {{default_seq}}\n        set dst 0.0.0.0 0.0.0.0\n        set gateway {{gateway}}\n        set device \"{{out_interface}}\"\n        set distance {{default_distance}}\n    next\nend\nshow router static\nget router info routing-table all",
+      "rollback": "# 回退：删除本变更新增的两条静态路由（条目编号 {{seq}}/{{default_seq}} 见变更记录）\nconfig router static\n    delete {{seq}}\n    delete {{default_seq}}\nend\n# 复核\nshow router static\nget router info routing-table all",
       "params": [
         {
           "name": "seq",
@@ -281,6 +284,7 @@
       "title": "配置 OSPF 基本组网（FortiOS）",
       "description": "开启 OSPF、设 router-id、按区域宣告网段并指定参与组网的接口。",
       "commands": "# ===== OSPF 基本配置（FortiOS）=====\nconfig router ospf\n    set router-id {{router_id}}\n    config area\n        edit {{area_id}}\n        next\n    end\n    config network\n        edit {{net_seq}}\n            set prefix {{prefix_net}} {{prefix_mask}}\n        next\n    end\n    config ospf-interface\n        edit \"{{ospf_intf}}\"\n            set interface \"{{ospf_intf}}\"\n            set network-type broadcast\n        next\n    end\nend\nshow router ospf\nget router info ospf neighbor\nget router info ospf interface",
+      "rollback": "# 回退：撤销 OSPF 配置（unset router-id 恢复默认；子表按逆序删除）\nconfig router ospf\n    unset router-id\n    config network\n        delete {{net_seq}}\n    end\n    config ospf-interface\n        delete \"{{ospf_intf}}\"\n    end\n    config area\n        delete {{area_id}}\n    end\nend\n# 复核\nget router info ospf neighbor",
       "params": [
         {
           "name": "router_id",
@@ -363,6 +367,7 @@
       "title": "配置地址对象与防火墙策略（ACL 等效）",
       "description": "创建地址对象，用防火墙策略实现网段互访控制，含日志与顺序要点。",
       "commands": "# ===== 地址对象 + 防火墙策略（FortiOS）=====\nconfig firewall address\n    edit \"{{src_obj}}\"\n        set subnet {{src_net}} {{src_mask}}\n        set comment \"{{src_comment}}\"\n    next\nend\nconfig firewall policy\n    edit {{policy_id}}\n        set name \"{{policy_name}}\"\n        set srcintf \"{{src_intf}}\"\n        set dstintf \"{{dst_intf}}\"\n        set srcaddr \"{{src_obj}}\"\n        set dstaddr \"all\"\n        set action accept\n        set schedule \"always\"\n        set service \"{{service}}\"\n        set logtraffic all\n        set nat enable\n    next\nend\nshow firewall policy\ndiagnose firewall iprope list {{policy_id}}",
+      "rollback": "# 回退：先删策略再删地址对象（策略引用对象时对象删不掉）\nconfig firewall policy\n    delete {{policy_id}}\nend\nconfig firewall address\n    delete \"{{src_obj}}\"\nend\n# 复核（期望无输出）\nshow firewall policy | grep {{policy_id}}",
       "params": [
         {
           "name": "src_obj",
@@ -475,6 +480,7 @@
       "title": "配置 SNAT（策略 NAT）与 DNAT（VIP 端口映射）",
       "description": "出方向在策略里开 NAT 实现端口复用；入方向用 VIP 做服务器端口映射。",
       "commands": "# ===== 出方向 SNAT（策略里开 NAT，默认借用出接口地址 = PAT）=====\nconfig firewall policy\n    edit {{policy_id}}\n        set nat enable\n    next\nend\n# ===== 入方向 DNAT：VIP 端口映射（公网 8080 → 内网 80）=====\nconfig firewall vip\n    edit \"{{vip_name}}\"\n        set extip {{public_ip}}\n        set extintf \"{{out_interface}}\"\n        set portforward enable\n        set mappedip \"{{inside_ip}}\"\n        set extport {{public_port}}\n        set mappedport {{inside_port}}\n    next\nend\n# VIP 必须再被入方向的 policy 引用才生效\nshow firewall vip\ndiagnose firewall vip list",
+      "rollback": "# 回退：删除 VIP 并撤销策略 NAT 开关（★ 若策略 {{policy_id}} 整条为本变更新建\n# 则改为 delete {{policy_id}}；仅是开 NAT 开关时用 unset nat）\nconfig firewall vip\n    delete \"{{vip_name}}\"\nend\nconfig firewall policy\n    edit {{policy_id}}\n        unset nat\n    next\nend\n# 复核（期望无输出）\nshow firewall vip | grep {{vip_name}}",
       "params": [
         {
           "name": "policy_id",
@@ -569,6 +575,7 @@
       "title": "开启 SSH 管理并创建受限管理员",
       "description": "创建管理员账号、指定权限模板并限制登录源地址，收紧管理面。",
       "commands": "# ===== 管理员账号 + 管理面收紧（FortiOS）=====\nconfig system admin\n    edit \"{{username}}\"\n        set password {{password}}\n        set accprofile \"{{accprofile}}\"\n        set trusthost1 {{trust_ip}} {{trust_mask}}\n        set allow-ssh enable\n    next\nend\nconfig system global\n    set admin-sport {{ssh_port}}\n    set admin-ssh-version SSHv2\n    set admintimeout {{timeout_min}}\nend\nshow system admin",
+      "rollback": "# 回退：删除本变更新建的管理员并恢复全局管理参数（★ 删除当前登录账号前\n# 先用别的管理员登录；admin-sport/admintimeout 旧值按变更记录回填）\nconfig system admin\n    delete \"{{username}}\"\nend\nconfig system global\n    set admin-sport <旧端口，默认443>\n    set admintimeout <旧超时，默认5>\nend\n# 复核\nshow system admin",
       "params": [
         {
           "name": "username",
@@ -666,6 +673,7 @@
       "title": "修改管理员口令（Console/HTTPS/SSH 共用）",
       "description": "FortiGate 没有独立 console 口令，console 与 Web/SSH 共用管理员账号密码。",
       "commands": "# ===== 修改管理员口令（FortiOS）=====\nconfig system admin\n    edit \"{{username}}\"\n        set password {{password}}\n    next\nend\n# 如果开了强密码策略，密码必须满足复杂度，可临时查看/调整：\nshow system password-policy\nconfig system password-policy\n    set status enable\n    set minimum-length {{min_len}}\n    set expire-status enable\n    set expire-day {{expire_day}}\nend",
+      "rollback": "# 回退：口令类变更须恢复旧口令（旧值按变更记录掌握，人工回填尖括号处）；\n# 口令策略恢复变更前状态\nconfig system admin\n    edit \"{{username}}\"\n        set password <旧口令>\n    next\nend\nconfig system password-policy\n    set status disable\n    set expire-status disable\nend\n# 复核\nshow system password-policy",
       "params": [
         {
           "name": "username",
@@ -729,6 +737,7 @@
       "title": "配置 SNMP 团体字与 Trap（FortiOS）",
       "description": "开启 SNMP 系统信息、创建团体字并限定网管主机，配置 Trap 上报。",
       "commands": "# ===== SNMP 配置（FortiOS）=====\nconfig system snmp sysinfo\n    set status enable\n    set description \"{{description}}\"\n    set location \"{{location}}\"\n    set contact-info \"{{contact}}\"\nend\nconfig system snmp community\n    edit {{community_id}}\n        set name \"{{community}}\"\n        set query-v1-status disable\n        set query-v2c-status enable\n        set trap-v1-status disable\n        set trap-v2c-status enable\n        config hosts\n            edit 1\n                set ip {{nms_ip}} {{nms_mask}}\n            next\n        end\n    next\nend\nshow system snmp community",
+      "rollback": "# 回退：删除 SNMP community 并恢复 sysinfo 未启用状态\nconfig system snmp community\n    delete {{community_id}}\nend\nconfig system snmp sysinfo\n    set status disable\n    unset description\n    unset location\n    unset contact-info\nend\n# 复核\nshow system snmp community",
       "params": [
         {
           "name": "description",
@@ -821,6 +830,7 @@
       "title": "查看配置并备份到本地 flash / USB",
       "description": "FortiOS 改完即生效；此处给出查看与本地备份命令（隔离网络不依赖外网）。",
       "commands": "# ===== 配置查看与本地备份（FortiOS）=====\nshow full-configuration\nexecute backup config flash {{backup_name}}\ndiagnose sys flash list\n# 插了 U 盘时可以直接备份到 U 盘（现场最常用）\n# execute backup config usb {{backup_name}}\n# 恢复配置（会覆盖当前配置，务必确认）\n# execute restore config flash {{backup_name}}",
+      "rollback": "# 回退：本条目仅备份配置到 flash，不改变网络行为，无需配置回退；\n# 需要恢复配置时（★ 覆盖当前配置并重启，务必确认后再执行）\nexecute restore config flash {{backup_name}}",
       "params": [
         {
           "name": "backup_name",
@@ -852,6 +862,7 @@
       "title": "配置 DNS 服务器与域名解析（FortiOS）",
       "description": "config system dns 指向内网 DNS，验证域名可解析（离网内网 DNS 标准动作）。",
       "commands": "# ===== 配置 DNS 服务器与域名解析（FortiOS）=====\n# ---- 配置段 ----\nconfig system dns\nset primary {{dns_server_ip}}\nset protocol cleartext\nend\n# ---- 验证段 ----\nexecute ping {{test_domain}}\n",
+      "rollback": "# 回退：撤销 DNS 配置（unset primary 恢复默认；原 DNS 值按变更记录回填）\nconfig system dns\n    unset primary\n    unset protocol\nend\n# 复核\nshow system dns",
       "params": [
         {
           "name": "dns_server_ip",
@@ -893,6 +904,7 @@
       "title": "配置 NTP 服务器与状态验证（FortiOS）",
       "description": "config system ntp 指向内网 NTP，execute time 验证时钟同步。",
       "commands": "# ===== 配置 NTP 服务器与状态验证（FortiOS）=====\nconfig system ntp\nset ntpsync enable\nconfig ntpserver\nedit 1\nset server {{ntp_server_ip}}\nnext\nend\nend\n# ---- 验证 ----\nexecute time\n",
+      "rollback": "# 回退：关闭 NTP 同步并删除服务器条目（原时间源按变更记录恢复）\nconfig system ntp\n    set ntpsync disable\n    config ntpserver\n        delete 1\n    end\nend\n# 复核\nexecute time",
       "params": [
         {
           "name": "ntp_server_ip",
@@ -924,6 +936,7 @@
       "title": "软件版本查看、备份与升级流程（FortiOS）",
       "description": "get system status → 配置备份 → restore image 升级（自动重启）→ 复核。",
       "commands": "# ===== 版本查看、备份与升级流程（FortiOS）=====\n# ---- 0. ★ 三要素：变更窗口 / 回滚点 / 带外通道 ----\nget system status\n# ---- 1. 备份配置到 TFTP ----\nexecute backup config tftp <备份文件名>.conf {{backup_server}}\n# ---- 2. 升级镜像（TFTP，执行后自动重启升级）----\nexecute restore image tftp <镜像文件名> {{backup_server}}\n# ---- 3. 重启后复核 ----\nget system status\n",
+      "rollback": "# 回退：FortiOS 升级不可卸载——回退方式是重新刷入旧版本镜像\n#（★ 三要素就绪后再做；旧镜像文件名按变更记录回填）\nexecute restore image tftp <旧镜像文件名> {{backup_server}}\n# 重启完成后复核\nget system status",
       "params": [
         {
           "name": "backup_server",
@@ -956,6 +969,7 @@
       "title": "会话表与策略命中诊断（FortiOS）",
       "description": "按目的地址过滤会话表 + debug flow 逐包定位策略命中（配了策略不通的第一排查动作）。",
       "commands": "# ===== 会话表与策略命中诊断（FortiOS）=====\n# ---- 1. 会话过滤：按目的地址（★ 先清旧 filter 防残留干扰）----\ndiagnose sys session filter clear\ndiagnose sys session filter dst {{target_ip}}\ndiagnose sys session list\n# ---- 2. ★ 杀手锏：debug flow 逐包定位（denied by forward policy = 安全策略拒了）----\ndiagnose debug reset\ndiagnose debug flow filter addr {{target_ip}}\ndiagnose debug flow trace start 10\ndiagnose debug disable\n# ---- 3. 会话统计复核 ----\ndiagnose sys session stat\n",
+      "rollback": "# 回退：清理诊断态（会话过滤条件与 debug 流追踪均为会话级，不影响流量与配置）\ndiagnose sys session filter clear\ndiagnose debug reset\ndiagnose debug disable",
       "params": [
         {
           "name": "target_ip",
@@ -987,6 +1001,7 @@
       "title": "NAT 会话与端口映射诊断（FortiOS）",
       "description": "按公网地址过滤会话看 NAT 转换段 + 查 VIP 映射表（端口映射不通第一排查动作）。",
       "commands": "# ===== NAT 会话与端口映射诊断（FortiOS）=====\n# ---- 1. 按公网目的地址过滤会话 ----\ndiagnose sys session filter clear\ndiagnose sys session filter dst {{target_ip}}\ndiagnose sys session list\n# ---- 2. 会话条目看 NAT 转换段（translated 字段 = 转换后的真实地址:端口）----\n# ---- 3. VIP/端口映射配置核对（映射表 + 引用的真实服务器）----\nshow firewall vip\n",
+      "rollback": "# 回退：清理会话过滤条件（诊断会话级，不影响流量与配置）\ndiagnose sys session filter clear",
       "params": [
         {
           "name": "target_ip",
@@ -1038,6 +1053,7 @@
       "title": "配置回滚（FortiOS，restore config 恢复式）",
       "description": "改动前备份配置到 TFTP，改坏后 execute restore config 恢复（设备自动重启加载）。",
       "commands": "# ===== 配置回滚（FortiOS）=====\n# ---- 0. 改动前：备份配置到 TFTP（{{backup_file}}）----\nexecute backup config tftp {{backup_file}} {{backup_server}}\n# ---- 1. 改动出问题后：恢复备份（执行后设备自动重启加载该配置）----\nexecute restore config tftp {{backup_file}} {{backup_server}}\n# ---- 2. 重启后复核 ----\nget system status\n",
+      "rollback": "# 回退：本条目本身即恢复操作；若恢复后需退回恢复前的配置，\n# 用恢复前另存的备份文件再 restore（文件名按变更记录回填）\nexecute restore config tftp <恢复前配置.conf> {{backup_server}}\n# 重启完成后复核\nget system status",
       "params": [
         {
           "name": "backup_file",
@@ -1080,6 +1096,7 @@
       "title": "环路风险核查（FortiOS，骨架参照）",
       "description": "防火墙本身不跑 STP 的场景居多；核查硬件交换口环路与 STP 配置（骨架以 ? 实测为准）。",
       "commands": "# ===== 环路风险核查（FortiOS）=====\n# ---- 1. 硬件交换口/软件交换（soft switch）上的 STP 设置 ----\nconfig system global\nget | grep switch\nend\n# ---- 2. 接口级 STP 状态（enable/disable 逐口核对）----\nshow system interface\n# ---- 3. 广播风暴防护（DoS 策略/风暴控制按版本确认）----\n",
+      "rollback": "# 回退：本条目为只读核查骨架（config system global 下仅 get 查询，无 set 变更），\n# 无需配置回退；真机核验时按实际骨架命令同步修订本节",
       "params": [],
       "notes": "1) ★ 待真机核对：FortiOS 环路相关特性各版本差异大，本条为骨架参照；防火墙内网口被环路的典型表现是 CPU 突增与广播包激增。\n2) ★ 危险点：风暴中勿盲目插拔线。\n3) 核对通过后回填本条目并升 exec_level 为 verified-cli。\n验证方法：接口 STP 状态明确 + 无广播激增；（验证人/型号/日期验证通过后回填 verified，本条属下轮真机验证会重点对象）",
       "duration": "",
