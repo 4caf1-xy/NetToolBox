@@ -248,3 +248,8 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 ### 发版口径补充（2026-10-12，v0.6.1 收口）
 
 - CHANGELOG 头部口径增补：**发布后短窗内完成的 MVP 追加批次收口走 patch（0.6.x）；独立排期功能批走 minor（下一功能批从 0.7.0 起算）**。v0.6.1 = v0.6.0 发布（同日）后追加批次（Runbook MVP + 场景包）收口，v0.6.0 节不动；v0.6.0 Release 正文尾部加「追加批次见 v0.6.1」保持下载指引连续性。
+
+### 发版出库纪律两条（2026-10-12，v0.6.2）
+
+- **出库白名单断言**：发版 zip 条目在 release.yml Zip 步骤按**正向白名单**强制执行（NetToolBox.exe / check_db.py / command_lib.db / seed_data/*.json 四类），任何白名单外条目 ERROR 中止——黑名单只能拦已知坏物，拦不住构建链条新引入的中间产物（v0.6.0/v0.6.1 即被导入护栏落在 staging 的 backup/ 漏进包，约 2.8MB 纯种子副本，外部独立核验字节级比对才发现；Assemble 步骤同步显式清理 staging backup/）；
+- **产物类验收必须实测产物**：发版/打包类验收必须**解包实产物列清单核对**（unzip 列表 + 与仓库 blob 字节比对），不得从 workflow 脚本或流程描述推断——本次两处瑕疵（backup/ 混入 + seed json CRLF 化）均存活两轮发版，根因正是验收只看了 workflow 没解包。

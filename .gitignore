@@ -42,3 +42,4 @@ ai_compare_*.txt
 
 # ---- 操作单（Runbook，运行数据：含现场真实 IP/设备名，永不入库不进交付 zip）----
 runbooks/
+staging_v*/

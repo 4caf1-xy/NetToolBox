@@ -1,0 +1,8 @@
+# 2026-10-12（v0.6.2）：钉死文本换行。
+# Windows runner / 开发机 autocrlf=true 曾把 seed_data/*.json 在 checkout 时
+# CRLF 化并打进发版 zip，与仓库 blob（全 LF）字节不一致——此处声明后
+# checkout 恒为 LF，zip 内种子文件恢复与仓库字节一致。
+# 仓库现有 json/py/md blob 已全量核验为纯 LF，本文件不触发 renormalization。
+*.json text eol=lf
+*.py text eol=lf
+*.md text eol=lf

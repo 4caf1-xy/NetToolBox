@@ -9,6 +9,17 @@
 
 （暂无）
 
+## v0.6.2（2026-10-12）
+
+v0.6.0 / v0.6.1 发版 zip 出库瑕疵修复（外部独立核验字节级比对发现）：**功能无影响**，定级出库纪律瑕疵，非安全事件（zip 内库为纯种子重建，history 仅 CI 导入留痕、err_unresolved=0，已核无敏感/真实数据）。
+
+#### 工程修复
+- **出库包白名单断言**：release.yml Zip 步骤由黑名单（ai_config.json/.log/.nlb）升级为**正向白名单**——条目仅允许 NetToolBox.exe / check_db.py / command_lib.db / seed_data/*.json，出现任何其他条目即 ERROR 中止。修复 v0.6.0（2 个）/ v0.6.1（3 个）zip 混入 `backup/`（导入护栏在 staging 内自动生成的 pre-import 备份库，约 2.8MB）的问题；
+- **Assemble 步骤清除构建中间产物**：种子导入完成后显式删除 staging 内 `backup/`，不再依赖下游拦截；
+- **.gitattributes 入库**：`*.json` / `*.py` / `*.md` 声明 `text eol=lf`，钉死 Windows checkout 换行——修复 v0.6.0 / v0.6.1 zip 内 seed_data/\*.json 被 runner autocrlf 转为 CRLF、与仓库 blob（全 LF）字节不一致的问题。
+
+> v0.6.0 / v0.6.1 Release 正文已各补一行勘误；两个旧 Release 的 zip 附件不覆写、不动。
+
 ## v0.6.1（2026-10-12）
 
 v0.6.0 发布后追加批次收口：**Runbook MVP（操作单生成器）+ 场景包**。命令 338 / 树 26 / 报错 82 维持，新增 **3 个场景包**；发版 zip 自本版起携带 `seed_data/scenario_packs.json`。

@@ -70,6 +70,10 @@ jobs:
           # 默认拒绝 rc=2）。staging 为全新空库，种子导入 + 质检一步完成，
           # 导入护栏（状态字段禁写）与自动备份照常生效。
           cp app/seed_data/*.json "$STAGING/seed_data/"
+          # 清理导入护栏落在 staging 的自动备份（backup/，纯种子副本约 2.8MB）：
+          # 构建中间产物，不入出库包。v0.6.0/v0.6.1 曾因 os.walk 全量打包把
+          # staging_v*/backup/ 混进发版 zip（外部核验字节级比对发现），自 v0.6.2 起显式清除。
+          rm -rf "$STAGING/backup"
 
       # 脱敏红线件（app/sanitize_scan.py）：staging 库全字段只读扫描——IP 白名单外
       # 零容忍 + secret 真值 + 明文黑名单，零命中（rc=0）才进入打包步骤
@@ -88,11 +92,20 @@ jobs:
           for root, dirs, files in os.walk(staging):
               for f in sorted(files):
                   paths.append(os.path.join(root, f))
-          # 内置断言：出库包不得含密钥/运行时文件
+          # 正向白名单断言（v0.6.2 起）：出库包条目仅允许 4 类——exe / check_db.py /
+          # command_lib.db / seed_data/*.json，任何其他条目 ERROR 中止。黑名单只能拦
+          # 已知坏物，拦不住构建链条新引入的中间产物（v0.6.0/v0.6.1 即被导入护栏
+          # 落在 staging 的 backup/ 漏进包），故升级为白名单。
           for p in paths:
-              base = os.path.basename(p).lower()
-              if base == "ai_config.json" or base.endswith((".log", ".nlb")):
-                  sys.exit(f"::error::出库包含敏感/运行时文件：{p}")
+              rel = os.path.relpath(p, staging).replace("\\", "/")
+              ok = (
+                  rel == "NetToolBox.exe"
+                  or rel == "check_db.py"
+                  or rel == "command_lib.db"
+                  or (rel.startswith("seed_data/") and rel.endswith(".json"))
+              )
+              if not ok:
+                  sys.exit(f"::error::出库包含白名单外条目：{rel}")
           with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
               for p in paths:
                   z.write(p, os.path.relpath(p, staging).replace("\\", "/"))
