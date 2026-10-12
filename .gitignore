@@ -39,3 +39,6 @@ backup/
 # ---- 本地 UI 截图与 AI 对比样例 ----
 ui_preview_*.png
 ai_compare_*.txt
+
+# ---- 操作单（Runbook，运行数据：含现场真实 IP/设备名，永不入库不进交付 zip）----
+runbooks/

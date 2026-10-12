@@ -187,6 +187,58 @@ rollback: "# 守卫：备份不存在则中止，禁止盲恢复\nls /etc/syscon
 > 排查树 `by_vendor` uuid 硬引用约定见第五节。rollback 校验当前为 WARNING
 > 宽容期（变更类缺口 ~264 条属迁移软着陆），任务6 升 ERROR 后缺填即拦截。
 
+## 四·C、场景包写法（scenario_packs.json，2026-10-12）
+
+场景包 = **跨三库的清单式捆绑**（命令条目 / 排查树 / 报错条目按场景组织成有序
+分组）。与排查树的分工：**树逐步引导决策，包是清单打包复用**。种子文件为
+`seed_data/scenario_packs.json`，`import_seed_dir` 两段式保证其最后导入
+（包引用存在性检查依赖三库先就绪）。
+
+```json
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "scenario_packs.json",
+  "count": 1,
+  "scenario_packs": [
+    {
+      "pack_id": "new-device-onboarding",
+      "title": "新设备上架",
+      "description": "一句话说清这个包什么时候用、怎么用",
+      "tags": ["上架", "开局"],
+      "items": [
+        {"seq": 1, "ref_type": "entry",
+         "by_vendor": {"cisco": "<uuid>", "huawei": "<uuid>"},
+         "note": "步骤操作提示；华为双系列默认取哪个系列写在这里"},
+        {"seq": 2, "ref_type": "entry", "ref_id": "<uuid>", "note": ""},
+        {"seq": 3, "ref_type": "tree", "ref_id": "<tree_id>"},
+        {"seq": 4, "ref_type": "err", "ref_id": "<err_id>"}
+      ]
+    }
+  ]
+}
+```
+
+**字段规则**：
+
+- `ref_type` 三选一：`entry` / `tree` / `err`；
+- `entry` 引用支持 `ref_id`（单值）或 `by_vendor`（`{vendor_slug: entry_uuid}`，
+  复用排查树 cmd_ref.by_vendor 语义）**二选一**——同现即 ERROR；
+- `tree` / `err` 只支持 `ref_id` 单值（树/报错自带厂商属性，不需要 by_vendor）；
+- `seq` 必须从 1 起严格连续（清单顺序是包的核心语义，断号即 ERROR）；
+- `note` 写操作提示，多厂商步骤注明"华为默认取 S 系列，AR 用《…》"这类替代指引；
+- **只引用不复制**：包内永远不出现命令文本——单一事实源在三库，条目变更由
+  引用校验兜底，包不需要跟着改。
+
+**validate [E] 硬拦截**：pack_id 重复、title/description 为空、items 为空、
+seq 断号、ref_type 非法、ref_id 与 by_vendor 同现、tree/err 带 by_vendor、
+by_vendor 厂商非 slug、**三类引用不存在**（entry uuid / tree_id / err_id 查无）。
+**[W] 提示**（不阻塞）：包内重复引用同一目标、包内含 skeleton 骨架条目。
+
+预置 3 包参考：新设备上架（9 步 × 6 厂商开局链）、割接前检查（10 步 × 4 厂商
+只读体检）、故障应急回退（8 家回滚 + 4 树 + 4 保存类报错）。新增包前先查
+`app/seed_data/scenario_packs.json` 现有 pack_id 避免语义重复。
+
 ## 五、命名 / 分类 / 厂商代码约定（从现有种子归纳，不新造）
 
 **vendor（小写 slug）**：`cisco` / `huawei` / `h3c` / `juniper` / `ruijie` / `zte` /
@@ -225,7 +277,9 @@ Linux 条目缺 duration 是 ERROR（validate 拦截），网络侧条目可留�
 - `{{占位符}}` 与 params **双向对账**：命令引用未声明 → ERROR；声明未引用 → WARNING；
 - 结构化字段合法性：type 五选一、enum 必带 choices、default 违反自身 type/choices/range → ERROR；
 - 新条目 `description` 为空 → ERROR；`exec_level` 取值合法，commands 含"待真机核对"必须标 skeleton；
-- 端口参数可展开、带默认值渲染后无残留占位、样例自测与重复导入幂等。
+- 端口参数可展开、带默认值渲染后无残留占位、样例自测与重复导入幂等；
+- **场景包**（四·C）：三类引用存在性 / seq 连续 / ref_type 合法 / ref_id 与
+  by_vendor 互斥，坏引用一律 ERROR；包内骨架条目与重复引用为 WARNING。
 
 **EXIT=0 是 CI 合入与打包的硬门槛**——本地不过别提 PR，`scripts/build_exe.py` 也会先跑它。
 

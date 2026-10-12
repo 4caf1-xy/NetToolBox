@@ -78,9 +78,9 @@ PANE_MIN_DETAIL_H = 260     # 详情区最小高
 # 产品名（模块 06 规格：exe 名 NetToolBox，中文标题"离网网络运维工具箱"）
 APP_NAME = "NetToolBox"
 APP_TITLE = "离网网络运维工具箱"
-APP_SUBTITLE = "网络设备 + Linux 命令库 / 排查向导 / 报错诊断"
+APP_SUBTITLE = "网络设备 + Linux 命令库 / 排查向导 / 报错诊断 / 操作单"
 # 产品版本（semver；发版时与 tag/Release/CHANGELOG 三处对齐，标题栏与关于对话框均引用此常量）
-APP_VERSION = "0.6.0"
+APP_VERSION = "0.6.1"
 
 
 def copy_to_clipboard(text):
@@ -800,8 +800,18 @@ class MainWindow(QMainWindow):
         from ui_ai import AiTab, StatusIndicator
         self.tab_troubleshoot, self._tab_ts_ok = self._safe_tab(
             "排查向导", lambda: TroubleshootTab(self.db))
+        # 场景包 Tab（2026-10-12：跨三库清单式捆绑；位置裁决：排查向导之后——
+        # 两者同属"作业组织"类，树=决策引导、包=清单复用）
+        from ui_scenario import ScenarioTab
+        self.tab_scenario, self._tab_sc_ok = self._safe_tab(
+            "场景包", lambda: ScenarioTab(self.db, self))
         self.tab_errorfix, self._tab_ef_ok = self._safe_tab(
             "报错诊断", lambda: ErrorFixTab(self.db))
+        # 操作单 Tab（2026-10-12，裁决②：报错诊断之后、AI 诊断之前——
+        # 工具链操作顺序：查命令 → 排查/诊断 → 出操作单 → AI 兜底）
+        from ui_runbook import RunbookTab
+        self.tab_runbook, self._tab_rb_ok = self._safe_tab(
+            "操作单", lambda: RunbookTab(self.db, self))
         # AI 诊断 Tab（任务：主程序直接集成；常驻，不动态探测不排除模块。
         # 构造失败（如 PyQt5 之外的意外）也不拖垮主窗 —— _safe_tab 兜底占位页）
         self.tab_ai, self._tab_ai_ok = self._safe_tab(
@@ -811,8 +821,10 @@ class MainWindow(QMainWindow):
         self.tabs.setDocumentMode(True)
         self.tabs.addTab(self.main_split, "命令库")
         self.tabs.addTab(self.tab_troubleshoot, "排查向导")
+        self.tabs.addTab(self.tab_scenario, "场景包")    # 位置：排查向导后（2026-10-12）
         self.tabs.addTab(self.tab_errorfix, "报错诊断")
-        self.tabs.addTab(self.tab_ai, "AI 诊断")        # 位置：报错诊断之后
+        self.tabs.addTab(self.tab_runbook, "操作单")     # 位置：报错诊断之后（2026-10-12 裁决②）
+        self.tabs.addTab(self.tab_ai, "AI 诊断")        # 位置：末位
         self.setCentralWidget(self.tabs)
 
         # 状态栏常驻 AI 指示（●绿=可连接 ●灰=无网络 ●黄=配置缺失）：
@@ -928,8 +940,10 @@ class MainWindow(QMainWindow):
         if sizes:
             self.center_split.setSizes(sizes)
 
-        # 子 Tab 分栏记忆（AI 诊断 / 报错诊断 / 排查向导，任务2-3）：各 Tab 自校验
-        for tab in (self.tab_ai, self.tab_errorfix, self.tab_troubleshoot):
+        # 子 Tab 分栏记忆（AI 诊断 / 报错诊断 / 排查向导 / 场景包 / 操作单，任务2-3）：
+        # 各 Tab 自校验
+        for tab in (self.tab_ai, self.tab_errorfix, self.tab_troubleshoot,
+                    self.tab_scenario, self.tab_runbook):
             if tab is not None and hasattr(tab, "restore_split_state"):
                 try:
                     tab.restore_split_state(state)
@@ -939,7 +953,8 @@ class MainWindow(QMainWindow):
     def _sub_tab_split_state(self):
         """收集子 Tab 分栏比例（构造失败的占位 Tab 无此方法，跳过）"""
         payload = {}
-        for tab in (self.tab_ai, self.tab_errorfix, self.tab_troubleshoot):
+        for tab in (self.tab_ai, self.tab_errorfix, self.tab_troubleshoot,
+                    self.tab_scenario, self.tab_runbook):
             if tab is not None and hasattr(tab, "split_state"):
                 try:
                     payload.update(tab.split_state())
@@ -1331,6 +1346,9 @@ class MainWindow(QMainWindow):
         # 排查向导未成功构造（命令库缺表）时是占位页，没有 refresh() 方法
         if getattr(self, "_tab_ts_ok", False):
             self.tab_troubleshoot.refresh()
+        # 场景包 Tab 同口径刷新（缺表时是占位页）
+        if getattr(self, "_tab_sc_ok", False):
+            self.tab_scenario.refresh()
 
     def _refresh_filter_combos(self):
         """过滤下拉框选项来自库里的实际值（保当前选择，避免刷新后跳掉）"""

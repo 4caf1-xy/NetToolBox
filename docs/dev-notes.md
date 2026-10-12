@@ -235,3 +235,16 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 - **发现**：回填后 rowcount 对账 18/13 大于预期 17/12，追查 notes LIKE 命中定位到 ruijie 两条。
 - **恢复**：从 `backup/command_lib-pre-session2-20261012.db` 按 uuid 精确取原 notes/exec_level 回写，复核 ruijie 残留 0。
 - **整改**：回填动作固化为 `scripts/backfill_verify.py`——uuid 精确匹配（0/多重命中报错退出）、重复回填防护（--force 覆盖）、事务包裹（green 缺四元组 ROLLBACK）、前置/后置双对账断言（非目标条目全字段零变化 + 总数不变）；回归套件 `scripts/smoke_backfill.py` 9 项全绿，其中 C1 即本事故场景（cisco/ruijie 同名对回填后非目标字段零变化）。verify-guide 第 4 步口径自此以脚本为准。
+
+### 操作单生成器（Runbook）落地记录（2026-10-12，v0.6.1）
+
+- **落点**：`app/ui_runbook.py`（Tab）+ `app/runbook_export.py`（数据模型 + HTML 导出器）+ `scripts/smoke_runbook.py`（42 项）。数据模型/导出口径/二批规划的权威出处是 `docs/runbook-guide.md`，此处只记实施裁决与坑。
+- **四项裁决**（用户确认）：① 导出 HTML 用浅色打印主题，色值从 theme.py 派生 + 同源校验（PRINT_TOKENS 每项记录来源常量与派生基线，theme.py 改色即漂移拒导出）；② Tab 置于报错诊断后、AI 诊断前；③ rollback 不落盘、按 uuid 实时取库（变更类判定同样实时走 classify_entry，不另写判定表）；④ 操作单 JSON 存 `<exe同目录>/runbooks/`（gitignore，dist 出库核查不含）。
+- **坑 1（QSpinBox 钳制）**：`type=int+range` 参数经 `_make_editor` 生成 QSpinBox——永不为空、越界被钳制，**必填/越界校验的真实触发路径是 QLineEdit 编辑器**（无 type 或 validate= 规则型）。冒烟断言必须按真实控件路径构造，否则永远测不到校验分支。
+- **坑 2（offscreen isVisible 恒 False）**：QT_QPA_PLATFORM=offscreen 且窗口未 show 时，`widget.isVisible()` 恒 False——Tab 内"缺回退红标"断言改用 `_rbmiss_active` 旗标（`_show_step` 里与 setVisible 同源赋值）。
+- **坑 3（编辑区数据串位，已修）**：`on_move`/`on_delete`/`on_new`/`on_open` 里重建步骤列表会触发 `_on_row_changed → _flush_current_step`，此时编辑区仍是旧步骤内容，会把旧内容写进移位后的新位置步骤——统一在重建前 `self._cur = -1` 使 flush 失效（on_delete 先算 keep 再置空）。
+- **回归基线**：smoke_runbook 42/42；smoke_panel_dashboard 更新为 5 Tab 断言后 44/44；AI 三套件按标准姿势（PYTHONPATH=app;_vendor）84/93/68 全绿；validate-seed EXIT=0（338+26+82）。
+
+### 发版口径补充（2026-10-12，v0.6.1 收口）
+
+- CHANGELOG 头部口径增补：**发布后短窗内完成的 MVP 追加批次收口走 patch（0.6.x）；独立排期功能批走 minor（下一功能批从 0.7.0 起算）**。v0.6.1 = v0.6.0 发布（同日）后追加批次（Runbook MVP + 场景包）收口，v0.6.0 节不动；v0.6.0 Release 正文尾部加「追加批次见 v0.6.1」保持下载指引连续性。

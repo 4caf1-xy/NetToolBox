@@ -1,0 +1,189 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "scenario_packs.json",
+  "count": 3,
+  "scenario_packs": [
+    {
+      "pack_id": "new-device-onboarding",
+      "title": "新设备上架",
+      "description": "网络设备开局标准链：管理通道 → 口令加固 → 时间/域名 → 业务配置 → 网管上报 → 保存备份。按厂商切换后逐步执行，适合交换机/路由器新机开箱（防火墙四家第二批扩展）。",
+      "tags": ["上架", "开局", "网络设备"],
+      "items": [
+        {"seq": 1, "ref_type": "entry", "by_vendor": {
+          "cisco": "c51d45e0-bfe2-531c-9db4-2debdb2dba00",
+          "huawei": "db7e7679-a4e4-51cc-ba17-156b1d8e98eb",
+          "h3c": "de093fea-fd7e-58c0-a310-9a839cff8917",
+          "zte": "7bd18367-ba07-55eb-a9ca-882b8963841a",
+          "juniper": "7a6092d4-a515-5f25-9af1-0550a38f8ec1",
+          "ruijie": "294982b2-6cad-5377-87ff-033423a38030"
+        }, "note": "第一步先打通 SSH 管理通道；华为默认取 S 系列条目，AR 路由器改用《开启 SSH 并创建本地管理用户（AR 系列）》。"},
+        {"seq": 2, "ref_type": "entry", "by_vendor": {
+          "cisco": "dd503bcb-810d-58e7-9c2d-8af6903226fc",
+          "huawei": "aec91111-a95a-5257-afc1-fef4195ad322",
+          "h3c": "e06208c2-ed72-56d8-a381-d7a353aa0b0f",
+          "zte": "426b9f4e-62ac-5ffc-8cdb-4fe45e3fef3a",
+          "juniper": "1838b1c2-bd11-59bb-9b3d-a3f803589144",
+          "ruijie": "f4066cd1-f4ee-5a1a-b7d3-d2d39edd624b"
+        }, "note": "改默认口令并收紧特权级别；华为 AR 用《修改 Console 口令并绑定用户级别》。"},
+        {"seq": 3, "ref_type": "entry", "by_vendor": {
+          "cisco": "f6e8ea28-8fe6-5a95-93c5-162e3aac0cf6",
+          "huawei": "16851b17-1676-5d52-be5c-a4d30d7eb1a0",
+          "h3c": "57b08fae-acdc-5707-8500-6acf03a65885",
+          "zte": "94c6b710-35f9-5c30-88b7-89f0fe63d2b1",
+          "juniper": "e713b1cb-7de3-56d3-8f56-dd6dd323b998",
+          "ruijie": "10f38c42-b923-50d5-bf00-5e689aa0f2a6"
+        }, "note": "NTP 对时，日志时间戳才有排障价值。"},
+        {"seq": 4, "ref_type": "entry", "by_vendor": {
+          "cisco": "ef5e0a8b-63b4-512a-a975-c44f65020f13",
+          "huawei": "1d371020-3fbe-564d-9854-30eb2fb9b756",
+          "h3c": "e5cdb683-3772-5ed0-a5b0-bcb4249401ff",
+          "zte": "174b1a16-198f-5013-8eed-b1b400861cdf",
+          "juniper": "f0b04fd6-2368-5c82-a8a8-f2a50d70577e",
+          "ruijie": "7ba70204-4b1f-500d-9fad-638eb2ec00ae"
+        }, "note": "域名解析（syslog/NTP 服务器常用域名时需要）。"},
+        {"seq": 5, "ref_type": "entry", "by_vendor": {
+          "cisco": "e3971cfc-1d22-5542-89d5-7b72b2c3ee6a",
+          "huawei": "fc982ad5-2758-5749-9f78-a5b2b52e41db",
+          "h3c": "ed4efc39-7d65-5f6b-84fd-db4df71f2a63",
+          "zte": "b2f47889-8b45-55e0-8cb6-625459ca06ef",
+          "juniper": "2eb086b7-9e35-5a3e-b98b-68a782066662",
+          "ruijie": "1c128aa6-de9b-53c7-90de-802fa9aa2e13"
+        }, "note": "创建业务 VLAN；华为 S 系列为准，AR 走《路由器以太口转二层并划入 VLAN》。"},
+        {"seq": 6, "ref_type": "entry", "by_vendor": {
+          "cisco": "b765a2c0-303b-57ed-a232-61e19288b059",
+          "huawei": "79728290-89d3-56ba-abdb-c5707aead754",
+          "h3c": "e95c9d0a-855c-5e6f-8d3d-3460f2b15107",
+          "zte": "b8d71d5a-6eaa-538a-b057-788469b38701",
+          "juniper": "4b1d8884-23ae-52d6-b6f5-64e17784d73c",
+          "ruijie": "b664366d-7fb6-5ed7-a4e2-452a87d051f2"
+        }, "note": "上联 Trunk 放通业务 VLAN；华为 AR 用《AR 交换口配置 Trunk 上联》。"},
+        {"seq": 7, "ref_type": "entry", "by_vendor": {
+          "cisco": "eac547bb-4688-5afa-82cc-cd39cc580518",
+          "huawei": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+          "h3c": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+          "zte": "576c2de4-e491-5985-a776-010da8b274d5",
+          "juniper": "c7a88531-3888-5a30-8fa2-851f6c7b540d",
+          "ruijie": "2e17b383-ad10-533f-9e0f-ab2e4922a845"
+        }, "note": "缺省路由/静态路由；三层交换机场景华为用《配置静态路由与缺省路由（三层交换机）》。"},
+        {"seq": 8, "ref_type": "entry", "by_vendor": {
+          "cisco": "a372ea5c-0f6e-51b8-b56b-8cc570ebe7cd",
+          "huawei": "bd0741fb-c566-5c28-b34f-a83908946c5f",
+          "h3c": "056a903f-ba41-5748-b870-498b341e9e25",
+          "zte": "0c99899f-4aa7-5c17-a535-8e9bb24fc930",
+          "juniper": "1f3f324e-2420-5fdc-abd2-ac860cf74997",
+          "ruijie": "7d2f4189-56c9-5318-9860-b00f9386d016"
+        }, "note": "SNMP 上报网管平台；华为 AR 用《配置 SNMP v2c 与 Trap 上报（AR 系列）》。"},
+        {"seq": 9, "ref_type": "entry", "by_vendor": {
+          "cisco": "70a2b9cc-3149-5a63-a48f-b07aea7946db",
+          "huawei": "66071ff1-752e-55a0-9a7b-fa0caaaa1c96",
+          "h3c": "abbb4612-7dac-58fb-8f3e-b02b5c3afb21",
+          "zte": "58cfa0cd-0bed-523f-b5f3-22ae605b8843",
+          "juniper": "541581dd-1d5f-59cf-a605-27646f408650",
+          "ruijie": "8e954d9d-a0de-52d3-986a-ce93474207ef"
+        }, "note": "收尾必做：保存配置并导出备份；华为 AR 用《保存配置并备份到本地存储（AR）》。Junos 条目含 rescue 救命配置，务必一并提交。"}
+      ]
+    },
+    {
+      "pack_id": "pre-cutover-check",
+      "title": "割接前检查",
+      "description": "变更窗口前的只读体检清单：接口/资源/光功率/环路/邻居/日志逐项确认，HA 状态核对，版本与配置备份确认，回滚预案就位。全部为查询类命令，割接前 30 分钟过一遍。",
+      "tags": ["割接", "变更窗口", "检查清单"],
+      "items": [
+        {"seq": 1, "ref_type": "entry", "by_vendor": {
+          "cisco": "a88980b9-2830-5411-a556-1bacd821b23c",
+          "huawei": "bb912f63-35b2-5e31-80ab-2c627341e639",
+          "h3c": "dd20dfb7-a0b7-55d8-8fc4-1805a5971d02",
+          "ruijie": "794b74c5-30f8-5b93-98d7-ba18abeaf547"
+        }, "note": "基线留档：割接前接口状态与错包计数（割接后对比用）。"},
+        {"seq": 2, "ref_type": "entry", "by_vendor": {
+          "cisco": "05b4d26e-0618-5558-9dc2-0f0bb94af261",
+          "huawei": "8aa8a79e-97d2-50f7-84f8-61672a4d1a5f",
+          "h3c": "a9ab37f3-b627-5661-b3a6-1c8c9e7f1d51",
+          "ruijie": "4ea47e80-9ec3-57f0-a677-ecd637d8e89d"
+        }, "note": "CPU/内存基线：负载偏高时慎动。"},
+        {"seq": 3, "ref_type": "entry", "by_vendor": {
+          "cisco": "5e95f870-e077-52d5-ba31-d8f73a9bf386",
+          "huawei": "050c5c73-6678-5bd9-849c-1c2f7ec50cda",
+          "h3c": "0d1d1047-c8d1-54cd-9778-6624070925c8",
+          "ruijie": "4ad1b0b6-c2dc-525a-bf30-65be768c0e24"
+        }, "note": "光功率与错包：收发功率异常先换光模块再割接。"},
+        {"seq": 4, "ref_type": "entry", "by_vendor": {
+          "cisco": "725c7069-a4b9-5a3e-9bd8-05064642c3cb",
+          "huawei": "60ae5147-49d8-5c02-b3e5-244f52837ebd",
+          "h3c": "2c6c69c8-9d0d-5b3b-a9d8-1c593ebe6833",
+          "ruijie": "01f92be6-5a1d-5b05-897f-9db6f9aff78c"
+        }, "note": "STP 根桥/端口角色确认，防止割接引发拓扑震荡。"},
+        {"seq": 5, "ref_type": "entry", "by_vendor": {
+          "cisco": "7d6820f7-2739-5e11-9dbc-6b9b3f3a504a",
+          "huawei": "fc4207cb-76c4-537e-8d59-e909be3f3074",
+          "h3c": "b94b0298-b6ce-50e1-802c-6fce84f7d958",
+          "ruijie": "dcfef69e-0633-564d-8d8d-a8e3062911af"
+        }, "note": "BGP 邻居 Established、路由条数基线；跑 OSPF 的场景对照排查向导分类『路由协议』。"},
+        {"seq": 6, "ref_type": "entry", "by_vendor": {
+          "cisco": "526e648c-b0c2-5029-a9b4-c2d8d1f4119f",
+          "huawei": "ed8335ed-fdf5-5bd3-abef-957f25c82dc5",
+          "h3c": "20ff35a6-bd75-50e6-ad77-0649bea74203",
+          "ruijie": "33307a5b-ecc8-56f3-af5a-4937383919cf"
+        }, "note": "日志巡检：确认割接前无未处理的告警/异常。"},
+        {"seq": 7, "ref_type": "entry", "by_vendor": {
+          "cisco": "de5759f9-5656-55b4-8361-ba0e3d9b5f8e",
+          "huawei": "b5448c53-ddc3-54cd-bb83-2a97b9e8ddf1"
+        }, "note": "网关冗余状态（HSRP/VRRP）；H3C/锐捷暂无 HA 条目，手动核对双机状态。"},
+        {"seq": 8, "ref_type": "entry", "by_vendor": {
+          "cisco": "6621a79d-127b-5e43-94f8-e4b2f76d792a",
+          "huawei": "5a11c2cc-7efb-59ca-9656-2d6c49df5130",
+          "h3c": "048dca85-b2e0-540f-8cc5-ab66d808e838",
+          "ruijie": "14f6d356-c4e7-5af0-9bc7-64924b5fc9a3"
+        }, "note": "版本与配置备份确认：升级型割接必须先确认备份可恢复。"},
+        {"seq": 9, "ref_type": "entry", "by_vendor": {
+          "cisco": "70a2b9cc-3149-5a63-a48f-b07aea7946db",
+          "huawei": "66071ff1-752e-55a0-9a7b-fa0caaaa1c96",
+          "h3c": "abbb4612-7dac-58fb-8f3e-b02b5c3afb21",
+          "ruijie": "8e954d9d-a0de-52d3-986a-ce93474207ef"
+        }, "note": "保存核对：running 与 startup 一致，防止割接中意外重启丢配置。"},
+        {"seq": 10, "ref_type": "entry", "by_vendor": {
+          "cisco": "6156cb72-fcd3-5f9f-926a-7b93745d3764",
+          "huawei": "78f9a12d-524a-504a-b72d-2a31a8899346",
+          "h3c": "adcbbf79-f438-5478-bcf3-393d03adf44d",
+          "ruijie": "a77b2d1c-b32a-595e-a3dc-e383154ff91b"
+        }, "note": "回滚预案确认：archive/备份点就位，超时即回退。"}
+      ]
+    },
+    {
+      "pack_id": "emergency-rollback",
+      "title": "故障应急回退",
+      "description": "变更失败/故障应急时的回退工具箱：配置回滚 → 版本回退（含备份流程）→ 分层排障定位 → 保存类报错速查。条目按「先恢复、再定位」排序，配合排查树逐层收敛。",
+      "tags": ["应急", "回退", "故障"],
+      "items": [
+        {"seq": 1, "ref_type": "entry", "by_vendor": {
+          "cisco": "6156cb72-fcd3-5f9f-926a-7b93745d3764",
+          "huawei": "78f9a12d-524a-504a-b72d-2a31a8899346",
+          "h3c": "adcbbf79-f438-5478-bcf3-393d03adf44d",
+          "ruijie": "a77b2d1c-b32a-595e-a3dc-e383154ff91b",
+          "zte": "501e1ffe-5ab1-5d70-9d07-6eec9a315864",
+          "juniper": "eda95c97-842d-55ac-bd16-eb5f4f570402",
+          "fortinet": "2511fe7a-f082-5cae-9a9e-781e9c3b81fd",
+          "paloalto": "a9081e7f-2ef3-5687-8516-61582c6dde56"
+        }, "note": "第一动作：配置回滚到割接前 archive/备份点。中兴条目为骨架参照，真机执行前先验证。"},
+        {"seq": 2, "ref_type": "entry", "by_vendor": {
+          "cisco": "6621a79d-127b-5e43-94f8-e4b2f76d792a",
+          "huawei": "5a11c2cc-7efb-59ca-9656-2d6c49df5130",
+          "h3c": "048dca85-b2e0-540f-8cc5-ab66d808e838",
+          "zte": "6e49eda4-5a60-544c-a395-262128333213",
+          "ruijie": "14f6d356-c4e7-5af0-9bc7-64924b5fc9a3",
+          "fortinet": "be6beb84-4667-5a65-bc61-4da109f5fc54",
+          "paloalto": "2e2c7470-dd13-525f-9419-ec95b07b3a0b"
+        }, "note": "升级型割接失败：回退旧版本（条目内含备份与回退流程）。"},
+        {"seq": 3, "ref_type": "tree", "ref_id": "fw-upgrade-broken", "note": "升级后业务异常：按树逐层定位（策略/会话/HA 同步）。"},
+        {"seq": 4, "ref_type": "tree", "ref_id": "fw-mgmt-lost", "note": "防火墙管理面失联：应急期连不上设备时先走这棵树。"},
+        {"seq": 5, "ref_type": "tree", "ref_id": "mgmt-ssh-fail", "note": "SSH 连不上：带外/管理 IP/服务开关逐项排查。"},
+        {"seq": 6, "ref_type": "tree", "ref_id": "conn-cross-subnet", "note": "回退后业务仍不通：跨网段分层定位。"},
+        {"seq": 7, "ref_type": "err", "ref_id": "b34ac09e-1d43-5a36-94ac-f40b40d14c43", "note": "Cisco 写 NVRAM 失败——保存不住，重启即丢配置，应急期高发。"},
+        {"seq": 8, "ref_type": "err", "ref_id": "3ddb3399-52b7-5b3f-9a6e-4f3839d0fc2e", "note": "华为保存配置失败——同上，先解决持久化再谈回退。"},
+        {"seq": 9, "ref_type": "err", "ref_id": "b5692876-d9a9-5761-82fc-f05b554cd6ed", "note": "Junos commit 失败——配置根本没生效，先查 commit 拒因。"},
+        {"seq": 10, "ref_type": "err", "ref_id": "4a2da5c6-1d96-5ee3-94ff-99b88bbab53e", "note": "PAN-OS commit 失败——候选配置未生效，应急回退前先确认实际运行版本。"}
+      ]
+    }
+  ]
+}

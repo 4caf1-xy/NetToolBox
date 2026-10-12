@@ -11,9 +11,10 @@
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 潜在贡献者 | 怎么参与：PR 流程、Issue 怎么提 | 贡献流程变更时 |
 | [AGENTS.md](../AGENTS.md) | AI 会话 / 维护者 | 会话产物落位、打包纪律、种子数据纪律 | 约定新增或变更时 |
 | [architecture.md](architecture.md) | 维护者 / 深度贡献者 | 数据流、三库职责、公开仓与伴生仓分工 | 架构变更时 |
-| [seed-guide.md](seed-guide.md) | 种子作者 | 怎么写一条从零到 validate 通过的合格条目 | schema / 校验规则变更时 |
+| [seed-guide.md](seed-guide.md) | 种子作者 | 怎么写一条从零到 validate 通过的合格条目（含场景包写法，四·C） | schema / 校验规则变更时 |
 | [verify-guide.md](verify-guide.md) | 验证执行者 | 怎么跑一场验证会：环境、四档判定、回填与存档 | 验证流程变更时 |
 | [lab/README.md](lab/README.md) | 验证执行者 / 贡献者 | compose 实验室怎么拉起、进入、重置；设备映射与完整验证示例 | lab 链路变更时 |
+| [runbook-guide.md](runbook-guide.md) | 使用者 / 维护者 | 操作单（变更窗口操作单）数据模型、导出口径、复用边界与二批规划 | 操作单功能变更时 |
 | [打包与部署说明.md](打包与部署说明.md) | 打包 / 分发执行者 | 怎么打包 exe、U 盘部署、升级迁移、现场排障 | 打包链路变更时 |
 | [dev-notes.md](dev-notes.md) | 维护者 / AI 会话 | 已知问题跟踪、历史坑与结论性沉淀 | 随发现随记（append） |
 | [prompts/README.md](prompts/README.md) | 维护者 | 历次 AI 提示词批次 → 产出对照 | 每批提示词归档后 |
@@ -26,8 +27,10 @@
 | 主题 | 权威出处（其余只链接） |
 |---|---|
 | params 字段写法 / 条目 schema | `seed-guide.md` |
+| 场景包（scenario_packs 写法 / 引用校验） | `seed-guide.md` 四·C |
 | 验证会流程 / 结果判定 / 晋升 | `verify-guide.md` |
 | 打包与 U 盘部署 | `打包与部署说明.md` |
+| 操作单（数据模型 / 导出口径 / 二批规划） | `runbook-guide.md` |
 | 架构与双仓分工 | `architecture.md` |
 | 会话产物落位 / 密钥纪律 | `AGENTS.md` |
 | 版本变更记录 | `CHANGELOG.md` |

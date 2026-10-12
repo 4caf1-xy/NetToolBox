@@ -275,6 +275,15 @@ TREE_FIELDS = ["tree_id", "symptom", "vendor_hint", "category", "steps",
 # v2.2（批3 M0）：增补 策略诊断（批2B 防火墙树）/ 地址分配（DHCP 树）——否则排查向导现象列表不渲染对应分组
 TREE_CATEGORIES = ["连通性", "端口", "性能", "路由协议", "管理面", "策略诊断", "地址分配"]
 
+# 场景包（2026-10-12）：跨三库的策划捆绑——把命令条目/排查树/报错条目按场景
+# 组织成有序分组（清单式打包复用；与排查树的区别：树逐步引导决策，包是清单）。
+# items 只引用不复制（单一事实源）：ref_type=entry/tree/err，坏引用由
+# --validate-seed [E] 硬拦截 + UI 跳转前 get_* 复核兜底。
+SCENARIO_REF_TYPES = ("entry", "tree", "err")
+SCENARIO_PACK_FIELDS = ["pack_id", "title", "description", "tags", "items",
+                        "verified", "verified_by", "verified_date",
+                        "created_at", "updated_at"]
+
 ALL_CATEGORIES = [
     "VLAN", "端口", "Trunk", "静态路由", "OSPF", "BGP", "ACL", "NAT",
     "SSH管理", "密码", "SNMP", "日志", "HA", "接口诊断", "保存配置",
@@ -750,6 +759,25 @@ class Database(object):
                 operator      TEXT,
                 model         TEXT,          -- 生成该回复的模型名
                 dup_of_uuid   TEXT           -- 查重"仍入库/替换"时指向的既有条目（增量列）
+            )
+            """
+        )
+        # 场景包（2026-10-12）：items 存 JSON 数组（只引用不复制）。
+        #   引用的目标（entries/trouble_trees/err_dict）删改不受包约束，
+        #   坏引用由 --validate-seed [E] 与 UI 跳转前 get_* 复核兜底。
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS scenario_packs (
+                pack_id      TEXT PRIMARY KEY,
+                title        TEXT NOT NULL,
+                description  TEXT,
+                tags         TEXT,          -- JSON 数组（检索用）
+                items        TEXT,          -- JSON 数组 [{seq, ref_type, ref_id?, by_vendor?, note}]
+                verified     INTEGER DEFAULT 0,
+                verified_by  TEXT,
+                verified_date TEXT,
+                created_at   TEXT,
+                updated_at   TEXT
             )
             """
         )
@@ -1481,10 +1509,24 @@ class Database(object):
         导入内置种子库：递归扫描 seed_data（含厂商子目录）下的 .json 文件。
         按 UUID 合并去重，所以重复导入不会产生重复条目；
         同名厂商文件只取优先级最高的那一份（见 _collect_seed_files）。
+
+        ★ 两段式（场景包 2026-10-12）：scenario_packs.json 的字母序落在
+          paloalto / ruijie 之间，若随大流导入，此时三库（尤其 trouble_trees）
+          尚未就绪，包引用存在性会误报——所以包文件一律挪到第二段最后导入。
         返回 (新增, 更新, 跳过)；目录不存在时安全返回 (0,0,0)。
         """
         added = updated = skipped = 0
+        pack_files = []
         for rel, full in self._collect_seed_files(seed_dir):
+            try:
+                with open(full, "r", encoding="utf-8") as fp:
+                    head = json.load(fp)
+                is_pack = isinstance(head, dict) and bool(head.get("scenario_packs"))
+            except Exception:
+                is_pack = False      # 坏文件走 import_seed_file 的原有容错路径
+            if is_pack:
+                pack_files.append((rel, full))
+                continue
             try:
                 a, u, s = self.import_seed_file(full, operator="seed:" + rel)
                 added += a
@@ -1493,12 +1535,20 @@ class Database(object):
             except Exception:
                 # 单个文件坏了不影响其它厂商文件导入
                 continue
+        for rel, full in pack_files:      # 第二段：三库就绪后再导场景包
+            try:
+                a, u, s = self.import_seed_file(full, operator="seed:" + rel)
+                added += a
+                updated += u
+                skipped += s
+            except Exception:
+                continue
         return added, updated, skipped
 
     def import_seed_file(self, path, merge=True, operator="import"):
         """
-        导入单个种子文件，自动分发三库内容：
-            entries / trouble_trees / err_dict（err_dict 由模块 05 接入）
+        导入单个种子文件，自动分发四库内容：
+            entries / trouble_trees / err_dict / scenario_packs
         返回 (新增, 更新, 跳过) 合计。
         """
         with open(path, "r", encoding="utf-8") as fp:
@@ -1512,8 +1562,10 @@ class Database(object):
             entries, trees = [], []
 
         errs = []
+        packs = []
         if isinstance(data, dict):
             errs = data.get("err_dict", []) or []
+            packs = data.get("scenario_packs", []) or []
         a, u, s = 0, 0, 0
         if entries:
             ea, eu, es = self.import_entries(entries, merge=merge, operator=operator)
@@ -1524,6 +1576,9 @@ class Database(object):
         if errs:
             ea, eu, es = self.import_errs(errs, merge=merge, operator=operator)
             a += ea; u += eu; s += es
+        if packs:
+            pa, pu, ps = self.import_packs(packs, merge=merge, operator=operator)
+            a += pa; u += pu; s += ps
         return a, u, s
 
     def count_seed_files(self, seed_dir=None):
@@ -1752,6 +1807,119 @@ class Database(object):
             t["steps"] = self._dump_json(t.get("steps") or [])
             out.append({f: t.get(f, "") for f in TREE_FIELDS})
         return out
+
+    # ==================================================================
+    # 场景包（2026-10-12）：跨三库清单式捆绑，items 只引用不复制
+    #   items 结构：[{"seq": 1, "ref_type": "entry|tree|err",
+    #                 "ref_id": 单值引用, "by_vendor": {vendor: entry_uuid},
+    #                 "note": "操作提示"}]
+    #   —— by_vendor 复用排查树 cmd_ref.by_vendor 语义（仅 entry 支持）；
+    #      单值引用 ref_id 三类通吃。坏引用由 --validate-seed [E] 拦截。
+    # ==================================================================
+
+    def _normalize_pack(self, raw):
+        data = {}
+        for f in SCENARIO_PACK_FIELDS:
+            data[f] = raw.get(f, "")
+        data["pack_id"] = str(data["pack_id"] or new_uuid())
+        tags = raw.get("tags") or []
+        if not isinstance(tags, list):
+            tags = self._load_json(tags)
+        data["tags"] = self._dump_json(tags)
+        items = raw.get("items") or []
+        if not isinstance(items, list):
+            items = self._load_json(items)
+        data["items"] = self._dump_json(items)
+        return data
+
+    def _pack_to_dict(self, row):
+        d = dict(row)
+        d["tags"] = self._load_json(d.get("tags"))
+        d["items"] = self._load_json(d.get("items"))
+        return d
+
+    def all_packs(self):
+        """全部场景包（按 pack_id 稳定排序）"""
+        try:
+            rows = self.conn.execute(
+                "SELECT * FROM scenario_packs ORDER BY pack_id").fetchall()
+        except Exception:
+            return []
+        return [self._pack_to_dict(r) for r in rows]
+
+    def get_pack(self, pack_id):
+        try:
+            row = self.conn.execute(
+                "SELECT * FROM scenario_packs WHERE pack_id = ?",
+                (pack_id,)).fetchone()
+        except Exception:
+            return None
+        return self._pack_to_dict(row) if row else None
+
+    def count_packs(self):
+        try:
+            return self.conn.execute(
+                "SELECT COUNT(*) FROM scenario_packs").fetchone()[0]
+        except Exception:
+            return 0
+
+    def import_packs(self, packs, merge=True, operator="import"):
+        """
+        导入场景包（按 pack_id 合并去重，冲突保留 verified=1）。
+        返回 (新增, 更新, 跳过)。只写包自身的引用清单，不碰被引用三库
+        的任何字段（SESSION_FIELDS 纪律天然满足——包内没有会话状态字段）。
+        """
+        added = updated = skipped = 0
+        if self.readonly:
+            raise RuntimeError("命令库处于只读状态（U 盘写保护），无法导入场景包")
+        for raw in packs or []:
+            if not isinstance(raw, dict) or not str(raw.get("title") or "").strip():
+                skipped += 1
+                continue
+            data = self._normalize_pack(raw)
+            exist = self.get_pack(data["pack_id"])
+            if not exist:
+                data["verified"] = 0
+                data["verified_by"] = ""
+                data["verified_date"] = ""
+                data["created_at"] = now_str()
+                data["updated_at"] = data["created_at"]
+                cols = ",".join(SCENARIO_PACK_FIELDS)
+                marks = ",".join(["?"] * len(SCENARIO_PACK_FIELDS))
+                self.conn.execute("INSERT INTO scenario_packs (%s) VALUES (%s)"
+                                  % (cols, marks),
+                                  [data[f] for f in SCENARIO_PACK_FIELDS])
+                self.conn.commit()
+                self.log_history("scenario_packs", data["pack_id"], "import", "",
+                                 data["title"], operator)
+                added += 1
+                continue
+            if not merge:
+                skipped += 1
+                continue
+            if int(exist.get("verified") or 0) == 1 and int(data.get("verified") or 0) == 0:
+                skipped += 1
+                continue
+            changes = {}
+            for f in SCENARIO_PACK_FIELDS:
+                if f in ("pack_id", "created_at", "updated_at", "verified",
+                         "verified_by", "verified_date"):
+                    continue
+                if cmp_value(data[f]) != cmp_value(exist.get(f)):
+                    changes[f] = data[f]
+            if not changes:
+                skipped += 1
+                continue
+            sets = ",".join("%s = ?" % f for f in changes)
+            self.conn.execute("UPDATE scenario_packs SET %s, updated_at = ? "
+                              "WHERE pack_id = ?"
+                              % sets,
+                              list(changes.values()) + [now_str(), data["pack_id"]])
+            self.conn.commit()
+            self.log_history("scenario_packs", data["pack_id"], "import-update", "",
+                             data["title"], operator)
+            updated += 1
+        return added, updated, skipped
 
     # ------------------------------------------------------------------
     # 报错字典 / 待解决收件箱（模块 05）

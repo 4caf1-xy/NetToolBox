@@ -582,6 +582,111 @@ def validate_seed(db_path=None):
                 err_problems.append("%s：solution_steps 引用的条目不存在（%s）"
                                     % (e.get("cause", eid)[:30], ref[:8]))
 
+    # ---- 场景包校验（2026-10-12：跨三库清单式捆绑，坏引用 [E] 硬拦截）----
+    packs = database.all_packs()
+    pack_problems = []
+    pack_warnings = []
+    seen_pack = set()
+    for p in packs:
+        pid = p.get("pack_id") or new_uuid()
+        head = "%s(%s)" % (p.get("title") or "(无标题)", pid[:8] if pid else "?")
+        if p.get("pack_id") in seen_pack:
+            pack_problems.append("%s：pack_id 重复" % head)   # 主键兜底，理论上到不了
+        seen_pack.add(p.get("pack_id"))
+        if not (p.get("title") or "").strip():
+            pack_problems.append("%s：title 为空" % head)
+        if not (p.get("description") or "").strip():
+            pack_problems.append("%s：description 为空" % head)
+        items = p.get("items") or []
+        if not items:
+            pack_problems.append("%s：没有任何清单条目" % head)
+        seen_ref = set()
+        for i, it in enumerate(items):
+            label = "%s 第 %d 项" % (head, i + 1)
+            if not isinstance(it, dict):
+                pack_problems.append("%s：item 不是对象" % label)
+                continue
+            rtype = it.get("ref_type")
+            if rtype not in dbmod.SCENARIO_REF_TYPES:
+                pack_problems.append("%s：ref_type 非法（%r），只允许 %s"
+                                     % (label, rtype, "/".join(dbmod.SCENARIO_REF_TYPES)))
+                continue
+            # seq 必须从 1 起严格连续（清单顺序是包的核心语义）
+            if int(it.get("seq") or 0) != i + 1:
+                pack_problems.append("%s：seq 不连续（应为 %d，实际 %r）"
+                                     % (label, i + 1, it.get("seq")))
+            rid = (it.get("ref_id") or "").strip()
+            bvm = it.get("by_vendor") or {}
+            if rid and bvm:
+                pack_problems.append("%s：ref_id 与 by_vendor 同现（二选一）" % label)
+                continue
+            if not rid and not bvm:
+                pack_problems.append("%s：既无 ref_id 也无 by_vendor（空引用）" % label)
+                continue
+            if rtype != "entry" and bvm:
+                pack_problems.append("%s：by_vendor 仅 entry 类引用支持（%s 类请用 ref_id）"
+                                     % (label, rtype))
+                continue
+            if rtype == "entry" and rid:
+                if not database.get_entry(rid):
+                    pack_problems.append("%s：entry 引用不存在（%s）" % (label, rid[:8]))
+                else:
+                    e = database.get_entry(rid)
+                    if str(e.get("exec_level") or "").strip() == "skeleton":
+                        pack_warnings.append(
+                            "%s：引用的条目是 skeleton 骨架（%s）——真机执行前须验证"
+                            % (label, (e.get("title") or "")[:30]))
+                    key = ("entry", rid)
+                    if key in seen_ref:
+                        pack_warnings.append("%s：与包内更早项重复引用同一 entry（%s）"
+                                             % (label, rid[:8]))
+                    seen_ref.add(key)
+            elif rtype == "tree" and rid:
+                if not database.get_tree(rid):
+                    pack_problems.append("%s：tree 引用不存在（%s）" % (label, rid[:12]))
+                else:
+                    key = ("tree", rid)
+                    if key in seen_ref:
+                        pack_warnings.append("%s：与包内更早项重复引用同一 tree（%s）"
+                                             % (label, rid[:12]))
+                    seen_ref.add(key)
+            elif rtype == "err" and rid:
+                if not database.get_err(rid):
+                    pack_problems.append("%s：err 引用不存在（%s）" % (label, rid[:8]))
+                else:
+                    key = ("err", rid)
+                    if key in seen_ref:
+                        pack_warnings.append("%s：与包内更早项重复引用同一 err（%s）"
+                                             % (label, rid[:8]))
+                    seen_ref.add(key)
+            if bvm:
+                if not isinstance(bvm, dict) or not bvm:
+                    pack_problems.append("%s：by_vendor 必须是非空对象" % label)
+                    continue
+                for v, euuid in bvm.items():
+                    if not isinstance(euuid, str) or not euuid.strip():
+                        pack_problems.append("%s：by_vendor[%s] 值不是 uuid 字符串"
+                                             % (label, v))
+                        continue
+                    if dbmod.normalize_vendor(v) != v:
+                        pack_problems.append("%s：by_vendor 厂商不是规范 slug（%s）"
+                                             % (label, v))
+                    if not database.get_entry(euuid):
+                        pack_problems.append("%s：by_vendor[%s] 的条目不存在（%s）"
+                                             % (label, v, euuid[:8]))
+                    else:
+                        key = ("entry", euuid)
+                        if key in seen_ref:
+                            pack_warnings.append(
+                                "%s：by_vendor[%s] 与包内更早项重复引用同一条目（%s）"
+                                % (label, v, euuid[:8]))
+                        seen_ref.add(key)
+                        e = database.get_entry(euuid)
+                        if str(e.get("exec_level") or "").strip() == "skeleton":
+                            pack_warnings.append(
+                                "%s：by_vendor[%s] 引用的条目是 skeleton 骨架（%s）"
+                                % (label, v, (e.get("title") or "")[:30]))
+
     # ---- 输出分析器规则校验（模块 04 第 7 轮）----
     analyzer_problems = []
     try:
@@ -621,6 +726,10 @@ def validate_seed(db_path=None):
         len(errs),
         "｜".join("%s %d" % (k, sum(1 for e in errs if e.get("category") == k))
                   for k in dbmod.ERR_CATEGORIES if any(e.get("category") == k for e in errs))))
+    print("场景包：%d 个 ｜ %s" % (
+        len(packs),
+        "｜".join("%s %d 项" % (p.get("title") or p.get("pack_id"),
+                                len(p.get("items") or [])) for p in packs)))
     if duration_count:
         print("生效方式：" + "｜".join("%s %d 条" % (dbmod.DURATIONS.get(k, k), v)
                                     for k, v in sorted(duration_count.items())))
@@ -670,14 +779,25 @@ def validate_seed(db_path=None):
         for item in err_problems[:40]:
             print("   - " + item)
         return 1
+    if pack_problems:
+        print("[X] 场景包发现 %d 个问题（坏引用按 [E] 硬拦截）：" % len(pack_problems))
+        for item in pack_problems[:40]:
+            print("   - " + item)
+        return 1
+    if pack_warnings:
+        print("[W] 场景包提示 %d 处（骨架条目/包内重复引用，不阻塞打包）：" % len(pack_warnings))
+        for item in pack_warnings[:10]:
+            print("   - " + item)
+        if len(pack_warnings) > 10:
+            print("   … 其余 %d 处" % (len(pack_warnings) - 10))
     if problems:
         print("[X] 发现 %d 个问题：" % len(problems))
         for item in problems[:60]:
             print("   - " + item)
         return 1
     print("[OK] 种子库质检通过：%d 条条目 + %d 棵排查树 + %d 条报错字典"
-          "（样例自测 100%% 命中）+ 输出分析器 %d 类规则"
-          % (len(entries), len(trees), len(errs), len(_oa.RULES)))
+          "（样例自测 100%% 命中）+ %d 个场景包 + 输出分析器 %d 类规则"
+          % (len(entries), len(trees), len(errs), len(packs), len(_oa.RULES)))
     return 0
 
 
