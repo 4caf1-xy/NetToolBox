@@ -2,6 +2,17 @@
 
 README 首图引用 `docs/screenshots/main.png`——已放置命令库 Tab 界面图。
 
+## README 重构配套四图（2026-10-12，offscreen 重拍）
+
+| 图 | 内容 | README 引用位置 |
+|---|---|---|
+| `main.png` | 命令库主界面（华为 AR Trunk 条目选中 + 详情面板） | 首图 |
+| `command_search.png` | 搜索 `ospf` 即时过滤 20 条 + 筛选器 + 仪表盘分段条 | 快速开始·快捷键后 |
+| `troubleshoot.png` | 排查向导：现象按分类树（连通性/端口/性能/路由协议） | Why·Knowledge-driven |
+| `runbook.png` | 操作单生成器：变更单头 + 步骤编辑空态 | 典型场景二 |
+
+（截图脚本：`python scripts/ui_screenshot.py <输出目录> <标签>` 抓四 Tab；本轮四图带搜索/选中等状态，由 `.workbuddy` 一次性会话脚本产出，脚本按会话纪律不转正。）
+
 ## 主题统一 + AI 诊断布局重构（2026-09-29）
 
 before / after 对比图（左右拼接，可直接用于汇报材料）：

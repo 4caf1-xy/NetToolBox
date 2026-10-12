@@ -7,7 +7,7 @@
 
 | 文档 | 受众 | 回答什么问题 | 更新时机 |
 |---|---|---|---|
-| [README.md](../README.md)（根） | 所有人 | 这是什么工具、怎么跑、规模多大、免责与 License | 每次发版 |
+| [README.md](../README.md)（根） | 所有人 | 定位与操作安全模型、典型场景、怎么跑、规模多大、路线方向、免责与 License | 内容结构变更或每次发版 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 潜在贡献者 | 怎么参与：PR 流程、Issue 怎么提 | 贡献流程变更时 |
 | [AGENTS.md](../AGENTS.md) | AI 会话 / 维护者 | 会话产物落位、打包纪律、种子数据纪律 | 约定新增或变更时 |
 | [architecture.md](architecture.md) | 维护者 / 深度贡献者 | 数据流、三库职责、公开仓与伴生仓分工 | 架构变更时 |

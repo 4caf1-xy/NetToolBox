@@ -7,7 +7,10 @@
 
 ## Unreleased
 
-（暂无）
+#### 文档
+- **README 重构**：由「功能列表」升级为「定位说明 + 操作安全叙事 + 使用指南」——新增定位段（离线优先 / 多厂商 / 操作安全三支柱：验证状态、rollback、Copy Only）、Why NetToolBox 三小节（Offline First / Operational Safety / Knowledge-driven Troubleshooting）、安全模型节（离线核心 + AI 旁路三态运行现状 + Copy Only 边界 + 密钥存储现状如实描述）、两个典型场景（OSPF ExStart 排查树走查 / 变更前 Runbook 四步）与 Mermaid 架构图（AI 画为可选旁路，不与库并列）；
+- 事实段三处保留并同步：版本号修正 v0.6.1→v0.6.2（与 APP_VERSION / Release 对齐）、zip 清单与种子规模表核对一致（338 / 26 / 82 / 3）；厂商列表按种子实况修正为 **10 家网络厂商**（原文「11 家」与括号列名不符），占位厂商目录不再对外列出；
+- 新增 4 张界面截图入库 `docs/screenshots/`：`main.png`（主界面，重拍）/ `command_search.png`（搜索状态）/ `troubleshoot.png`（排查树）/ `runbook.png`（操作单），README 分节引用。
 
 ## v0.6.2（2026-10-12）
 
