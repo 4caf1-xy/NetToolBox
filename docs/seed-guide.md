@@ -167,6 +167,22 @@ rollback: "undebug all\n# debug 类命令即时生效无持久化，关闭即回
 变更次序严格相反或成对（先开的先关）；涉及 `write/save/commit` 的条目，rollback
 末步要考虑"恢复后是否需要再保存一次"。
 
+**④ 备份步守卫**（场 1 实战沉淀，2026-10-12）：凡 rollback 走"恢复备份型"，
+commands 的备份步与 rollback 的恢复步**必须互为守卫**——备份步失败时回退链
+整体断裂（场 1 实证：centos ifcfg 回退链断裂即此模式），约定两条：
+
+1. commands 备份步用**可判定的副本名**：`cp -a <file> <file>.bak-YYYYMMDD`（日期
+   写死，不用 `$(date)`——渲染后每次执行生成不同名，rollback 引用不到）；
+2. rollback 恢复前**先校验备份在，不在就停**：
+
+```
+rollback: "# 守卫：备份不存在则中止，禁止盲恢复\nls /etc/sysconfig/network-scripts/ifcfg-eth0.bak-20261012 || { echo '备份缺失，停止回退，人工核查'; exit 1; }\n# 备份在才恢复\ncp -a /etc/sysconfig/network-scripts/ifcfg-eth0.bak-20261012 /etc/sysconfig/network-scripts/ifcfg-eth0"
+```
+
+`exit 1` 是给"仅复制命令"用户的显式中止信号；含 `exit` 的 rollback 在生成器
+预览里照常渲染。禁止省略守卫直接 `cp -a 备份 原文件`——备份不存在时该命令
+报错与否因 shell 而异，且覆盖性恢复一旦落在残缺备份上即二次破坏。
+
 > 兼容备注：Wave 2 既定约定不变——Linux 条目缺 `duration` 仍为 ERROR；
 > 排查树 `by_vendor` uuid 硬引用约定见第五节。rollback 校验当前为 WARNING
 > 宽容期（变更类缺口 ~264 条属迁移软着陆），任务6 升 ERROR 后缺填即拦截。
