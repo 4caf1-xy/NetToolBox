@@ -37,20 +37,21 @@
 
 **方式一：下载成品（推荐，免装环境）**
 
-当前版本：**v0.5.0**（与程序「关于」对话框、Release 页保持一致；更新随 [Releases](../../releases) 发布，发版 zip 由 CI 自动构建挂载）。
+当前版本：**v0.6.0**（与程序「关于」对话框、Release 页保持一致；更新随 [Releases](../../releases) 发布，发版 zip 由 CI 自动构建挂载）。
 
 到 [Releases](../../releases) 下载 `NetToolBox_v*.zip`，解压即用：
 
 ```
 NetToolBox.exe        # 双击运行
-command_lib.db        # 命令主库
+command_lib.db        # 命令主库（种子净库）
 check_db.py           # 只读体检脚本（可选）
+seed_data/            # 种子 JSON（重建/校验用）
 ```
 
 **方式二：源码运行**
 
 ```bash
-pip install -r requirements.txt   # PyQt5 + requests（离网机器可用 dist zip 内的 _vendor）
+pip install -r requirements.txt   # PyQt5 + requests
 python app/main.py                # 启动 GUI
 python app/main.py --validate-seed   # 种子库质检（改种子后必跑）
 python scripts/check_db.py        # 主库只读体检

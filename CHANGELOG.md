@@ -5,10 +5,36 @@
 
 ## Unreleased
 
+（暂无）
+
+## v0.6.0（2026-10-12）
+
+自 v0.5.0 以来的全部变更。主题：**主库安全治理**（导入护栏热修 + validate 写权收口）+ **验证会场 1/2 实战收官**（lab 可验条目清零）+ **静态站点导出器与脱敏红线件**上线。种子规模维持 **338 条命令 + 26 棵排查树 + 82 条报错字典**。
+
 #### 安全修复（导入护栏热修批，2026-10-12）
 - **主库覆盖事故两连的结构性防重演**：`db.py` 新增 `SESSION_FIELDS`（verified 四字段 + exec_level + notes + favorite）——种子导入对状态字段**全组禁写**（UPDATE 保留库值 / INSERT 照收种子初始态），漂移收敛单行汇总不逐条噪音；`import_entries` 首次产生写入前自动备份 `backup/command_lib-pre-import-<ts>.db`（两级目录定位）；
 - **validate 剥夺写权（结构保证）**：`--validate-seed` 与 `--db` 组合直接报错退出（rc=2，文案给出正确用法），`--allow-main-db` 显式放行；"种子 verified 必须 0"规则限定纯种子内存库（指定库绿档为合法回填不再误杀）；
 - 回归套件 `scripts/smoke_import_guard.py`（7 项：09:27 事故重演逐字段断言 / 二次事故组合拒绝零写入 / 不存在路径不建空库 / 自动备份断言 / INSERT 初始态）；状态字段唯一写入口 = `scripts/backfill_verify.py`（回填固化）；主库操作纪律入 AGENTS.md 第 8 节；事故与字段归属表见 dev-notes。
+
+#### 验证会场 1（2026-10-09 实验室场 1：聚焦切片）
+
+- **首次真机级验证回填**：lab 实验室（ubuntu 22.04 / centos7 / FRR 容器）实测 40 条——
+  **绿 20 / 语法核对 7 / 红 2 / 挂起 11**，err_unresolved 喂入 7 条真实回显（D-Bus 死结、
+  RTNETLINK 无 CAP_NET_ADMIN、FRR ospfd 实例化失败、sha256sum 目录参数、enable 别名拒绝、
+  netplan 权限告警、timesync1 总线缺失）。回退三段实战 10 条：6 条干净回退（含 FRR 静态路由
+  语法级回退）、4 条失败/滞后样本完整留档（回退链断裂、netplan 回退地址残留、VLAN 时序竞态）。
+  证据进伴生仓 `docs/verify/20261009-lab-session1/`（tag `verify-20261009-lab-session1`）。
+- **种子修正 7 条（借真回显核对正文）**：Ubuntu 三个 systemd 条目 `service_name` 默认值
+  `sshd`→`ssh`（实证：enable 操作别名报 Refusing to operate、journalctl -u sshd 静默返回空，
+  单元本名是 ssh）；netplan VLAN/bond 两条补 `chmod 600`（644 时 apply 告警 Permissions too
+  open）；rsync/scp 两条 `dst_path` 示例值目录改文件路径（`sha256sum /backup/` 报 Is a directory、
+  回退 `rm -rf` 渲染也随之收敛到文件级）。validate EXIT=0。
+- **实验室工程**：`lab/linux-centos7/Dockerfile` 新增 `ARG VAULT_MIRROR`（默认
+  vault.centos.org 不变，该站对本机网络 403，可用 `--build-arg VAULT_MIRROR=mirrors.aliyun.com/centos-vault`
+  等镜像站覆盖）；新增验证会执行工具 `scripts/lab_exec.py`（容器内跑脚本 + 证据落盘伴生仓）。
+- 已知环境项：srlinux 镜像 ghcr 白名单被 daocloud 拒（Nokia 预留，不影响现有验证）；FRR ospfd
+  在 WSL2 容器实例化失败（zebra/staticd/bgp 正常），OSPF 条目红档留真机；centos7 容器无
+  CAP_NET_ADMIN（未 privileged），网络变更类命令 RTNETLINK 拒绝。
 
 #### 文档与验证（承接验证会场 2，2026-10-12 上午批次）
 - **验证会场 2（lab 收尾饱和场）收官**：四档分布 **20/7/52/259 → 27/61/66/184**（绿 27 / 语法核对 61 / 挂起 66 / 未验证 184）；centos 30 + kylin 23 + openeuler 22 + cisco FRR 候选 6 共 81 条实测回填——绿 7 / 语法核对 37 / 挂起 20 / 红 0；err_unresolved +3。**lab 可验条目清零**：剩余 176 条待验证全部为需真机/模拟器（饱和覆盖表见 docs/dev-notes.md 场 2 节）；
@@ -23,10 +49,12 @@
 
 #### 工程
 - **验证回填工具固化**：`scripts/backfill_verify.py`——uuid 精确匹配（0/多重命中报错退出，禁静默）+ 重复回填防护（--force）+ 事务包裹（green 缺四元组 ROLLBACK）+ **前后双对账断言**（非目标条目全字段零变化 + 总数不变）；回归套件 `scripts/smoke_backfill.py`（9 项，含 ruijie 同名误伤场景回归——场 2 事故场景固化）；verify-guide 第 4 步口径自此以脚本为准；
-- 核心模块落位调整：`site_export.py` / `sanitize_scan.py` 进 `app/`（UI 菜单与 exe 打包共用同一实现），`scripts/` 同名 CLI 为薄壳转发。
+- 核心模块落位调整：`site_export.py` / `sanitize_scan.py` 进 `app/`（UI 菜单与 exe 打包共用同一实现），`scripts/` 同名 CLI 为薄壳转发；
+- **发版链路护栏兼容 + staging 脱敏扫描**：release.yml 组装步改用 `--db <staging> --validate-seed --allow-main-db`（护栏钦定逃生门，导入护栏与自动备份照常生效；staging 为全新空库），消除 10-12 护栏热修与 CI 组装的组合冲突（否则 push tag 必败）；Zip 前新增 staging 库全字段脱敏扫描步（复用 `app/sanitize_scan.py`：IP 白名单外零容忍 + secret 真值 + 明文黑名单，零命中才打包）。
 
 #### 文档
-- dev-notes 补记：主库种子导入覆盖事故（09:27 一次对主库的种子导入把 notes/exec_level 冲掉——P1-2 护栏只保 verified 四字段，**notes/exec_level 无护栏**是结构性盲区，恢复+重放闭环；`--db 真库 --validate-seed` 会触发同款覆盖，严禁指向真主库）+ 场 2 回填误伤事故（同名条目，固化工具动因）。
+- dev-notes 补记：主库种子导入覆盖事故（09:27 一次对主库的种子导入把 notes/exec_level 冲掉——P1-2 护栏只保 verified 四字段，**notes/exec_level 无护栏**是结构性盲区，恢复+重放闭环；`--db 真库 --validate-seed` 会触发同款覆盖，严禁指向真主库）+ 场 2 回填误伤事故（同名条目，固化工具动因）；
+- README 同步 v0.6.0：当前版本、快速开始 zip 清单补 seed_data/、移除「方式二可用 dist zip 内 _vendor」过时表述（_vendor 已 gitignore，发版 zip 亦不含）。
 
 ## v0.5.0（2026-10-09）
 
@@ -63,28 +91,6 @@
 - seed-guide 增补四·B 节（rollback 形态/判定表/三类典型写法）+ **rollback 反例清单**六类（no 形式带属性参数、解引用次序、华为 port-group 组内撤销等起草实例）；AGENTS.md 补记主库实际路径与判定表备忘；
 - dev-notes 落批3 抽查记录（总账/白名单精化 5 轮/幻觉反例/防火墙复核/全查组与分厂商抽查）、ui_tree_editor 能力清单与差距报告候选池（G1–G7，触发条件制，不立项）、smoke 主库零接触改造记录；
 - README 更新至 v0.5.0：新功能入档（Ctrl+K 含快捷键表 / 覆盖度仪表盘 / 回退安全体系 / validate [E] / AI 结构化产参）、种子规模 338、lab/ 目录导引。
-
-## Unreleased
-
-#### 验证会（2026-10-09 实验室场 1：聚焦切片）
-
-- **首次真机级验证回填**：lab 实验室（ubuntu 22.04 / centos7 / FRR 容器）实测 40 条——
-  **绿 20 / 语法核对 7 / 红 2 / 挂起 11**，err_unresolved 喂入 7 条真实回显（D-Bus 死结、
-  RTNETLINK 无 CAP_NET_ADMIN、FRR ospfd 实例化失败、sha256sum 目录参数、enable 别名拒绝、
-  netplan 权限告警、timesync1 总线缺失）。回退三段实战 10 条：6 条干净回退（含 FRR 静态路由
-  语法级回退）、4 条失败/滞后样本完整留档（回退链断裂、netplan 回退地址残留、VLAN 时序竞态）。
-  证据进伴生仓 `docs/verify/20261009-lab-session1/`（tag `verify-20261009-lab-session1`）。
-- **种子修正 7 条（借真回显核对正文）**：Ubuntu 三个 systemd 条目 `service_name` 默认值
-  `sshd`→`ssh`（实证：enable 操作别名报 Refusing to operate、journalctl -u sshd 静默返回空，
-  单元本名是 ssh）；netplan VLAN/bond 两条补 `chmod 600`（644 时 apply 告警 Permissions too
-  open）；rsync/scp 两条 `dst_path` 示例值目录改文件路径（`sha256sum /backup/` 报 Is a directory、
-  回退 `rm -rf` 渲染也随之收敛到文件级）。validate EXIT=0。
-- **实验室工程**：`lab/linux-centos7/Dockerfile` 新增 `ARG VAULT_MIRROR`（默认
-  vault.centos.org 不变，该站对本机网络 403，可用 `--build-arg VAULT_MIRROR=mirrors.aliyun.com/centos-vault`
-  等镜像站覆盖）；新增验证会执行工具 `scripts/lab_exec.py`（容器内跑脚本 + 证据落盘伴生仓）。
-- 已知环境项：srlinux 镜像 ghcr 白名单被 daocloud 拒（Nokia 预留，不影响现有验证）；FRR ospfd
-  在 WSL2 容器实例化失败（zebra/staticd/bgp 正常），OSPF 条目红档留真机；centos7 容器无
-  CAP_NET_ADMIN（未 privileged），网络变更类命令 RTNETLINK 拒绝。
 
 ## v0.4.0（2026-09-29 首发，2026-10-08 重新发版）
 

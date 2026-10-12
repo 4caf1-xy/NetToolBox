@@ -65,8 +65,17 @@ jobs:
           mkdir -p "$STAGING/seed_data"
           cp dist_package/NetToolBox.exe "$STAGING/"
           cp scripts/check_db.py "$STAGING/"
-          python app/main.py --db "$STAGING/command_lib.db" --validate-seed
+          python app/main.py --db "$STAGING/command_lib.db" --validate-seed --allow-main-db
+          # --allow-main-db：2026-10-12 导入护栏钦定逃生门（--db + --validate-seed 组合
+          # 默认拒绝 rc=2）。staging 为全新空库，种子导入 + 质检一步完成，
+          # 导入护栏（状态字段禁写）与自动备份照常生效。
           cp app/seed_data/*.json "$STAGING/seed_data/"
+
+      # 脱敏红线件（app/sanitize_scan.py）：staging 库全字段只读扫描——IP 白名单外
+      # 零容忍 + secret 真值 + 明文黑名单，零命中（rc=0）才进入打包步骤
+      - name: Sanitize scan staging db
+        shell: bash
+        run: python app/sanitize_scan.py --db "staging_v${GITHUB_REF_NAME#v}/command_lib.db"
 
       - name: Zip package
         shell: python
