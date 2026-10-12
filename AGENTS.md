@@ -49,3 +49,11 @@
 - 开发态主库实际路径：`dist_package/command_lib.db`（app/ 下无库；源码运行默认"程序同目录"在打包语境下即 dist_package）。备份统一落 `backup/`（如 `command_lib-pre-params-20261009.db`），不入库。
 - 变更类判定表唯一事实源：`app/renderer.py` 的 `QUERY_WHITELIST` / `CHANGE_FORCE_PREFIXES`；文档与 AI prompt 只引用不改写。改白名单必须重跑 `--validate-seed` 并核对 [W] 增减对账。
 - rollback 字段（schema 2026-10-09）：条目级多行字符串，与 commands 同构（# / ! 注释行同约定）；变更类必填、查询类免填；validate 当前宽容期已结束——[E] 级拦截见任务6。
+
+## 8. 主库操作纪律（2026-10-12 导入护栏热修批生效）
+
+- **validate-seed 标准用法恒为 `python app/main.py --validate-seed`（内存库，无 --db）**；`--db <path> --validate-seed` 会把种子导入目标库（写操作），与 `--db` 组合默认报错退出（rc=2）——纪律由 main.py 结构保证，不依赖记忆。确需对指定库质检：显式加 `--allow-main-db`（导入护栏与自动备份兜底）。
+- **状态字段唯一写入口 = 回填流程**：`SESSION_FIELDS`（verified/verified_by/verified_model/verified_date + exec_level + notes + favorite，常量在 `app/db.py`）种子导入一律禁写——验证会回填走 `scripts/backfill_verify.py`（uuid 匹配+事务+前后断言）或界面操作；种子导入时差异收敛单行汇总（"N 条状态字段保留库值"），不逐条提示。
+- **导入自动备份**：`import_entries` 首次产生写入前自动落 `backup/command_lib-pre-import-<ts>.db`（目录两级定位：db 同目录 `../backup/` 优先）；备份失败不阻断导入（主防线是护栏本身）。
+- 工具脚本连库路径**必须先 `os.path.isfile` 防御**——`sqlite3.connect` 对不存在路径默认建空库（app/command_lib.db 0 字节事件，2026-10-12 归零）。
+- 事故记录：`docs/dev-notes.md` 主库种子导入覆盖事故（0927）+ 场 2 回填误伤；重放脚本 `.workbuddy/session2_replay.py`。

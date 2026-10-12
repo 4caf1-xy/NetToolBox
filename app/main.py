@@ -411,7 +411,11 @@ def validate_seed(db_path=None):
         if entry.get("uuid") in seen_uuid:
             problems.append("%s：UUID 与「%s」重复" % (title, seen_uuid[entry["uuid"]]))
         seen_uuid[entry.get("uuid")] = title
-        if int(entry.get("verified") or 0) != 0:
+        # "种子库条目 verified 必须为 0"（导入护栏 2026-10-12 补充语义）：
+        #   仅对纯种子内存库（无 --db）生效——那里的条目全部来自种子导入，
+        #   verified 必须归零；--allow-main-db 指定库场景下库内绿档是合法
+        #   回填结果（护栏保留库值），不得按种子规则误杀。
+        if int(entry.get("verified") or 0) != 0 and db_path is None:
             problems.append("%s：种子库条目 verified 必须为 0" % title)
         # exec_level / interactive 合法性（审计 P1/P4 新增字段）
         exec_level = str(entry.get("exec_level") or "").strip()
@@ -942,6 +946,20 @@ def main():
     if "--selftest" in argv:
         return run_selftest(db_path)
     if "--validate-seed" in argv:
+        if db_path is not None and "--allow-main-db" not in argv:
+            # validate 剥夺写权（2026-10-12）：--validate-seed 会把 seed_data 导入
+            # 目标库，指向真主库即触发写库（09:27/10:2x 两次覆盖事故根因）。
+            # 纪律不再依赖记忆——组合直接报错退出，文案给出正确用法；
+            # 确需对指定库质检时显式 --allow-main-db（状态字段已由导入护栏保护）。
+            sys.stderr.write(
+                "[E] --validate-seed 与 --db 组合被拒绝：validate 会把种子导入指定库"
+                "（写操作），严禁指向真主库。\n"
+                "     正确用法：python app/main.py --validate-seed（内存库，无 --db）\n"
+                "     确需对指定库质检：追加 --allow-main-db（导入护栏与自动备份生效）\n")
+            return 2
+        if db_path is not None:
+            sys.stderr.write("[warn] --allow-main-db：validate 将把种子导入 %s"
+                             "（SESSION_FIELDS 状态字段由导入护栏保留库值）\n" % db_path)
         return validate_seed(db_path)
     if "--check-ai" in argv:
         return check_ai()

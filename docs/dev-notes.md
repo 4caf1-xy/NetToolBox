@@ -211,7 +211,22 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 - **根因**：09:27 主库被执行了一次**种子导入**（来源待查，GUI 导入或某工具触发）。`db.py` 导入 UPDATE 分支的 P1-2 护栏只不采纳 `verified/verified_by/verified_model/verified_date` 四字段——**`notes` 与 `exec_level` 无护栏，被种子值整体覆盖**；verified 因护栏幸存。
 - **连带**：伴生仓 `fe600e0` 的 db 快照 cp 自覆盖后主库，同为坏态；tag `verify-lab-session2` 指向该 commit。
 - **恢复**：`backup/command_lib-pre-session2-20261012.db`（回填前）+ 场 2 回填数据重放（本次重放全部 WHERE 限定 vendor+title，顺手消除原回填脚本的同名误伤隐患），对账 27/61/66/184 + err_unresolved 11 逐项吻合。附赠发现：重放前测试脚本曾以 `sqlite3.connect` 误建 0 字节 `app/command_lib.db`（sqlite3 对不存在路径默认建空库），已删——**工具脚本连接库路径前必须先 isfile 检查**。
-- **遗留建议（待裁决另批）**：`db.py` 导入 UPDATE 分支应对 `notes`/`exec_level` 加与 P1-2 同款护栏（种子导入不得冲掉验证实录），否则每次种子重导都会重演本事故；`backup_db.py`/`backfill_verify.py` 的 `find_db()` 已按 `isfile` 防御。
+- **遗留建议（待裁决另批）**：~~`db.py` 导入 UPDATE 分支应对 `notes`/`exec_level` 加与 P1-2 同款护栏~~ **已于当日热修批落地**（SESSION_FIELDS 全组禁写，见下）。
+
+### 导入护栏热修批（2026-10-12，单笔提交，随 v0.6.0 发版）
+
+**字段归属二分表**（ENTRY_FIELDS 23 项，护栏裁决 2026-10-12）：
+
+| 归属 | 字段 | 导入行为 |
+|---|---|---|
+| 键 | uuid | 合并依据，两侧不写 |
+| 系统维护 | created_at / updated_at | 守卫排除（原有） |
+| 内容字段（种子拥有，导入可写） | platform / device_type / vendor / os_family / models / category / title / description / commands / rollback / params / duration / interactive（13） | 照常覆盖 |
+| **状态字段（会话拥有，导入禁写）** | `SESSION_FIELDS = VERIFY_FIELDS + (exec_level, notes, favorite)`（8 项） | UPDATE 全组保留库值；INSERT 照收种子初始态 |
+
+裁决记录：notes 归状态组**整字段禁写**（验证实录尾部保留；种子侧 notes 修订需另做骨架同步通道——候选池）；favorite 收编（P1-2 时代遗漏：导入原会覆盖收藏）。
+
+**落地**：`db.py` 新增 `SESSION_FIELDS` 常量 + `_pre_import_backup()`（首次写入前自动备份，两级目录定位）+ import_entries UPDATE 组全禁写 + 漂移收敛单行汇总；`main.py` validate 入口组合拒绝（--db+--validate-seed → rc=2，--allow-main-db 显式放行）；"种子库条目 verified 必须 0"规则限定纯种子内存库（指定库绿档是合法回填）。回归 `scripts/smoke_import_guard.py` 7 项（三事故场景+自动备份+INSERT 初始态）全绿；全量九套件全绿。
 - **二次事故与教训（当日）**：恢复后排查 validate 报错时以 `--db 真库 --validate-seed` 跑了两轮（且 `$?` 被管道 tail 掩盖误读 EXIT=0），**该用法会把种子导入真库再次覆盖 notes/exec_level**——二次事故。重放脚本固化 `.workbuddy/session2_replay.py`（回放+对账断言一体），二次恢复后以 `export_site` 对账 27/61/66/184 复核。**validate-seed 标准用法是 `python app/main.py --validate-seed`（无 --db，内存库）；`--db` 变体仅用于干净目标库，永远不要指向真主库**；管道取退出码必须用 `${PIPESTATUS[0]}` 或临时文件。
 
 ### 场 2 回填误伤事故记录（2026-10-12，回填工具固化动因）

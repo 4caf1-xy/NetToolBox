@@ -19,6 +19,7 @@ import re
 import sys
 import json
 import uuid
+import shutil
 import sqlite3
 import datetime
 
@@ -55,6 +56,14 @@ EDITABLE_FIELDS = [
 # 验证状态四字段：只经真机回填流程（mark_verified）产生，导入一律不采纳
 # （P1-2 裁决 2026-10-08，见 docs/seed-guide.md 与 docs/audit/20261008-full-audit.md）
 VERIFY_FIELDS = ("verified", "verified_by", "verified_model", "verified_date")
+
+# 会话状态字段全组：验证会/界面交互产生并拥有的状态，种子导入一律禁写
+# （导入护栏 2026-10-12：09:27 种子导入把 notes/exec_level 覆盖——P1-2 只保
+#   verified 四字段，notes/exec_level/favorite 无护栏属结构性盲区，本组收口。
+#   唯一写入口 = 真机回填流程（mark_verified / backfill_verify.py / UI 编辑）；
+#   notes 归属裁决：整字段禁写（验证实录在尾部），种子侧 notes 修订需
+#   "notes 骨架同步"专用通道——登记候选池，未实现前只能手工/另批处理。）
+SESSION_FIELDS = VERIFY_FIELDS + ("exec_level", "notes", "favorite")
 
 EXEC_LEVELS = ("", "verified-cli", "skeleton", "web-only")
 
@@ -1245,18 +1254,57 @@ class Database(object):
     # ------------------------------------------------------------------
     # 种子库导入 / .nlb 导入导出（按 UUID 合并去重）
     # ------------------------------------------------------------------
+    def _pre_import_backup(self):
+        """导入写库前的自动备份（护栏外最后防线，漏了也能恢复）。
+
+        目录两级定位：db 同目录的 ../backup/ 存在优先（仓库语境），
+        否则 <db 同目录>/backup/（exe/便携语境）；内存库跳过。
+        返回备份路径；失败不阻断导入（只打 stderr 警告）——主防线是
+        SESSION_FIELDS 护栏本身，备份只是兜底。
+        """
+        if self.is_memory or not os.path.isfile(self.db_path):
+            return None
+        db_dir = os.path.dirname(os.path.abspath(self.db_path))
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        candidates = [
+            os.path.join(os.path.dirname(db_dir), "backup"),
+            os.path.join(db_dir, "backup"),
+        ]
+        for d in candidates:
+            if os.path.isdir(d):
+                path = os.path.join(d, "command_lib-pre-import-%s.db" % stamp)
+                break
+        else:
+            d = candidates[-1]
+            try:
+                os.makedirs(d, exist_ok=True)
+            except OSError:
+                sys.stderr.write("[import-guard] 警告：备份目录无法创建，跳过自动备份\n")
+                return None
+            path = os.path.join(d, "command_lib-pre-import-%s.db" % stamp)
+        try:
+            shutil.copyfile(self.db_path, path)
+            return path
+        except OSError as exc:
+            sys.stderr.write("[import-guard] 警告：自动备份失败（%s），继续导入\n" % exc)
+            return None
+
     def import_entries(self, entries, merge=True, operator="import"):
         """
         批量导入。按 UUID 合并去重：
             - 库中没有该 UUID → 新增
             - 库中已有：merge=True 时逐字段比对，有变化才更新；merge=False 一律跳过
-            - 验证态四字段（VERIFY_FIELDS）一律不采纳：新增强制 0，更新不改动
-              （P1-2 裁决 2026-10-08：导入不携带验证态，验证状态只经真机回填流程产生）
+            - 会话状态字段（SESSION_FIELDS：verified 四字段+exec_level+notes+favorite）
+              一律禁写：新增强制初始态，更新保留库值（P1-2 裁决 2026-10-08 +
+              导入护栏 2026-10-12：验证态只经真机回填流程产生）
+            - 首次产生写入前自动备份主库（_pre_import_backup）
         返回 (新增数, 更新数, 跳过数)
         """
         if self.readonly:
             raise RuntimeError("命令库处于只读状态（U 盘写保护），无法导入")
         added = updated = skipped = 0
+        retained = 0            # 状态字段与种子有差异但按护栏保留库值的条目数
+        backed_up = False
         for raw in entries or []:
             if not isinstance(raw, dict):
                 skipped += 1
@@ -1272,6 +1320,9 @@ class Database(object):
             if not exist:
                 cols = ",".join(ENTRY_FIELDS)
                 marks = ",".join(["?"] * len(ENTRY_FIELDS))
+                if not backed_up:
+                    self._pre_import_backup()
+                    backed_up = True
                 self.conn.execute(
                     "INSERT INTO entries (%s) VALUES (%s)" % (cols, marks),
                     [data[f] for f in ENTRY_FIELDS],
@@ -1286,20 +1337,31 @@ class Database(object):
 
             # ★ 真幂等：逐字段比对，没有任何实际变化就跳过 ——
             #   否则每次重复导入都会写一遍全库、并在 history 里刷一堆无意义记录
-            #   验证态四字段已在上方归零且不允许经导入改动（VERIFY_FIELDS 白名单外），
-            #   故原"已验证一方胜出"守卫随 P1-2 裁决一并移除（防降级职责由排除承担）
+            #   会话状态字段（SESSION_FIELDS）全组禁写：库值保留，差异计数进
+            #   收敛汇总（验证会之后漂移是常态，逐条提示会变噪音——护栏裁决
+            #   2026-10-12）。原"已验证一方胜出"守卫随 P1-2 裁决移除
+            #   （防降级职责由排除承担）。
             changes = {}
             for f in EDITABLE_FIELDS:
-                if f == "updated_at" or f in VERIFY_FIELDS:
+                if f == "updated_at" or f in SESSION_FIELDS:
+                    if f in SESSION_FIELDS and f != "favorite" \
+                            and str(cmp_value(data.get(f))) != str(cmp_value(exist.get(f))):
+                        retained += 1
                     continue
                 if cmp_value(data[f]) != cmp_value(exist.get(f)):
                     changes[f] = data[f]
             if not changes:
                 skipped += 1
                 continue
+            if not backed_up:
+                self._pre_import_backup()
+                backed_up = True
             self.update_entry(data["uuid"], changes, operator)
             updated += 1
         self.conn.commit()
+        if retained:
+            print("[import-guard] %d 条状态字段与种子存在差异，已保留库值"
+                  "（verified/exec_level/notes/favorite 只经回填与界面变更）" % retained)
         return added, updated, skipped
 
     def import_nlb(self, path, merge=True, operator="import"):

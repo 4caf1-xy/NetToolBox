@@ -5,6 +5,11 @@
 
 ## Unreleased
 
+#### 安全修复（导入护栏热修批，2026-10-12）
+- **主库覆盖事故两连的结构性防重演**：`db.py` 新增 `SESSION_FIELDS`（verified 四字段 + exec_level + notes + favorite）——种子导入对状态字段**全组禁写**（UPDATE 保留库值 / INSERT 照收种子初始态），漂移收敛单行汇总不逐条噪音；`import_entries` 首次产生写入前自动备份 `backup/command_lib-pre-import-<ts>.db`（两级目录定位）；
+- **validate 剥夺写权（结构保证）**：`--validate-seed` 与 `--db` 组合直接报错退出（rc=2，文案给出正确用法），`--allow-main-db` 显式放行；"种子 verified 必须 0"规则限定纯种子内存库（指定库绿档为合法回填不再误杀）；
+- 回归套件 `scripts/smoke_import_guard.py`（7 项：09:27 事故重演逐字段断言 / 二次事故组合拒绝零写入 / 不存在路径不建空库 / 自动备份断言 / INSERT 初始态）；状态字段唯一写入口 = `scripts/backfill_verify.py`（回填固化）；主库操作纪律入 AGENTS.md 第 8 节；事故与字段归属表见 dev-notes。
+
 #### 文档与验证（承接验证会场 2，2026-10-12 上午批次）
 - **验证会场 2（lab 收尾饱和场）收官**：四档分布 **20/7/52/259 → 27/61/66/184**（绿 27 / 语法核对 61 / 挂起 66 / 未验证 184）；centos 30 + kylin 23 + openeuler 22 + cisco FRR 候选 6 共 81 条实测回填——绿 7 / 语法核对 37 / 挂起 20 / 红 0；err_unresolved +3。**lab 可验条目清零**：剩余 176 条待验证全部为需真机/模拟器（饱和覆盖表见 docs/dev-notes.md 场 2 节）；
 - verify-guide 判定补充口径四块（收敛窗口判读 / 红档归未验证 / 容器语法核对口径 / 交互命令验证约定）+ seed-guide rollback ④ 备份步守卫；
