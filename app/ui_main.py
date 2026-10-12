@@ -27,7 +27,8 @@ import datetime
 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import (QColor, QFont, QKeySequence, QSyntaxHighlighter,
-                         QTextCharFormat, QTextCursor)
+                         QTextCharFormat, QTextCursor, QDesktopServices)
+from PyQt5.QtCore import QUrl
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QLineEdit, QPushButton,
                              QListWidget, QListWidgetItem, QLabel, QPlainTextEdit,
@@ -540,6 +541,9 @@ class MainWindow(QMainWindow):
         act_export.triggered.connect(self.on_export_nlb)
         act_export_one = QAction("导出当前条目为 .txt…", self)
         act_export_one.triggered.connect(self.on_export_txt)
+        act_site = QAction("导出静态站点 (.html)…", self)
+        act_site.setToolTip("三库+覆盖度仪表盘导出为单文件离线站点（脱敏扫描+零写权断言）")
+        act_site.triggered.connect(self.on_export_site)
         act_quit = QAction("退出", self)
         act_quit.setShortcut(QKeySequence("Ctrl+Q"))
         act_quit.triggered.connect(self.close)
@@ -547,6 +551,7 @@ class MainWindow(QMainWindow):
         m_file.addAction(act_export)
         m_file.addSeparator()
         m_file.addAction(act_export_one)
+        m_file.addAction(act_site)
         m_file.addSeparator()
         act_ai_settings = QAction("设置（AI 接口）…", self)
         act_ai_settings.setToolTip("配置 AI 诊断的接口地址 / API Key / 模型（存 ai_config.json）")
@@ -2596,6 +2601,43 @@ class MainWindow(QMainWindow):
             return
         self.statusBar().showMessage("已导出 %d 条到 %s" % (count, path))
         QMessageBox.information(self, "导出完成", "已导出 %d 条到：\n%s" % (count, path))
+
+    def on_export_site(self):
+        """导出静态站点（单文件 HTML）：调 site_export 核心零写权导出。"""
+        default = os.path.join(get_base_dir(),
+                               "%s_站点_%s.html" % (APP_NAME, datetime.datetime.now().strftime("%Y%m%d")))
+        path, _ = QFileDialog.getSaveFileName(self, "导出静态站点（单文件离线 HTML）", default,
+                                              "HTML (*.html)")
+        if not path:
+            return
+        if not path.lower().endswith(".html"):
+            path += ".html"
+        import site_export  # app 同目录，exe 打包随 ui_main 依赖自动收入
+        self.setCursor(Qt.WaitCursor)
+        try:
+            rc = site_export.export(site_export.find_db(), path)
+        except SystemExit as exc:  # assert_clean 定位报错走 SystemExit(5)
+            rc = int(exc.code or 5)
+        except Exception as exc:
+            rc = None
+            msg = str(exc)
+        finally:
+            self.unsetCursor()
+        if rc == 0:
+            self.statusBar().showMessage("静态站点已导出：%s" % path)
+            QMessageBox.information(self, "导出完成",
+                                    "静态站点已导出：\n%s\n\n（脱敏扫描零命中；导出过程主库零写入）" % path)
+            QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(os.path.abspath(path))))
+        elif rc == 5:
+            QMessageBox.critical(self, "导出被拦截",
+                                 "脱敏扫描命中：非白名单 IP 或疑似 secret 真值。\n"
+                                 "详情见控制台输出（定位到 库/uuid/字段），修正后重导。")
+        elif rc == 6:
+            QMessageBox.critical(self, "导出被拦截", "站点配色与 theme.py 漂移，拒绝导出（不做第二套色）。")
+        elif rc == 7:
+            QMessageBox.critical(self, "导出失败", "零写权断言失败：导出过程主库发生了写入，请检查。")
+        else:
+            QMessageBox.critical(self, "导出失败", msg if rc is None else "返回码 %s，详见控制台。" % rc)
 
     def on_export_txt(self):
         """导出当前条目（渲染后）为 .txt"""
