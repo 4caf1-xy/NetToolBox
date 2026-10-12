@@ -8,7 +8,8 @@ FROM centos:7
 ARG VAULT_MIRROR=vault.centos.org
 RUN sed -i "s|mirror.centos.org|${VAULT_MIRROR}|g; s/^#.*baseurl=http/baseurl=http/g; s/^mirrorlist=http/#mirrorlist=http/g" /etc/yum.repos.d/CentOS-*.repo && \
     yum install -y openssh-server systemd iproute net-tools iputils tcpdump \
-        curl bind-utils nmap-ncat ethtool psmisc vim-enhanced less sudo && \
+        curl bind-utils nmap-ncat ethtool psmisc vim-enhanced less sudo \
+        createrepo chrony && \
     yum clean all && \
     ssh-keygen -A && \
     echo 'root:ntbxlab' | chpasswd && \
