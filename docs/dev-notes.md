@@ -204,3 +204,19 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 - **介质场**：ISO 挂载×3 + U 盘挂载 1（带介质环境一把收）。
 
 **候选案例 2 篇**：伴生仓 `docs/verify/20261012-lab-session2/`（sed -i bind-mount 回退失效→cp 替代 / pip 离线链 download→--no-index 闭环）。仪表盘前后对比：`docs/screenshots/dashboard_session2_after.png`（27/61/66/184）。
+
+### 主库种子导入覆盖事故（2026-10-12 10:1x 发现，当日恢复）
+
+- **现象**：静态站点导出器首跑对账时发现主库 `exec_level='verified-cli'` 61→0、场 2 回填 notes（"实测 2026-10-12"/"不可验证"标记）全部消失；`verified=1`（27 条绿）幸存。主库 mtime 2026-10-12 09:27。
+- **根因**：09:27 主库被执行了一次**种子导入**（来源待查，GUI 导入或某工具触发）。`db.py` 导入 UPDATE 分支的 P1-2 护栏只不采纳 `verified/verified_by/verified_model/verified_date` 四字段——**`notes` 与 `exec_level` 无护栏，被种子值整体覆盖**；verified 因护栏幸存。
+- **连带**：伴生仓 `fe600e0` 的 db 快照 cp 自覆盖后主库，同为坏态；tag `verify-lab-session2` 指向该 commit。
+- **恢复**：`backup/command_lib-pre-session2-20261012.db`（回填前）+ 场 2 回填数据重放（本次重放全部 WHERE 限定 vendor+title，顺手消除原回填脚本的同名误伤隐患），对账 27/61/66/184 + err_unresolved 11 逐项吻合。附赠发现：重放前测试脚本曾以 `sqlite3.connect` 误建 0 字节 `app/command_lib.db`（sqlite3 对不存在路径默认建空库），已删——**工具脚本连接库路径前必须先 isfile 检查**。
+- **遗留建议（待裁决另批）**：`db.py` 导入 UPDATE 分支应对 `notes`/`exec_level` 加与 P1-2 同款护栏（种子导入不得冲掉验证实录），否则每次种子重导都会重演本事故；`backup_db.py`/`backfill_verify.py` 的 `find_db()` 已按 `isfile` 防御。
+- **二次事故与教训（当日）**：恢复后排查 validate 报错时以 `--db 真库 --validate-seed` 跑了两轮（且 `$?` 被管道 tail 掩盖误读 EXIT=0），**该用法会把种子导入真库再次覆盖 notes/exec_level**——二次事故。重放脚本固化 `.workbuddy/session2_replay.py`（回放+对账断言一体），二次恢复后以 `export_site` 对账 27/61/66/184 复核。**validate-seed 标准用法是 `python app/main.py --validate-seed`（无 --db，内存库）；`--db` 变体仅用于干净目标库，永远不要指向真主库**；管道取退出码必须用 `${PIPESTATUS[0]}` 或临时文件。
+
+### 场 2 回填误伤事故记录（2026-10-12，回填工具固化动因）
+
+- **事故**：场 2 回填 SQL 的 SYNTAX/HOLD 字典以 title 为键且 WHERE 未限定 vendor，`接口状态诊断（show interfaces 族）`、`系统日志排查（show logging）` 两条 ruijie 条目与 cisco 同名被误伤（前者被追加 FRR 挂起 notes、后者被升 exec_level=verified-cli + 追加 notes）。
+- **发现**：回填后 rowcount 对账 18/13 大于预期 17/12，追查 notes LIKE 命中定位到 ruijie 两条。
+- **恢复**：从 `backup/command_lib-pre-session2-20261012.db` 按 uuid 精确取原 notes/exec_level 回写，复核 ruijie 残留 0。
+- **整改**：回填动作固化为 `scripts/backfill_verify.py`——uuid 精确匹配（0/多重命中报错退出）、重复回填防护（--force 覆盖）、事务包裹（green 缺四元组 ROLLBACK）、前置/后置双对账断言（非目标条目全字段零变化 + 总数不变）；回归套件 `scripts/smoke_backfill.py` 9 项全绿，其中 C1 即本事故场景（cisco/ruijie 同名对回填后非目标字段零变化）。verify-guide 第 4 步口径自此以脚本为准。
