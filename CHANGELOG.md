@@ -3,6 +3,16 @@
 本文件记录 NetToolBox 对外可感知的变更。版本号遵循 semver 口径：
 新功能 / 大改 / 种子扩充 → 次版本 +1；纯修复 → 修订号 +1。
 
+## Unreleased
+
+#### 文档与验证
+- **验证会场 2（lab 收尾饱和场）收官**：四档分布 **20/7/52/259 → 27/61/66/184**（绿 27 / 语法核对 61 / 挂起 66 / 未验证 184）；centos 30 + kylin 23 + openeuler 22 + cisco FRR 候选 6 共 81 条实测回填——绿 7（ethtool/ss/CPU 内存/进程 kill/日志 grep/createrepo 全链/tcpdump 五式）、语法核对 37（含裁决A 跨发行版容器核对口径）、挂起 20、红 0；err_unresolved +3（bind-mount sed -i rename 失败 / 无 CAP_SYS_TIME / FRR 8.4 命令面缺口）。**lab 可验条目清零**：剩余 176 条待验证全部为需真机/模拟器（饱和覆盖表见 docs/dev-notes.md 场 2 节）；
+- verify-guide 增补**判定补充口径**：收敛窗口判读（≥30s 复核 2-3 次，滞后收敛不误判红）、红档归未验证（不计覆盖率）、容器语法核对口径（裁决A：非目标发行版容器实跑=语法核对档，notes 注明容器名）、**交互命令验证约定**（裁决C：喂入序列脚本化 + timeout rc=124 判超时回滚 + 回显三要素）；
+- seed-guide 增补 **rollback ④ 备份步守卫**（场 1 回退链断裂教训约定化：备份用可判定副本名 + 回退前 `ls || exit 1` 守卫，禁盲恢复）；
+- rollback 失败模式对照表沉淀至 dev-notes（场 1 四类 + 场 2 新增三类：bind-mount sed -i 失效→cp 替代 / 能力缺失静默失败 rc=0 但服务未起 / 模拟器命令面缺口 Unknown≠语法错）；
+- 仪表盘前后对比截图存档 `docs/screenshots/dashboard_session2_after.png`（静态站点首批展示数据）；
+- lab 两镜像补包（Dockerfile）：ubuntu + chrony、centos7 + createrepo/chrony（aliyun vault 镜像源构建先例沿用）。
+
 ## v0.5.0（2026-10-09）
 
 自 v0.4.0 以来的全部变更。主题：**schema 浪潮**（params 结构化收尾 + rollback 配对 + validate [E] 收口）+ **Ctrl+K 全局搜索** + **覆盖度仪表盘** + 扫尾种子 + **compose 实验室**上线。种子规模 327 → **338 条命令 + 26 棵排查树 + 82 条报错字典**。

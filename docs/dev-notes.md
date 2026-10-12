@@ -166,3 +166,41 @@ skeleton 41 条（防火墙×38 + 中兴交换机×3）映射表确认 lab 全�
 centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try 交互路径、审计/时间同步毫秒级判读。
 
 **候选案例 3 篇**：伴生仓 `docs/verify/20261009-lab-session1/cases/`（回退链断裂 / netplan 回退滞后 / ssh 单元名闭环）。
+
+## 验证会场 2（2026-10-12，lab 收尾饱和场）——档位分布与饱和判定
+
+**范围**：centos 30 全家族 + cisco FRR 候选 6（段 2a）+ kylin 23 / openeuler 22 裁决A 全量（段 2b）= 81 条。
+**三裁决落地**：A 采纳（kylin/openeuler 通用族跨容器语法核对档，禁凑绿）；B 采纳 B2 细分（systemctl×2 转 ubuntu systemd 语法核对，firewalld×2 归正当挂起）；C 采纳（交互命令约定进 verify-guide）。
+**四档分布（仪表盘口径）**：20/7/52/259 → **27/61/66/184**（绿 27 / 语法核对 61 / 挂起 66 / 未验证 184）。
+本批：绿 7 / 语法核对 37 / 挂起 20 / 红 0；err_unresolved +3（bind-mount sed -i rename 失败 / 无 CAP_SYS_TIME chronyd 拒启 / FRR 8.4 命令面缺口）。
+
+**rollback 失败模式对照表（场1 四类 + 场2 新增三类，模式清单即产出）**：
+| # | 模式 | 场 | 实证 |
+|---|---|---|---|
+| 1 | 链断裂（备份步失败→回退全断） | 场1 | centos ifcfg 备份步失败回退全断 → seed-guide ④ 备份步守卫约定化 |
+| 2 | 滞后收敛（回退后残留自行消退） | 场1 | netplan 回退地址残留 → verify-guide 收敛窗口判读（≥30s 复核 2-3 次） |
+| 3 | 时序竞态（apply/回退交错） | 场1 | netplan VLAN apply 后接口未现（唯一直接红档） |
+| 4 | D-Bus 死结（无 systemd 容器 restart 全灭） | 场1 | systemctl restart network/chronyd Failed to get D-Bus connection |
+| 5 | **bind-mount/占用文件 sed -i rename 失败** | 场2 新 | `/etc/resolv.conf` 上 `sed -i` 报 Device or resource busy，回退步失效；**cp 备份覆盖法替代实证通过**（err_unresolved 实录） |
+| 6 | **能力缺失静默失败**（rc=0 但服务没起来） | 场2 新 | chronyd 容器内 adjtimex 被拒（无 CAP_SYS_TIME）但进程退出 rc=0；**判读必须核进程存活/功能回显，不能只看 rc** |
+| 7 | **模拟器命令面缺口**（Unknown ≠ 语法错） | 场2 新 | FRR 8.4 无 show arp/mac address-table/spanning-tree/ntp（IOS 对应物缺失）；语法核对在模拟器上受版本命令面约束，如实记"不可核对" |
+
+**环境新知**：① centos7 容器无 initscripts（network-scripts 目录缺失，文件段验证需 mkdir 构造）；② ubuntu:22.04 官方镜像无 python3/lsof/traceroute/iptables（apt 源可达，`apt install python3-pip` 补装后 pip 离线链全通）；③ FRR 8.4 实际可用命令面 = `show interface brief`（单数形）/show logging/show memory/show running-config/show ip route，IOS 风格复数形全 Unknown；④ heredoc 嵌套坑：外层 `<<'EOF'` 内层再用 `EOF` 定界符会截断外层（脚本半截被宿主 bash 执行），内层一律用异名定界符。
+
+**饱和判定（lab 覆盖终局表）——跑完后剩余 176 条待验证全部为需真机/模拟器，lab 侧清零**：
+| 类别 | 条数 | 为什么 lab 永远出不了绿 |
+|---|---|---|
+| 防火墙四家（fortinet/paloalto/sangfor/topsec） | 71（54 非骨架+17 骨架） | 无免许可容器化路径，Web 控制台+CLI 均真机专权（映射表口径） |
+| huawei/h3c/ruijie/zte/juniper | 131 | 各家 VRP/Comware/RGOS/ZXR10/Junos 无免许可容器，语法本体即厂商私有 |
+| cisco（IOS） | 20 | FRR 8.4 命令面与 IOS 重叠不足（仅 show logging 族等 1 条语法核对档），AAA/SSH/密码/升级/HSRP/STP/DHCP/NTP 全不同构或缺栈 |
+| centos7 systemd/firewalld 组（裁决B） | 2（firewalld×2） | 无 CAP_NET_ADMIN + 无 systemd PID1，结构性无解，已归档正当挂起 |
+| kylin/openeuler firewalld/nmcli 组 | 4 | 容器无 firewalld 包、无 NetworkManager 服务 |
+| ISO 挂载×3 / ethtool -m×3 | 6 | 需物理介质 / 物理光模块（DOM），容器结构性缺失 |
+
+**转真机排期提议**（呈报待裁决）：
+- **真机场 1**（一场收两笔账）：防火墙 38 skeleton（sangfor/topsec 18+18 + fortinet/paloalto 各 1）+ 中兴 3 skeleton——rollback 真机复核 + 标注收口；skeleton 条目按手册"同标准执行"核对通过即升绿+verified-cli。
+- **真机场 2**：OSPF/NAT + cisco 全量（IOSv 模拟器或真机；FRR 已证不等价）。
+- **真机场 3**：kylin/openeuler 真机批（openEuler 22.03 VM 现成可先跑：nmcli/firewalld/chrony ms 级判读/持久化生效链 ≈ 20 条）；kylin V10 待环境。
+- **介质场**：ISO 挂载×3 + U 盘挂载 1（带介质环境一把收）。
+
+**候选案例 2 篇**：伴生仓 `docs/verify/20261012-lab-session2/`（sed -i bind-mount 回退失效→cp 替代 / pip 离线链 download→--no-index 闭环）。仪表盘前后对比：`docs/screenshots/dashboard_session2_after.png`（27/61/66/184）。
