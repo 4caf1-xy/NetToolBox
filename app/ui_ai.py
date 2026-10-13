@@ -777,6 +777,72 @@ class SendGateDialog(QDialog):
 
 
 # ===========================================================================
+# 图片附件外发确认（L 批裁决 3，2026-10-13）
+# ===========================================================================
+class VisionConfirmDialog(QDialog):
+    """
+    图片附件逐次外发确认。
+
+    裁决边界：图片附件**不做内容分析**（做不到的事不装能做到）——文本脱敏门禁
+    （SendGateDialog）只扫文本块，图片按原图数据 base64 直发多模态端点。
+    因此发送前单独列出全部图片附件、明示外发端点 host，逐次确认：
+        · 逐次 = 每轮带图发送都弹（无记忆、无放行清单、无当日豁免）；
+        · 未确认（取消/关闭）→ 本轮不发送、图片不落盘到会话/案例。
+    """
+
+    def __init__(self, parent, images, host):
+        super(VisionConfirmDialog, self).__init__(parent)
+        self.setWindowTitle("图片附件外发确认")
+        self.setMinimumWidth(560)
+        self.confirmed = False            # 仅 accept 置 True；reject/关闭 = 未确认
+        self.host = str(host or "")       # 留痕（离屏断言用）：明示的外发端点 host
+        self.images = list(images or [])  # 留痕（离屏断言用）：本批列出的图片附件
+
+        root = QVBoxLayout(self)
+        root.setSpacing(SPACE_MD)
+        host_txt = str(host or "").strip() or "（当前端点）"
+        head = QLabel(
+            "本轮包含 %d 个图片附件。\n\n"
+            "图片附件不做内容分析：脱敏门禁只扫描文本，图片将按原图数据直接外发。\n"
+            "外发端点：%s\n\n"
+            "确认发送请点「确认发送本批图片」；取消则本轮不发送，"
+            "图片不会写入会话或案例。" % (len(images or []), host_txt))
+        head.setWordWrap(True)
+        root.addWidget(head)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        host_widget = QWidget()
+        host_v = QVBoxLayout(host_widget)
+        host_v.setSpacing(SPACE_SM)
+        host_v.setContentsMargins(0, 0, 0, 0)
+        for att in images or []:
+            lbl = QLabel("■ %s（%s）" % (att.get("name") or "未命名图片",
+                                         ai_bridge._human_size_bytes(att.get("size"))))
+            lbl.setTextFormat(Qt.PlainText)
+            host_v.addWidget(lbl)
+        host_v.addStretch(1)
+        scroll.setWidget(host_widget)
+        root.addWidget(scroll, 1)
+
+        bottom = QHBoxLayout()
+        bottom.addStretch(1)
+        btn_cancel = QPushButton("取消（不发送）")
+        btn_cancel.setDefault(True)
+        btn_cancel.clicked.connect(self.reject)
+        btn_ok = QPushButton("确认发送本批图片")
+        btn_ok.setObjectName("Primary")
+        btn_ok.clicked.connect(self.accept)
+        bottom.addWidget(btn_cancel)
+        bottom.addWidget(btn_ok)
+        root.addLayout(bottom)
+
+    def accept(self):
+        self.confirmed = True
+        super(VisionConfirmDialog, self).accept()
+
+
+# ===========================================================================
 # 状态栏常驻 AI 指示
 # ===========================================================================
 class StatusIndicator(QLabel):
@@ -1893,6 +1959,13 @@ class AiTab(QWidget):
 
         ctx = self._collect_ctx()
 
+        # ---- 图片附件外发确认（L 批裁决 3）----
+        # 图片不做内容分析（脱敏门禁只扫文本），带图发送前逐次确认、明示端点
+        # host；未确认 → 直接 return：user_msg 尚未组装，会话/案例均不落盘。
+        images = [a for a in attachments if a.get("is_image")]
+        if images and not self._confirm_vision_send(images, cfg0):
+            return
+
         # ---- 发送脱敏门禁（安全加固批 2）----
         # 范围=仅本轮（ctx 六字段 + 正文 + 文本附件）；命中→预览页逐项放行；
         # 放行项原文、未放行项脱敏替换。AI 未配置时上面已 return，门禁自然不生效。
@@ -1958,6 +2031,14 @@ class AiTab(QWidget):
         self._worker.finished_full.connect(self._on_finished)
         self._worker.start()
         self._update_token_estimate()
+
+    def _confirm_vision_send(self, images, cfg):
+        """图片附件逐次确认（L 批裁决 3）。返回 False = 未确认。
+        on_send 拿到 False 直接 return——不发送、不落盘（会话/案例零副作用）。"""
+        host = ai_bridge.endpoint_host((cfg or {}).get("base_url"))
+        dlg = VisionConfirmDialog(self.window(), images, host)
+        dlg.exec_()
+        return bool(dlg.confirmed)
 
     def _run_send_gate(self, ctx, text, attachments):
         """

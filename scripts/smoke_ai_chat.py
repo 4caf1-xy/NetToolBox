@@ -349,7 +349,29 @@ check("配置 vision_model → 图片附件被接受", len(tab2._pending_attachm
       and tab2._pending_attachments[0].get("is_image"))
 tab2.cmb_vendor.setCurrentText("华为")
 tab2.txt_input.setPlainText("看这张截图")
-tab2.on_send()
+# ---- L 批裁决 3：带图发送新增「图片附件外发确认」逐次模态——离屏环境自动
+#      确认以走通发送链；确认框内容断言与"未确认不发送"拒绝分支在 smoke_send_gate [8]
+from PyQt5.QtWidgets import QDialog as _QDialog
+_vision_dialogs = []
+_orig_vision_exec = ui_ai.VisionConfirmDialog.exec_
+
+
+def _auto_confirm_exec(self):
+    self.confirmed = True
+    _vision_dialogs.append(self)
+    return _QDialog.Accepted
+
+
+ui_ai.VisionConfirmDialog.exec_ = _auto_confirm_exec
+try:
+    tab2.on_send()
+finally:
+    ui_ai.VisionConfirmDialog.exec_ = _orig_vision_exec
+check("带图发送弹出外发确认（逐次确认，无记忆）", len(_vision_dialogs) == 1)
+check("确认框列出本批图片并明示端点 host",
+      _vision_dialogs and _vision_dialogs[0].confirmed
+      and os.path.basename(png) in [a.get("name") for a in _vision_dialogs[0].images]
+      and "127.0.0.1" in _vision_dialogs[0].host)
 worker = tab2._worker
 t0 = time.time()
 while worker.isRunning() and time.time() - t0 < 5:
