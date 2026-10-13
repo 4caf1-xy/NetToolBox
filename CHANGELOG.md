@@ -5,7 +5,7 @@
 **补充口径（2026-10-12）**：发布后短窗内完成的 MVP 追加批次收口走 **patch**（0.6.x）；
 独立排期的功能批走 **minor**（下一个功能批从 0.7.0 起算）。
 
-## Unreleased
+## v0.7.0（2026-10-13）
 
 #### 安全加固（四小批：Key 存储 / 发送门禁 / 端点策略 / 导入与 regex）
 - **API Key DPAPI 加密存储**（批 1）：api_key 经 Windows DPAPI（用户级，ctypes 直调零新依赖）加密为 `api_key_enc`（dpapi-v1）落盘，配置文件不再有明文密钥；旧明文配置首启**事务式自动迁移**（写加密版 → 原文件改名备份 → 转正 → 解密 round-trip 验证 → 过删备份/败还原），任何时刻介质上最多一份明文；只读介质降级保持明文可用并在状态中记录；换机/换 Windows 账户需重填一次 key（介质外泄时密文不可解是特性）；
@@ -13,6 +13,12 @@
 - **base_url 策略**（批 3）：非本网地址（非 127.0.0.1/私网段）**强制 HTTPS**；陌生端点首次使用弹确认，放行清单随 ai_config（approved_endpoints）管理；保存时 + 发送前双道复核（防手改配置绕过）；**NetworkProbe 修复**——按 base_url 解析端口（https 443 / http 80 / 显式端口优先），loopback 直接判可达：旧版恒连 443 把 `http://127.0.0.1:11434` 判死禁发送，本地模型（Ollama 等）场景实际不可用的问题就此修复；
 - **导入与 regex 防护**（批 4）：.nlb/JSON 导入 20MB 大小上限（不可信导入文件防御）；危险 regex lint——嵌套量词（`(a+)+` 类灾难性回溯形态）[E] 硬拦截、alternation 重叠（`(a|aa)+` 类）与 pattern 超 500 字符 [W]，validate / 编辑器保存 / .nlb 导入三口同一门禁，存量 82 条对账零命中；报错诊断输入上限 200KB / 1 万行（超限截断提示）。**精度口径**：pattern_lint 入库门禁阻断灾难回溯 pattern 经校验/编辑/导入进入库；历史库中已有 pattern 不受此保护。
 - 冒烟新增 4 套（实测计数，含审码修复批扩展项）：smoke_keyvault（48 项）/ smoke_send_gate（32 项）/ smoke_baseurl_policy（43 项）/ smoke_regex_guard（59 项），全量 15 套回归全绿、validate-seed EXIT=0（338/26/82 底数不变）。
+
+#### exe 图标（I 批，2026-10-13）
+- **构建态**：PyInstaller `--icon app/icon.ico`——exe 文件图标、任务栏快捷方式图标；
+- **主窗图标**（收口批补齐）：`setWindowIcon(resource_path("icon.ico"))`——QIcon 按 .ico 内多尺寸自动取档，开发态（`python main.py`）标题栏/任务栏与构建态一致；icon.ico 经 `--add-data` 打进 exe（`_MEIPASS` 解出供运行时载入）；
+- **冒烟**：windowIcon 非空断言并入 smoke_panel_dashboard（46→47 项）；smoke_keyvault 发布构建核对同步为 `--add-data` 3 条（seed_data / theme.qss / icon.ico）；
+- **素材收口**：源图 `docs/screenshots/tubiao.png` 出库（git 历史可回溯），`app/icon.ico` 为唯一消费点，取舍说明见 dev-notes。
 
 #### 审码修复批（2026-10-13，8cbf70d..bda96ef 审码报告落地）
 - **F1 导入 pattern 门禁**（P1）：.nlb/JSON 导入路径接入 pattern_lint——[E] 灾难回溯 pattern 整批拒绝（列前 5 条 err_id、零写入），[W] 导入成功但显式告警计数；lint [W] 规则新增 alternation 重叠判定（`(a|aa)+` 类指数回溯，实测 n=26 时 0.039s），分支首原子互斥的 `(a|b)+` 不误报，存量 82 条零命中底数保持；AGENTS/CHANGELOG「入库门禁」表述同步校准；

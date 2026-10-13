@@ -71,7 +71,7 @@
 
 **方式一：下载成品（30 秒，免装环境）**
 
-当前版本：**v0.6.2**（与程序「关于」对话框、Release 页保持一致；更新随 [Releases](../../releases) 发布，发版 zip 由 CI 自动构建挂载）。
+当前版本：**v0.7.0**（与程序「关于」对话框、Release 页保持一致；更新随 [Releases](../../releases) 发布，发版 zip 由 CI 自动构建挂载）。
 
 到 [Releases](../../releases) 下载 `NetToolBox_v*.zip`，解压双击 `NetToolBox.exe` 即用：
 

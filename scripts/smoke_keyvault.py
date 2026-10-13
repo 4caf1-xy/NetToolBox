@@ -253,9 +253,9 @@ def _run_t8():
         build_src = fp.read()
     check("T8d build_exe.py 不引用 ai_config（exe 数据不含配置文件）",
           "ai_config" not in build_src)
-    # --add-data 仅 seed_data 与 theme.qss（正向核对；带引号匹配避免数到文档字符串）
+    # --add-data 仅 seed_data / theme.qss / icon.ico（正向核对；带引号匹配避免数到文档字符串）
     add_data = [ln for ln in build_src.splitlines() if '"--add-data"' in ln]
-    check("T8e --add-data 参数共 2 条（seed_data/theme.qss）", len(add_data) == 2,
+    check("T8e --add-data 参数共 3 条（seed_data/theme.qss/icon.ico）", len(add_data) == 3,
           str(len(add_data)))
 
 
