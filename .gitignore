@@ -10,6 +10,8 @@ __pycache__/
 *.bak-*
 *.stale-*
 ai_config.json
+ai_config.json.new-enc
+ai_config.json.bak-*
 sessions/
 drafts/
 ai_cases/

@@ -3,7 +3,8 @@
 ai_bridge.py —— NetToolBox AI 诊断桥接层（任务：主程序直接集成 AI 诊断）
 
 职责边界（产品决策：单一 exe，AI 功能直接内置）：
-    1. 配置读写：ai_config.json 存 exe 同目录（与 command_lib.db 同一惯例）
+    1. 配置读写：ai_config.json 存 exe 同目录（与 command_lib.db 同一惯例）；
+       API Key 经 DPAPI 加密落盘（api_key_enc，dpapi-v1；旧明文首启事务式迁移）
     2. 连接测试：1 token 测试请求，3s 内返回成功/失败 + 延迟
     3. 网络探测：QThread 做 TCP connect 到配置端点的 443 端口（超时 2s）
     4. 流式对话：QThread 中 requests SSE 流式拉取，支持取消
@@ -58,19 +59,222 @@ def config_path():
     return os.path.join(_base_dir(), CONFIG_FILENAME)
 
 
+# ---------------------------------------------------------------------------
+# API Key 加密存储（DPAPI-v1 · Windows 用户级，零新依赖）
+# ---------------------------------------------------------------------------
+# 威胁模型：U 盘/现场介质上的 ai_config.json 随介质外泄 → 明文 key 直接丢。
+# 方案（安全加固批 1，2026-10-13 裁决 A）：api_key 经 Windows DPAPI
+# （CryptProtectData，用户级作用域）加密后以 "dpapi-v1:<base64>" 存进
+# ai_config.json 的 api_key_enc 字段；明文 api_key 字段迁移后不再落盘。
+#  · 免口令、零新依赖（ctypes 直调）；
+#  · 介质外泄时密文不可解（绑定本机当前用户）——这是特性不是缺陷；
+#  · 换机/换 Windows 账户需重新配置一次 key；
+#  · 非 Windows / DPAPI 不可用 → 保持明文兜底（KEY_STATUS 记录状态，
+#    现场不能因为加密不可用而瘫痪；该状态在 dev-notes 有完整清单）。
+# 旧明文配置的自动迁移是**事务式**的（任何时刻介质上最多一份明文）：
+#   写加密版临时文件 → 原文件 rename 为 .bak-<ts> → 加密版转正 →
+#   解密 round-trip 验证 → 通过删备份 / 失败用备份还原。
+KEY_ENC_PREFIX = "dpapi-v1:"
+KEY_FIELD_ENC = "api_key_enc"
+
+# 最近一次 key 解密/迁移状态（运行期，不落盘；UI 侧可读作提示）
+# state 取值：ok / migrated / migrated-backup-locked / verify-failed-restored /
+#             verify-failed-restore-failed / readonly-keep-plain /
+#             plain-no-dpapi / encrypt-failed-keep-plain / decrypt-failed
+KEY_STATUS = {"state": "ok", "detail": ""}
+
+
+def _dpapi_available():
+    """DPAPI 是否可用（Windows 专属能力）"""
+    import sys
+    return sys.platform == "win32"
+
+
+def _dpapi_protect(plain_bytes):
+    """bytes → DPAPI 加密 bytes（用户级）。失败抛异常。
+    ★ pbData 必须用 c_void_p：用 c_char_p 时取字段会被 ctypes 自动转成
+      bytes 对象，塞给 LocalFree 会堆损坏 → 进程 127 硬死（实测踩坑）。"""
+    import ctypes
+    from ctypes import wintypes
+
+    class DATA_BLOB(ctypes.Structure):
+        _fields_ = [("cbData", wintypes.DWORD),
+                    ("pbData", ctypes.c_void_p)]
+
+    buf = ctypes.create_string_buffer(plain_bytes, len(plain_bytes))
+    buf_in = DATA_BLOB(len(plain_bytes), ctypes.addressof(buf))
+    buf_out = DATA_BLOB()
+    CRYPTPROTECT_UI_FORBIDDEN = 0x01
+    ok = ctypes.windll.crypt32.CryptProtectData(
+        ctypes.byref(buf_in), None, None, None, None,
+        CRYPTPROTECT_UI_FORBIDDEN, ctypes.byref(buf_out))
+    if not ok:
+        raise OSError("CryptProtectData failed (err=%s)"
+                      % ctypes.GetLastError())
+    try:
+        return ctypes.string_at(buf_out.pbData, buf_out.cbData)
+    finally:
+        ctypes.windll.kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+        ctypes.windll.kernel32.LocalFree.restype = ctypes.c_void_p
+        ctypes.windll.kernel32.LocalFree(buf_out.pbData)
+
+
+def _dpapi_unprotect(blob):
+    """DPAPI blob bytes → 明文 bytes。失败抛异常。（pbData 用 c_void_p，理由同上）"""
+    import ctypes
+    from ctypes import wintypes
+
+    class DATA_BLOB(ctypes.Structure):
+        _fields_ = [("cbData", wintypes.DWORD),
+                    ("pbData", ctypes.c_void_p)]
+
+    buf = ctypes.create_string_buffer(blob, len(blob))
+    buf_in = DATA_BLOB(len(blob), ctypes.addressof(buf))
+    buf_out = DATA_BLOB()
+    CRYPTPROTECT_UI_FORBIDDEN = 0x01
+    ok = ctypes.windll.crypt32.CryptUnprotectData(
+        ctypes.byref(buf_in), None, None, None, None,
+        CRYPTPROTECT_UI_FORBIDDEN, ctypes.byref(buf_out))
+    if not ok:
+        raise OSError("CryptUnprotectData failed (err=%s)"
+                      % ctypes.GetLastError())
+    try:
+        return ctypes.string_at(buf_out.pbData, buf_out.cbData)
+    finally:
+        ctypes.windll.kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+        ctypes.windll.kernel32.LocalFree.restype = ctypes.c_void_p
+        ctypes.windll.kernel32.LocalFree(buf_out.pbData)
+
+
+def _decrypt_key(cfg):
+    """从配置 dict 解出明文 key；无加密字段返回 ""，解密失败返回 "" 并记状态。"""
+    enc = str(cfg.get(KEY_FIELD_ENC) or "")
+    if not enc:
+        return ""
+    if not enc.startswith(KEY_ENC_PREFIX):
+        KEY_STATUS.update(state="decrypt-failed",
+                          detail="api_key_enc 格式不认识（%s…）" % enc[:12])
+        return ""
+    if not _dpapi_available():
+        KEY_STATUS.update(state="plain-no-dpapi",
+                          detail="非 Windows 环境无法解密 DPAPI 密文")
+        return ""
+    try:
+        blob = base64.b64decode(enc[len(KEY_ENC_PREFIX):])
+        plain = _dpapi_unprotect(blob).decode("utf-8")
+        KEY_STATUS.update(state="ok", detail="")   # 状态语义=最近一次 key 操作结果
+        return plain
+    except Exception as exc:
+        KEY_STATUS.update(state="decrypt-failed",
+                          detail="DPAPI 解密失败：%s（换机/换账户后需重新配置）"
+                                 % str(exc)[:60])
+        return ""
+
+
+def _migrated_payload(cfg, enc_value):
+    """迁移写盘的完整 payload：明文 key 字段移除，换成加密字段。"""
+    payload = {k: v for k, v in cfg.items()
+               if k != "api_key" and not str(k).startswith("_")}
+    payload[KEY_FIELD_ENC] = enc_value
+    return payload
+
+
+def _migrate_legacy_key(cfg):
+    """
+    事务式迁移旧明文 key（load_config 检测到明文 api_key 时触发一次）：
+        1. 写加密版临时文件 ai_config.json.new-enc（此刻介质上唯一明文 = 原文件）
+        2. 原文件 rename 为 ai_config.json.bak-<ts>（介质上明文唯一份 = bak）
+        3. 加密版转正（此后介质上零明文）
+        4. 解密 round-trip 验证 → 通过：删备份；失败：备份还原
+    任何一步失败都降级为「保持明文可用」（现场不因迁移瘫痪），状态记 KEY_STATUS。
+    """
+    plain = str(cfg.get("api_key") or "")
+    path = config_path()
+    if not os.path.isfile(path):
+        return          # 没有实体配置文件（如内存态），无从迁移
+    try:
+        blob = _dpapi_protect(plain.encode("utf-8"))
+    except Exception as exc:
+        KEY_STATUS.update(state="encrypt-failed-keep-plain",
+                          detail="DPAPI 加密失败，保持明文（%s）" % str(exc)[:60])
+        return
+    enc_value = KEY_ENC_PREFIX + base64.b64encode(blob).decode("ascii")
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    bak = path + ".bak-" + stamp
+    new = path + ".new-enc"
+    try:
+        with open(new, "w", encoding="utf-8") as fp:
+            json.dump(_migrated_payload(cfg, enc_value), fp,
+                      ensure_ascii=False, indent=2)
+        os.rename(path, bak)        # 明文唯一份让位给备份
+        os.replace(new, path)       # 加密版转正
+    except Exception as exc:
+        # 典型：只读介质。尽力还原 rename，保持明文可用。
+        try:
+            if os.path.exists(new):
+                os.remove(new)
+            if not os.path.isfile(path) and os.path.isfile(bak):
+                os.replace(bak, path)
+        except Exception:
+            pass
+        KEY_STATUS.update(state="readonly-keep-plain",
+                          detail="配置文件写入失败（只读介质？），key 保持明文：%s"
+                                 % str(exc)[:50])
+        return
+    # round-trip 验证：从转正后的文件读回、解密、比对
+    roundtrip = ""
+    try:
+        with open(path, "r", encoding="utf-8") as fp:
+            check = json.load(fp)
+        roundtrip = _decrypt_key(check)
+    except Exception:
+        roundtrip = ""
+    if roundtrip == plain and roundtrip:
+        try:
+            os.remove(bak)
+            KEY_STATUS.update(state="migrated",
+                              detail="旧明文 key 已迁移为 DPAPI 加密存储")
+        except Exception as exc:
+            KEY_STATUS.update(state="migrated-backup-locked",
+                              detail="迁移成功但备份删除失败（%s），"
+                                     "请手动删除 %s" % (str(exc)[:40],
+                                                       os.path.basename(bak)))
+    else:
+        try:
+            os.replace(bak, path)
+            KEY_STATUS.update(state="verify-failed-restored",
+                              detail="迁移 round-trip 验证失败，已从备份还原明文")
+        except Exception as exc:
+            KEY_STATUS.update(state="verify-failed-restore-failed",
+                              detail="验证失败且备份还原失败（%s）——请检查 %s"
+                                     % (str(exc)[:40], os.path.basename(bak)))
+
+
 def load_config():
     """
     读配置。文件不存在 / JSON 坏了 / 不是 dict → 视为未配置，返回默认值。
     （任何异常都不抛 —— 现场不能因为一个配置文件把主程序拖死）
+    api_key 优先取加密字段解密；检测到旧明文 key 触发一次事务式迁移。
     """
     cfg = dict(DEFAULT_CONFIG)
+    raw = {}
     try:
         with open(config_path(), "r", encoding="utf-8") as fp:
             data = json.load(fp)
         if isinstance(data, dict):
+            raw = data
             cfg.update(data)
     except Exception:
         pass
+    # 迁移判定只看「文件里的原始明文 key」——若看解密后的 cfg，会把每次解密
+    # 出来的明文误判为待迁移，造成每轮 load 都重跑迁移（写 bak→删 bak 空转）
+    file_had_plain_key = bool(str(raw.get("api_key") or "").strip())
+    # 加密 key → 明文（解密失败保持 ""，状态见 KEY_STATUS）
+    if cfg.get(KEY_FIELD_ENC):
+        cfg["api_key"] = _decrypt_key(cfg)
+    # 旧明文 key → 事务式迁移为加密存储（迁移只改文件，不影响本次返回值）
+    if file_had_plain_key:
+        _migrate_legacy_key(raw)
     # 基本类型兜底
     cfg["timeout"] = _clamp_int(cfg.get("timeout"), 5, 600, DEFAULT_CONFIG["timeout"])
     cfg["max_context_tokens"] = _clamp_int(cfg.get("max_context_tokens"), 512, 1000000,
@@ -83,7 +287,10 @@ def load_config():
 def save_config(cfg):
     """写配置（显式 utf-8）。返回是否成功（U 盘只读时静默失败，由调用方提示）
     ★ 文件里已有而本次未提交的字段（如手工配的 max_context_tokens / vision_model）
-      一并保留，避免设置对话框保存时把它们抹掉。"""
+      一并保留，避免设置对话框保存时把它们抹掉。
+    ★ key 加密落盘（安全加固批 1）：提交非空 api_key 且 DPAPI 可用 → 存 api_key_enc、
+      不落明文；提交空 api_key（显式带字段）→ 连加密字段一起清（用户清空即注销）；
+      DPAPI 不可用（非 Windows）→ 保持明文兜底。"""
     try:
         data = dict(cfg or {})
         try:
@@ -94,6 +301,20 @@ def save_config(cfg):
                     data.setdefault(key, value)
         except Exception:
             pass
+        # ---- key 加密落盘 ----
+        submitted = "api_key" in data
+        plain_key = str(data.get("api_key") or "").strip()
+        if plain_key and _dpapi_available():
+            try:
+                blob = _dpapi_protect(plain_key.encode("utf-8"))
+                data[KEY_FIELD_ENC] = KEY_ENC_PREFIX + \
+                    base64.b64encode(blob).decode("ascii")
+                data.pop("api_key", None)
+            except Exception:
+                pass    # 加密失败 → 明文兜底，保持可用（状态由调用场景决定）
+        elif submitted and not plain_key:
+            data.pop("api_key", None)
+            data.pop(KEY_FIELD_ENC, None)   # 显式清空 = 注销 key
         data["timeout"] = _clamp_int(data.get("timeout"), 5, 600, DEFAULT_CONFIG["timeout"])
         with open(config_path(), "w", encoding="utf-8") as fp:
             json.dump(data, fp, ensure_ascii=False, indent=2)

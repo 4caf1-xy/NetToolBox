@@ -506,9 +506,14 @@ class SettingsDialog(QDialog):
         test_row.addWidget(self.btn_test)
         test_row.addWidget(self.lbl_test, 1)
 
-        tip = QLabel("提示：配置保存在程序同目录 ai_config.json（UTF-8），删除该文件即恢复未配置状态。")
+        tip = QLabel(
+            "API Key 经 Windows DPAPI 加密存储（ai_config.json 内为密文，随介质外泄不可解）；"
+            "换机或换 Windows 账户需重新填写一次。删除 ai_config.json 即恢复未配置状态。")
         tip.setObjectName("PageHint")
         tip.setWordWrap(True)
+        if ai_bridge.KEY_STATUS.get("state") == "decrypt-failed":
+            tip.setText("⚠ 已存的加密 Key 在本机解不开（%s）——请重新填写 API Key。"
+                        % ai_bridge.KEY_STATUS.get("detail", ""))
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Ok).setText("保存")
