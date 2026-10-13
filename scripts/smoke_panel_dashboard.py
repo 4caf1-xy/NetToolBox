@@ -12,6 +12,8 @@ smoke_panel_dashboard.py —— Ctrl+K 面板 / 最近使用 / 覆盖度仪表�
         矩阵行列与 GROUP BY 一致；四档合计=总数（含"不可验证"挂起口径）
     [D] B14 连点回归：250ms 时间窗内连点 toggle_favorite 只产生 1 条 history
     [E] 四 Tab 回归：Tab 数不变、Splitter 可恢复、仪表盘折叠卡片在命令库 Tab
+    [F] D 批收藏视图（2026-10-13）：收藏 3 条 → 只看收藏过滤 3 条 →
+        取消收藏即时消失；Ctrl+K 空输入收藏区置顶；种子再导入 favorite 保留
 
 用法：python scripts/smoke_panel_dashboard.py   （EXIT=0 全过；需 PyQt5）
 """
@@ -400,6 +402,105 @@ def case_e():
         teardown_state_dir(theme, tmpdir, orig)
 
 
+# ======================================================================
+# [F] D 批收藏视图：过滤视图 / Ctrl+K 收藏区 / 种子导入护栏回归
+# ======================================================================
+def _wait_fav_free(app, w, timeout=1.0):
+    """等 B14 250ms 防重入窗解除"""
+    t0 = time.time()
+    while getattr(w, "_fav_busy", False) and time.time() - t0 < timeout:
+        app.processEvents()
+        time.sleep(0.02)
+
+
+def case_f():
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(sys.argv)
+    _ = app
+    import ui_main
+    from ui_panel import CommandPalette
+    from PyQt5.QtCore import Qt
+    theme, tmpdir, orig = setup_state_dir()
+    try:
+        db = seeded_db()
+        w = ui_main.MainWindow(db)
+
+        # ---- F1 收藏 3 条 → 过滤视图只显 3 条（第 1 条走 UI Ctrl+D 路径）----
+        picks = db.search()[:3]
+        w.select_by_uuid(picks[0]["uuid"])
+        w.toggle_favorite()                       # UI 路径收藏
+        _wait_fav_free(app, w)
+        check("F1/UI收藏-生效", int(db.get_entry(picks[0]["uuid"])["favorite"]) == 1, "")
+        for e in picks[1:]:                       # 其余 2 条走 db 直写（数据铺垫）
+            db.toggle_favorite(e["uuid"])
+        check("F1/前置-收藏3条", len(db.search(favorite_only=True)) == 3, "")
+
+        w.tgl_fav.setChecked(True)                # 「只看收藏」过滤（toggled → refresh_list）
+        view = w.entries_in_view
+        check("F1/过滤-只显3条", len(view) == 3, str(len(view)))
+        check("F1/过滤-全为favorite", all(int(e["favorite"] or 0) == 1 for e in view), "")
+        expect_order = [e["uuid"] for e in db.search(favorite_only=True)]
+        check("F1/过滤-排序稳定",
+              [e["uuid"] for e in view] == expect_order, str(expect_order[:3]))
+
+        # ---- 取消收藏即时消失（UI 路径 + B14 时间窗）----
+        w.select_by_uuid(picks[0]["uuid"])
+        _wait_fav_free(app, w)
+        w.toggle_favorite()
+        _wait_fav_free(app, w)
+        view2 = w.entries_in_view
+        check("F1/取消-即时消失",
+              len(view2) == 2 and picks[0]["uuid"] not in [e["uuid"] for e in view2],
+              str(len(view2)))
+        w.tgl_fav.setChecked(False)
+
+        # ---- F2 Ctrl+K 空输入：收藏区置顶（在最近使用区之前）----
+        w._record_recent("entry", picks[0]["uuid"])   # 造一条最近使用
+        dlg = CommandPalette(db, recent=list(w._recent), parent=None)
+        rows = []                                     # [(type, payload)]
+        for i in range(dlg.lst.count()):
+            it = dlg.lst.item(i)
+            data = it.data(Qt.UserRole)
+            rows.append(("section", it.text()) if data is None
+                        else ("item", data))
+        sect_texts = [p for t, p in rows if t == "section"]
+        check("F2/收藏-分组显示", any("收藏" in t for t in sect_texts), str(sect_texts[:2]))
+        first_sect = sect_texts[0] if sect_texts else ""
+        check("F2/收藏-置顶", "收藏" in first_sect, first_sect)
+        idx_fav = next(i for i, (t, p) in enumerate(rows)
+                       if t == "section" and "收藏" in p)
+        idx_recent = next((i for i, (t, p) in enumerate(rows)
+                           if t == "section" and "最近使用" in p), 10 ** 9)
+        fav_item_ids = [p["id"] for t, p in rows[idx_fav + 1:idx_recent] if t == "item"]
+        check("F2/收藏-条目数", len(fav_item_ids) == 2, str(fav_item_ids))
+        check("F2/收藏-含已收藏条目", picks[1]["uuid"] in fav_item_ids, "")
+        check("F2/收藏-在最近使用之前", idx_fav < idx_recent,
+              "fav@%d recent@%d" % (idx_fav, idx_recent))
+        # 收藏区条目可直接激活跳转（choice 机制与搜索结果同构）
+        target_item = next(dlg.lst.item(i) for i in range(dlg.lst.count())
+                           if (dlg.lst.item(i).data(Qt.UserRole) or {}).get("id")
+                           == picks[1]["uuid"])
+        dlg._activate(target_item)
+        check("F2/收藏-激活choice", dlg.choice == {"kind": "entry", "id": picks[1]["uuid"]},
+              str(dlg.choice))
+
+        # ---- F3 护栏回归：种子再导入 favorite 保留（面板收藏区随之不丢）----
+        w._save_ui_state()
+        d_re = db            # 同一 :memory: 库再导入（重演种子刷新场景）
+        d_re.import_seed_dir()
+        kept = db.search(favorite_only=True)
+        check("F3/护栏-favorite保留", picks[1]["uuid"] in [e["uuid"] for e in kept]
+              and len(kept) == 2, str([e["uuid"][:8] for e in kept]))
+        dlg2 = CommandPalette(db, recent=[], parent=None)
+        texts2 = [dlg2.lst.item(i).text() for i in range(dlg2.lst.count())]
+        check("F3/护栏-面板收藏区仍在", any("收藏" in t for t in texts2)
+              and any(picks[1]["title"][:8] in t for t in texts2), str(texts2[:2]))
+
+        w.deleteLater()
+    finally:
+        teardown_state_dir(theme, tmpdir, orig)
+
+
 def main():
     print("=" * 66)
     print("NetToolBox Ctrl+K 面板 / 最近使用 / 仪表盘 / B14 回归")
@@ -409,6 +510,7 @@ def main():
     case_c()
     case_d()
     case_e()
+    case_f()
     print("-" * 66)
     fails = [r for r in RESULTS if not r[1]]
     for name, ok, detail in RESULTS:

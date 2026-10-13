@@ -13,7 +13,8 @@ ui_panel.py —— 全局命令面板（Ctrl+K，2026-10-09 批次任务1/2）
     · 样式全走 theme.qss 既有 objectName（SearchBox / Ghost / Hint），
       不新增 QSS 选择器
     · 键盘完整可达：↑↓ 选择、Enter 跳转、Esc 关闭；空结果给文案不空白
-    · 空输入显示「最近使用」分组（记录/持久化由主窗负责，面板只读它）
+    · 空输入显示「收藏」区（favorite=1，db.search 稳定序）+「最近使用」分组
+      （D 批 2026-10-13：收藏置顶；记录/持久化由主窗负责，面板只读）
 """
 
 from PyQt5.QtCore import Qt, QEvent
@@ -116,6 +117,20 @@ class CommandPalette(QDialog):
                 out.append((kind, rid, title, sub))
         return out
 
+    def _fav_items(self):
+        """收藏条目解析成 (kind, id, 标题, 副标题)——db.search 稳定序（D 批 2026-10-13）"""
+        out = []
+        try:
+            rows = self.db.search(favorite_only=True)
+        except Exception:
+            return out
+        for e in rows[:GROUP_CAP]:
+            title = e.get("title") or "(无标题)"
+            sub = "%s · %s" % (dbmod.display_vendor(e.get("vendor")),
+                               e.get("category") or "-")
+            out.append(("entry", e.get("uuid"), title, sub))
+        return out
+
     @staticmethod
     def _kw_blob(*parts):
         return " ".join(str(p or "") for p in parts).lower()
@@ -159,14 +174,25 @@ class CommandPalette(QDialog):
         kw = (keyword or "").strip().lower()
         self.lst.clear()
         if not kw:
+            try:
+                fav_total = len(self.db.search(favorite_only=True))
+            except Exception:
+                fav_total = 0
+            favs = self._fav_items()
             recent = self._recent_items()
+            if favs:
+                self.lst.addItem(self._section("── 收藏（%d%s）──"
+                                % (fav_total, "，超出仅显示前 %d" % GROUP_CAP
+                                   if fav_total > GROUP_CAP else "")))
+                for kind, rid, title, sub in favs:
+                    self._add_result(kind, rid, title, sub)
             if recent:
                 self.lst.addItem(self._section("── 最近使用（%d）──" % len(recent)))
                 for kind, rid, title, sub in recent:
                     self._add_result(kind, rid, title, sub)
-            else:
+            if not favs and not recent:
                 self.lst.addItem(self._section(
-                    "输入关键字搜索三库；暂无最近使用记录。"))
+                    "输入关键字搜索三库；暂无收藏与最近使用记录。"))
             return
 
         found = False
