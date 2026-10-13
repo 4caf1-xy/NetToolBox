@@ -57,6 +57,10 @@ _ALLOWED_DNS = {"8.8.8.8", "8.8.4.4", "114.114.114.114",   # 公共 DNS（裁决
 
 _IP_RE = re.compile(r"\b(\d{1,3}(?:\.\d{1,3}){3})\b")
 
+# 公开别名（ai_gate 门禁复用；语义与站点白名单对应项一致）
+ip_network = ipaddress.ip_network
+PUBLIC_DNS = _ALLOWED_DNS
+
 # ---- secret 真值 ----
 # 先剔除 {{占位}} / <人工位> 再匹配；值判定限同一行（[ \t]+ 不跨行）——
 # secret 语句的值不会跨行，跨行命中必是下一行首词误报。
@@ -79,21 +83,30 @@ _SECRET_VALUE_EXEMPT = re.compile(
 _BLACKLIST = ("ntbxlab",)
 
 
-def _ip_allowed(ip_str):
-    if ip_str in _ALLOWED_IPS or ip_str in _ALLOWED_DNS:
+def _ip_allowed(ip_str, allowed_nets=None, allowed_ips=None, allowed_dns=None,
+                allow_nat_teaching=True):
+    """IP 白名单判定。默认参数 = 站点导出策略（原行为，逐字不变）；
+    AI 发送门禁等场景可传入自己的白名单（安全加固批 2）：
+        · allowed_nets/allowed_ips/allowed_dns —— 覆盖默认集合
+        · allow_nat_teaching —— 是否豁免 200.1.1.0/24 NAT 教学段
+    """
+    allowed_nets = _ALLOWED_NETS if allowed_nets is None else allowed_nets
+    allowed_ips = _ALLOWED_IPS if allowed_ips is None else allowed_ips
+    allowed_dns = _ALLOWED_DNS if allowed_dns is None else allowed_dns
+    if ip_str in allowed_ips or ip_str in allowed_dns:
         return True
     parts = [int(x) for x in ip_str.split(".")]
     if all(p in (0, 255) for p in parts):
         return True  # 掩码/反掩码形态
     if len(set(parts)) == 1 and len({x for x in ip_str.split(".")}) == 1:
         return True  # x.x.x.x 同段重复（Router ID 教学惯例，裁决 2026-10-12）
-    if ip_str.startswith("200.1.1."):
+    if allow_nat_teaching and ip_str.startswith("200.1.1."):
         return True  # NAT 教学段（裁决 2026-10-12）
     try:
         addr = ipaddress.ip_address(ip_str)
     except ValueError:
         return True  # 非法 IP（如 1.2.3.256）不是地址，不算命中
-    return any(addr in net for net in _ALLOWED_NETS)
+    return any(addr in net for net in allowed_nets)
 
 
 def _secret_exempt(value):
@@ -147,6 +160,84 @@ def _scan_text(findings, table, uuid, field, text):
         if bl in text:
             findings.append(Finding(table, uuid, field, "BLACKLIST",
                                     "明文黑名单值 %r 出现" % bl))
+
+
+def _scrub_with_index_map(text):
+    """
+    {{占位}} / <人工位> → " <PLACEHOLDER> "，同时产出 scrubbed 串与
+    「scrubbed 下标 → 原文下标」映射（供 secret 命中区间回映原文，
+    AI 门禁回写脱敏需要原文 span；站点扫描不受影响——仍走 _scan_text）。
+    """
+    out = []
+    idx_map = []                      # idx_map[i] = scrubbed[i] 在原文的下标
+    last = 0
+    for m in _PLACEHOLDER_RE.finditer(text):
+        out.append(text[last:m.start()])
+        idx_map.extend(range(last, m.start()))
+        rep = " <PLACEHOLDER> "
+        out.append(rep)
+        idx_map.extend([m.start()] * len(rep))   # 占位区整段映射到占位起点
+        last = m.end()
+    out.append(text[last:])
+    idx_map.extend(range(last, len(text)))
+    return "".join(out), idx_map
+
+
+def scan_free_text(text, allowed_nets, allowed_ips, allowed_dns,
+                   allow_nat_teaching=False):
+    """
+    文本级扫描（引擎复用入口，安全加固批 2：AI 发送门禁等自由文本场景）。
+    与站点扫描同一套正则/豁免规则（secret 真值判定、明文黑名单逐字一致），
+    IP 白名单由调用方注入（门禁策略比站点严：RFC1918 要拦）。
+
+    返回 finding 字典列表，全部带原文 span（start/end 覆盖命中值本身）：
+        {"kind": "IP"|"SECRET"|"BLACKLIST", "value": str,
+         "start": int, "end": int, "context": str,
+         "pre": str, "post": str}          # pre/post = 命中值前后窗口（预览高亮用）
+    """
+    text = text or ""
+    findings = []
+
+    def _win(s, e):
+        return text[max(0, s - 30):s], text[e:e + 20]
+
+    # ---- IP（原文 span，无需映射）----
+    for m in _IP_RE.finditer(text):
+        ip = m.group(1)
+        if not _ip_allowed(ip, allowed_nets, allowed_ips, allowed_dns,
+                           allow_nat_teaching):
+            pre, post = _win(m.start(), m.end())
+            findings.append({"kind": "IP", "value": ip,
+                             "start": m.start(), "end": m.end(),
+                             "pre": pre, "post": post,
+                             "context": "...%s%s%s..." % (pre, ip, post)})
+    # ---- secret（在 scrubbed 上判定，span 回映原文）----
+    scrubbed, idx_map = _scrub_with_index_map(text)
+    for m in _SECRET_RE.finditer(scrubbed):
+        word, value = m.group(1), m.group(2)
+        if _secret_exempt(value):
+            continue
+        s = idx_map[m.start(2)]
+        e = idx_map[m.end(2) - 1] + 1
+        pre, post = _win(s, e)
+        findings.append({"kind": "SECRET", "value": value, "start": s, "end": e,
+                         "pre": pre, "post": post,
+                         "context": "...%s%s%s..." % (pre, value, post)})
+    # ---- 明文黑名单（原文 span）----
+    for bl in _BLACKLIST:
+        pos = 0
+        while True:
+            i = text.find(bl, pos)
+            if i < 0:
+                break
+            pre, post = _win(i, i + len(bl))
+            findings.append({"kind": "BLACKLIST", "value": bl,
+                             "start": i, "end": i + len(bl),
+                             "pre": pre, "post": post,
+                             "context": "...%s%s%s..." % (pre, bl, post)})
+            pos = i + len(bl)
+    findings.sort(key=lambda f: (f["start"], f["end"]))
+    return findings
 
 
 def scan_site_data(data):

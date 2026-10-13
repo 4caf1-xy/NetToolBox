@@ -24,7 +24,17 @@ state 路径、有的没有），零接触主库靠的是"恰好没走到写路�
 import atexit
 import hashlib
 import os
+import sys
 import tempfile
+
+# ★ sys.path 卫生（安全加固批 2 起必需）：python 把 smoke 脚本目录放在
+#   sys.path[0]，scripts/ 下的 CLI 薄壳（sanitize_scan.py 等）会遮蔽 app/ 的
+#   同名模块 —— ai_gate→sanitize_scan 导入链会撞上薄壳自引用 ImportError。
+#   模块导入阶段统一把脚本目录挪到末尾，保证 app/ 模块赢得模块名。
+_scripts_dir = os.path.dirname(os.path.abspath(__file__))
+while _scripts_dir in sys.path:
+    sys.path.remove(_scripts_dir)
+sys.path.append(_scripts_dir)
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

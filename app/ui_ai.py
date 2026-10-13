@@ -40,6 +40,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdi
                              QMenu, QFileDialog, QRadioButton, QButtonGroup)
 
 import ai_bridge
+import ai_gate
 import db as dbmod
 import renderer
 from ui_main import copy_to_clipboard
@@ -616,6 +617,109 @@ class SettingsDialog(QDialog):
             return
         self.saved = True
         self.accept()
+
+
+# ===========================================================================
+# 发送脱敏门禁（安全加固批 2）
+# ===========================================================================
+class SendGateDialog(QDialog):
+    """
+    发送前脱敏预览页：命中项高亮、逐项复选放行。
+    勾选「放行」→ 该项按原文发送并记当日指纹；不勾 → 脱敏替换后发送。
+    「全选放行本批命中」一键（批 2 裁决：命中即拦 + 逐项放行，无从宽默认）。
+    """
+
+    KIND_LABEL = {"IP": "内网/真实 IP", "SECRET": "口令/密钥",
+                  "BLACKLIST": "明文黑名单"}
+
+    def __init__(self, parent, findings):
+        super(SendGateDialog, self).__init__(parent)
+        self.setWindowTitle("AI 发送脱敏门禁")
+        self.setMinimumWidth(680)
+        self.allowed_fps = set()
+        self._boxes = []                        # [(QCheckBox, finding)]
+
+        root = QVBoxLayout(self)
+        root.setSpacing(SPACE_MD)
+        head = QLabel(
+            "本轮发送内容命中 %d 处敏感信息。\n"
+            "勾选「放行」＝该项按原文发送（记忆放行当日有效）；"
+            "不勾选＝脱敏替换后发送。" % len(findings))
+        head.setWordWrap(True)
+        root.addWidget(head)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        host = QWidget()
+        host_v = QVBoxLayout(host)
+        host_v.setSpacing(SPACE_SM)
+        host_v.setContentsMargins(0, 0, 0, 0)
+        for f in findings:
+            host_v.addWidget(self._build_row(f))
+        host_v.addStretch(1)
+        scroll.setWidget(host)
+        root.addWidget(scroll, 1)
+
+        btn_all = QPushButton("全选放行本批命中")
+        btn_all.setObjectName("Ghost")
+        btn_all.clicked.connect(self._select_all)
+        btn_send = QPushButton("放行所选并发送")
+        btn_send.setObjectName("Primary")
+        btn_send.clicked.connect(self.accept)
+        btn_cancel = QPushButton("取消发送")
+        btn_cancel.clicked.connect(self.reject)
+        bottom = QHBoxLayout()
+        bottom.addWidget(btn_all)
+        bottom.addStretch(1)
+        bottom.addWidget(btn_cancel)
+        bottom.addWidget(btn_send)
+        root.addLayout(bottom)
+
+    def _build_row(self, f):
+        """单条命中：放行复选 + 类型徽标（富文本内联色取 theme 常量）+ 高亮上下文"""
+        import html as _html
+        kind = f.get("kind") or ""
+        color = DANGER if kind in ("SECRET", "BLACKLIST") else WARNING
+        pre = _html.escape(f.get("pre") or "")
+        post = _html.escape(f.get("post") or "")
+        hit = _html.escape(f.get("value") or "")
+        ctx_html = (
+            '…%s<span style="background-color:%s; color:#ffffff;">%s</span>%s…'
+            % (pre, color, hit, post))
+        ctx_lbl = QLabel('<span style="font-family:%s">%s</span>'
+                         % (MONO_FONT_FAMILY, ctx_html))
+        ctx_lbl.setTextFormat(Qt.RichText)
+        ctx_lbl.setWordWrap(True)
+
+        badge = QLabel('<span style="color:%s">■</span> <b>%s</b> · %s'
+                       % (color, self.KIND_LABEL.get(kind, kind),
+                          _html.escape(f.get("piece_label") or "")))
+        badge.setTextFormat(Qt.RichText)
+
+        chk = QCheckBox("放行")
+        chk.setToolTip("勾选后本条按原文发送，放行记忆当日有效")
+        self._boxes.append((chk, f))
+
+        row = QFrame()
+        row.setFrameShape(QFrame.StyledPanel)
+        h = QHBoxLayout(row)
+        h.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+        h.setSpacing(SPACE_SM)
+        left = QVBoxLayout()
+        left.addWidget(badge)
+        left.addWidget(ctx_lbl)
+        h.addLayout(left, 1)
+        h.addWidget(chk, 0, Qt.AlignTop)
+        return row
+
+    def _select_all(self):
+        for chk, _f in self._boxes:
+            chk.setChecked(True)
+
+    def accept(self):
+        self.allowed_fps = {f.get("fingerprint")
+                            for chk, f in self._boxes if chk.isChecked()}
+        super(SendGateDialog, self).accept()
 
 
 # ===========================================================================
@@ -1720,6 +1824,15 @@ class AiTab(QWidget):
             return
 
         ctx = self._collect_ctx()
+
+        # ---- 发送脱敏门禁（安全加固批 2）----
+        # 范围=仅本轮（ctx 六字段 + 正文 + 文本附件）；命中→预览页逐项放行；
+        # 放行项原文、未放行项脱敏替换。AI 未配置时上面已 return，门禁自然不生效。
+        gated = self._run_send_gate(ctx, text, attachments)
+        if gated is None:
+            return                          # 用户在预览页取消发送
+        ctx, text, attachments = gated
+
         self.session["ctx"] = ctx
         self._last_context = dict(ctx)
         first_round = not self.session["messages"]
@@ -1777,6 +1890,69 @@ class AiTab(QWidget):
         self._worker.finished_full.connect(self._on_finished)
         self._worker.start()
         self._update_token_estimate()
+
+    def _run_send_gate(self, ctx, text, attachments):
+        """
+        发送前脱敏门禁（安全加固批 2）。返回 (ctx, text, attachments)；用户取消返回 None。
+        门禁自身异常时不阻断发送（可用性优先，现场工具不能因门禁故障瘫痪）。
+        """
+        try:
+            pieces = ai_gate.build_pieces(ctx, text, attachments)
+            if not pieces:
+                return ctx, text, attachments
+            findings = ai_gate.scan_pieces(pieces)
+            if not findings:
+                return ctx, text, attachments
+            for f in findings:
+                f["fingerprint"] = ai_gate.fingerprint(f)
+            cfg = ai_bridge.load_config()
+            allowances = ai_gate.load_allowances(cfg)
+            auto = {f["fingerprint"] for f in findings
+                    if f["fingerprint"] in allowances}
+            pending = [f for f in findings
+                       if f["fingerprint"] not in allowances]
+            chosen = set()
+            if pending:
+                dlg = SendGateDialog(self.window(), pending)
+                if dlg.exec_() != QDialog.Accepted:
+                    return None
+                chosen = {fp for fp in (dlg.allowed_fps or set()) if fp}
+                if chosen:
+                    ai_gate.remember_fps(cfg, chosen)
+            allowed = auto | chosen
+            red = ai_gate.apply_redaction(pieces, findings, allowed)
+        except Exception:
+            return ctx, text, attachments
+
+        if not red:
+            return ctx, text, attachments
+        # 按 build_pieces 的组装顺序写回：ctx 六字段 → 正文 → 文本附件
+        new_ctx = dict(ctx)
+        new_text = text
+        new_atts = list(attachments or [])
+        idx = 0
+        for key in ai_gate.CTX_LABELS:
+            v = str((ctx or {}).get(key) or "")
+            if v.strip():
+                if idx in red:
+                    new_ctx[key] = red[idx]
+                idx += 1
+        if str(text or "").strip():
+            if idx in red:
+                new_text = red[idx]
+            idx += 1
+        for i, att in enumerate(new_atts):
+            if att.get("is_image"):
+                continue
+            if str(att.get("content") or "").strip():
+                if idx in red:
+                    att = dict(att)
+                    att["content"] = red[idx]
+                    new_atts[i] = att
+                idx += 1
+        self._add_notice("脱敏门禁：%d 处未放行命中已替换为掩码后发送"
+                         % sum(1 for _ in red))
+        return new_ctx, new_text, new_atts
 
     def _on_chunk(self, delta):
         """增量进缓冲区，由节流定时器统一刷新（打字机效果）"""
