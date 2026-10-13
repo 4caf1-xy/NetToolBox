@@ -20,6 +20,7 @@
 | [prompts/README.md](prompts/README.md) | 维护者 | 历次 AI 提示词批次 → 产出对照 | 每批提示词归档后 |
 | [screenshots/README.md](screenshots/README.md) | 文档 / 汇报作者 | 截图索引、主题与截图脚本约定 | UI 变更后补图时 |
 | [审计报告-*.md](审计报告-种子库与主库覆盖度-20260924.md) | 快照读者 | 某时点的种子库覆盖度快照 | **冻结归档，不再更新**；新审计另起新文件 |
+| [audit/](audit/2026-10-13-review-8cbf70d-bda96ef.md) | 维护者 | 安全加固批审码报告与修复裁决记录（append-only 归档） | 每次审码批收口时 |
 | [CHANGELOG.md](../CHANGELOG.md)（根） | 用户 / 贡献者 | 每个版本对外可感知的变更 | 随做随记 Unreleased，发版时切割 |
 
 ## 主题 → 权威出处速查
