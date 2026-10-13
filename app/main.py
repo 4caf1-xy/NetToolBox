@@ -554,6 +554,7 @@ def validate_seed(db_path=None):
     # ---- 报错字典校验（模块 05）----
     errs = database.all_errs()
     err_problems = []
+    err_warnings = []               # pattern lint [W]（超长 pattern，不阻塞）
     seen_err = set()
     import error_match as _em
     for e in errs:
@@ -566,6 +567,14 @@ def validate_seed(db_path=None):
             err_problems.append("%s：pattern 无法编译（%s）" % (e.get("cause", eid)[:30],
                                                           e.get("pattern")))
             continue
+        # pattern 复杂度 lint（安全加固批 4）：嵌套量词 [E] 硬拦截 / 超长 [W] 告警
+        for level, msg in _em.pattern_lint(e.get("pattern")):
+            item = "%s：pattern %s（%s）" % (e.get("cause", eid)[:30], msg,
+                                            (e.get("pattern") or "")[:40])
+            if level == "E":
+                err_problems.append(item)
+            else:
+                err_warnings.append(item)
         examples = e.get("examples") or []
         if len(examples) < 2:
             err_problems.append("%s：examples 少于 2 条" % e.get("cause", eid)[:30])
@@ -779,6 +788,12 @@ def validate_seed(db_path=None):
         for item in err_problems[:40]:
             print("   - " + item)
         return 1
+    if err_warnings:
+        print("[W] 报错字典 pattern 提示 %d 处（超长 pattern 等，不阻塞打包）：" % len(err_warnings))
+        for item in err_warnings[:10]:
+            print("   - " + item)
+        if len(err_warnings) > 10:
+            print("   … 其余 %d 处" % (len(err_warnings) - 10))
     if pack_problems:
         print("[X] 场景包发现 %d 个问题（坏引用按 [E] 硬拦截）：" % len(pack_problems))
         for item in pack_problems[:40]:

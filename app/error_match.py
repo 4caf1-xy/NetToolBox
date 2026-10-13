@@ -74,6 +74,116 @@ def compile_pattern(pattern):
         return None
 
 
+# ---------------------------------------------------------------------------
+# pattern 复杂度 lint（安全加固批 4）——灾难性回溯正则的入库门禁
+# ---------------------------------------------------------------------------
+PATTERN_MAX_LEN = 500        # 超长 pattern → [W]（validate 告警，不阻塞）
+
+_UNBOUNDED_QTY_RE = re.compile(r"\{\d+,\}")   # {n,} 无界重复
+
+
+def _unbounded_qty_count(body):
+    """body 内无界量词（* + {n,}）出现次数；跳过字符类 [...] 与 \\ 转义。"""
+    n = 0
+    i = 0
+    in_class = False
+    while i < len(body):
+        c = body[i]
+        if in_class:
+            if c == "\\":
+                i += 1
+            elif c == "]":
+                in_class = False
+        elif c == "\\":
+            i += 1
+        elif c == "[":
+            in_class = True
+        elif c in "*+":
+            n += 1
+        elif c == "{":
+            m = _UNBOUNDED_QTY_RE.match(body, i)
+            if m:
+                n += 1
+                i = m.end() - 1
+        i += 1
+    return n
+
+
+def _find_group_close(pattern, open_idx):
+    """返回与 open_idx 处 "(" 配对的 ")" 下标；跳过字符类与转义；无配对返回 -1。"""
+    depth = 0
+    in_class = False
+    i = open_idx
+    while i < len(pattern):
+        c = pattern[i]
+        if in_class:
+            if c == "\\":
+                i += 1
+            elif c == "]":
+                in_class = False
+        elif c == "\\":
+            i += 1
+        elif c == "[":
+            in_class = True
+        elif c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return -1
+
+
+def pattern_lint(pattern):
+    """
+    报错库 pattern 复杂度 lint（安全加固批 4，零新依赖的静态扫描）。
+    返回 [(level, message)]，level ∈ {"E", "W"}：
+        E  嵌套量词 —— 组内已含无界量词（* + {n,}），组外再套无界量词 →
+           灾难性回溯（如 (a+)+ / (?:\\d+)* / (a|bb+){2,}），恶意或手误都会让
+           match_errors 逐行 re.search 冻结界面。validate 以 [E] 硬拦截。
+        W  pattern 超长（> PATTERN_MAX_LEN 字符）—— validate 以 [W] 告警。
+    判定为静态语法扫描：跳过字符类与转义后逐组检查，不执行正则本身。
+    """
+    pattern = pattern or ""
+    problems = []
+    if len(pattern) > PATTERN_MAX_LEN:
+        problems.append(("W", "长度 %d 字符超过 %d 上限（建议按错误类别拆条）"
+                         % (len(pattern), PATTERN_MAX_LEN)))
+    i = 0
+    in_class = False
+    while i < len(pattern):
+        c = pattern[i]
+        if in_class:
+            if c == "\\":
+                i += 1
+            elif c == "]":
+                in_class = False
+        elif c == "\\":
+            i += 1
+        elif c == "[":
+            in_class = True
+        elif c == "(":
+            close = _find_group_close(pattern, i)
+            if close > i:
+                body = pattern[i + 1:close]
+                if _unbounded_qty_count(body):
+                    qty = pattern[close + 1:close + 2]
+                    if qty in ("*", "+"):
+                        problems.append((
+                            "E", "嵌套量词：组内含无界量词且组外为 %s%s（灾难性回溯，"
+                                 "如 (a+)+ 形态）" % (pattern[i:close + 1][:30], qty)))
+                    elif qty == "{":
+                        m = _UNBOUNDED_QTY_RE.match(pattern, close + 1)
+                        if m:
+                            problems.append((
+                                "E", "嵌套量词：组内含无界量词且组外为 %s（灾难性回溯）"
+                                     % m.group(0)))
+            # 不跳到 close：嵌套的内层组也要逐一检查（((a+)+) 只报最内层足够定位）
+        i += 1
+    return problems
+
+
 def match_errors(text, dicts, vendor=None):
     """
     在文本里匹配报错字典。

@@ -32,6 +32,10 @@ import dedupe
 DB_FILENAME = "command_lib.db"      # 库文件名（永远在 exe 同目录）
 SCHEMA_VERSION = 2                  # 表结构版本号（v2：新增 platform/duration、history 泛化）
 NLB_FORMAT = "netcmdl - command library"  # .nlb 文件标识（JSON 内 format 字段）
+# 导入文件大小上限（安全加固批 4）：.nlb/JSON 是不可信输入（恶意导入文件威胁面），
+# json.load 无上限整文件解析可被超大文件打爆内存。正常种子库 ~2.8MB、导出库
+# 再大也就几 MB——20MB 足够宽裕，恶意文件进不来。
+NLB_MAX_BYTES = 20 * 1024 * 1024
 
 # entries 表全部字段（顺序与建表语句一致）
 # v2 新增：platform(network/linux)、duration(temp/perm/both)
@@ -1399,7 +1403,18 @@ class Database(object):
                     "err_unresolved":[...]}
         兼容：只含 entries 的 v1 老文件、无 err_unresolved 的 v2 文件，以及裸数组文件。
         返回 (新增, 更新, 跳过)。
+        ★ 大小上限（安全加固批 4）：超过 NLB_MAX_BYTES 直接 ValueError 拒读
+          （调用方 UI 已有 try/except 呈现），json.load 不给恶意超大文件机会。
         """
+        try:
+            _size = os.path.getsize(path)
+        except OSError as exc:
+            raise ValueError("无法读取导入文件：%s" % exc)
+        if _size > NLB_MAX_BYTES:
+            raise ValueError(
+                "导入文件 %.1f MB 超过 %d MB 上限（不可信导入文件防御）；"
+                "如确为合法大库请拆分后分批导入。"
+                % (_size / 1048576.0, NLB_MAX_BYTES // 1048576))
         with open(path, "r", encoding="utf-8") as fp:
             data = json.load(fp)
         if isinstance(data, list):

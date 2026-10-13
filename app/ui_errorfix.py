@@ -33,6 +33,26 @@ def _mono(size=10):
 from theme import set_state, GripSplitter, read_sizes  # 状态标签 / error 属性的动态重polish
 from theme import WARNING, DANGER, TEXT_SECONDARY, ERROR_LINE_BG  # C4 收敛散落色（审计 B18）
 
+# 诊断输入上限（安全加固批 4）：超长输入 + 大字典的逐行正则匹配会冻结 UI
+MAX_DIAGNOSE_CHARS = 200_000
+MAX_DIAGNOSE_LINES = 10_000
+
+
+def truncate_diagnose_input(text):
+    """超长报错原文截断。返回 (text, was_truncated)。
+    上限=MAX_DIAGNOSE_CHARS(200KB) / MAX_DIAGNOSE_LINES(1 万行)。行数超限先按
+    行切，再按字符切——只按字符切对"大量短行"不减少行数，匹配成本降不下来。"""
+    text = text or ""
+    over_lines = (text.count("\n") + 1) > MAX_DIAGNOSE_LINES
+    over_chars = len(text) > MAX_DIAGNOSE_CHARS
+    if not (over_lines or over_chars):
+        return text, False
+    if over_lines:
+        text = "\n".join(text.splitlines()[:MAX_DIAGNOSE_LINES])
+    if len(text) > MAX_DIAGNOSE_CHARS:
+        text = text[:MAX_DIAGNOSE_CHARS]
+    return text, True
+
 class ErrorFixTab(QWidget):
 
     SPLIT_KEY = "errorfix_split"        # 粘贴区│结果区分栏记忆 key（ui_state.json）
@@ -156,6 +176,17 @@ class ErrorFixTab(QWidget):
         if not text.strip():
             QMessageBox.information(self, "先粘贴报错", "请先把设备报错原文粘贴到上面的输入框。")
             return
+
+        # 超长输入截断（安全加固批 4）：match_errors 逐行 re.search 是主线程
+        # 同步执行，超长输入 + 大字典会冻结 UI；200KB / 1 万行足够覆盖任何
+        # 真实回显，恶意/误粘贴的超大文本到不了匹配引擎。
+        text, was_truncated = truncate_diagnose_input(text)
+        if was_truncated:
+            QMessageBox.information(
+                self, "输入过长已截断",
+                "报错原文超过上限（%s 字符 / %s 行），已只保留前 %s 字符参与诊断。"
+                % ("{:,}".format(MAX_DIAGNOSE_CHARS), "{:,}".format(MAX_DIAGNOSE_LINES),
+                   "{:,}".format(MAX_DIAGNOSE_CHARS)))
 
         vendor_manual = self.cmb_vendor.currentData()
         v_auto, hint = error_match.guess_vendor(text)
@@ -729,6 +760,22 @@ class DictEditDialog(QDialog):
         if em.compile_pattern(pattern) is None:
             QMessageBox.warning(self, "正则无法编译", "pattern 语法有误，请修正后再保存。")
             return
+        # pattern 复杂度 lint（安全加固批 4）：嵌套量词硬拦 / 超长确认
+        lint_e = [msg for lv, msg in em.pattern_lint(pattern) if lv == "E"]
+        lint_w = [msg for lv, msg in em.pattern_lint(pattern) if lv == "W"]
+        if lint_e:
+            QMessageBox.warning(
+                self, "危险正则",
+                "pattern 存在灾难性回溯风险，禁止入库：\n%s\n\n"
+                "（嵌套量词形态如 (a+)+，匹配时会冻结整个界面）" % "\n".join(lint_e))
+            return
+        if lint_w:
+            answer = QMessageBox.question(
+                self, "pattern 超长",
+                "%s\n确定要保存吗？（种子质检会以 [W] 提示）" % "\n".join(lint_w),
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if answer != QMessageBox.Yes:
+                return
         examples = [ln.strip() for ln in self.txt_examples.toPlainText().splitlines()
                     if ln.strip()]
         if len(examples) < 1:
