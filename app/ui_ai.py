@@ -1955,6 +1955,9 @@ class AiTab(QWidget):
             allowed = auto | chosen
             red = ai_gate.apply_redaction(pieces, findings, allowed)
         except Exception:
+            # fail-open（可用性优先，批 2 裁决）保留，但必须让用户知道本轮
+            # 未扫描直接发送（审码修复批 F2，2026-10-13）——静默绕过门禁不可接受
+            self._add_notice("⚠ 脱敏门禁异常，本轮未扫描直接发送")
             return ctx, text, attachments
 
         if not red:
