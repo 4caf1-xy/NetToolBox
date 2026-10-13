@@ -535,6 +535,31 @@ class SettingsDialog(QDialog):
         self.lbl_test.setProperty("state", state)
         repolish(self.lbl_test)
 
+    # ---- 端点放行门禁（审码修复批 F3，2026-10-13）----
+    def _ensure_endpoint_approved(self, cfg):
+        """测试连接 / 获取模型发请求前的陌生端点确认（与 _on_save 同文案同清单）。
+        通过 → 返回补好 approved_endpoints 的 cfg；用户拒绝 → 返回 None（不发请求）。
+        确认后立即持久化（save_config 只带该字段，其余字段由合并逻辑保留），
+        避免用户确认了却没点保存导致每次测试都重复弹窗。"""
+        if ai_bridge.is_local_endpoint(cfg.get("base_url")):
+            return cfg
+        host = ai_bridge.endpoint_host(cfg.get("base_url"))
+        approved = ai_bridge.approved_endpoints()
+        if host in approved:
+            cfg["approved_endpoints"] = approved
+            return cfg
+        answer = QMessageBox.question(
+            self, "首次使用该端点",
+            "即将向「%s」发送测试请求（API Key 会随请求头发出）。\n\n"
+            "确认这是你信任的端点？确认后该端点将加入放行清单。" % host,
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if answer != QMessageBox.Yes:
+            return None
+        approved.append(host)
+        ai_bridge.save_config({"approved_endpoints": approved})
+        cfg["approved_endpoints"] = approved
+        return cfg
+
     def on_test(self):
         if self._test_worker and self._test_worker.isRunning():
             return
@@ -542,10 +567,15 @@ class SettingsDialog(QDialog):
             self.lbl_test.setText("✗ 请先填写 API Key")
             self._set_test_state("err")
             return
+        cfg = self._ensure_endpoint_approved(self._collect())
+        if cfg is None:
+            self.lbl_test.setText("✗ 已取消：端点未放行，本次未发送任何请求")
+            self._set_test_state("err")
+            return
         self.btn_test.setEnabled(False)
         self.lbl_test.setText("测试中…（最多 3 秒）")
         self._set_test_state("idle")
-        self._test_worker = _TestWorker(self._collect())
+        self._test_worker = _TestWorker(cfg)
         self._test_worker.test_done.connect(self._on_test_done)
         self._test_worker.start()
 
@@ -557,11 +587,16 @@ class SettingsDialog(QDialog):
             self.lbl_test.setText("✗ 请先填写 API Key")
             self._set_test_state("err")
             return
+        cfg = self._ensure_endpoint_approved(self._collect())
+        if cfg is None:
+            self.lbl_test.setText("✗ 已取消：端点未放行，本次未发送任何请求")
+            self._set_test_state("err")
+            return
         self.btn_models.setEnabled(False)
         self.btn_models.setText("获取中…")
         self.lbl_test.setText("正在拉取模型列表…")
         self._set_test_state("idle")
-        self._models_worker = _ModelListWorker(self._collect())
+        self._models_worker = _ModelListWorker(cfg)
         self._models_worker.models_done.connect(self._on_models_done)
         self._models_worker.start()
 

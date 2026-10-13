@@ -9,6 +9,7 @@ smoke_baseurl_policy.py —— 安全加固批 3：base_url 策略 + NetworkProb
     [4] endpoint_approved（本网恒放行；陌生 host 需清单）
     [5] NetworkProbe（loopback 直接判可达，端口按 base_url 解析）
     [6] ChatWorker 运行时复核（http 公网地址发送被拒）
+    [7] test_connection / list_models 端点放行门禁（审码修复批 F3）
 
 用法：
     PYTHONPATH=app;_vendor python scripts/smoke_baseurl_policy.py
@@ -80,6 +81,10 @@ def main():
     for url, want in cases:
         got = ai_bridge.endpoint_addr(url)
         check("端口解析（%s）" % url, got == want, str(got))
+    # F4（审码修复批 2026-10-13）：畸形/空配置不再回退 api.deepseek.com:443
+    for url in ("", "https:///v1", "::::", "not a url"):
+        got = ai_bridge.endpoint_addr(url)
+        check("畸形配置返回 None（%r）" % url, got is None, str(got))
 
     # ---- [4] endpoint_approved ----
     print("[4] endpoint_approved")
@@ -118,6 +123,9 @@ def main():
     check("loopback 直接判可达", ok is True and "本地端点" in (detail or ""), str((ok, detail)))
     ok, detail = _probe("http://192.168.50.50:9999")
     check("私网地址不做误杀探测（直接可达）", ok is True, str((ok, detail)))
+    ok, detail = _probe("::::")
+    check("配置无效探测给出无效标记（不误导可达）",
+          ok is False and "配置无效" in (detail or ""), str((ok, detail)))
 
     # ---- [6] ChatWorker 运行时复核 ----
     print("[6] ChatWorker 运行时复核")
@@ -136,6 +144,31 @@ def main():
     worker2.failed.connect(lambda msg: captured.append(msg))
     worker2.run()
     check("坏协议发送被拒", any("接口地址不合规" in m for m in captured), str(captured))
+
+    # ---- [7] test_connection / list_models 端点放行门禁（F3，审码修复批）----
+    print("[7] test_connection / list_models 放行门禁")
+    stranger = {"base_url": "https://stranger.endpoint.example.com/v1",
+                "api_key": "sk-x", "model": "m"}
+    ok, msg, latency = ai_bridge.test_connection(stranger)
+    check("test_connection 陌生端点拒绝（未发请求）",
+          not ok and "端点未放行" in msg, str((ok, msg)))
+    ok, names, msg = ai_bridge.list_models(stranger)
+    check("list_models 陌生端点拒绝（未发请求）",
+          not ok and "端点未放行" in msg, str((ok, msg)))
+    # 清单内端点：门禁放行后会真的发网络请求（离网环境走 DNS 失败），只断言不是门禁拒绝
+    approved_cfg = dict(stranger)
+    approved_cfg["approved_endpoints"] = ["stranger.endpoint.example.com"]
+    ok, msg, _lat = ai_bridge.test_connection(approved_cfg)
+    check("test_connection 清单内端点不再被门禁拦（放行走网络层）",
+          "端点未放行" not in str(msg), str((ok, msg)))
+    ok, _names, msg = ai_bridge.list_models(approved_cfg)
+    check("list_models 清单内端点不再被门禁拦",
+          "端点未放行" not in str(msg), str((ok, msg)))
+    # 本网端点恒放行（门禁不拦本地模型；连接失败是网络层人话）
+    local_cfg = {"base_url": "http://127.0.0.1:9/v1", "api_key": "sk-x", "model": "m"}
+    ok, msg, _lat = ai_bridge.test_connection(local_cfg)
+    check("test_connection 本网端点门禁恒放行",
+          "端点未放行" not in str(msg), str((ok, msg)))
 
     print("=" * 66)
     if FAIL:

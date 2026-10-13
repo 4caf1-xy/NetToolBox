@@ -277,6 +277,14 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 - **endpoint_host 旧正则会把 `http://[::1]:9000` 的 host 截成 "["**——已改 urlparse（hostname 自动去方括号、小写）。
 - **离屏环境弹模态即段错误**：on_send 新增的"陌生端点未放行"QMessageBox.warning 在 offscreen smoke 里直接 139。smoke_ai_chat 假配置自此必须给本网 base_url（http://127.0.0.1:9/v1，loopback 恒放行）。**今后任何 smoke 假配置带 AI 发送路径的，base_url 必须本网化**。
 
+### 批 3 追加 · 审码修复批 F3+F4 裁决留痕（2026-10-13）
+
+- **RFC1918 全豁免为既定产品口径（本网零打扰）**：127/8、10/8、172.16/12、192.168/16 及 localhost/::1 一律免 HTTPS 强制、免首次确认、免放行清单。
+- **SSRF 面定义**：本产品无服务端代抓场景，SSRF 面 = 用户自配端点 + key 外发（用户把 base_url 指向哪，key 和对话就发往哪），非经典 SSRF。
+- **残余风险（记录在案）**：内网 http 端点收明文 key + 对话明文——由首次确认弹窗 + 公网强制 HTTPS 缓解；`approved_endpoints` 主机粒度不分端口（同主机换端口不重弹确认），属已裁决的可用性取舍。
+- **F3 落点**：test_connection / list_models 发请求前加 endpoint_approved 门禁（桥接层拒绝，未发请求）；UI 层 SettingsDialog 测试/获取模型前弹首次确认（拒绝不发请求、key 不出机），确认后立即持久化 approved_endpoints（避免"确认了但没点保存"导致重复弹窗）。
+- **F4 落点**：endpoint_addr 解析失败/空 host 返回 None（不再静默回退 api.deepseek.com:443），NetworkProbe 对无效配置 emit "配置无效"，不给误导性可达。
+
 ### 批 4 · regex lint 对账与口径
 
 - **对账结果（如实报告）**：存量 82 条报错字典 pattern 过 lint，[E] 零命中、[W] 零命中，validate EXIT=0 底数不变（338/26/82）。lint 正反例 23 项覆盖：`(a+)+ / (.*)* / (?:\w+)* / (a|bb+){2,} / ((a+)+) / (a*)+ / ([0-9]+)+$` 全部 [E]；`(a+){3}`（组外有限量词）/ `[.*]+`（字符类）/ `\(a\+\)+`（转义）不误报。

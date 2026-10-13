@@ -382,6 +382,10 @@ def list_models(cfg=None):
     ok_url, reason_url = validate_base_url(cfg.get("base_url"))
     if not ok_url:
         return False, [], "接口地址不合规：%s" % reason_url
+    # 端点放行门禁（审码修复批 F3，2026-10-13）：陌生端点未放行不发请求——
+    # /models 探测同样会带 Authorization 头，key 不出机原则与发送路径一致
+    if not endpoint_approved(cfg.get("base_url"), cfg):
+        return False, [], "端点未放行：请在「文件→设置」确认放行该端点后再试（本次未发送任何请求）"
     try:
         import requests  # 依赖可用性探针：本函数经 open_session 间接使用，pyflakes F401 属预期
     except ImportError:
@@ -487,16 +491,22 @@ def validate_base_url(base_url):
 
 
 def endpoint_addr(base_url=None):
-    """(host, port) 解析：显式端口优先；否则 https→443 / http→80（网络探测用）。"""
+    """(host, port) 解析：显式端口优先；否则 https→443 / http→80（网络探测用）。
+    审码修复批 F4（2026-10-13）：解析失败 / 空 host 返回 None（无效标记），
+    不再静默回退 api.deepseek.com:443——坏配置不该被探测误报成"官方端点可达"。"""
     from urllib.parse import urlparse
-    url = (base_url or DEFAULT_CONFIG["base_url"]).strip()
+    url = (base_url or "").strip()
+    if not url:
+        return None
     try:
         parsed = urlparse(url)
-        host = parsed.hostname or "api.deepseek.com"
+        host = (parsed.hostname or "").strip().lower()
         port = parsed.port
         scheme = (parsed.scheme or "https").lower()
     except Exception:
-        return "api.deepseek.com", 443
+        return None
+    if not host:
+        return None
     if not port:
         port = 443 if scheme != "http" else 80
     return host, int(port)
@@ -544,6 +554,10 @@ def test_connection(cfg=None):
     ok_url, reason_url = validate_base_url(cfg.get("base_url"))
     if not ok_url:
         return False, "接口地址不合规：%s" % reason_url, 0
+    # 端点放行门禁（审码修复批 F3，2026-10-13）：陌生端点未放行不发请求、
+    # key 不出机——测试连接与发送路径同一原则（UI 层在弹确认框，见 SettingsDialog）
+    if not endpoint_approved(cfg.get("base_url"), cfg):
+        return False, "端点未放行：陌生端点须先在设置中确认放行（本次未发送任何请求）", 0
     try:
         import requests  # 依赖可用性探针：本函数经 open_session 间接使用，pyflakes F401 属预期
     except ImportError:
@@ -625,13 +639,18 @@ class NetworkProbe(QThread):
 
     def __init__(self, base_url=None, parent=None):
         super(NetworkProbe, self).__init__(parent)
-        self._host, self._port = endpoint_addr(base_url)
+        addr = endpoint_addr(base_url)
+        self._invalid = addr is None        # base_url 解析不出主机 = 配置无效（F4）
+        self._host, self._port = addr if addr else ("", 0)
         self._is_local = is_local_endpoint(base_url)
         self._timeout = 2.0
 
     def run(self):
         # socket lazy import：保持模块级零网络依赖（离网审计友好）
         import socket
+        if self._invalid:
+            self.probe_result.emit(False, "配置无效：base_url 解析不出主机地址")
+            return
         if self._is_local:
             self.probe_result.emit(True, "本地端点 %s:%d（不探测）"
                                    % (self._host, self._port))
