@@ -12,6 +12,7 @@ __pycache__/
 ai_config.json
 ai_config.json.new-enc
 ai_config.json.bak-*
+ai_config.json.tmp-plaindrop
 sessions/
 drafts/
 ai_cases/

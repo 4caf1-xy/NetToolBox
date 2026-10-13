@@ -265,6 +265,8 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 - **坑 1（DPAPI blob 定义）**：`DATA_BLOB.pbData` 用 `c_char_p` 时，取字段会被 ctypes 自动转成 bytes 对象，传给 `LocalFree` 即堆损坏 → 进程 127 硬死且**缓冲输出全丢**（表象是无输出退出）。必须 `c_void_p` + `create_string_buffer` 保活。
 - **坑 2（LocalFree 原型）**：不设 `argtypes=[c_void_p]` 时 64 位指针塞进 c_int → `OverflowError: int too long to convert`（被兜底 except 吞掉后表象是"加密一直失败走明文降级"）。两个坑叠加导致首轮调试耗费显著——**ctypes 调 WIN API 必须显式 argtypes/restype**。
 - **坑 3（迁移条件）**：迁移判定必须看「文件里的原始明文 key」，不能看解密后的 cfg——否则每次 load 解密出的明文都会再触发一轮迁移（写 bak→删 bak 空转），且 KEY_STATUS 永远停在 migrated。
+- **熵与威胁边界（审码修复批 F5 补记，2026-10-13）**：CryptProtectData 未传 OptionalEntropy——同一 Windows 用户上下文下的任意进程可解密该密文；防御面 = 介质外泄（换机/换 Windows 账户解不开），不防御本机同用户恶意进程，是「零依赖 + 免口令」约束下的已知取舍（正式出处 = ai_bridge.py KEY 存储节注释）。
+- **ciphertext-wins 双字段语义（审码修复批 F7）**：密文有效 + 文件残留明文 → 清明文、密文原样、绝不重加密覆盖；密文损坏 + 文件有明文 → 保留明文可用、不迁移、不动密文，KEY_STATUS 记 decrypt-failed。save 时加密失败 → 明文兜底且 KEY_STATUS 记 encrypt-failed-keep-plain（F6，不静默降级）。
 
 ### 批 2 · 发送门禁实施坑
 

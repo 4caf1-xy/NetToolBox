@@ -168,6 +168,62 @@ def main():
     check("T7a key 保存且可用（明文兜底）", cfg.get("api_key") == "sk-nodpapi-111",
           repr(cfg.get("api_key")))
 
+    # ---- T9 双字段并存 + 密文有效 → ciphertext-wins（F7）----
+    print("-" * 66)
+    print("T9 ciphertext-wins：明文残留清除，密文不重加密")
+    ai_bridge.save_config({"api_key": "sk-current-999", "model": "m9"})
+    data = read_cfg()
+    enc_valid = data.get(ai_bridge.KEY_FIELD_ENC)
+    check("T9-pre 密文已建立", str(enc_valid).startswith("dpapi-v1:"))
+    # 手工在文件里塞回一份陈旧明文（模拟旧工具/手工编辑残留）
+    stale = dict(data)
+    stale["api_key"] = "sk-stale-old"
+    write_cfg(stale)
+    cfg = ai_bridge.load_config()
+    check("T9a 返回密文解出的现役 key（非陈旧明文）",
+          cfg.get("api_key") == "sk-current-999", repr(cfg.get("api_key")))
+    data = read_cfg()
+    check("T9b 文件明文残留已清除", "api_key" not in data, str(sorted(data.keys())))
+    check("T9c 密文原样未动（不重加密）", data.get(ai_bridge.KEY_FIELD_ENC) == enc_valid)
+    check("T9d 状态 ok", ai_bridge.KEY_STATUS["state"] == "ok",
+          ai_bridge.KEY_STATUS["state"])
+
+    # ---- T10 双字段并存 + 密文损坏 → 保留明文不迁移（F7）----
+    print("-" * 66)
+    print("T10 密文损坏：保留明文可用，密文不被覆盖")
+    manual = dict(read_cfg())
+    manual["api_key"] = "sk-plain-keep"
+    manual[ai_bridge.KEY_FIELD_ENC] = "dpapi-v1:AAAA"       # 损坏密文
+    write_cfg(manual)
+    cfg = ai_bridge.load_config()
+    check("T10a 明文保留可用", cfg.get("api_key") == "sk-plain-keep",
+          repr(cfg.get("api_key")))
+    data = read_cfg()
+    check("T10b 文件未被迁移改写（明文字段仍在）", "api_key" in data)
+    check("T10c 损坏密文原样保留（未重加密覆盖）",
+          data.get(ai_bridge.KEY_FIELD_ENC) == "dpapi-v1:AAAA")
+    check("T10d 状态 decrypt-failed", ai_bridge.KEY_STATUS["state"] == "decrypt-failed",
+          ai_bridge.KEY_STATUS["state"])
+    check("T10e 未产生迁移备份", not glob.glob(ai_bridge.config_path() + ".bak-*"))
+
+    # ---- T11 save 时加密失败 → 明文兜底且留状态（F6）----
+    print("-" * 66)
+    print("T11 save 加密失败留状态")
+    real_protect = ai_bridge._dpapi_protect
+    try:
+        ai_bridge._dpapi_protect = broken_protect
+        ok = ai_bridge.save_config({"api_key": "sk-savefail-222"})
+    finally:
+        ai_bridge._dpapi_protect = real_protect
+    check("T11a save 成功（明文兜底）", ok)
+    # 状态断言必须在 load 之前：load 会按 F7 语义重新判定 KEY_STATUS
+    check("T11c 状态 encrypt-failed-keep-plain（不静默）",
+          ai_bridge.KEY_STATUS["state"] == "encrypt-failed-keep-plain",
+          "%s / %s" % (ai_bridge.KEY_STATUS["state"], ai_bridge.KEY_STATUS["detail"]))
+    cfg = ai_bridge.load_config()
+    check("T11b key 明文可用", cfg.get("api_key") == "sk-savefail-222",
+          repr(cfg.get("api_key")))
+
     # ---- T8 发布 zip 零敏感文件回归断言 ----
     _run_t8()
 

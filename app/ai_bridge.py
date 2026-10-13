@@ -71,6 +71,10 @@ def config_path():
 #  · 换机/换 Windows 账户需重新配置一次 key；
 #  · 非 Windows / DPAPI 不可用 → 保持明文兜底（KEY_STATUS 记录状态，
 #    现场不能因为加密不可用而瘫痪；该状态在 dev-notes 有完整清单）。
+#  · 熵与威胁边界（审码修复批 F5 留痕，2026-10-13）：CryptProtectData
+#    未传 OptionalEntropy —— 同一 Windows 用户上下文下的任意进程都能
+#    解开该密文。防御面 = 介质外泄（换机/换 Windows 账户解不开），
+#    不防御本机同用户恶意进程；这是「零依赖 + 免口令」约束下的已知取舍。
 # 旧明文配置的自动迁移是**事务式**的（任何时刻介质上最多一份明文）：
 #   写加密版临时文件 → 原文件 rename 为 .bak-<ts> → 加密版转正 →
 #   解密 round-trip 验证 → 通过删备份 / 失败用备份还原。
@@ -250,11 +254,30 @@ def _migrate_legacy_key(cfg):
                                      % (str(exc)[:40], os.path.basename(bak)))
 
 
+def _drop_stale_plain_key(path, raw):
+    """F7（ciphertext-wins）：密文有效时清除文件里残留的明文 api_key 字段，
+    密文原样保留、不重加密。失败（只读介质）静默让位——明文残留属可接受降级，
+    密文仍在优先位。"""
+    try:
+        payload = {k: v for k, v in raw.items() if k != "api_key"}
+        tmp = path + ".tmp-plaindrop"
+        with open(tmp, "w", encoding="utf-8") as fp:
+            json.dump(payload, fp, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+    except Exception:
+        pass
+
+
 def load_config():
     """
     读配置。文件不存在 / JSON 坏了 / 不是 dict → 视为未配置，返回默认值。
     （任何异常都不抛 —— 现场不能因为一个配置文件把主程序拖死）
     api_key 优先取加密字段解密；检测到旧明文 key 触发一次事务式迁移。
+    ★ 双字段并存语义（审码修复批 F7，ciphertext-wins，2026-10-13）：
+        · 密文有效 + 文件里还有明文 → 明文是陈旧残留，清掉明文字段，
+          绝不用明文重加密覆盖密文（重加密会以陈旧 key 破坏现役密文）；
+        · 密文损坏 + 文件里有明文 → 保留明文可用（不迁移、不动密文），
+          KEY_STATUS 记 decrypt-failed（换机/换账户场景现场不瘫痪）。
     """
     cfg = dict(DEFAULT_CONFIG)
     raw = {}
@@ -269,11 +292,20 @@ def load_config():
     # 迁移判定只看「文件里的原始明文 key」——若看解密后的 cfg，会把每次解密
     # 出来的明文误判为待迁移，造成每轮 load 都重跑迁移（写 bak→删 bak 空转）
     file_had_plain_key = bool(str(raw.get("api_key") or "").strip())
-    # 加密 key → 明文（解密失败保持 ""，状态见 KEY_STATUS）
     if cfg.get(KEY_FIELD_ENC):
-        cfg["api_key"] = _decrypt_key(cfg)
-    # 旧明文 key → 事务式迁移为加密存储（迁移只改文件，不影响本次返回值）
-    if file_had_plain_key:
+        plain_from_enc = _decrypt_key(cfg)
+        if plain_from_enc:
+            cfg["api_key"] = plain_from_enc
+            if file_had_plain_key:
+                _drop_stale_plain_key(config_path(), raw)
+        elif file_had_plain_key:
+            # 密文损坏：cfg["api_key"] 维持文件明文（不覆盖为 ""），现场可用；
+            # 状态 decrypt-failed 已由 _decrypt_key 记录，这里补语义明细
+            KEY_STATUS.update(
+                state="decrypt-failed",
+                detail="密文解不开但文件内有明文 key：已保留明文可用（未迁移，密文原样保留）")
+    elif file_had_plain_key:
+        # 旧明文 key（无密文字段）→ 事务式迁移为加密存储（只改文件，不影响返回值）
         _migrate_legacy_key(raw)
     # 基本类型兜底
     cfg["timeout"] = _clamp_int(cfg.get("timeout"), 5, 600, DEFAULT_CONFIG["timeout"])
@@ -310,8 +342,12 @@ def save_config(cfg):
                 data[KEY_FIELD_ENC] = KEY_ENC_PREFIX + \
                     base64.b64encode(blob).decode("ascii")
                 data.pop("api_key", None)
-            except Exception:
-                pass    # 加密失败 → 明文兜底，保持可用（状态由调用场景决定）
+            except Exception as exc:
+                # 加密失败 → 明文兜底是有意降级（现场不因加密不可用瘫痪），
+                # 但必须留状态痕迹（审码修复批 F6，2026-10-13）——静默降级不可审计
+                KEY_STATUS.update(state="encrypt-failed-keep-plain",
+                                  detail="save 时 DPAPI 加密失败，key 以明文落盘（%s）"
+                                         % str(exc)[:60])
         elif submitted and not plain_key:
             data.pop("api_key", None)
             data.pop(KEY_FIELD_ENC, None)   # 显式清空 = 注销 key
