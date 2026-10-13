@@ -253,3 +253,41 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 
 - **出库白名单断言**：发版 zip 条目在 release.yml Zip 步骤按**正向白名单**强制执行（NetToolBox.exe / check_db.py / command_lib.db / seed_data/*.json 四类），任何白名单外条目 ERROR 中止——黑名单只能拦已知坏物，拦不住构建链条新引入的中间产物（v0.6.0/v0.6.1 即被导入护栏落在 staging 的 backup/ 漏进包，约 2.8MB 纯种子副本，外部独立核验字节级比对才发现；Assemble 步骤同步显式清理 staging backup/）；
 - **产物类验收必须实测产物**：发版/打包类验收必须**解包实产物列清单核对**（unzip 列表 + 与仓库 blob 字节比对），不得从 workflow 脚本或流程描述推断——本次两处瑕疵（backup/ 混入 + seed json CRLF 化）均存活两轮发版，根因正是验收只看了 workflow 没解包。
+
+## 安全加固批落地记录（2026-10-13，四小批：3c9ff0c / 门禁 / 端点 / regex）
+
+四批内容与用户可见行为见 CHANGELOG Unreleased「安全加固」节（权威出处，此处不复制）；只记实施裁决、坑与对账证据。全量 15 套冒烟全绿 + validate-seed EXIT=0（338/26/82 底数不变）。
+
+### 批 1 · Key 存储（DPAPI-v1）实施裁决与状态清单
+
+- **事务式迁移（批裁决修正后形态）**：写加密版 `ai_config.json.new-enc` → 原文件 rename 为 `.bak-<ts>`（此刻介质上明文唯一份=备份）→ 加密版转正（此后零明文）→ 解密 round-trip 验证 → 通过删备份 / 失败 `os.replace(bak, path)` 还原。任何时刻介质上最多一份明文。
+- **KEY_STATUS 全状态集**（`ai_bridge.KEY_STATUS`，运行期不落盘）：`migrated`（正常）/ `migrated-backup-locked`（迁移成功但备份删除失败，提示手动删）/ `verify-failed-restored`（验证失败已还原明文）/ `verify-failed-restore-failed`（还原也失败，需人工介入 bak 文件）/ **`readonly-keep-plain`（只读介质写不进 → 保持明文可用不瘫痪现场，本状态的正式记录位）** / `plain-no-dpapi`（非 Windows）/ `encrypt-failed-keep-plain` / `decrypt-failed`（换机/换账户解不开，设置页黄条提示重填）。
+- **坑 1（DPAPI blob 定义）**：`DATA_BLOB.pbData` 用 `c_char_p` 时，取字段会被 ctypes 自动转成 bytes 对象，传给 `LocalFree` 即堆损坏 → 进程 127 硬死且**缓冲输出全丢**（表象是无输出退出）。必须 `c_void_p` + `create_string_buffer` 保活。
+- **坑 2（LocalFree 原型）**：不设 `argtypes=[c_void_p]` 时 64 位指针塞进 c_int → `OverflowError: int too long to convert`（被兜底 except 吞掉后表象是"加密一直失败走明文降级"）。两个坑叠加导致首轮调试耗费显著——**ctypes 调 WIN API 必须显式 argtypes/restype**。
+- **坑 3（迁移条件）**：迁移判定必须看「文件里的原始明文 key」，不能看解密后的 cfg——否则每次 load 解密出的明文都会再触发一轮迁移（写 bak→删 bak 空转），且 KEY_STATUS 永远停在 migrated。
+
+### 批 2 · 发送门禁实施坑
+
+- **scripts/ 薄壳遮蔽（连锁修复）**：python 把 smoke 脚本目录放 `sys.path[0]`，`scripts/sanitize_scan.py`（CLI 薄壳）会遮蔽 `app/sanitize_scan.py`——ai_gate→sanitize_scan 导入链建立后，**所有**经 scripts/ 启动的套件都撞薄壳自引用 ImportError。修法收敛进 `_smoke_env.setup()`：脚本目录统一挪到 sys.path 末尾（全套件受益，勿在单套件内各自修补）。
+- 占位符剔除会移位下标：secret 在 scrubbed 文本上判定，`_scrub_with_index_map` 产出 scrubbed→原文下标映射后回映 span（脱敏回写依赖原文 span）；IP/黑名单直接在原文上扫（天然对齐）。
+- 门禁 IP 策略与站点白名单的分叉点在 `_ip_allowed` 参数化（默认参数=站点策略逐字不变，`allow_nat_teaching=False` 时 200.1.1.0/24 不豁免）——站点扫描行为零变化有 smoke_send_gate [7] 回归断言兜底。
+
+### 批 3 · base_url 策略实施坑
+
+- **endpoint_host 旧正则会把 `http://[::1]:9000` 的 host 截成 "["**——已改 urlparse（hostname 自动去方括号、小写）。
+- **离屏环境弹模态即段错误**：on_send 新增的"陌生端点未放行"QMessageBox.warning 在 offscreen smoke 里直接 139。smoke_ai_chat 假配置自此必须给本网 base_url（http://127.0.0.1:9/v1，loopback 恒放行）。**今后任何 smoke 假配置带 AI 发送路径的，base_url 必须本网化**。
+
+### 批 4 · regex lint 对账与口径
+
+- **对账结果（如实报告）**：存量 82 条报错字典 pattern 过 lint，[E] 零命中、[W] 零命中，validate EXIT=0 底数不变（338/26/82）。lint 正反例 23 项覆盖：`(a+)+ / (.*)* / (?:\w+)* / (a|bb+){2,} / ((a+)+) / (a*)+ / ([0-9]+)+$` 全部 [E]；`(a+){3}`（组外有限量词）/ `[.*]+`（字符类）/ `\(a\+\)+`（转义）不误报。
+- lint 是静态语法扫描（跳过字符类与转义后逐组检查），不执行正则本身；与 validate/ui 编辑器保存共用同一执法点（error_match.pattern_lint），[E] 拦、[W] 确认/告警。
+- 诊断输入截断：行数超限**先按行切再按字符切**——只按字符切对"大量短行"不减少行数，匹配成本降不下来。
+
+### 本机工作环境坑（跨批复用）
+
+- 本会话 bash shim 下 `PYTHONPATH=xxx python ...` 前缀赋值形态恒 127 无输出（export 亦同）；**可用 `env VAR=... python ...` 绕过**。管道取退出码继续用 `${PIPESTATUS[0]}`。
+
+### 范围外观察（后续立项候选，未进本批）
+
+- **sessions/ 与 ai_cases/ 明文治理**：AI 会话全文（含设备信息、可能含口令）明文落 exe 同目录随介质走，与批 1 同一威胁面。候选方案：会话目录整体加密 / 退出时清理 / 只保留最近 N 天。已列入提示词包 L 行，待排期。
+- 图片附件（vision 模型通道）不经文本门禁，多模态外发面另行评估。

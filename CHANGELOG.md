@@ -7,6 +7,13 @@
 
 ## Unreleased
 
+#### 安全加固（四小批：Key 存储 / 发送门禁 / 端点策略 / 导入与 regex）
+- **API Key DPAPI 加密存储**（批 1）：api_key 经 Windows DPAPI（用户级，ctypes 直调零新依赖）加密为 `api_key_enc`（dpapi-v1）落盘，配置文件不再有明文密钥；旧明文配置首启**事务式自动迁移**（写加密版 → 原文件改名备份 → 转正 → 解密 round-trip 验证 → 过删备份/败还原），任何时刻介质上最多一份明文；只读介质降级保持明文可用并在状态中记录；换机/换 Windows 账户需重填一次 key（介质外泄时密文不可解是特性）；
+- **AI 发送脱敏门禁**（批 2）：发送前对「本轮 payload」（设备上下文六字段 + 正文 + 文本附件）做引擎级扫描（复用站点脱敏红线件同一套 secret 真值/占位豁免/明文黑名单规则），IP 策略比站点严——**拦 RFC1918 内网段与真实地址**，豁免 TEST-NET 文档段/loopback/公共 DNS/x.x.x.x 教学惯例；命中 → 预览页（命中高亮、逐项复选放行、「全选放行本批命中」一键）→ 放行项原文、未放行项掩码替换后发送；放行记忆指纹制、**当日有效**；AI 未配置时门禁自然不生效；历史轮不重扫；
+- **base_url 策略**（批 3）：非本网地址（非 127.0.0.1/私网段）**强制 HTTPS**；陌生端点首次使用弹确认，放行清单随 ai_config（approved_endpoints）管理；保存时 + 发送前双道复核（防手改配置绕过）；**NetworkProbe 修复**——按 base_url 解析端口（https 443 / http 80 / 显式端口优先），loopback 直接判可达：旧版恒连 443 把 `http://127.0.0.1:11434` 判死禁发送，本地模型（Ollama 等）场景实际不可用的问题就此修复；
+- **导入与 regex 防护**（批 4）：.nlb/JSON 导入 20MB 大小上限（不可信导入文件防御）；validate 新增危险 regex lint——嵌套量词（`(a+)+` 类灾难性回溯形态）[E] 硬拦截、pattern 超 500 字符 [W]，存量 82 条对账零命中；报错诊断输入上限 200KB / 1 万行（超限截断提示，超长输入不再可能冻结匹配）；
+- 冒烟新增 4 套：smoke_keyvault（31 项）/ smoke_send_gate（32 项）/ smoke_baseurl_policy（41 项）/ smoke_regex_guard（36 项），全量 15 套回归全绿、validate-seed EXIT=0（338/26/82 底数不变）。
+
 #### 文档
 - **README 重构**：由「功能列表」升级为「定位说明 + 操作安全叙事 + 使用指南」——新增定位段（离线优先 / 多厂商 / 操作安全三支柱：验证状态、rollback、Copy Only）、Why NetToolBox 三小节（Offline First / Operational Safety / Knowledge-driven Troubleshooting）、安全模型节（离线核心 + AI 旁路三态运行现状 + Copy Only 边界 + 密钥存储现状如实描述）、两个典型场景（OSPF ExStart 排查树走查 / 变更前 Runbook 四步）与 Mermaid 架构图（AI 画为可选旁路，不与库并列）；
 - 事实段三处保留并同步：版本号修正 v0.6.1→v0.6.2（与 APP_VERSION / Release 对齐）、zip 清单与种子规模表核对一致（338 / 26 / 82 / 3）；厂商列表按种子实况修正为 **10 家网络厂商**（原文「11 家」与括号列名不符），占位厂商目录不再对外列出；
