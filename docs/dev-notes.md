@@ -293,6 +293,10 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 - lint 是静态语法扫描（跳过字符类与转义后逐组检查），不执行正则本身；与 validate/ui 编辑器保存共用同一执法点（error_match.pattern_lint），[E] 拦、[W] 确认/告警。
 - 诊断输入截断：行数超限**先按行切再按字符切**——只按字符切对"大量短行"不减少行数，匹配成本降不下来。
 
+### 工具链（开发依赖，不入 requirements.txt 运行时）
+
+- **Pillow**：2026-10-13 I 批（exe 图标）接入时安装（隔离 venv，Pillow 12.3.0），仅用于 docs/screenshots/tubiao.png → app/icon.ico 一次性转换；运行时无依赖。
+
 ### 本机工作环境坑（跨批复用）
 
 - 本会话 bash shim 下 `PYTHONPATH=xxx python ...` 前缀赋值形态恒 127 无输出（export 亦同）；**可用 `env VAR=... python ...` 绕过**。管道取退出码继续用 `${PIPESTATUS[0]}`。
