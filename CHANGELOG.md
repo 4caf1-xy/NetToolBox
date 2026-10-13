@@ -12,7 +12,14 @@
 - **AI 发送脱敏门禁**（批 2）：发送前对「本轮 payload」（设备上下文六字段 + 正文 + 文本附件）做引擎级扫描（复用站点脱敏红线件同一套 secret 真值/占位豁免/明文黑名单规则），IP 策略比站点严——**拦 RFC1918 内网段与真实地址**，豁免 TEST-NET 文档段/loopback/公共 DNS/x.x.x.x 教学惯例；命中 → 预览页（命中高亮、逐项复选放行、「全选放行本批命中」一键）→ 放行项原文、未放行项掩码替换后发送；放行记忆指纹制、**当日有效**；AI 未配置时门禁自然不生效；历史轮不重扫；
 - **base_url 策略**（批 3）：非本网地址（非 127.0.0.1/私网段）**强制 HTTPS**；陌生端点首次使用弹确认，放行清单随 ai_config（approved_endpoints）管理；保存时 + 发送前双道复核（防手改配置绕过）；**NetworkProbe 修复**——按 base_url 解析端口（https 443 / http 80 / 显式端口优先），loopback 直接判可达：旧版恒连 443 把 `http://127.0.0.1:11434` 判死禁发送，本地模型（Ollama 等）场景实际不可用的问题就此修复；
 - **导入与 regex 防护**（批 4）：.nlb/JSON 导入 20MB 大小上限（不可信导入文件防御）；危险 regex lint——嵌套量词（`(a+)+` 类灾难性回溯形态）[E] 硬拦截、alternation 重叠（`(a|aa)+` 类）与 pattern 超 500 字符 [W]，validate / 编辑器保存 / .nlb 导入三口同一门禁，存量 82 条对账零命中；报错诊断输入上限 200KB / 1 万行（超限截断提示）。**精度口径**：pattern_lint 入库门禁阻断灾难回溯 pattern 经校验/编辑/导入进入库；历史库中已有 pattern 不受此保护。
-- 冒烟新增 4 套：smoke_keyvault（31 项）/ smoke_send_gate（32 项）/ smoke_baseurl_policy（41 项）/ smoke_regex_guard（36 项），全量 15 套回归全绿、validate-seed EXIT=0（338/26/82 底数不变）。
+- 冒烟新增 4 套（实测计数，含审码修复批扩展项）：smoke_keyvault（48 项）/ smoke_send_gate（32 项）/ smoke_baseurl_policy（43 项）/ smoke_regex_guard（59 项），全量 15 套回归全绿、validate-seed EXIT=0（338/26/82 底数不变）。
+
+#### 审码修复批（2026-10-13，8cbf70d..bda96ef 审码报告落地）
+- **F1 导入 pattern 门禁**（P1）：.nlb/JSON 导入路径接入 pattern_lint——[E] 灾难回溯 pattern 整批拒绝（列前 5 条 err_id、零写入），[W] 导入成功但显式告警计数；lint [W] 规则新增 alternation 重叠判定（`(a|aa)+` 类指数回溯，实测 n=26 时 0.039s），分支首原子互斥的 `(a|b)+` 不误报，存量 82 条零命中底数保持；AGENTS/CHANGELOG「入库门禁」表述同步校准；
+- **F2 门禁 fail-open 提示**（P2）：脱敏门禁自身异常时保持 fail-open（可用性优先，批 2 裁决）但必显式提示"本轮未扫描直接发送"，不再静默绕过；
+- **F3 测试/获取模型端点门禁**：test_connection 与 list_models 发请求前校验 endpoint_approved（桥接层拒绝、未发请求），设置对话框测试/获取模型前复用首次确认弹窗，拒绝则 key 不出机；
+- **F4 配置无效不误导**：endpoint_addr 解析失败不再静默回退 api.deepseek.com:443，NetworkProbe 对坏配置显示"配置无效"；
+- **F5–F7 DPAPI 语义收口**：熵风险如实留痕（未传 OptionalEntropy，同用户进程可解密，防御面=介质外泄）；save 时加密失败 KEY_STATUS 记 encrypt-failed-keep-plain（不静默降级）；ciphertext-wins 双字段语义——密文有效清残留明文不重加密、密文损坏保留明文可用不迁移（smoke_keyvault T9/T10/T11 双分支断言）。
 
 #### 文档
 - **README 重构**：由「功能列表」升级为「定位说明 + 操作安全叙事 + 使用指南」——新增定位段（离线优先 / 多厂商 / 操作安全三支柱：验证状态、rollback、Copy Only）、Why NetToolBox 三小节（Offline First / Operational Safety / Knowledge-driven Troubleshooting）、安全模型节（离线核心 + AI 旁路三态运行现状 + Copy Only 边界 + 密钥存储现状如实描述）、两个典型场景（OSPF ExStart 排查树走查 / 变更前 Runbook 四步）与 Mermaid 架构图（AI 画为可选旁路，不与库并列）；

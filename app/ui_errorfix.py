@@ -182,11 +182,12 @@ class ErrorFixTab(QWidget):
         # 真实回显，恶意/误粘贴的超大文本到不了匹配引擎。
         text, was_truncated = truncate_diagnose_input(text)
         if was_truncated:
+            kept_lines = text.count("\n") + 1
             QMessageBox.information(
                 self, "输入过长已截断",
-                "报错原文超过上限（%s 字符 / %s 行），已只保留前 %s 字符参与诊断。"
+                "报错原文超过上限（%s 字符 / %s 行），已只保留前 %s 行 / %s 字符参与诊断。"
                 % ("{:,}".format(MAX_DIAGNOSE_CHARS), "{:,}".format(MAX_DIAGNOSE_LINES),
-                   "{:,}".format(MAX_DIAGNOSE_CHARS)))
+                   "{:,}".format(kept_lines), "{:,}".format(len(text))))
 
         vendor_manual = self.cmb_vendor.currentData()
         v_auto, hint = error_match.guess_vendor(text)
