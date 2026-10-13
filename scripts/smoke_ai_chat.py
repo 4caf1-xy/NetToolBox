@@ -18,7 +18,10 @@ import ui_ai
 # 劫持后 config 指向临时区，套件必须自带假配置，CI 无真配置也能跑。
 with open(ai_bridge.config_path(), "w", encoding="utf-8") as _fp:
     json.dump({"api_key": "smoke-fake-key", "model": "smoke-model",
-               "operator": "smoke"}, _fp)
+               "operator": "smoke",
+               # ★ base_url 必须给本网地址（批 3 起陌生公网端点 on_send 会弹
+               #   模态放行警告，离屏环境弹模态即段错误）——loopback 恒放行
+               "base_url": "http://127.0.0.1:9/v1"}, _fp)
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QApplication
 

@@ -611,6 +611,25 @@ class SettingsDialog(QDialog):
 
     def _on_save(self):
         cfg = self._collect()
+        # base_url 策略（安全加固批 3）：HTTPS 强制 + 陌生端点首次确认
+        ok_url, reason_url = ai_bridge.validate_base_url(cfg.get("base_url"))
+        if not ok_url:
+            QMessageBox.warning(self, "接口地址不合规", reason_url)
+            self.ed_base_url.setFocus()
+            return
+        if not ai_bridge.is_local_endpoint(cfg.get("base_url")):
+            host = ai_bridge.endpoint_host(cfg.get("base_url"))
+            if host not in ai_bridge.approved_endpoints():
+                answer = QMessageBox.question(
+                    self, "首次使用该端点",
+                    "即将把「%s」加入 AI 端点放行清单（随 ai_config.json 管理）。\n\n"
+                    "确认这是你信任的端点？密钥与对话将发往该地址。" % host,
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if answer != QMessageBox.Yes:
+                    return
+                approved = ai_bridge.approved_endpoints()
+                approved.append(host)
+                cfg["approved_endpoints"] = approved
         if not ai_bridge.save_config(cfg):
             QMessageBox.warning(self, "保存失败",
                                 "ai_config.json 写入失败（磁盘只读？）。配置未保存。")
@@ -1821,6 +1840,20 @@ class AiTab(QWidget):
             return
         if not ai_bridge.is_configured():
             self.open_settings()
+            return
+
+        # ---- base_url 策略运行时复核（安全加固批 3，防手改配置绕过界面校验）----
+        cfg0 = ai_bridge.load_config()
+        ok_url, reason_url = ai_bridge.validate_base_url(cfg0.get("base_url"))
+        if not ok_url:
+            QMessageBox.warning(self, "AI 端点不合规",
+                                "%s\n请在 文件→设置 修正接口地址。" % reason_url)
+            return
+        if not ai_bridge.endpoint_approved(cfg0.get("base_url"), cfg0):
+            QMessageBox.warning(
+                self, "AI 端点未放行",
+                "「%s」不在端点放行清单（陌生端点需在 文件→设置 确认一次）。"
+                % ai_bridge.endpoint_host(cfg0.get("base_url")))
             return
 
         ctx = self._collect_ctx()

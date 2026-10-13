@@ -337,10 +337,16 @@ def _clamp_int(value, low, high, default):
 
 
 def endpoint_host(base_url=None):
-    """从 base_url 提取域名（网络探测用）；解析失败回退 DeepSeek 官方域名"""
+    """从 base_url 提取域名（网络探测用）；解析失败回退 DeepSeek 官方域名。
+    安全加固批 3：改用 urlparse（正确处理 [::1] 方括号 IPv6 与显式端口；
+    旧正则对 http://[::1]:9000 会把 host 截成 "["）。"""
+    from urllib.parse import urlparse
     url = (base_url or DEFAULT_CONFIG["base_url"]).strip()
-    m = re.match(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://([^/:?#]+)", url)
-    return m.group(1) if m else "api.deepseek.com"
+    try:
+        host = (urlparse(url).hostname or "").strip().lower()
+    except Exception:
+        host = ""
+    return host or "api.deepseek.com"
 
 
 def chat_url(base_url=None):
@@ -373,6 +379,9 @@ def list_models(cfg=None):
     cfg = cfg or load_config()
     if not is_configured(cfg):
         return False, [], "尚未填写 API Key"
+    ok_url, reason_url = validate_base_url(cfg.get("base_url"))
+    if not ok_url:
+        return False, [], "接口地址不合规：%s" % reason_url
     try:
         import requests  # 依赖可用性探针：本函数经 open_session 间接使用，pyflakes F401 属预期
     except ImportError:
@@ -426,6 +435,87 @@ def _is_loopback_host(host):
     return host in ("localhost", "::1") or host.startswith("127.")
 
 
+# ---------------------------------------------------------------------------
+# base_url 策略（安全加固批 3）
+# ---------------------------------------------------------------------------
+# 规则（批 3 裁决）：
+#   · 非本网地址（非 127.0.0.1/私网段）强制 HTTPS —— 明文发 key 到公网是外泄面
+#   · 陌生 endpoint 首次使用弹确认，放行清单随 ai_config（approved_endpoints）
+#   · 本地地址豁免（保证 Local AI / Ollama 场景可用）
+LOCAL_NETS = None      # 惰性初始化（import ipaddress 一次）
+
+def _local_nets():
+    global LOCAL_NETS
+    if LOCAL_NETS is None:
+        import ipaddress
+        LOCAL_NETS = [ipaddress.ip_network(n) for n in
+                      ("127.0.0.0/8", "10.0.0.0/8",
+                       "172.16.0.0/12", "192.168.0.0/16")]
+    return LOCAL_NETS
+
+
+def is_local_endpoint(base_url=None):
+    """本网地址判定：localhost / ::1 / 127.x / RFC1918 私网段（HTTPS 强制与
+    陌生端点确认均豁免此类）。域名解析不了按非本地处理（从严）。"""
+    host = endpoint_host(base_url or "").lower().strip("[]")
+    if host in ("localhost", "::1") or host.startswith("127."):
+        return True
+    try:
+        import ipaddress
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return any(addr in net for net in _local_nets())
+
+
+def validate_base_url(base_url):
+    """base_url 合规校验。返回 (ok, 人话原因)。
+    保存时与发送前双道执行（防手改配置文件绕过界面校验）。"""
+    url = (base_url or "").strip()
+    if not url:
+        return False, "base_url 为空"
+    m = re.match(r"^([a-zA-Z][a-zA-Z0-9+.\-]*)://([^/:?#]+)", url)
+    if not m:
+        return False, "接口地址格式应为 http(s)://主机[:端口]/…（当前：%s）" % url[:60]
+    scheme = m.group(1).lower()
+    if scheme not in ("http", "https"):
+        return False, "只支持 http/https 协议（当前：%s）" % scheme
+    if scheme == "http" and not is_local_endpoint(url):
+        return False, ("公网/非本网地址必须使用 HTTPS（本地模型 127.0.0.1/"
+                       "私网地址可用 http）")
+    return True, ""
+
+
+def endpoint_addr(base_url=None):
+    """(host, port) 解析：显式端口优先；否则 https→443 / http→80（网络探测用）。"""
+    from urllib.parse import urlparse
+    url = (base_url or DEFAULT_CONFIG["base_url"]).strip()
+    try:
+        parsed = urlparse(url)
+        host = parsed.hostname or "api.deepseek.com"
+        port = parsed.port
+        scheme = (parsed.scheme or "https").lower()
+    except Exception:
+        return "api.deepseek.com", 443
+    if not port:
+        port = 443 if scheme != "http" else 80
+    return host, int(port)
+
+
+def approved_endpoints(cfg=None):
+    """放行清单（ai_config.approved_endpoints，随配置文件走）。"""
+    cfg = cfg or load_config()
+    value = cfg.get("approved_endpoints")
+    return [str(h) for h in value if isinstance(h, str)] if isinstance(value, list) else []
+
+
+def endpoint_approved(base_url=None, cfg=None):
+    """陌生端点判定：本网地址恒放行；其余须在放行清单内。"""
+    if is_local_endpoint(base_url):
+        return True
+    return endpoint_host(base_url) in approved_endpoints(cfg)
+
+
 def open_session(base_url):
     """
     建 requests.Session：
@@ -450,6 +540,10 @@ def test_connection(cfg=None):
     cfg = cfg or load_config()
     if not is_configured(cfg):
         return False, "尚未填写 API Key", 0
+    # base_url 策略（安全加固批 3）：测试连接同样受 HTTPS 规则约束
+    ok_url, reason_url = validate_base_url(cfg.get("base_url"))
+    if not ok_url:
+        return False, "接口地址不合规：%s" % reason_url, 0
     try:
         import requests  # 依赖可用性探针：本函数经 open_session 间接使用，pyflakes F401 属预期
     except ImportError:
@@ -511,12 +605,19 @@ def _friendly_net_error(exc):
 
 
 # ---------------------------------------------------------------------------
-# 网络探测（QThread · TCP connect 443 端口 · 2s 超时）
+# 网络探测（QThread · TCP connect · 2s 超时）
 # ---------------------------------------------------------------------------
 class NetworkProbe(QThread):
     """
-    一次性探测线程：TCP connect 到配置端点域名的 443 端口。
+    一次性探测线程：TCP connect 到配置端点。
     UI 层负责"启动时探一次 + 每 60s 重探一次"（QTimer 重启本线程）。
+
+    安全加固批 3 修复：
+        · 按按 base_url 解析端口（https 默认 443 / http 默认 80 / 显式端口优先）
+          —— 旧实现恒连 443，本地模型 http://127.0.0.1:11434 被探测判死，
+          发送按钮永久置灰（Local AI 场景实际不可用的根因）；
+        · loopback 端点直接判可达（批 3 裁决：本地服务起没起由发送时的
+          连接错误给出人话，不做误杀探测）。
 
     信号：probe_result(bool reachable, str detail)
     """
@@ -524,18 +625,26 @@ class NetworkProbe(QThread):
 
     def __init__(self, base_url=None, parent=None):
         super(NetworkProbe, self).__init__(parent)
-        self._host = endpoint_host(base_url)
+        self._host, self._port = endpoint_addr(base_url)
+        self._is_local = is_local_endpoint(base_url)
         self._timeout = 2.0
 
     def run(self):
         # socket lazy import：保持模块级零网络依赖（离网审计友好）
         import socket
+        if self._is_local:
+            self.probe_result.emit(True, "本地端点 %s:%d（不探测）"
+                                   % (self._host, self._port))
+            return
         try:
-            sock = socket.create_connection((self._host, 443), timeout=self._timeout)
+            sock = socket.create_connection((self._host, self._port),
+                                            timeout=self._timeout)
             sock.close()
-            self.probe_result.emit(True, self._host)
+            self.probe_result.emit(True, "%s:%d" % (self._host, self._port))
         except Exception as exc:
-            self.probe_result.emit(False, "%s：%s" % (self._host, _friendly_net_error(exc)))
+            self.probe_result.emit(False, "%s:%d：%s"
+                                   % (self._host, self._port,
+                                      _friendly_net_error(exc)))
 
 
 # ---------------------------------------------------------------------------
@@ -1078,6 +1187,11 @@ class ChatWorker(QThread):
             return
 
         cfg = self._config
+        # base_url 策略运行时复核（安全加固批 3）：防手改配置文件绕过界面校验
+        ok_url, reason_url = validate_base_url(cfg.get("base_url"))
+        if not ok_url:
+            self.failed.emit("接口地址不合规：%s" % reason_url)
+            return
         headers = {
             "Authorization": "Bearer %s" % (cfg.get("api_key") or ""),
             "Content-Type": "application/json",
