@@ -296,6 +296,7 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 ### 工具链（开发依赖，不入 requirements.txt 运行时）
 
 - **Pillow**：2026-10-13 I 批（exe 图标）接入时安装（隔离 venv，Pillow 12.3.0），仅用于 docs/screenshots/tubiao.png → app/icon.ico 一次性转换；运行时无依赖。
+- **图标源素材取舍（I 批收口 2026-10-13）**：源图 tubiao.png 已从 docs/screenshots/ 出库，不再另立 assets/ 目录——素材已定稿为 app/icon.ico（唯一消费点，exe --icon 与主窗 setWindowIcon 同源），且 git 历史中 tubiao.png 永久可回溯；为一张定稿 png 单独开素材目录得不偿失。若日后需要改图标，从 git 历史（9d6eaa5 前）取回源图重新转换即可。
 
 ### 本机工作环境坑（跨批复用）
 

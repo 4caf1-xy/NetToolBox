@@ -26,8 +26,8 @@ import html
 import datetime
 
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import (QColor, QFont, QKeySequence, QSyntaxHighlighter,
-                         QTextCharFormat, QTextCursor, QDesktopServices)
+from PyQt5.QtGui import (QColor, QFont, QKeySequence,                          QSyntaxHighlighter, QTextCharFormat, QTextCursor,
+                         QDesktopServices, QIcon)
 from PyQt5.QtCore import QUrl
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QLineEdit, QPushButton,
@@ -40,8 +40,8 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
 
 import renderer
 import db as dbmod
-from db import (get_base_dir, display_vendor, display_os, display_platform,
-                PLACEHOLDER_VENDORS)
+from db import (get_base_dir, resource_path, display_vendor, display_os,
+                display_platform, PLACEHOLDER_VENDORS)
 
 # ---------------------------------------------------------------------------
 # 视觉设计系统（第 5 轮 UI 专项）
@@ -506,6 +506,11 @@ class MainWindow(QMainWindow):
         self._recent_suppress = False    # 面板跳转重置筛选时暂时不记"详情打开"
 
         self.setWindowTitle("%s v%s · %s" % (APP_TITLE, APP_VERSION, APP_NAME))
+        # 主窗图标（I 批补齐 2026-10-13）：开发态与构建态标题栏/任务栏一致；
+        # QIcon 按 .ico 内多尺寸自动取档，无需手动各尺寸加载。
+        _icon_path = resource_path("icon.ico")
+        if os.path.isfile(_icon_path):
+            self.setWindowIcon(QIcon(_icon_path))
         self.resize(1420, 900)
         self.setMinimumSize(1100, 700)
 

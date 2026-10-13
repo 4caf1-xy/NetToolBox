@@ -150,6 +150,12 @@ def case_b():
         db = seeded_db()
         w = ui_main.MainWindow(db)
 
+        # 主窗图标（I 批补齐 2026-10-13）：icon.ico 载入成功、非空
+        check("B/窗图标-非空", not w.windowIcon().isNull(),
+              "windowIcon isNull=%s" % w.windowIcon().isNull())
+        check("B/窗图标-路径存在",
+              os.path.isfile(os.path.join(os.path.dirname(ui_main.__file__), "icon.ico")), "")
+
         entry = db.search(keyword="trunk")[0]
         err = db.all_errs()[0]
         tree = db.all_trees()[0]

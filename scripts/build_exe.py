@@ -204,6 +204,7 @@ def build():
         "--name", APP_NAME,
         "--add-data", os.path.join(APP_DIR, "seed_data") + ";seed_data",   # 种子库打进 exe（Windows 用 ; 分隔）
         "--add-data", os.path.join(APP_DIR, "theme.qss") + ";.",           # 全站样式表（theme.py 运行时读取；缺失有内置兜底）
+        "--add-data", os.path.join(APP_DIR, "icon.ico") + ";.",            # 主窗图标（I 批收口 2026-10-13：setWindowIcon 载入）
         # ★ exe 图标（I 批 2026-10-13）：app/icon.ico（由 docs/screenshots/tubiao.png 一次性转换）。
         #   本脚本是图标接入的**实际生效入口**：构建前根目录 NetToolBox.spec 会被 rename
         #   让位并由 PyInstaller 重生成，spec 里的 icon 参数不经过本链路。
