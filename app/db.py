@@ -1405,6 +1405,10 @@ class Database(object):
         返回 (新增, 更新, 跳过)。
         ★ 大小上限（安全加固批 4）：超过 NLB_MAX_BYTES 直接 ValueError 拒读
           （调用方 UI 已有 try/except 呈现），json.load 不给恶意超大文件机会。
+        ★ pattern_lint 入库门禁（审码修复批 F1，2026-10-13）：errs 中 pattern
+          触发 [E]（灾难性回溯）直接 ValueError 拒读并列前 5 条 err_id（与大小
+          上限同口径）；[W]（alternation/超长）不拦截，计数存 last_pattern_warns
+          供调用方提示复核。
         """
         try:
             _size = os.path.getsize(path)
@@ -1426,6 +1430,33 @@ class Database(object):
             unres = data.get("err_unresolved", []) or []
         else:
             entries, trees, errs, unres = [], [], [], []
+
+        # ---- pattern_lint 入库门禁（F1）：error_match 仅依赖 re，懒加载无循环 ----
+        self.last_pattern_warns = 0
+        if errs:
+            import error_match as _em
+            rejects = []
+            warns = 0
+            for raw in errs:
+                if not isinstance(raw, dict):
+                    continue
+                eid = str(raw.get("err_id") or "<无err_id>")
+                try:
+                    problems = _em.pattern_lint(raw.get("pattern") or "")
+                except Exception:
+                    problems = []      # lint 自身异常不放行也不误拦，交编译期兜底
+                lv_e = [msg for lv, msg in problems if lv == "E"]
+                if lv_e:
+                    rejects.append((eid, lv_e[0]))
+                elif any(lv == "W" for lv, _m in problems):
+                    warns += 1
+            if rejects:
+                head = "；".join("%s（%s）" % (e, m[:60]) for e, m in rejects[:5])
+                raise ValueError(
+                    "导入被拒：%d 条报错字典 pattern 触发灾难性回溯 [E] 门禁——%s%s。"
+                    "危险 pattern 不得入库，请修正后重新导出/导入。"
+                    % (len(rejects), head, "…" if len(rejects) > 5 else ""))
+            self.last_pattern_warns = warns
 
         result = self.import_entries(entries, merge=merge, operator=operator)
         a, u, s = result

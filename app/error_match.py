@@ -109,6 +109,91 @@ def _unbounded_qty_count(body):
     return n
 
 
+def _branch_first_atoms(branch):
+    """提取一个分支的「首消费元素」集合（用于分支重叠判定）。
+    返回 set（如 {'a'} / {'0','1'..}）；无法可靠判定（嵌套组/空分支/复杂形态）
+    返回 None → 调用方按"可能重叠"从严处理。"""
+    branch = branch.strip()
+    if not branch:
+        return None                      # 空分支可匹配空串 → 视为可能重叠
+    i = 0
+    if branch[0] == "^":                 # 锚点不消费字符，跳过
+        i = 1
+        if i >= len(branch):
+            return None
+    c = branch[i]
+    if c == "\\":
+        if i + 1 < len(branch):
+            return {branch[i + 1]}       # \. \w 等取转义后字符作近似
+        return None
+    if c == "[":
+        close = branch.find("]", i + 1)
+        if close < 0:
+            return None
+        inner = branch[i + 1:close]
+        if inner.startswith("^"):
+            return None                  # 否定字符类无法枚举，从严
+        chars = set()
+        j = 0
+        while j < len(inner):
+            if inner[j] == "\\" and j + 1 < len(inner):
+                chars.add(inner[j + 1])
+                j += 2
+            else:
+                chars.add(inner[j])
+                j += 1
+        return chars or None
+    if c == "(":
+        return None                      # 嵌套组首元素需递归，从严
+    if c in "*+?{|":
+        return None                      # 量词/分支开头形态怪异，从严
+    return {c}
+
+
+def _alternation_may_overlap(body):
+    """组内分支是否存在潜在首元素重叠（(a|aa)+ 类指数回溯的静态近似）。
+    任一首元素集合为 None（不可判定）或两两相交 → True。
+    (a|b)+ 等互斥分支正常形态返回 False，不产生 [W] 误报。"""
+    branches = []                        # 顶层 | 切分（跳过字符类/转义/嵌套括号）
+    depth = 0
+    in_class = False
+    i = 0
+    last = 0
+    while i < len(body):
+        c = body[i]
+        if in_class:
+            if c == "\\":
+                i += 1
+            elif c == "]":
+                in_class = False
+        elif c == "\\":
+            i += 1
+        elif c == "[":
+            in_class = True
+        elif c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+        elif c == "|" and depth == 0:
+            branches.append(body[last:i])
+            last = i + 1
+        i += 1
+    branches.append(body[last:])
+    if len(branches) < 2:
+        return False
+    atoms = []
+    for br in branches:
+        s = _branch_first_atoms(br)
+        if s is None:
+            return True                  # 不可判定 → 从严报 [W]
+        atoms.append(s)
+    for a in range(len(atoms)):
+        for b in range(a + 1, len(atoms)):
+            if atoms[a] & atoms[b]:
+                return True
+    return False
+
+
 def _find_group_close(pattern, open_idx):
     """返回与 open_idx 处 "(" 配对的 ")" 下标；跳过字符类与转义；无配对返回 -1。"""
     depth = 0
@@ -144,6 +229,13 @@ def pattern_lint(pattern):
            match_errors 逐行 re.search 冻结界面。validate 以 [E] 硬拦截。
         W  pattern 超长（> PATTERN_MAX_LEN 字符）—— validate 以 [W] 告警。
     判定为静态语法扫描：跳过字符类与转义后逐组检查，不执行正则本身。
+
+    [W] 规则（审码批 F1，2026-10-13）：组内含 | 分支且组外再套无界量词
+    （如 (a|aa)+ / (a|a)*）→ alternation 重叠回溯，实测约 1.65^n 指数膨胀
+    （(a|aa)+b 对 26 个 a 单行 0.039s），但 (foo|bar)+ 类正常形态大量存在，
+    升 [E] 误报不可接受 → 人工确认级 [W]。判定用分支首元素相交近似
+    （_alternation_may_overlap）：互斥分支（(a|b)+）不报，首元素不可判定
+    （嵌套组/否定字符类等）从严报。
     """
     pattern = pattern or ""
     problems = []
@@ -167,18 +259,34 @@ def pattern_lint(pattern):
             close = _find_group_close(pattern, i)
             if close > i:
                 body = pattern[i + 1:close]
-                if _unbounded_qty_count(body):
-                    qty = pattern[close + 1:close + 2]
-                    if qty in ("*", "+"):
+                qty = pattern[close + 1:close + 2]
+                outer_unbounded = (
+                    qty in ("*", "+")
+                    or (qty == "{"
+                        and bool(_UNBOUNDED_QTY_RE.match(pattern, close + 1))))
+                if _unbounded_qty_count(body) and outer_unbounded:
+                    if qty == "{":
+                        m = _UNBOUNDED_QTY_RE.match(pattern, close + 1)
+                        problems.append((
+                            "E", "嵌套量词：组内含无界量词且组外为 %s（灾难性回溯）"
+                                 % m.group(0)))
+                    else:
                         problems.append((
                             "E", "嵌套量词：组内含无界量词且组外为 %s%s（灾难性回溯，"
                                  "如 (a+)+ 形态）" % (pattern[i:close + 1][:30], qty)))
-                    elif qty == "{":
+                elif outer_unbounded and _alternation_may_overlap(body):
+                    # alternation 重叠回溯（(a|aa)+ 类）→ [W] 人工确认，不硬拦
+                    if qty == "{":
                         m = _UNBOUNDED_QTY_RE.match(pattern, close + 1)
-                        if m:
-                            problems.append((
-                                "E", "嵌套量词：组内含无界量词且组外为 %s（灾难性回溯）"
-                                     % m.group(0)))
+                        problems.append((
+                            "W", "alternation 回溯：组内含 | 分支且组外为 %s"
+                                 "（分支重叠时指数回溯，如 (a|aa)+ 形态），请确认分支互斥"
+                                 % m.group(0)))
+                    else:
+                        problems.append((
+                            "W", "alternation 回溯：组内含 | 分支且组外为 %s%s"
+                                 "（分支重叠时指数回溯，如 (a|aa)+ 形态），请确认分支互斥"
+                                 % (pattern[i:close + 1][:30], qty)))
             # 不跳到 close：嵌套的内层组也要逐一检查（((a+)+) 只报最内层足够定位）
         i += 1
     return problems

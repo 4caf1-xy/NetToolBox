@@ -1099,9 +1099,13 @@ class LibraryEditorDialog(QDialog):
             QMessageBox.critical(self, "导入失败", "文件解析失败：\n%s" % exc)
             return
         self.refresh()
+        warns = int(getattr(self.db, "last_pattern_warns", 0) or 0)
+        extra = ("\n\n⚠ %d 条 pattern 触发人工确认级告警（alternation 回溯/超长），"
+                 "请复核。" % warns) if warns else ""
         QMessageBox.information(self, "导入完成",
-                                "新增 %d 条，更新 %d 条，跳过 %d 条。\n\n"
-                                "（同 UUID 冲突时保留『已验证』的那一条）" % (added, updated, skipped))
+                                "新增 %d 条，更新 %d 条，跳过 %d 条。%s\n\n"
+                                "（同 UUID 冲突时保留『已验证』的那一条）"
+                                % (added, updated, skipped, extra))
 
     def on_export(self):
         """导出整个库为 .nlb"""

@@ -3,11 +3,14 @@
 smoke_regex_guard.py —— 安全加固批 4：导入与 regex 防护回归断言
 
 覆盖：
-    [1] pattern_lint（嵌套量词 [E]：正例/负例；超长 [W]；字符类/转义/有限量词不误报）
+    [1] pattern_lint（嵌套量词 [E]：正例/负例；超长 [W]；字符类/转义/有限量词不误报；
+        alternation 重叠 [W]：组内含 | 且组外无界，正例/负例，[E] 集合零回归）
     [2] 存量 82 条报错字典对账（预期零命中，有命中如实报告）
     [3] validate-seed 实跑 EXIT=0（lint 接入后的真机对账）
     [4] import_nlb 大小上限（超限拒读 / 正常导入不受影响）
     [5] 诊断输入截断助手（200KB / 1 万行双条件）
+    [6] import_nlb pattern 门禁（审码修复批 F1：灾难 pattern 拒读列 err_id /
+        alternation [W] 放行并计数 / 正常导入不受影响）
 
 用法：
     PYTHONPATH=app;_vendor python scripts/smoke_regex_guard.py
@@ -41,6 +44,12 @@ def has_W(pattern):
     return any(lv == "W" for lv, _m in _em.pattern_lint(pattern))
 
 
+def _has_only_W(pattern):
+    """[W] 有而 [E] 无（区分 alternation 降档与嵌套量词保持 [E]）。"""
+    lvs = [lv for lv, _m in _em.pattern_lint(pattern)]
+    return "W" in lvs and "E" not in lvs
+
+
 def main():
     print("=" * 66)
     print("smoke_regex_guard —— 导入与 regex 防护（安全加固批 4）")
@@ -61,6 +70,31 @@ def main():
     check("500 字符整不报 [W]", not has_W("a" * 500))
     check("空 pattern 零输出", _em.pattern_lint("") == [])
     check("None pattern 零输出", _em.pattern_lint(None) == [])
+
+    # ---- [1b] alternation 重叠 [W]（审码修复批 F1）----
+    print("[1b] alternation 重叠 [W]")
+    # 正例：组内 | + 组外无界 → [W] 且不升 [E]
+    for pat in ("(a|aa)+", "(a|aa)+b", "(a|a)*b", "(?:x|xx)+", "(foo|foobar)+",
+                "(a|ab){2,}"):
+        lv = _em.pattern_lint(pat)
+        check("[W] alternation 命中（%s）" % pat,
+              has_W(pat) and not has_E(pat), str(lv))
+    # 负例：有限组外 / 无 | / 字符类内 | / 转义 | 不误报
+    for pat in ("(a|aa){1,3}", "(a|b)+c", "[a|b]+", "\\(a\\|b\\)+", "a|b",
+                "(a|b)$"):
+        check("无害不报 [W]（%s）" % pat, not _em.pattern_lint(pat))
+    # 审码报告实测形态：指数回溯实证（(a|aa)+b 对 'a'*26+'c' ≈ 0.039s，1.65^n）
+    import re as _re
+    import time as _time
+    _t0 = _time.perf_counter()
+    _re.compile("(a|aa)+b").search("a" * 26 + "c")
+    _dt = _time.perf_counter() - _t0
+    check("实测 (a|aa)+b 回溯耗时 >1ms（证明该类确实危险）", _dt > 0.001,
+          "%.4fs" % _dt)
+    # 既有 [E] 集合零回归：嵌套量词仍判 [E] 而非降级 [W]
+    for pat in ("(a+)+", "(.*)*", "(?:\\w+)*", "((a+)+)"):
+        check("[E] 集合零回归（%s 仍为 E 非 W）" % pat,
+              has_E(pat) and not _has_only_W(pat))
 
     # ---- [2] 存量对账（82 条，预期零命中）----
     print("[2] 存量报错字典对账")
@@ -136,12 +170,59 @@ def main():
     out4, tr4 = truncate_diagnose_input("")
     check("空输入不截断", (out4, tr4) == ("", False))
 
+    # ---- [6] import_nlb pattern 门禁（审码修复批 F1）----
+    print("[6] import_nlb pattern 门禁")
+    tmpdir6 = tempfile.mkdtemp(prefix="ntbx_lint_")
+    db6 = dbmod.Database(os.path.join(tmpdir6, "lib6.db"))
+
+    def _err(eid, pattern):
+        return {"err_id": eid, "vendor": "huawei", "os_family": "vrp8",
+                "cause": "测试报错 %s" % eid, "pattern": pattern,
+                "solution_steps": ["步骤一", "步骤二"],
+                "examples": ["%BadCommand input", "%BadCommand again"]}
+
+    # 6a 灾难 pattern → ValueError 拒读并列 err_id
+    bad_path = os.path.join(tmpdir6, "bad.nlb")
+    with open(bad_path, "w", encoding="utf-8") as fp:
+        json.dump({"entries": [], "err_dict": [_err("E-evil-1", "(a+)+"),
+                                               _err("E-evil-2", "(?:\\w+)*"),
+                                               _err("E-evil-3", "(a|aa)+")]}, fp)
+    try:
+        db6.import_nlb(bad_path)
+        check("灾难 pattern 导入被拒", False, "未抛 ValueError")
+    except ValueError as exc:
+        msg = str(exc)
+        check("灾难 pattern 导入被拒（[E] 门禁）", "导入被拒" in msg and "[E]" in msg, msg)
+        check("拒读信息列违规 err_id", "E-evil-1" in msg and "E-evil-2" in msg, msg)
+        check("拒读信息只列前 5 条", "E-evil-1" in msg, msg)
+    check("被拒导入零写入（err_dict 无残留）", db6.count_errs() == 0)
+
+    # 6b alternation [W] → 放行导入 + last_pattern_warns 计数
+    warn_path = os.path.join(tmpdir6, "warn.nlb")
+    with open(warn_path, "w", encoding="utf-8") as fp:
+        json.dump({"entries": [], "err_dict": [_err("E-warn-1", "(a|aa)+"),
+                                               _err("E-ok-1", "Error:\\s*\\w+")]}, fp)
+    a, u, s = db6.import_nlb(warn_path)
+    check("alternation [W] 放行导入", (a, u, s) == (2, 0, 0), str((a, u, s)))
+    check("[W] 计数入 last_pattern_warns=1",
+          getattr(db6, "last_pattern_warns", 0) == 1,
+          str(getattr(db6, "last_pattern_warns", None)))
+
+    # 6c 正常文件导入不受影响（warns 归零）
+    ok_path = os.path.join(tmpdir6, "ok2.nlb")
+    with open(ok_path, "w", encoding="utf-8") as fp:
+        json.dump({"entries": [], "err_dict": [_err("E-ok-2", "%BadCommand")]}, fp)
+    a, u, s = db6.import_nlb(ok_path)
+    check("正常 pattern 导入不受影响", (a, u, s) == (1, 0, 0), str((a, u, s)))
+    check("无 [W] 时计数归零", getattr(db6, "last_pattern_warns", 0) == 0)
+    db6.close()
+
     print("=" * 66)
     if FAIL:
         print("结果：%d 项失败：%s" % (len(FAIL), "、".join(FAIL)))
         return 1
-    print("结果：全部通过（lint 正反例 + 存量对账零命中 + validate EXIT=0 + "
-          "导入上限 + 截断助手）")
+    print("结果：全部通过（lint 正反例 + alternation [W] + 存量对账 + validate "
+          "EXIT=0 + 导入上限 + 截断助手 + 导入 pattern 门禁）")
     return 0
 
 
