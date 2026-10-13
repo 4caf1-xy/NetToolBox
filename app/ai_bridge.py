@@ -930,13 +930,15 @@ def _read_store_json(path):
 
 def _write_store_json(path, obj):
     """写会话/案例文件：DPAPI 可用 → 加密落盘；不可用/加密失败 → 明文兜底
-    （可用性优先，状态留痕不静默）。返回 (True, "") / (False, 错误)。"""
-    try:
-        content = _store_protect(obj)
-    except Exception as exc:
-        STORE_STATUS.update(state="encrypt-failed-keep-plain",
-                            detail="会话/案例加密失败，以明文落盘：%s" % str(exc)[:60])
-        content = None
+    （可用性优先，加密异常状态留痕不静默）。返回 (True, "") / (False, 错误)。"""
+    content = None
+    if _dpapi_available():
+        try:
+            content = _store_protect(obj)
+        except Exception as exc:
+            STORE_STATUS.update(state="encrypt-failed-keep-plain",
+                                detail="会话/案例加密失败，以明文落盘：%s" % str(exc)[:60])
+            content = None
     try:
         with open(path, "w", encoding="utf-8") as fp:
             fp.write(content if content is not None
