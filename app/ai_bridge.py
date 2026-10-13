@@ -183,14 +183,73 @@ def _migrated_payload(cfg, enc_value):
     return payload
 
 
+# ---------------------------------------------------------------------------
+# 事务式配置改写（批 1 舞步通用化，L 批起 key / 放行指纹字段共用）
+# ---------------------------------------------------------------------------
+def _transactional_config_rewrite(path, new_payload, verify_fn):
+    """
+    配置文件事务式改写（安全加固批 1 的迁移舞步通用化）：
+        1. 写新版临时文件 <path>.new-enc（此刻介质上唯一明文/旧版 = 原文件）
+        2. 原文件 rename 为 <path>.bak-<ts>
+        3. 新版转正（此后介质上零旧版）
+        4. verify_fn(转正后路径) → 通过：删备份；失败：备份还原
+    返回 (状态串, detail)。状态串同 KEY_STATUS 语义族：
+        migrated / migrated-backup-locked / verify-failed-restored /
+        verify-failed-restore-failed / readonly-keep-plain
+    """
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    bak = path + ".bak-" + stamp
+    new = path + ".new-enc"
+    try:
+        with open(new, "w", encoding="utf-8") as fp:
+            json.dump(new_payload, fp, ensure_ascii=False, indent=2)
+        os.rename(path, bak)        # 旧版唯一份让位给备份
+        os.replace(new, path)       # 新版转正
+    except Exception as exc:
+        # 典型：只读介质。尽力还原 rename，保持旧版可用。
+        try:
+            if os.path.exists(new):
+                os.remove(new)
+            if not os.path.isfile(path) and os.path.isfile(bak):
+                os.replace(bak, path)
+        except Exception:
+            pass
+        return "readonly-keep-plain", str(exc)[:60]
+    try:
+        ok = bool(verify_fn(path))
+    except Exception:
+        ok = False
+    if ok:
+        try:
+            os.remove(bak)
+            return "migrated", ""
+        except Exception as exc:
+            return "migrated-backup-locked", str(exc)[:40]
+    try:
+        os.replace(bak, path)
+        return "verify-failed-restored", ""
+    except Exception as exc:
+        return "verify-failed-restore-failed", str(exc)[:40]
+
+
+def _drop_stale_config_field(path, raw, field):
+    """密文字段在场时清除配置文件里残留的指定明文字段（ciphertext-wins 通用形，
+    审码修复批 F7 同语义：密文原样保留、不重加密）。失败（只读介质）静默让位。"""
+    try:
+        payload = {k: v for k, v in raw.items() if k != field}
+        tmp = path + ".tmp-plaindrop"
+        with open(tmp, "w", encoding="utf-8") as fp:
+            json.dump(payload, fp, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+    except Exception:
+        pass
+
+
 def _migrate_legacy_key(cfg):
     """
-    事务式迁移旧明文 key（load_config 检测到明文 api_key 时触发一次）：
-        1. 写加密版临时文件 ai_config.json.new-enc（此刻介质上唯一明文 = 原文件）
-        2. 原文件 rename 为 ai_config.json.bak-<ts>（介质上明文唯一份 = bak）
-        3. 加密版转正（此后介质上零明文）
-        4. 解密 round-trip 验证 → 通过：删备份；失败：备份还原
-    任何一步失败都降级为「保持明文可用」（现场不因迁移瘫痪），状态记 KEY_STATUS。
+    事务式迁移旧明文 key（load_config 检测到明文 api_key 时触发一次）。
+    舞步与状态语义见 _transactional_config_rewrite；任何一步失败都降级为
+    「保持明文可用」（现场不因迁移瘫痪），状态记 KEY_STATUS。
     """
     plain = str(cfg.get("api_key") or "")
     path = config_path()
@@ -203,69 +262,121 @@ def _migrate_legacy_key(cfg):
                           detail="DPAPI 加密失败，保持明文（%s）" % str(exc)[:60])
         return
     enc_value = KEY_ENC_PREFIX + base64.b64encode(blob).decode("ascii")
-    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    bak = path + ".bak-" + stamp
-    new = path + ".new-enc"
-    try:
-        with open(new, "w", encoding="utf-8") as fp:
-            json.dump(_migrated_payload(cfg, enc_value), fp,
-                      ensure_ascii=False, indent=2)
-        os.rename(path, bak)        # 明文唯一份让位给备份
-        os.replace(new, path)       # 加密版转正
-    except Exception as exc:
-        # 典型：只读介质。尽力还原 rename，保持明文可用。
-        try:
-            if os.path.exists(new):
-                os.remove(new)
-            if not os.path.isfile(path) and os.path.isfile(bak):
-                os.replace(bak, path)
-        except Exception:
-            pass
-        KEY_STATUS.update(state="readonly-keep-plain",
-                          detail="配置文件写入失败（只读介质？），key 保持明文：%s"
-                                 % str(exc)[:50])
-        return
-    # round-trip 验证：从转正后的文件读回、解密、比对
-    roundtrip = ""
-    try:
-        with open(path, "r", encoding="utf-8") as fp:
+    payload = _migrated_payload(cfg, enc_value)
+
+    def verify(p):
+        with open(p, "r", encoding="utf-8") as fp:
             check = json.load(fp)
-        roundtrip = _decrypt_key(check)
-    except Exception:
-        roundtrip = ""
-    if roundtrip == plain and roundtrip:
-        try:
-            os.remove(bak)
-            KEY_STATUS.update(state="migrated",
-                              detail="旧明文 key 已迁移为 DPAPI 加密存储")
-        except Exception as exc:
-            KEY_STATUS.update(state="migrated-backup-locked",
-                              detail="迁移成功但备份删除失败（%s），"
-                                     "请手动删除 %s" % (str(exc)[:40],
-                                                       os.path.basename(bak)))
+        return _decrypt_key(check) == plain and plain
+
+    state, detail = _transactional_config_rewrite(path, payload, verify)
+    if state == "migrated":
+        KEY_STATUS.update(state="migrated",
+                          detail="旧明文 key 已迁移为 DPAPI 加密存储")
+    elif state == "migrated-backup-locked":
+        KEY_STATUS.update(state=state,
+                          detail="迁移成功但备份删除失败（%s），请手动删除 ai_config.json.bak-*"
+                                 % detail)
+    elif state == "verify-failed-restored":
+        KEY_STATUS.update(state=state,
+                          detail="迁移 round-trip 验证失败，已从备份还原明文")
+    elif state == "verify-failed-restore-failed":
+        KEY_STATUS.update(state=state,
+                          detail="验证失败且备份还原失败（%s）——请检查 ai_config.json.bak-*"
+                                 % detail)
     else:
-        try:
-            os.replace(bak, path)
-            KEY_STATUS.update(state="verify-failed-restored",
-                              detail="迁移 round-trip 验证失败，已从备份还原明文")
-        except Exception as exc:
-            KEY_STATUS.update(state="verify-failed-restore-failed",
-                              detail="验证失败且备份还原失败（%s）——请检查 %s"
-                                     % (str(exc)[:40], os.path.basename(bak)))
+        KEY_STATUS.update(state=state,
+                          detail="配置文件写入失败（只读介质？），key 保持明文：%s" % detail)
 
 
-def _drop_stale_plain_key(path, raw):
-    """F7（ciphertext-wins）：密文有效时清除文件里残留的明文 api_key 字段，
-    密文原样保留、不重加密。失败（只读介质）静默让位——明文残留属可接受降级，
-    密文仍在优先位。"""
+# ---------------------------------------------------------------------------
+# 放行指纹字段加密（L 批裁决 2，2026-10-13）
+# ---------------------------------------------------------------------------
+# 威胁模型：gate_allowances 的指纹 = kind+value 的 sha256 前 16 位，值域是低熵
+# secret（口令/SNMP community 等）。把指纹明文放 ai_config.json = 给离线字典攻击
+# 留了 oracle（拿常用口令字典算指纹比对即可反推）。方案：指纹字典随 key 同走
+# DPAPI——存 gate_allowances_enc（dpapi-v1），明文字段迁移后不落盘；当日有效
+# 语义不变；存量单字段迁移同事务式（复用 keyvault 帮助函数）。
+GATE_ALLOW_FIELD = "gate_allowances"          # 旧明文字段（迁移前/降级兼容）
+GATE_ALLOW_FIELD_ENC = "gate_allowances_enc"  # L 批起的新字段
+
+# 运行期状态（不落盘；KEY_STATUS 模式）
+# state 取值：ok / migrated / migrated-backup-locked / verify-failed-restored /
+#             verify-failed-restore-failed / readonly-keep-plain /
+#             plain-no-dpapi / encrypt-failed-keep-plain / decrypt-failed
+GATE_STATUS = {"state": "ok", "detail": ""}
+
+
+def encrypt_gate_dict_value(dict_value):
+    """dict → "dpapi-v1:<base64>" 加密串。失败抛异常（调用方决定降级路径）。"""
+    blob = _dpapi_protect(json.dumps(dict_value or {}, ensure_ascii=False,
+                                     sort_keys=True).encode("utf-8"))
+    return KEY_ENC_PREFIX + base64.b64encode(blob).decode("ascii")
+
+
+def decrypt_gate_value(enc_value):
+    """加密串 → dict。无加密串 / 失败返回 None 并记 GATE_STATUS。"""
+    enc = str(enc_value or "")
+    if not enc.startswith(KEY_ENC_PREFIX):
+        return None
+    if not _dpapi_available():
+        GATE_STATUS.update(state="plain-no-dpapi",
+                           detail="非 Windows 环境无法解密放行指纹密文")
+        return None
     try:
-        payload = {k: v for k, v in raw.items() if k != "api_key"}
-        tmp = path + ".tmp-plaindrop"
-        with open(tmp, "w", encoding="utf-8") as fp:
-            json.dump(payload, fp, ensure_ascii=False, indent=2)
-        os.replace(tmp, path)
-    except Exception:
-        pass
+        blob = base64.b64decode(enc[len(KEY_ENC_PREFIX):])
+        data = json.loads(_dpapi_unprotect(blob).decode("utf-8"))
+        if isinstance(data, dict):
+            GATE_STATUS.update(state="ok", detail="")
+            return data
+    except Exception as exc:
+        GATE_STATUS.update(state="decrypt-failed",
+                           detail="放行指纹密文解不开：%s（当日放行记忆需重新确认）"
+                                  % str(exc)[:60])
+    return None
+
+
+def _migrate_plain_gate_allowances(raw, plain_dict):
+    """
+    旧明文 gate_allowances 字段 → gate_allowances_enc（load_config 检测到
+    明文字段时触发一次，事务式单字段迁移，复用 keyvault 舞步）。
+    """
+    path = config_path()
+    if not os.path.isfile(path):
+        return
+    if not _dpapi_available():
+        GATE_STATUS.update(state="plain-no-dpapi",
+                           detail="非 Windows 环境无法加密放行指纹，保持明文")
+        return
+    try:
+        enc_value = encrypt_gate_dict_value(plain_dict)
+    except Exception as exc:
+        GATE_STATUS.update(state="encrypt-failed-keep-plain",
+                           detail="DPAPI 加密失败，放行指纹保持明文（%s）" % str(exc)[:60])
+        return
+    payload = {k: v for k, v in raw.items()
+               if k != GATE_ALLOW_FIELD and not str(k).startswith("_")}
+    payload[GATE_ALLOW_FIELD_ENC] = enc_value
+
+    def verify(p):
+        with open(p, "r", encoding="utf-8") as fp:
+            check = json.load(fp)
+        return decrypt_gate_value(check.get(GATE_ALLOW_FIELD_ENC)) == plain_dict
+
+    state, detail = _transactional_config_rewrite(path, payload, verify)
+    if state == "migrated":
+        GATE_STATUS.update(state="migrated",
+                           detail="明文放行指纹已迁移为 DPAPI 加密存储")
+    elif state == "migrated-backup-locked":
+        GATE_STATUS.update(state=state,
+                           detail="迁移成功但备份删除失败（%s），请手动删除 ai_config.json.bak-*"
+                                  % detail)
+    elif state in ("verify-failed-restored", "verify-failed-restore-failed"):
+        GATE_STATUS.update(state=state,
+                           detail="放行指纹迁移验证失败（%s）" % (detail or "已还原明文"))
+    else:
+        GATE_STATUS.update(state=state,
+                           detail="配置文件写入失败（只读介质？），放行指纹保持明文：%s" % detail)
 
 
 def load_config():
@@ -297,7 +408,7 @@ def load_config():
         if plain_from_enc:
             cfg["api_key"] = plain_from_enc
             if file_had_plain_key:
-                _drop_stale_plain_key(config_path(), raw)
+                _drop_stale_config_field(config_path(), raw, "api_key")
         elif file_had_plain_key:
             # 密文损坏：cfg["api_key"] 维持文件明文（不覆盖为 ""），现场可用；
             # 状态 decrypt-failed 已由 _decrypt_key 记录，这里补语义明细
@@ -307,6 +418,16 @@ def load_config():
     elif file_had_plain_key:
         # 旧明文 key（无密文字段）→ 事务式迁移为加密存储（只改文件，不影响返回值）
         _migrate_legacy_key(raw)
+    # ---- 放行指纹字段（L 批裁决 2）----
+    # 迁移判定只看「文件里的原始明文字段」（同 key 迁移的坑 3 教训）；
+    # 空字典 {} 无敏感性，不值得为它跑一轮文件改写。
+    raw_gate = raw.get(GATE_ALLOW_FIELD)
+    if isinstance(raw_gate, dict) and raw_gate:
+        if not raw.get(GATE_ALLOW_FIELD_ENC):
+            _migrate_plain_gate_allowances(raw, raw_gate)       # 事务式单字段迁移
+        else:
+            # ciphertext-wins（F7 同语义）：密文在场，明文是陈旧残留，清掉
+            _drop_stale_config_field(config_path(), raw, GATE_ALLOW_FIELD)
     # 基本类型兜底
     cfg["timeout"] = _clamp_int(cfg.get("timeout"), 5, 600, DEFAULT_CONFIG["timeout"])
     cfg["max_context_tokens"] = _clamp_int(cfg.get("max_context_tokens"), 512, 1000000,
@@ -351,6 +472,11 @@ def save_config(cfg):
         elif submitted and not plain_key:
             data.pop("api_key", None)
             data.pop(KEY_FIELD_ENC, None)   # 显式清空 = 注销 key
+        # ---- 放行指纹字段（L 批裁决 2）：密文在场时清除明文残留（F7 同语义）。
+        #      save_config 的 setdefault 合并会把旧文件里的明文字段带回来，
+        #      这里统一收口，保证迁移后介质上不再出现明文指纹。----
+        if data.get(GATE_ALLOW_FIELD_ENC) and "gate_allowances" in data:
+            data.pop(GATE_ALLOW_FIELD, None)
         data["timeout"] = _clamp_int(data.get("timeout"), 5, 600, DEFAULT_CONFIG["timeout"])
         with open(config_path(), "w", encoding="utf-8") as fp:
             json.dump(data, fp, ensure_ascii=False, indent=2)
@@ -753,6 +879,163 @@ def has_wizard_conclusion(context):
 
 
 # ---------------------------------------------------------------------------
+# 会话/案例落盘加密（L 批裁决 1，2026-10-13）：复用批 1 DPAPI-v1 全套语义
+# ---------------------------------------------------------------------------
+# 威胁模型与批 1 同一：sessions/*.json / ai_cases/*.json 含设备信息、命令回显、
+# 可能含口令，明文落 exe 同目录随介质走。方案（不引入 master key、不新建加密
+# 框架）：文件级逐个加密——整文件 JSON 序列化后 DPAPI 加密，落盘内容 =
+# "dpapi-v1:<base64>"（复用 KEY_ENC_PREFIX）。
+#  · 写入即加密：save_session / save_case 一律先 protect 再落盘；
+#  · 首启逐文件事务式迁移：旧明文文件 → 写 .new-enc → 原文件 rename .bak-<ts>
+#    → 转正 → round-trip 验证 → 过删备份 / 败还原（同批 1 舞步，任何时刻介质上
+#    最多一份明文）；
+#  · 只读 FS / 非 Windows / DPAPI 失败 → 降级保明文可用 + 状态留痕（KEY_STATUS
+#    模式，STORE_STATUS）；
+#  · 取舍（裁决记录，正式出处 dev-notes L 批节）：DPAPI 绑定本机本账户 = 换机后
+#    会话历史不可迁移——介质外泄优先，接受此代价。
+STORE_STATUS = {"state": "ok", "detail": "", "migrated": 0}
+
+# 已做过首启迁移扫描的目录（每目录每进程一次；.bak-*/.new-enc 中间态按文件名
+# 过滤天然跳过——它们不以 .json 结尾）
+_STORE_MIGRATED_DIRS = set()
+
+
+def _store_protect(obj):
+    """dict → "dpapi-v1:<base64>" 文件内容串。失败抛异常。"""
+    return KEY_ENC_PREFIX + base64.b64encode(
+        _dpapi_protect(json.dumps(obj, ensure_ascii=False).encode("utf-8"))
+    ).decode("ascii")
+
+
+def _read_store_json(path):
+    """读会话/案例文件（两种格式兼容）：dpapi-v1 密文 → 解密解析；明文 JSON →
+    原样解析。任何异常返回 None（与旧 load 语义一致：坏文件跳过）。"""
+    try:
+        with open(path, "r", encoding="utf-8") as fp:
+            raw = fp.read()
+        if raw.lstrip().startswith(KEY_ENC_PREFIX):
+            if not _dpapi_available():
+                STORE_STATUS.update(state="plain-no-dpapi",
+                                    detail="非 Windows 环境无法解密会话/案例文件")
+                return None
+            plain = _dpapi_unprotect(
+                base64.b64decode(raw.strip()[len(KEY_ENC_PREFIX):]))
+            data = json.loads(plain.decode("utf-8"))
+        else:
+            data = json.loads(raw)
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
+def _write_store_json(path, obj):
+    """写会话/案例文件：DPAPI 可用 → 加密落盘；不可用/加密失败 → 明文兜底
+    （可用性优先，状态留痕不静默）。返回 (True, "") / (False, 错误)。"""
+    try:
+        content = _store_protect(obj)
+    except Exception as exc:
+        STORE_STATUS.update(state="encrypt-failed-keep-plain",
+                            detail="会话/案例加密失败，以明文落盘：%s" % str(exc)[:60])
+        content = None
+    try:
+        with open(path, "w", encoding="utf-8") as fp:
+            fp.write(content if content is not None
+                     else json.dumps(obj, ensure_ascii=False, indent=2))
+        return True, ""
+    except Exception as exc:
+        return False, str(exc)[:80]
+
+
+def _migrate_plain_store_file(path):
+    """单个明文会话/案例文件的事务式加密迁移（批 1 舞步，文件级）。返回状态串。"""
+    try:
+        with open(path, "r", encoding="utf-8") as fp:
+            raw_text = fp.read()
+    except Exception:
+        return "unreadable"
+    if raw_text.lstrip().startswith(KEY_ENC_PREFIX):
+        return "already-enc"
+    try:
+        if not isinstance(json.loads(raw_text), dict):
+            return "not-dict-skip"
+    except Exception:
+        return "bad-json-skip"      # 坏文件不迁移保持原样（load 侧本来就跳过）
+    if not _dpapi_available():
+        STORE_STATUS.update(state="plain-no-dpapi",
+                            detail="非 Windows 环境无法加密会话/案例文件，保持明文")
+        return "plain-no-dpapi"
+    try:
+        enc_value = KEY_ENC_PREFIX + base64.b64encode(
+            _dpapi_protect(raw_text.encode("utf-8"))).decode("ascii")
+    except Exception as exc:
+        STORE_STATUS.update(state="encrypt-failed-keep-plain",
+                            detail="会话/案例加密失败，保持明文：%s" % str(exc)[:60])
+        return "encrypt-failed-keep-plain"
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    bak = path + ".bak-" + stamp
+    new = path + ".new-enc"
+    try:
+        with open(new, "w", encoding="utf-8") as fp:
+            fp.write(enc_value)
+        os.rename(path, bak)        # 明文唯一份让位给备份
+        os.replace(new, path)       # 加密版转正
+    except Exception as exc:
+        # 典型：只读介质。尽力还原 rename，保持明文可用。
+        try:
+            if os.path.exists(new):
+                os.remove(new)
+            if not os.path.isfile(path) and os.path.isfile(bak):
+                os.replace(bak, path)
+        except Exception:
+            pass
+        STORE_STATUS.update(state="readonly-keep-plain",
+                            detail="会话/案例写入失败（只读介质？），保持明文：%s"
+                                   % str(exc)[:60])
+        return "readonly-keep-plain"
+    # round-trip 验证：从转正后的文件读回、解密、逐字节比对
+    try:
+        with open(path, "r", encoding="utf-8") as fp:
+            check = fp.read()
+        roundtrip = _dpapi_unprotect(
+            base64.b64decode(check.strip()[len(KEY_ENC_PREFIX):]))
+    except Exception:
+        roundtrip = b""
+    if roundtrip == raw_text.encode("utf-8"):
+        try:
+            os.remove(bak)
+            STORE_STATUS["migrated"] += 1
+            return "migrated"
+        except Exception:
+            return "migrated-backup-locked"
+    try:
+        os.replace(bak, path)
+        STORE_STATUS.update(state="verify-failed-restored",
+                            detail="会话/案例迁移验证失败，已从备份还原明文")
+        return "verify-failed-restored"
+    except Exception as exc:
+        STORE_STATUS.update(state="verify-failed-restore-failed",
+                            detail="会话/案例迁移验证失败且还原失败：%s" % str(exc)[:60])
+        return "verify-failed-restore-failed"
+
+
+def _ensure_store_migrated(dirpath):
+    """首启逐文件迁移：目录内明文 *.json 逐个事务式加密（每目录每进程一次）。"""
+    if not dirpath or dirpath in _STORE_MIGRATED_DIRS:
+        return
+    _STORE_MIGRATED_DIRS.add(dirpath)
+    try:
+        names = os.listdir(dirpath)
+    except Exception:
+        return
+    for name in sorted(names):
+        if not name.lower().endswith(".json"):
+            continue                    # .bak-<ts> / .new-enc 等中间态天然跳过
+        path = os.path.join(dirpath, name)
+        if os.path.isfile(path):
+            _migrate_plain_store_file(path)
+
+
+# ---------------------------------------------------------------------------
 # 案例库（ai_cases/{时间戳}_{现象slug}.json）
 # ---------------------------------------------------------------------------
 def cases_dir():
@@ -775,9 +1058,11 @@ def _symptom_slug(symptom, limit=40):
 
 
 def list_cases():
-    """按时间倒序列出全部案例（返回 [(path, dict)]；坏文件跳过）"""
+    """按时间倒序列出全部案例（返回 [(path, dict)]；坏文件跳过）。
+    首次调用触发 ai_cases/ 明文文件逐个事务式加密迁移（L 批裁决 1）。"""
     result = []
     try:
+        _ensure_store_migrated(cases_dir())
         names = os.listdir(cases_dir())
     except Exception:
         return result
@@ -792,13 +1077,8 @@ def list_cases():
 
 
 def load_case(path):
-    """读取单个案例；任何异常返回 None"""
-    try:
-        with open(path, "r", encoding="utf-8") as fp:
-            data = json.load(fp)
-        return data if isinstance(data, dict) else None
-    except Exception:
-        return None
+    """读取单个案例（明文/DPAPI 密文两格式兼容）；任何异常返回 None"""
+    return _read_store_json(path)
 
 
 def delete_case(path):
@@ -1104,22 +1384,25 @@ def sessions_dir():
 
 
 def save_session(session):
-    """会话落盘（每个对话一个文件，整文件覆盖写 = 保留最新状态）。失败返回 "" """
+    """会话落盘（每个对话一个文件，整文件覆盖写 = 保留最新状态）。
+    L 批裁决 1：DPAPI 可用 → 整文件加密落盘（写入即加密）；不可用/加密失败 →
+    明文兜底 + STORE_STATUS 留痕。失败返回 "" """
     try:
         payload = dict(session)
         payload["saved_at"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         path = os.path.join(sessions_dir(), "%s.json" % (session.get("session_id") or "session"))
-        with open(path, "w", encoding="utf-8") as fp:
-            json.dump(payload, fp, ensure_ascii=False, indent=2)
-        return path
+        ok, _err = _write_store_json(path, payload)
+        return path if ok else ""
     except Exception:
         return ""
 
 
 def list_sessions():
-    """按时间倒序列出全部会话（返回 [(path, dict)]；坏文件跳过）"""
+    """按时间倒序列出全部会话（返回 [(path, dict)]；坏文件跳过）。
+    首次调用触发 sessions/ 明文文件逐个事务式加密迁移（L 批裁决 1）。"""
     result = []
     try:
+        _ensure_store_migrated(sessions_dir())
         names = os.listdir(sessions_dir())
     except Exception:
         return result
@@ -1134,13 +1417,8 @@ def list_sessions():
 
 
 def load_session(path):
-    """读取单个会话；任何异常返回 None"""
-    try:
-        with open(path, "r", encoding="utf-8") as fp:
-            data = json.load(fp)
-        return data if isinstance(data, dict) else None
-    except Exception:
-        return None
+    """读取单个会话（明文/DPAPI 密文两格式兼容）；任何异常返回 None"""
+    return _read_store_json(path)
 
 
 def delete_session(path):

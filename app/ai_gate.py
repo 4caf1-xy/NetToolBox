@@ -15,7 +15,8 @@ IP 门禁策略（批 2 裁决，比站点白名单严）：
     ★ 200.1.1.0/24 NAT 教学段不在豁免清单（站点白名单有、门禁无）→ 命中可逐项放行
 
 放行记忆（当日有效）：指纹 = kind+value 的 sha256 前缀，存 ai_config.json 的
-gate_allowances 字段（{指纹: "YYYY-MM-DD"}），加载时剪掉非当日条目。
+gate_allowances_enc 字段（DPAPI 加密的 {指纹: "YYYY-MM-DD"}；L 批裁决 2——
+指纹对低熵 secret 是可离线字典攻击 oracle，明文不落盘），加载时剪掉非当日条目。
 扫描范围（批 2 裁决）：仅本轮 —— 设备上下文六字段 + 正文 + 文本附件；
 历史轮上一轮已扫过，不重扫。AI 未配置时 on_send 在门禁之前已 return，
 门禁自然不生效。
@@ -43,7 +44,7 @@ GATE_ALLOWED_DNS = set(sanitize_scan.PUBLIC_DNS)            # 公共 DNS（原�
 MASK_SECRET = "【已脱敏】"
 MASK_IP = "【IP已脱敏】"
 
-ALLOWANCE_FIELD = "gate_allowances"     # ai_config.json 字段名
+ALLOWANCE_FIELD = "gate_allowances"     # 旧明文字段名（迁移前/降级兼容用）
 
 # 设备上下文字段 → 预览页展示名
 CTX_LABELS = {
@@ -107,9 +108,20 @@ def day_stamp():
 
 
 def load_allowances(cfg):
-    """读当日放行指纹（非当日条目直接剪掉 → 隔日自动失效）。"""
-    raw = (cfg or {}).get(ALLOWANCE_FIELD) or {}
+    """读当日放行指纹（非当日条目直接剪掉 → 隔日自动失效）。
+
+    L 批裁决 2：指纹 = 低熵 secret 的 sha256 前缀，明文落盘等于给离线字典攻击
+    留 oracle——指纹字典随 key 同走 DPAPI（ai_config.gate_allowances_enc）。
+    读取顺序：密文字段（DPAPI 可用时）→ 旧明文字段（迁移前 / 降级兼容）。"""
+    cfg = cfg or {}
     today = day_stamp()
+    enc = str(cfg.get(ai_bridge.GATE_ALLOW_FIELD_ENC) or "")
+    if enc.startswith(ai_bridge.KEY_ENC_PREFIX) and ai_bridge._dpapi_available():
+        data = ai_bridge.decrypt_gate_value(enc)
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items()
+                    if isinstance(v, str) and v == today}
+    raw = cfg.get(ai_bridge.GATE_ALLOW_FIELD) or {}
     if not isinstance(raw, dict):
         return {}
     return {k: v for k, v in raw.items()
@@ -117,13 +129,28 @@ def load_allowances(cfg):
 
 
 def remember_fps(cfg, fps):
-    """把新放行指纹写入配置并落盘（当日戳；失败静默——门禁不因记忆失败阻断）。"""
+    """把新放行指纹写入配置并落盘（当日戳；失败静默——门禁不因记忆失败阻断）。
+
+    L 批裁决 2：DPAPI 可用 → 写加密字段（gate_allowances_enc）且移除明文字段；
+    DPAPI 不可用 / 加密失败 → 保持明文字段兜底（可用性优先，GATE_STATUS 留痕）。
+    """
     try:
         allowances = dict(load_allowances(cfg))
         today = day_stamp()
         for fp in fps or []:
             allowances[str(fp)] = today
-        cfg[ALLOWANCE_FIELD] = allowances
+        if ai_bridge._dpapi_available():
+            try:
+                cfg[ai_bridge.GATE_ALLOW_FIELD_ENC] = \
+                    ai_bridge.encrypt_gate_dict_value(allowances)
+                cfg.pop(ai_bridge.GATE_ALLOW_FIELD, None)
+            except Exception as exc:
+                cfg[ai_bridge.GATE_ALLOW_FIELD] = allowances
+                ai_bridge.GATE_STATUS.update(
+                    state="encrypt-failed-keep-plain",
+                    detail="放行指纹加密失败，以明文落盘：%s" % str(exc)[:60])
+        else:
+            cfg[ai_bridge.GATE_ALLOW_FIELD] = allowances
         ai_bridge.save_config(cfg)
     except Exception:
         pass
