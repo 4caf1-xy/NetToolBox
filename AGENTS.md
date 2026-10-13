@@ -32,6 +32,7 @@
 - `ai_config.json`（含真实 key）只存在于本地，永远不入库；对外只提交 `ai_config.example.json` 占位模板。
 - **Key 加密存储（2026-10-13 安全加固批起）**：api_key 经 DPAPI 加密为 `api_key_enc`（dpapi-v1）落盘，明文字段不落盘；旧明文首启事务式自动迁移（任何时刻介质最多一份明文，只读介质降级状态清单见 dev-notes 安全加固批节）；`ai_config.json.bak-*` / `.new-enc` 均已 gitignore。
 - **AI 发送门禁与端点策略**：发送前脱敏门禁（ai_gate，IP/secret/黑名单命中→预览逐项放行）与 base_url 策略（公网强制 HTTPS + 陌生端点确认清单 approved_endpoints）为安全边界件——修改 ai_gate / sanitize_scan / ai_bridge 校验逻辑必须重跑 smoke_send_gate + smoke_baseurl_policy + smoke_keyvault。
+- **会话/案例落盘加密（L 批 2026-10-13）**：sessions/ 与 ai_cases/ 走文件级 DPAPI-v1（写入即加密、首启事务式迁移、只读/非 Windows 降级保明文 + STORE_STATUS 留痕）；放行指纹走 gate_allowances_enc 同 DPAPI。改 ai_bridge 的 store/gate 字段读写路径必须重跑 smoke_keyvault + smoke_send_gate（sessions 迁移/降级用例 T12–T18、指纹 enc 用例 [4b]）。
 - **导入与 regex 防护**：.nlb/JSON 导入 20MB 上限（NLB_MAX_BYTES）与 pattern_lint（嵌套量词 [E] / alternation 重叠与超长 [W]）为入库门禁，**validate / 编辑器保存 / .nlb 导入三口同执法**——改 error_match.pattern_lint 必须重跑 smoke_regex_guard 并对账存量 [E]/[W]（当前零命中底数）。
 - `backup/`（主库备份）、`dist_package/`（含运行数据）不入库，不入交付 zip 的敏感文件（如真实 key）在分发前清零（发布 zip 由 release.yml 正向白名单强制，四类条目之外一律 ERROR）。
 

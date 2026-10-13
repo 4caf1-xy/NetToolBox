@@ -224,6 +224,178 @@ def main():
     check("T11b key 明文可用", cfg.get("api_key") == "sk-savefail-222",
           repr(cfg.get("api_key")))
 
+    # ---- T12 会话落盘加密：save → 落盘即密文 → load round-trip（L 批裁决 1）----
+    print("-" * 66)
+    print("T12 会话文件加密 round-trip")
+    sess = ai_bridge.new_session({"vendor": "华为", "symptom": "L批-T12 现象 password Admin123"})
+    sess["messages"] = [{"role": "user", "content": "内容 password Admin123",
+                         "attachments": []}]
+    saved_path = ai_bridge.save_session(sess)
+    check("T12a 会话落盘成功", bool(saved_path))
+    with open(saved_path, "r", encoding="utf-8") as fp:
+        raw = fp.read()
+    check("T12b 落盘即密文（dpapi-v1 头）", raw.lstrip().startswith("dpapi-v1:"), raw[:40])
+    check("T12c 落盘内容零明文（无现象/口令字样）",
+          "Admin123" not in raw and "L批-T12" not in raw)
+    back = ai_bridge.load_session(saved_path)
+    check("T12d load round-trip 一致", isinstance(back, dict)
+          and back.get("session_id") == sess["session_id"]
+          and (back.get("messages") or [{}])[0].get("content", "").endswith("Admin123"))
+    check("T12e list_sessions 可见该会话",
+          any(p == saved_path for p, _d in ai_bridge.list_sessions()))
+
+    # ---- T13 存量明文会话首启事务式迁移 ----
+    print("-" * 66)
+    print("T13 存量明文会话迁移")
+    sid = "legacy-t13"
+    legacy_path = os.path.join(ai_bridge.sessions_dir(), sid + ".json")
+    with open(legacy_path, "w", encoding="utf-8") as fp:
+        json.dump({"session_id": sid, "kind": "session",
+                   "ctx": {"vendor": "Cisco", "symptom": "legacy plain"},
+                   "messages": [{"role": "user", "content": "plain body 10.1.1.5",
+                                 "attachments": []}]},
+                  fp, ensure_ascii=False, indent=2)
+    ai_bridge._STORE_MIGRATED_DIRS.clear()      # 模拟"首启"（每目录每进程一次）
+    ai_bridge.STORE_STATUS.update(state="ok", detail="", migrated=0)
+    rows = ai_bridge.list_sessions()
+    with open(legacy_path, "r", encoding="utf-8") as fp:
+        raw = fp.read()
+    check("T13a 迁移后落盘为密文", raw.lstrip().startswith("dpapi-v1:"), raw[:40])
+    check("T13b 明文内容不再在场", "10.1.1.5" not in raw and "legacy plain" not in raw)
+    check("T13c 备份已删（介质零明文残留）",
+          not glob.glob(legacy_path + ".bak-*")
+          and not os.path.exists(legacy_path + ".new-enc"))
+    check("T13d list_sessions 能读回该会话",
+          any(d.get("session_id") == sid for _p, d in rows))
+    check("T13e 状态计数 migrated=1", ai_bridge.STORE_STATUS["migrated"] == 1,
+          str(ai_bridge.STORE_STATUS))
+    ai_bridge._STORE_MIGRATED_DIRS.clear()
+    ai_bridge.STORE_STATUS.update(migrated=0)
+    ai_bridge.list_sessions()
+    check("T13f 已加密文件幂等（重扫零重复迁移）",
+          ai_bridge.STORE_STATUS["migrated"] == 0, str(ai_bridge.STORE_STATUS))
+
+    # ---- T14 会话迁移 round-trip 验证失败 → 备份还原明文 ----
+    print("-" * 66)
+    print("T14 会话迁移验证失败 → 还原")
+    p14 = os.path.join(ai_bridge.sessions_dir(), "legacy-t14.json")
+    with open(p14, "w", encoding="utf-8") as fp:
+        json.dump({"session_id": "legacy-t14", "ctx": {"vendor": "H3C"}, "messages": []}, fp)
+    real_unprotect = ai_bridge._dpapi_unprotect
+
+    def broken_unprotect(blob):
+        raise OSError("simulated verify failure")
+
+    ai_bridge._STORE_MIGRATED_DIRS.clear()
+    try:
+        ai_bridge._dpapi_unprotect = broken_unprotect
+        ai_bridge.list_sessions()
+    finally:
+        ai_bridge._dpapi_unprotect = real_unprotect
+    with open(p14, "r", encoding="utf-8") as fp:
+        raw14 = fp.read()
+    check("T14a 明文还原一致", json.loads(raw14).get("session_id") == "legacy-t14")
+    check("T14b 备份已让位回原文件", not glob.glob(p14 + ".bak-*"))
+    check("T14c 状态 verify-failed-restored",
+          ai_bridge.STORE_STATUS["state"] == "verify-failed-restored",
+          ai_bridge.STORE_STATUS["state"])
+
+    # ---- T15 会话加密失败 → 明文兜底保持可用 ----
+    print("-" * 66)
+    print("T15 会话加密失败降级")
+    p15 = os.path.join(ai_bridge.sessions_dir(), "legacy-t15.json")
+    with open(p15, "w", encoding="utf-8") as fp:
+        json.dump({"session_id": "legacy-t15", "ctx": {}, "messages": []}, fp)
+    real_protect = ai_bridge._dpapi_protect
+
+    def broken_protect(plain_bytes):
+        raise OSError("simulated protect failure")
+
+    ai_bridge._STORE_MIGRATED_DIRS.clear()
+    try:
+        ai_bridge._dpapi_protect = broken_protect
+        ai_bridge.list_sessions()
+    finally:
+        ai_bridge._dpapi_protect = real_protect
+    with open(p15, "r", encoding="utf-8") as fp:
+        raw15 = fp.read()
+    check("T15a 明文保持原样未动", json.loads(raw15).get("session_id") == "legacy-t15")
+    check("T15b 状态 encrypt-failed-keep-plain",
+          ai_bridge.STORE_STATUS["state"] == "encrypt-failed-keep-plain",
+          ai_bridge.STORE_STATUS["state"])
+
+    # ---- T16 只读介质降级（rename 失败 → 保持明文，中间态清理）----
+    print("-" * 66)
+    print("T16 只读介质降级")
+    p16 = os.path.join(ai_bridge.sessions_dir(), "legacy-t16.json")
+    with open(p16, "w", encoding="utf-8") as fp:
+        json.dump({"session_id": "legacy-t16", "ctx": {}, "messages": []}, fp)
+    real_rename = os.rename
+
+    def broken_rename(src, dst, *a, **kw):
+        if os.path.abspath(str(src)) == os.path.abspath(p16):
+            raise PermissionError("simulated readonly media")
+        return real_rename(src, dst, *a, **kw)
+
+    ai_bridge._STORE_MIGRATED_DIRS.clear()
+    try:
+        os.rename = broken_rename
+        ai_bridge.list_sessions()
+    finally:
+        os.rename = real_rename
+    with open(p16, "r", encoding="utf-8") as fp:
+        raw16 = fp.read()
+    check("T16a 明文保持原样未动", json.loads(raw16).get("session_id") == "legacy-t16")
+    check("T16b .new-enc 中间态已清理", not os.path.exists(p16 + ".new-enc"))
+    check("T16c 状态 readonly-keep-plain",
+          ai_bridge.STORE_STATUS["state"] == "readonly-keep-plain",
+          ai_bridge.STORE_STATUS["state"])
+
+    # ---- T17 ai_cases 明文案例迁移 + load_case 两格式兼容 ----
+    print("-" * 66)
+    print("T17 ai_cases 明文案例迁移")
+    cpath = os.path.join(ai_bridge.cases_dir(), "case-legacy-t17.json")
+    with open(cpath, "w", encoding="utf-8") as fp:
+        json.dump({"context": {"vendor": "Ruijie"}, "response": "case body snmp NtbxPub"},
+                  fp, ensure_ascii=False, indent=2)
+    ai_bridge._STORE_MIGRATED_DIRS.clear()
+    rows17 = ai_bridge.list_cases()
+    with open(cpath, "r", encoding="utf-8") as fp:
+        raw17 = fp.read()
+    check("T17a 迁移后落盘为密文", raw17.lstrip().startswith("dpapi-v1:"), raw17[:40])
+    check("T17b 明文内容不再在场", "NtbxPub" not in raw17)
+    check("T17c 备份已删", not glob.glob(cpath + ".bak-*"))
+    hit = [d for _p, d in rows17 if (d.get("context") or {}).get("vendor") == "Ruijie"]
+    check("T17d list_cases/load_case 读回一致",
+          hit and hit[0].get("response") == "case body snmp NtbxPub")
+
+    # ---- T18 无 DPAPI 降级：会话明文兜底可用、存量迁移跳过留痕 ----
+    print("-" * 66)
+    print("T18 无 DPAPI 降级（会话路径）")
+    real_avail = ai_bridge._dpapi_available
+    try:
+        ai_bridge._dpapi_available = lambda: False
+        sess18 = ai_bridge.new_session({"vendor": "HW"})
+        p18 = ai_bridge.save_session(sess18)
+        with open(p18, "r", encoding="utf-8") as fp:
+            raw18 = fp.read()
+        check("T18a 无 DPAPI → 明文兜底落盘", not raw18.lstrip().startswith("dpapi-v1:"))
+        check("T18b 明文会话可读回",
+              (ai_bridge.load_session(p18) or {}).get("session_id") == sess18["session_id"])
+        ai_bridge.STORE_STATUS.update(state="ok", detail="")
+        p18b = os.path.join(ai_bridge.sessions_dir(), "legacy-t18.json")
+        with open(p18b, "w", encoding="utf-8") as fp:
+            json.dump({"session_id": "legacy-t18", "ctx": {}, "messages": []}, fp)
+        ai_bridge._STORE_MIGRATED_DIRS.clear()
+        ai_bridge.list_sessions()
+        check("T18c 存量明文迁移跳过（保持明文）",
+              not open(p18b, "r", encoding="utf-8").read().lstrip().startswith("dpapi-v1:"))
+        check("T18d 状态 plain-no-dpapi",
+              ai_bridge.STORE_STATUS["state"] == "plain-no-dpapi",
+              ai_bridge.STORE_STATUS["state"])
+    finally:
+        ai_bridge._dpapi_available = real_avail
+
     # ---- T8 发布 zip 零敏感文件回归断言 ----
     _run_t8()
 

@@ -293,6 +293,19 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 - lint 是静态语法扫描（跳过字符类与转义后逐组检查），不执行正则本身；与 validate/ui 编辑器保存共用同一执法点（error_match.pattern_lint），[E] 拦、[W] 确认/告警。
 - 诊断输入截断：行数超限**先按行切再按字符切**——只按字符切对"大量短行"不减少行数，匹配成本降不下来。
 
+### L 批 · AI 会话与放行指纹明文治理（2026-10-13，审码遗留三条观察收尾）
+
+三条裁决的取舍记录（CHANGELOG Unreleased「安全加固 L 批」节为用户可见权威出处，此处记实施与代价）：
+
+- **裁决 1 · sessions/ai_cases 落盘加密（文件级 DPAPI-v1）**：不引入 master key、不新建加密框架——整文件 JSON 序列化后 DPAPI 加密，落盘内容 = "dpapi-v1:<base64>"（复用 KEY_ENC_PREFIX）。**取舍（已裁决接受）**：DPAPI 绑定本机本账户 = 换机后会话历史不可迁移；介质外泄（含 U 盘 exe 场景的 sessions/）优先，接受此代价。读写两格式兼容（密文优先、明文回退），存量明文首启逐文件事务式迁移（每目录每进程一次，`_STORE_MIGRATED_DIRS`）；迁移触发点 = `list_sessions()` / `list_cases()`（枚举即扫描，save 路径天然写入即加密）。迁移中间态（.bak-<ts> / .new-enc）不以 .json 结尾，被枚举过滤器天然跳过。状态留痕 STORE_STATUS 同 KEY_STATUS 模式（migrated / verify-failed-restored / encrypt-failed-keep-plain / readonly-keep-plain / plain-no-dpapi 等）。
+- **裁决 2 · gate_allowances_enc**：指纹 = kind+低熵 secret 的 sha256 前 16 位，明文指纹 = 离线字典攻击 oracle（拿口令字典算指纹比对即可反推真值）——字段随 key 同走 DPAPI，当日有效语义不变。实施收口三点：存量明文单字段事务式迁移（复用 L 批通用化的 `_transactional_config_rewrite` 舞步，与 key 迁移同款）；save_config ciphertext-wins 收口（setdefault 合并把旧明文字段带回来 → 密文在场统一清明文）；DPAPI 不可用降级保持明文字段（可用性优先 + GATE_STATUS 留痕）。
+- **裁决 3 · vision 通道门禁**：图片附件**不做内容分析**（做不到的事不装能做到——本地无图像 OCR/脱敏能力，扫描即撒谎）；代替动作 = 发送前 VisionConfirmDialog 单独列出全部图片附件 + 明示外发端点 host + 逐次确认（每轮必弹、无记忆无放行清单）；未确认 → on_send 直接 return（user_msg 未组装，会话/案例零落盘）。图片在会话内的落盘面已由裁决 1 覆盖（sessions 加密后 data_url 随文件加密）。
+- **批 1 舞步通用化**：`_transactional_config_rewrite` + `_drop_stale_config_field` 为 L 批新增的通用形，key 迁移（`_migrate_legacy_key`）重构为复用——smoke_keyvault T1–T11 回归逐字全绿证明行为未变。
+- **坑（T18 假阴性）**：`_write_store_json` 必须先查 `_dpapi_available()` 再 protect——mock 掉 available 后 `_dpapi_protect` 在 Windows 上照样成功，"无 DPAPI 降级"用例会拿到密文而误判实现错误；降级判定点在写入包装层，不在 protect 本身。
+- **坑（GATE_STATUS 语义）**：`decrypt_gate_value` 成功时刷新状态为 ok（同 `_decrypt_key` 的"最近一次操作"语义）——断言迁移状态必须放在任何后续解密动作之前，否则读到被刷新的 ok。
+- **smoke_ai_chat 适配**：带图发送路径新增确认模态后，离屏套件在 `tab2.on_send()`（带图）处会 exec_ 阻塞——套件以 monkeypatch `VisionConfirmDialog.exec_` 自动确认走通链路，并新增两条确认框内容断言（列图 / 明示 host 127.0.0.1）；"未确认不发送"拒绝分支断言在 smoke_send_gate [8] V7–V9（AiTab 离屏实跑）。
+- 冒烟实测计数：smoke_keyvault 48→75（T12–T18），smoke_send_gate 32→56（[4b] 11 项 + [8] V1–V13）；全量 15 套 rc=0 + validate-seed EXIT=0（338/26/82 不变）。本批只提交推送，不发版不 tag。
+
 ### 工具链（开发依赖，不入 requirements.txt 运行时）
 
 - **Pillow**：2026-10-13 I 批（exe 图标）接入时安装（隔离 venv，Pillow 12.3.0），仅用于 docs/screenshots/tubiao.png → app/icon.ico 一次性转换；运行时无依赖。
@@ -305,5 +318,5 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 ### 范围外观察（后续立项候选，未进本批）
 
 - **工件口径（审码修复批收尾留痕，2026-10-13）**：审码批产出的「提示词包」为会话外工件，不入仓库；审码报告遗留项（J 遗留）的最终口径以本文件本节为基准，报告归档件（docs/audit/）append-only 不回改。
-- **sessions/ 与 ai_cases/ 明文治理**：AI 会话全文（含设备信息、可能含口令）明文落 exe 同目录随介质走，与批 1 同一威胁面。候选方案：会话目录整体加密 / 退出时清理 / 只保留最近 N 天。已列入提示词包 L 行，待排期。
-- 图片附件（vision 模型通道）不经文本门禁，多模态外发面另行评估。
+- **sessions/ 与 ai_cases/ 明文治理**：AI 会话全文（含设备信息、可能含口令）明文落 exe 同目录随介质走，与批 1 同一威胁面。候选方案：会话目录整体加密 / 退出时清理 / 只保留最近 N 天。已列入提示词包 L 行，待排期。**【收尾 2026-10-13】已由 L 批裁决 1 落地（文件级 DPAPI-v1 + 首启事务式迁移），取舍记录见本文件 L 批节。**
+- 图片附件（vision 模型通道）不经文本门禁，多模态外发面另行评估。**【收尾 2026-10-13】已由 L 批裁决 3 落地（不做内容分析 + 逐次确认 + 明示端点 host；未确认不发送不落盘）。**

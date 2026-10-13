@@ -7,15 +7,20 @@ smoke_send_gate.py —— 安全加固批 2：AI 发送脱敏门禁回归断言
     [2] secret 真值 + 占位豁免 + 明文黑名单（引擎规则与站点扫描逐字一致）
     [3] span 正确性与脱敏回写（放行原文/未放行掩码；重叠区间并集）
     [4] 指纹稳定性与当日放行记忆（隔日自动失效）
+    [4b] 放行指纹字段加密（L 批裁决 2：gate_allowances_enc 密文落盘/迁移/收口/降级）
     [5] build_pieces 组装范围（ctx 六字段 + 正文 + 文本附件；图片附件跳过）
     [6] SendGateDialog 离屏 UI（行数/全选/accept 后 allowed_fps）
     [7] 站点白名单行为回归（_ip_allowed 默认参数逐字不变）
+    [8] 图片附件外发确认（L 批裁决 3：确认框内容/未确认不发送不落盘/确认后发送且落盘即密文）
 
 用法：
     PYTHONPATH=app;_vendor python scripts/smoke_send_gate.py
 """
+import base64
+import json
 import os
 import sys
+import tempfile
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -127,6 +132,60 @@ def main():
     saved = ai_gate.load_allowances(cfg3)
     check("放行记忆落盘并可读回", fp_a in saved and "ff00ff00ff00ff00" in saved, str(saved))
 
+    # ---- [4b] 放行指纹字段加密（L 批裁决 2）----
+    print("[4b] 放行指纹字段加密（gate_allowances_enc）")
+    with open(ai_bridge.config_path(), "r", encoding="utf-8") as fp:
+        data_gate = json.load(fp)
+    check("指纹以密文落盘（gate_allowances_enc）",
+          "gate_allowances_enc" in data_gate
+          and str(data_gate.get("gate_allowances_enc", "")).startswith("dpapi-v1:"),
+          str(sorted(data_gate.keys())))
+    check("迁移后 ai_config.json 无明文 gate_allowances",
+          "gate_allowances" not in data_gate)
+    plain_gate = ai_bridge.decrypt_gate_value(data_gate.get("gate_allowances_enc"))
+    check("密文 round-trip 内容一致（含当日戳）",
+          isinstance(plain_gate, dict) and plain_gate.get(fp_a) == ai_gate.day_stamp()
+          and plain_gate.get("ff00ff00ff00ff00") == ai_gate.day_stamp(), str(plain_gate))
+    check("load_allowances 从密文读回", set(ai_gate.load_allowances(cfg3)) >= {fp_a})
+    # save 收口（ciphertext-wins）：密文在场时明文残留被清
+    cfg_c = ai_bridge.load_config()
+    cfg_c["gate_allowances"] = {"stale": "2020-01-01"}
+    ai_bridge.save_config(cfg_c)
+    with open(ai_bridge.config_path(), "r", encoding="utf-8") as fp:
+        data_c = json.load(fp)
+    check("save 收口：密文在场时明文残留被清",
+          "gate_allowances" not in data_c and "gate_allowances_enc" in data_c)
+    # 存量明文指纹 → load_config 事务式单字段迁移
+    with open(ai_bridge.config_path(), "w", encoding="utf-8") as fp:
+        json.dump({"base_url": "http://127.0.0.1:9/v1", "api_key": "sk-legacy-gate",
+                   "gate_allowances": {fp_a: ai_gate.day_stamp(),
+                                       "ancient": "2001-01-01"}}, fp)
+    ai_bridge.GATE_STATUS.update(state="ok", detail="")
+    cfg_m = ai_bridge.load_config()
+    with open(ai_bridge.config_path(), "r", encoding="utf-8") as fp:
+        data_m = json.load(fp)
+    check("存量明文指纹已迁移为密文",
+          "gate_allowances" not in data_m
+          and str(data_m.get("gate_allowances_enc", "")).startswith("dpapi-v1:"))
+    check("GATE_STATUS=migrated", ai_bridge.GATE_STATUS["state"] == "migrated",
+          ai_bridge.GATE_STATUS["state"])
+    check("迁移 round-trip 内容一致（非当日项一并保留）",
+          ai_bridge.decrypt_gate_value(data_m.get("gate_allowances_enc"))
+          == {fp_a: ai_gate.day_stamp(), "ancient": "2001-01-01"})
+    check("迁移后 load_allowances 从密文读回当日项",
+          set(ai_gate.load_allowances(cfg_m)) == {fp_a}, str(ai_gate.load_allowances(cfg_m)))
+    # 无 DPAPI 降级：明文兜底可用
+    real_avail = ai_bridge._dpapi_available
+    try:
+        ai_bridge._dpapi_available = lambda: False
+        cfg_d = {}
+        ai_gate.remember_fps(cfg_d, ["bb11bb11bb11bb11"])
+        check("无 DPAPI → 指纹明文兜底可用",
+              cfg_d.get("gate_allowances", {}).get("bb11bb11bb11bb11") == ai_gate.day_stamp())
+        check("无 DPAPI → 不写密文字段", "gate_allowances_enc" not in cfg_d)
+    finally:
+        ai_bridge._dpapi_available = real_avail
+
     # ---- [5] build_pieces 范围 ----
     print("[5] build_pieces 组装范围")
     ctx = {"vendor": "华为", "os": "", "model_name": "S5720",
@@ -180,6 +239,111 @@ def main():
                 "trees": [], "errs": []}
     check("scan_site_data 对 10/8 占位段零命中（站点行为未变）",
           sanitize_scan.scan_site_data(bad_site) == [])
+
+    # ---- [8] 图片附件外发确认（L 批裁决 3）----
+    print("[8] 图片附件外发确认（不做内容分析，逐次确认）")
+    from PyQt5.QtCore import QThread, pyqtSignal
+    from PyQt5.QtWidgets import QDialog as _QDialog
+    import ui_ai
+    # 1x1 PNG
+    png_bytes = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    img_path = os.path.join(tempfile.mkdtemp(prefix="ntb_vision_"), "shot-l.png")
+    with open(img_path, "wb") as fp:
+        fp.write(png_bytes)
+    img_att, err_img = ai_bridge.load_image_attachment(img_path)
+    check("V1 图片附件构造（base64 data URL）",
+          img_att is not None and img_att.get("is_image")
+          and img_att.get("data_url", "").startswith("data:image/png;base64,"), err_img)
+    # 确认框内容断言（离屏）
+    dlg = ui_ai.VisionConfirmDialog(None, [img_att], "api.example.com")
+    check("V2 确认框列出本批图片",
+          [a.get("name") for a in dlg.images] == ["shot-l.png"])
+    check("V3 明示外发端点 host", dlg.host == "api.example.com")
+    check("V4 默认未确认", dlg.confirmed is False)
+    dlg.accept()
+    check("V5 accept → confirmed=True", dlg.confirmed is True)
+    dlg2 = ui_ai.VisionConfirmDialog(None, [img_att], "api.example.com")
+    dlg2.reject()
+    check("V6 reject/关闭 → 保持未确认", dlg2.confirmed is False)
+    # 未确认不发送（离屏实跑 AiTab；base_url 本网化——批 3 已知坑）
+    ai_bridge.save_config({"api_key": "sk-vision", "model": "smoke-model",
+                           "base_url": "http://127.0.0.1:9/v1",
+                           "vision_model": "fake-vision"})
+    tab = ui_ai.AiTab(db=None)
+    tab.show()
+    app.processEvents()
+    tab._pending_attachments.append(dict(img_att))
+    tab._refresh_attachment_bar()
+    tab.txt_input.setPlainText("看这张截图")
+    orig_exec = ui_ai.VisionConfirmDialog.exec_
+    orig_worker = ai_bridge.ChatWorker
+    _rej = []
+
+    def reject_exec(self):
+        self.confirmed = False
+        _rej.append(self)
+        return 0                                  # QDialog.Rejected
+
+    ui_ai.VisionConfirmDialog.exec_ = reject_exec
+    try:
+        tab.on_send()
+    finally:
+        ui_ai.VisionConfirmDialog.exec_ = orig_exec
+    check("V7 未确认：本轮不发送（消息流零新增）", len(tab.session["messages"]) == 0)
+    check("V8 未确认：附件保留待重新确认", len(tab._pending_attachments) == 1)
+    check("V9 未确认：会话/案例零落盘", not ai_bridge.list_sessions()
+          and not ai_bridge.list_cases())
+    # 确认后正常发送（假 worker，不发真实请求）
+    class FakeWorker(QThread):
+        chunk = pyqtSignal(str)
+        failed = pyqtSignal(str)
+        finished_full = pyqtSignal(dict)
+
+        def __init__(self, parent=None):
+            super(FakeWorker, self).__init__(parent)
+            self._cancelled = False
+
+        def set_request(self, config, messages):
+            pass
+
+        def cancel(self):
+            pass
+
+        def run(self):
+            self.finished_full.emit({"usage": {}, "model": "fake"})
+
+    import time as _time
+    _acc = []
+
+    def accept_exec(self):
+        self.confirmed = True
+        _acc.append(self)
+        return _QDialog.Accepted
+
+    ai_bridge.ChatWorker = FakeWorker
+    ui_ai.VisionConfirmDialog.exec_ = accept_exec
+    try:
+        tab.on_send()
+    finally:
+        ui_ai.VisionConfirmDialog.exec_ = orig_exec
+        ai_bridge.ChatWorker = orig_worker
+    worker = tab._worker
+    t0 = _time.time()
+    while worker.isRunning() and _time.time() - t0 < 5:
+        app.processEvents()
+        _time.sleep(0.01)
+    app.processEvents()
+    check("V10 确认后正常发送（user+assistant 两条）",
+          len(tab.session["messages"]) == 2, str(len(tab.session["messages"])))
+    files = ai_bridge.list_sessions()
+    check("V11 确认后会话落盘 1 个", len(files) == 1, str(len(files)))
+    with open(files[0][0], "r", encoding="utf-8") as fp:
+        raw_sess = fp.read()
+    check("V12 会话落盘即密文（dpapi-v1）",
+          raw_sess.lstrip().startswith("dpapi-v1:"), raw_sess[:40])
+    check("V13 落盘内容零明文（无输入/图片数据）",
+          "看这张截图" not in raw_sess and "iVBOR" not in raw_sess)
 
     print("=" * 66)
     if FAIL:
