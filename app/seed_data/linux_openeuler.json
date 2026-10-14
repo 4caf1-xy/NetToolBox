@@ -6,7 +6,7 @@
   "vendor_slug": "openeuler",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 22,
+  "count": 23,
   "entries": [
     {
       "uuid": "54f524f2-7b5d-5c92-899e-a2bd2fb92df5",
@@ -914,6 +914,23 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "a3f984da-6b4b-524e-8b1b-97f87b1e08a6",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "版本升级",
+      "title": "dnf 补丁更新与内核升级（openEuler 22.03）",
+      "description": "dnf 更新（含内核），重启切换后 uname -r 复核；dnf history 留痕。",
+      "commands": "# ===== dnf 补丁更新与内核升级（openEuler 22.03）=====\n# ---- 0. 源可用性确认（离网先挂 ISO 本地源）----\ndnf repolist enabled\n# ---- 1. 更新（含内核）----\ndnf update -y\n# ---- 2. 内核确认 ----\nrpm -q kernel\ngrub2-editenv list\n# ---- 3. 重启切换（低峰期）----\nreboot\n# ---- 4. 重启后复核 ----\nuname -r\ndnf history",
+      "params": [],
+      "notes": "1) ★ 升级前确认：有带外/另一会话通道、磁盘余量够（df -h /boot 与 /）、业务低峰。\n2) 升级类无安全的一键回滚：回退=指回旧内核 + 重启 + 复核（seed-guide 反例清单口径），个别包按版本号降级。\n3) 离网环境先确认本地源可用（见本地源条目）再 update。\n4) dnf history info <id> 查单次事务；openEuler 内核更新频繁，升级前记录当前内核版本。",
+      "duration": "both",
+      "verified": 0,
+      "rollback": "# 回退：升级类=指回旧内核 + 重启 + 复核（dnf 无安全的一键整次回滚）\n# ---- 1. 默认启动项指回旧内核（序号按列表确认，勿盲写）----\nawk -F'\"' '$1==\"menuentry \" {print NR-1, $2}' /etc/grub2.cfg\ngrub2-set-default <旧内核序号>\nreboot\n# ---- 2. 复核：uname -r 回到旧内核 ----\nuname -r"
     }
   ]
 }

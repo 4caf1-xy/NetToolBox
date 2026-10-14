@@ -6,7 +6,7 @@
   "vendor_slug": "ubuntu",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 24,
+  "count": 25,
   "entries": [
     {
       "uuid": "5b094e2d-eb19-5797-8486-e7dcd1b9b4f1",
@@ -1004,6 +1004,23 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "fb08a309-9b84-5b64-aaba-5a246626f094",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 22.04 LTS",
+      "category": "版本升级",
+      "title": "apt 补丁更新与升级（Ubuntu 22.04）",
+      "description": "apt-get update + upgrade（含内核），重启切换后 uname -r 复核。",
+      "commands": "# ===== apt 补丁更新与升级（Ubuntu 22.04）=====\n# ---- 0. 刷索引（离网先配本地源）----\napt-get update\n# ---- 1. 升级（含内核；保守口径可先 apt list --upgradable 看清单）----\napt-get upgrade -y\n# ---- 2. 内核确认 ----\ndpkg -l | grep linux-image\n# ---- 3. 重启切换（低峰期）----\nreboot\n# ---- 4. 重启后复核 ----\nuname -r",
+      "params": [],
+      "notes": "1) ★ 升级前确认：有带外/另一会话通道、磁盘余量够（df -h /boot 与 /）、业务低峰。\n2) 升级类无安全的一键回滚：回退=指回旧内核 + 重启 + 复核（seed-guide 反例清单口径），个别包按版本号降级。\n3) 离网环境先确认本地源可用（见本地源条目）再 update。\n4) 个别包降级：apt-get install <包名>=<旧版本号>（尖括号按变更记录填）。",
+      "duration": "both",
+      "verified": 0,
+      "rollback": "# 回退：升级类=指回旧内核 + 重启 + 复核（apt 无安全的一键整次回滚）\n# ---- 重启进旧内核：GRUB 菜单选 Advanced options for Ubuntu → 旧内核 ----\nreboot\n# ---- 复核：uname -r 回到旧内核；个别包按版本号降级（apt-get install <包名>=<旧版本>）----\nuname -r"
     }
   ]
 }

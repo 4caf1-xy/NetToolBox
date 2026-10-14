@@ -6,7 +6,7 @@
   "vendor_slug": "kylin",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 23,
+  "count": 24,
   "entries": [
     {
       "uuid": "0026be66-e1db-5eea-a9c0-8393c59ce9ef",
@@ -936,6 +936,23 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "5a31f6ad-fb25-5e3c-b089-8c1b532dddbf",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10（SP1/SP2/SP3）",
+      "category": "版本升级",
+      "title": "yum 补丁更新与内核升级（麒麟 V10）",
+      "description": "yum 更新（含内核），重启切换后 uname -r 复核；同 CentOS 7 血统。",
+      "commands": "# ===== yum 补丁更新与内核升级（麒麟 V10）=====\n# ---- 0. 源可用性确认（离网先挂 ISO 本地源）----\nyum repolist enabled\n# ---- 1. 更新（含内核）----\nyum update -y\n# ---- 2. 内核确认 ----\nrpm -q kernel\ngrub2-editenv list\n# ---- 3. 重启切换（低峰期）----\nreboot\n# ---- 4. 重启后复核 ----\nuname -r\nyum history",
+      "params": [],
+      "notes": "1) ★ 升级前确认：有带外/另一会话通道、磁盘余量够（df -h /boot 与 /）、业务低峰。\n2) 升级类无安全的一键回滚：回退=指回旧内核 + 重启 + 复核（seed-guide 反例清单口径），个别包按版本号降级。\n3) 离网环境先确认本地源可用（见本地源条目）再 update。\n4) 麒麟专用源/补丁以厂商渠道为准，通用源升级前先快照。",
+      "duration": "both",
+      "verified": 0,
+      "rollback": "# 回退：升级类=指回旧内核 + 重启 + 复核（yum 无安全的一键整次回滚）\n# ---- 1. 默认启动项指回旧内核（序号按列表确认，勿盲写）----\nawk -F'\"' '$1==\"menuentry \" {print NR-1, $2}' /etc/grub2.cfg\ngrub2-set-default <旧内核序号>\nreboot\n# ---- 2. 复核：uname -r 回到旧内核 ----\nuname -r"
     }
   ]
 }

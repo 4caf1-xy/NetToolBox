@@ -6,7 +6,7 @@
   "vendor_slug": "ops",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 6,
+  "count": 12,
   "entries": [
     {
       "uuid": "33907be8-0f9a-53c7-86ef-c79d5b95db4e",
@@ -268,6 +268,229 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "fd45be07-e293-5fd2-a47b-6935ea871834",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（RHEL/Debian 系通用）",
+      "category": "密码",
+      "title": "账户密码策略基线（chage + login.defs，Linux 通用）",
+      "description": "单账户口令有效期策略 + 新账户默认策略，等保/基线核查常用。",
+      "commands": "# ===== 账户密码策略基线（chage + login.defs，Linux 通用）=====\n# ---- 0. 备份（守卫式回退锚点；日期写死，rollback 引用得到）----\ncp -a /etc/login.defs /etc/login.defs.bak-20261014\n# ---- 1. 现状盘点 ----\ngrep -E '^PASS_(MAX|MIN|DAYS)' /etc/login.defs\nchage -l {{username}}\n# ---- 2. 单账户有效期策略（最长/最短/提前告警天数）----\nchage -M {{max_days}} -m {{min_days}} -W {{warn_days}} {{username}}\n# ---- 3. 新账户默认策略（login.defs 持久化）----\nsed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS {{max_days}}/' /etc/login.defs\n# ---- 复核 ----\nchage -l {{username}}",
+      "params": [
+        {
+          "name": "username",
+          "type": "string",
+          "label": "账户名",
+          "required": true,
+          "default": "",
+          "description": "要核查/设置策略的登录账户名；填错报 does not exist，无副作用",
+          "example": "appadmin"
+        },
+        {
+          "name": "max_days",
+          "type": "int",
+          "label": "口令最长有效期(天)",
+          "required": true,
+          "default": "90",
+          "description": "口令必须更换的最大间隔天数；等保常用 90；过短会逼用户写便签，过长失去轮换意义",
+          "range": "1-365",
+          "example": "90"
+        },
+        {
+          "name": "min_days",
+          "type": "int",
+          "label": "口令最短间隔(天)",
+          "required": true,
+          "default": "1",
+          "description": "两次改口令的最小间隔，防连续改回旧口令绕过历史检查；0 表示不限制",
+          "range": "0-30",
+          "example": "1"
+        },
+        {
+          "name": "warn_days",
+          "type": "int",
+          "label": "过期前告警(天)",
+          "required": true,
+          "default": "7",
+          "description": "口令到期前提前告警天数；太短用户来不及改，太长告警被忽略",
+          "range": "1-30",
+          "example": "7"
+        }
+      ],
+      "notes": "1) sed -i 只动 PASS_MAX_DAYS 一行；PASS_MIN_DAYS/WARN 仍走 chage 单账户设置，两条线别混。\n2) 已登录会话不受新策略影响，复核用 chage -l。\n3) 备份文件名日期写死（不用 $(date)），rollback 才引用得到（seed-guide 守卫约定）。",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 守卫：备份不存在则中止，禁止盲恢复\nls /etc/login.defs.bak-20261014 || { echo '备份缺失，停止回退，人工核查'; exit 1; }\n# 恢复 login.defs 默认策略\ncp -a /etc/login.defs.bak-20261014 /etc/login.defs\n# 单账户 chage 无文件级回退：先 chage -l 记录原值，再手工恢复\nchage -l {{username}}"
+    },
+    {
+      "uuid": "33a67426-669e-588d-8272-2e4d6117ada1",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（RHEL/Debian 系通用）",
+      "category": "密码",
+      "title": "用户口令修改与锁定排查（passwd，Linux 通用）",
+      "description": "交互式改口令与账户状态核查；锁定/解锁在 notes（误锁会拒登录）。",
+      "commands": "# ===== 用户口令修改与锁定排查（passwd，Linux 通用）=====\n# ---- 0. 现状：账户状态（P=有效口令 / L=锁定 / NP=无口令）----\npasswd -S {{username}}\n# ---- 1. 交互式改口令（输两遍新口令不回显；root 可代改他人）----\npasswd {{username}}\n# ---- 复核：状态应为 P ----\npasswd -S {{username}}",
+      "params": [
+        {
+          "name": "username",
+          "type": "string",
+          "label": "账户名",
+          "required": true,
+          "default": "",
+          "description": "要改口令/核查状态的账户名；填错报 does not exist，无副作用",
+          "example": "appadmin"
+        }
+      ],
+      "notes": "1) 锁定排查组合：passwd -l {{username}} 锁定 / passwd -u {{username}} 解锁（只锁口令，SSH key 仍可登录；要彻底禁登用 usermod -L 或改 shell 为 nologin）。\n2) 改错立即再执行一次 passwd 改回，口令无历史版本。\n3) 批量改口令涉 chpasswd（echo 'user:pass' | chpasswd），口令过 shell 历史注意清理。",
+      "duration": "both",
+      "verified": 0,
+      "rollback": "# 回退：口令变更无自动回退——再次执行 passwd 改回原口令（原口令按变更记录）\npasswd {{username}}\n# 若误锁定账户：解锁\npasswd -u {{username}}"
+    },
+    {
+      "uuid": "b6e5fb59-4b07-5c34-b94c-1002d5c4a615",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（RHEL/Debian 系通用）",
+      "category": "SSH管理",
+      "title": "sshd_config 基线加固（备份守卫 + 语法校验，Linux 通用）",
+      "description": "改端口/禁 root 直登/配空闲超时，sshd -t 校验后才重启，改坏不断会话。",
+      "commands": "# ===== sshd_config 基线加固（Linux 通用）=====\n# ---- 0. 备份（守卫式回退锚点；日期写死）----\ncp -a /etc/ssh/sshd_config /etc/ssh/sshd_config.bak-20261014\n# ---- 1. 加固项（常用基线，按需删改）----\nsed -i 's/^#\\?Port .*/Port {{ssh_port}}/' /etc/ssh/sshd_config\nsed -i 's/^#\\?PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/^#\\?ClientAliveInterval .*/ClientAliveInterval {{alive_interval}}/' /etc/ssh/sshd_config\nsed -i 's/^#\\?ClientAliveCountMax .*/ClientAliveCountMax {{alive_countmax}}/' /etc/ssh/sshd_config\n# ---- 2. 语法校验（★ 改完必跑；报错先回退再排查）----\nsshd -t\n# ---- 3. 重启生效（服务名两系不同：RHEL 系 sshd / Debian 系 ssh）----\nsystemctl restart sshd || systemctl restart ssh\n# ---- 复核：新端口已在监听；★ 保持当前会话，新开连接验证通过再断 ----\nss -tlnp | grep -E 'sshd|ssh'",
+      "params": [
+        {
+          "name": "ssh_port",
+          "type": "int",
+          "label": "SSH 端口",
+          "required": true,
+          "default": "22",
+          "description": "sshd 监听端口；1-65535；改端口先确认防火墙/安全组同步放行，否则自锁在门外",
+          "range": "1-65535",
+          "example": "22"
+        },
+        {
+          "name": "alive_interval",
+          "type": "int",
+          "label": "空闲探测间隔(秒)",
+          "required": true,
+          "default": "300",
+          "description": "服务端向客户端发存活探测的间隔秒数；0=关闭保活，NAT 环境会话易被掐",
+          "range": "10-3600",
+          "example": "300"
+        },
+        {
+          "name": "alive_countmax",
+          "type": "int",
+          "label": "探测失败上限(次)",
+          "required": true,
+          "default": "3",
+          "description": "连续无响应次数上限，超过即断开空闲会话；与间隔相乘=总空闲时长",
+          "range": "1-10",
+          "example": "3"
+        }
+      ],
+      "notes": "1) ★ 改端口/禁 root 前确认有带外或另一个已登录会话，重启后先新开连接验证。\n2) PermitRootLogin no 生效前确认有可用的普通管理员账户（本条不建账户）。\n3) sshd -t 通过才允许 restart；失败立即按 rollback 回退。\n4) SELinux 系统改非标准端口还需 semanage port -a -t ssh_port_t -p tcp <端口>（CentOS/RHEL）。",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 守卫：备份不存在则中止，禁止盲恢复\nls /etc/ssh/sshd_config.bak-20261014 || { echo '备份缺失，停止回退，人工核查'; exit 1; }\ncp -a /etc/ssh/sshd_config.bak-20261014 /etc/ssh/sshd_config\nsshd -t\nsystemctl restart sshd || systemctl restart ssh\n# 复核：端口与策略恢复\nss -tlnp | grep -E 'sshd|ssh'"
+    },
+    {
+      "uuid": "827712cb-93a0-5560-99f3-fec513e53989",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（RHEL/Debian 系通用）",
+      "category": "SSH管理",
+      "title": "SSH 连接失败排查（ss/systemctl/ssh -v/journalctl，Linux 通用）",
+      "description": "端口监听 → 服务状态 → 客户端 -v 握手 → 服务端日志，四步定位连不上。",
+      "commands": "# ===== SSH 连接失败排查（Linux 通用）=====\n# ---- 0. 网络层：sshd 是否在监听（端口对不对）----\nss -tlnp | grep -E 'sshd|ssh'\n# ---- 1. 服务状态（服务名两系不同）----\nsystemctl status sshd || systemctl status ssh\n# ---- 2. 客户端详细握手：-v 看卡在哪一步（TCP/密钥交换/认证）----\nssh -v {{user}}@{{server_ip}} -p {{ssh_port}}\n# ---- 3. 服务端日志（服务名跟着上一步走）----\njournalctl -u sshd -n 50 --no-pager || journalctl -u ssh -n 50 --no-pager",
+      "params": [
+        {
+          "name": "user",
+          "type": "string",
+          "label": "登录用户",
+          "required": true,
+          "default": "",
+          "description": "测试连接用的账户名；填错只是复现认证失败，无副作用",
+          "example": "appadmin"
+        },
+        {
+          "name": "server_ip",
+          "type": "ip",
+          "label": "目标服务器 IP",
+          "required": true,
+          "default": "",
+          "description": "要连的服务器地址；填错只是连不上，无副作用",
+          "example": "10.255.0.20"
+        },
+        {
+          "name": "ssh_port",
+          "type": "int",
+          "label": "SSH 端口",
+          "required": true,
+          "default": "22",
+          "description": "目标 sshd 监听端口，与加固条目核对",
+          "range": "1-65535",
+          "example": "22"
+        }
+      ],
+      "notes": "1) -v 卡在 'Connection established' 之后多为密钥交换/主机钥变更（known_hosts 冲突看 WARNING 行）。\n2) 'Permission denied' 三连：口令错 / 被禁用（passwd -S）/ sshd_config 里 AllowUsers/DenyUsers 过滤。\n3) 防火墙层：firewalld（RHEL 系）/ ufw（Debian 系）另查，本条不含。",
+      "duration": "temp",
+      "verified": 0,
+      "rollback": "# 本条全为只读诊断组合，无持久化变更对象；诊断中的临时改动按对应变更条目的 rollback 回退。"
+    },
+    {
+      "uuid": "edd74af6-1c39-52d3-9201-f0baa1cb59fa",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（RHEL/Debian 系通用）",
+      "category": "配置回滚",
+      "title": "网络配置变更前备份与守卫式回退（Linux 通用）",
+      "description": "改网络配置前按日期写死备份，回退先校验备份在不在——备份缺失即中止，禁止盲恢复。",
+      "commands": "# ===== 网络配置变更前备份与守卫式回退（Linux 通用）=====\n# ---- 0. 变更前备份：要改的配置文件按日期写死备份 ----\ncp -a {{config_file}} {{config_file}}.bak-20261014\n# ---- 1. （此处执行你的变更：改 IP/DNS/网关等，见对应网络配置条目）----\n# ---- 2. 变更后验证：确认网络通再退出会话；不通走 rollback 回退 ----\nip addr show\n",
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "label": "配置文件路径",
+          "required": true,
+          "default": "",
+          "description": "本次要改的网络配置文件绝对路径（如 /etc/sysconfig/network-scripts/ifcfg-eth0、/etc/netplan/01-xxx.yaml、/etc/resolv.conf）；填错备份会失败，cp 报错即中止",
+          "example": "/etc/sysconfig/network-scripts/ifcfg-eth0",
+          "validate": "path"
+        }
+      ],
+      "notes": "1) 这是 seed-guide「备份步守卫」约定的落地条目：备份文件名日期写死，rollback 引用同一名字。\n2) 备份不存在 = 变更没做成，回退必须中止而不是拿空路径盲恢复。\n3) 网络配置回退后要重启对应接口/服务才生效（ifup / netplan apply）。",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 守卫：备份不存在则中止，禁止盲恢复\nls {{config_file}}.bak-20261014 || { echo '备份缺失，停止回退，人工核查'; exit 1; }\n# 备份在才恢复\ncp -a {{config_file}}.bak-20261014 {{config_file}}\n# 恢复后按发行版生效：RHEL 系 ifup <接口> / netplan 体系 netplan apply"
+    },
+    {
+      "uuid": "24b7a4d7-695b-5273-8ce0-61411563f8e2",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "任意 Linux（RHEL/Debian 系通用）",
+      "category": "时间同步",
+      "title": "时间同步状态核查（timedatectl/chronyc，Linux 通用）",
+      "description": "NTP 服务状态、上游源、硬时钟与系统时钟偏差，一条条目全查。",
+      "commands": "# ===== 时间同步状态核查（Linux 通用）=====\n# ---- 0. 总览：NTP 服务激活与时钟同步状态 ----\ntimedatectl status\n# ---- 1. chrony 机器：跟踪状态与上游源（带 * 为当前同步源）----\nchronyc tracking\nchronyc sources -v\n# ---- 2. timesyncd 机器：同步状态 ----\ntimedatectl timesync-status\n# ---- 3. 硬件时钟 vs 系统时钟 ----\nhwclock --show\ndate",
+      "params": [],
+      "notes": "1) timesync-status/timesync1 报错说明 systemd-timesyncd 未装或未运行（见报错库 timesync1 条目）。\n2) chronyc sources 带 * 才是选中源；全部 ?/+ 说明未同步，查网络与服务器地址。\n3) hwclock 与 date 偏差大：RTC 时区/漂移问题，矫正用 hwclock -w 或 timedatectl set-local-rtc 0（变更操作走对应时间同步配置条目）。",
+      "duration": "temp",
+      "verified": 0,
+      "rollback": "# 本条全为只读诊断组合，无持久化变更对象；时钟矫正等变更按时间同步配置条目的 rollback 回退。"
     }
   ]
 }

@@ -6,7 +6,7 @@
   "vendor_slug": "centos",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 30,
+  "count": 31,
   "entries": [
     {
       "uuid": "887ade2e-5900-5ae2-830f-8fdef988fe9c",
@@ -1338,6 +1338,23 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "40ea4a58-fd3b-5155-9765-b1e29b889eb5",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7.x",
+      "category": "版本升级",
+      "title": "yum 补丁更新与内核升级（CentOS 7）",
+      "description": "本地源/网络源 yum 更新（含内核），重启切换后 uname -r 复核。",
+      "commands": "# ===== yum 补丁更新与内核升级（CentOS 7）=====\n# ---- 0. 源可用性确认（离网先挂 ISO 本地源）----\nyum repolist enabled\n# ---- 1. 仅安全更新（保守口径）----\nyum update --security -y\n# ---- 2. 内核确认：新内核在列且默认启动项指向它 ----\nrpm -q kernel\ngrub2-editenv list\n# ---- 3. 重启切换新内核（低峰期；确认带外通道）----\nreboot\n# ---- 4. 重启后复核 ----\nuname -r\nyum history",
+      "params": [],
+      "notes": "1) ★ 升级前确认：有带外/另一会话通道、磁盘余量够（df -h /boot 与 /）、业务低峰。\n2) 升级类无安全的一键回滚：回退=指回旧内核 + 重启 + 复核（seed-guide 反例清单口径），个别包按版本号降级。\n3) 离网环境先确认本地源可用（见本地源条目）再 update。\n4) yum history <id> info 可查单次事务装了什么，为降级提供依据。",
+      "duration": "both",
+      "verified": 0,
+      "rollback": "# 回退：升级类=指回旧内核 + 重启 + 复核（yum 无安全的一键整次回滚）\n# ---- 1. 默认启动项指回旧内核（序号按 grub2 列表确认，勿盲写 1）----\nawk -F'\"' '$1==\"menuentry \" {print NR-1, $2}' /etc/grub2.cfg\ngrub2-set-default <旧内核序号>\nreboot\n# ---- 2. 复核：uname -r 回到旧内核；个别包按 yum history 记录降级 ----\nuname -r"
     }
   ]
 }
