@@ -7,6 +7,14 @@
 
 ## Unreleased
 
+#### E 批：数据扩容（报错库 + 空缺厂商，纯数据批不动产品代码，2026-10-14）
+- **报错字典 82→97**：err_unresolved 场1/场2 沉淀的真实回显转正 8 条（systemd 容器 D-Bus / FRR ospf 实例 / sha256sum 目录 / sshd 别名单元 / netplan 权限 / timesync1 缺失 / sed bind-mount / chronyd SYS_TIME，逐条关联命令条目 uuid）；linux/ops 低洼补缺 7 条（ENOSPC / sudo 无 tty / CRLF 坏解释器 / Text file busy / apt 缺包 / Job failed 入口 / 只读文件系统）；「权限」类目首次启用（0→2）；
+- **山石网科（StoneOS）占位目录转正**：最小可用集 10 条（VLAN 三层网关+子接口 / trunk 透传 / show interface / 事件+流量日志外发 syslog / show session / ping+traceroute / save 与配置核对），结构化 params、变更类 rollback 全覆盖（save 基线 + rollback 回退式）；关键字按 StoneOS 5.5 官方知识库与 CLI 手册核对，全量 exec_level=skeleton 待真机验证；
+- **Linux/运维侧低洼格补缺 10 条**：ops×密码×2 / SSH管理×2 / 配置回滚×1（备份步守卫约定落地条目）/ 时间同步×1 + centos/ubuntu/kylin/openeuler×版本升级×4（该四格此前全为 0）；
+- 规模：338→**358 条** / 26 树 / **97 报错**；仪表盘矩阵 16 厂商 × 32 分类（实填 247 格）；四档分布：命令 绿27/语法核对61/挂起76/未验证194，报错 挂起15/未验证82；
+- 冒烟三套件种子口径同步（338→348→358，随子批推进）；err_unresolved #2/#4/#5/#6/#7/#8/#9/#10 转正回写 resolved（主库 pending 12→4，余为无效残留）；
+- 三子批独立提交（eae4bd7 / 59ed111 / 99a3dda），每批 validate EXIT=0、[W]=1 无新增（基线：故障应急回退包 zte skeleton）、[E]=0。
+
 #### D 批：收藏夹视图 + 最近使用强化（收藏体系「查看」侧收口，2026-10-13）
 - **Ctrl+K 空输入面板新增「收藏」区**：空输入即见收藏条目（favorite=1，db.search 稳定序），**置顶于「最近使用」区之前**；收藏区条目与搜索结果同构，↑↓/Enter 可直接激活跳转，超 40 条仅显示前 40（超出数在分组标题标注）；无收藏无最近使用时给指引文案不空白；
 - **「只看收藏」过滤视图实测回归**（盘点发现该视图随基线已存在——过滤栏「只看收藏」开关 + 视图菜单同步项 + `db.search(favorite_only)` 稳定排序，本批不重做、补实测断言）：收藏 3 条 → 过滤视图只显 3 条且全为 favorite=1、排序与 db 直查逐位一致 → 取消收藏即时从视图消失；

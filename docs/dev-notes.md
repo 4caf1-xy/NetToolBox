@@ -320,3 +320,32 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 - **工件口径（审码修复批收尾留痕，2026-10-13）**：审码批产出的「提示词包」为会话外工件，不入仓库；审码报告遗留项（J 遗留）的最终口径以本文件本节为基准，报告归档件（docs/audit/）append-only 不回改。
 - **sessions/ 与 ai_cases/ 明文治理**：AI 会话全文（含设备信息、可能含口令）明文落 exe 同目录随介质走，与批 1 同一威胁面。候选方案：会话目录整体加密 / 退出时清理 / 只保留最近 N 天。已列入提示词包 L 行，待排期。**【收尾 2026-10-13】已由 L 批裁决 1 落地（文件级 DPAPI-v1 + 首启事务式迁移），取舍记录见本文件 L 批节。**
 - 图片附件（vision 模型通道）不经文本门禁，多模态外发面另行评估。**【收尾 2026-10-13】已由 L 批裁决 3 落地（不做内容分析 + 逐次确认 + 明示端点 host；未确认不发送不落盘）。**
+
+
+## E 批数据扩容批记录（2026-10-14，eae4bd7 / 59ed111 / 99a3dda）
+
+纯数据批（产品代码零改动；冒烟三套件种子口径数字随数据同步属测试期望更新）。三子批独立提交推送，每批 validate EXIT=0、[W]=1（基线不变）、[E]=0。
+
+### 第 0 步盘点（只读，结论并入执行）
+- 报错库 82 条按厂商×类目：低洼区 zte/sangfor/topsec/paloalto 各 4 条、ops 仅 1 条；「权限」类目 0 条；「服务/磁盘/本地源」仅 linux 系命中。
+- err_unresolved 13 行逐条评估：真实回显 8 条（#2/#4/#5/#6/#7/#8/#9/#10）全部转正；#1 已 resolved；#12/#13/#14/#15 为无效残留（"not"/"all"/"Error"/重复行），保持 pending 不转正。
+- 占位厂商二选一：**山石 Hillstone 胜出**——slug/os_family（stoneos）已在 db.py 预注册、占位目录就位、官方知识库（kb.hillstonenet.com）+ StoneOS CLI 手册公开可核对，纯数据即可落地；迪普 DPtech 无预注册 slug，落地需改代码，与本批约束冲突。BSD（FreeBSD ifconfig/pf）评估：`freebsd` 不在 VENDOR_SLUGS、platform 只有 network/linux 两值、接口命名/端口展开规则缺失，纯数据批落不了地，**建议另立代码+数据批**（结论：本批不做）。
+- 仪表盘矩阵基线：15 厂商 × 32 分类 = 480 格，实填 233 格，0 条格 247 个。
+
+### 三子批
+1. **子批 1（eae4bd7）**：报错库净增 15（转正 8 + 补缺 7），样例自测 100% 命中；smoke_regex_guard/scenarios 口径 82→97。
+2. **子批 2（59ed111）**：hillstone.json 落 `placeholders/hillstone/`（递归扫描自动生效）；10 条 = VLAN×2/Trunk×1/接口诊断×1/日志×2/防火墙诊断×2/保存配置×2；变更类 6 条 rollback 全覆盖（save 基线 + rollback 回退式），查询类 4 条按 seed-guide 免填；全量 skeleton（占位转正按 [W] 记账：骨架条目 +1 厂商）。
+3. **子批 3（99a3dda）**：Linux/ops 补缺 10 条；ops 格 6 + 四发行版版本升级格 4；回退三类：备份守卫式 3 / passwd 再改回式 1 / 指回旧内核式 4；只读组合 2 条 fail-safe 判变更类、rollback 为如实说明。
+
+### 主库与收尾（.workbuddy/ebatch_final_db.py，备份兜底 + 断言）
+- 导入前备份 `backup/command_lib-pre-ebatch-20261014-171310.db`；应用自带 import_seed_dir 路径（UUID 合并 + 状态字段保留库值），新增 38（条目 20 + 报错 15 + 场景包 0 计更新，实为 20+15+3 包）。
+- err_unresolved #2/#4/#5/#6/#7/#8/#9/#10 → resolved + resolved_err_id 回写（事务 + 前后断言），pending 12→4。
+- 矩阵对账：种子内存库 vs 主库逐格 diff **mismatch=0**；矩阵 16 厂商 × 32 分类 = 512 格，实填 247，0 条格 265。
+- 四档分布：命令 绿27/语法核对61/挂起76/未验证194（358）；报错 挂起15/未验证82（97）；树 绿0/未验证26。
+- 抽验：15 条模拟回显（非 examples 原文变体）经 match_errors **15/15 命中**。
+- smoke：regex_guard / scenarios / schema_rollback 三套实测全过（358/26/97 口径）。
+
+### 遗留与后续
+- 场 2 遗留 err_unresolved 无效残留 4 条待 UI 侧清理或批量归档。
+- BSD（FreeBSD）与迪普 DPtech 落地需代码侧厂商注册，建议另立批次。
+- 山石 10 条全为骨架：真机核对后经回填流程转绿（对照防火墙树组 slug 扩展一并做）。
