@@ -1,0 +1,357 @@
+{
+  "format": "netcmdl - command library",
+  "schema": 2,
+  "vendor_file": "hillstone.json",
+  "vendor_label": "山石网科（StoneOS）",
+  "vendor_slug": "hillstone",
+  "verified_policy": "全部条目 verified=0 且 exec_level=skeleton：按 StoneOS 5.5 公开手册核对、未经真机验证，须真机核对后回填",
+  "generated_at": "2026-10-14",
+  "count": 10,
+  "entries": [
+    {
+      "uuid": "a4040e60-25bc-5551-ac9b-32acdb0043a3",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "hillstone",
+      "os_family": "stoneos",
+      "models": "SG-6000 系列（StoneOS 5.5.x）",
+      "category": "VLAN",
+      "title": "创建 VLAN 三层接口并作为网关（山石 StoneOS，骨架）",
+      "description": "VLAN 内设备的三层网关：建 VLAN、trunk 口放通、VLAN 接口配 IP+安全域。",
+      "commands": "# ⚠ 待真机核对：本条目按 StoneOS 5.5 官方知识库/命令行手册核对过关键字，未在真机验证。\n# 核对方法：Console/SSH 登录后先敲 ? 确认当前视图/版本支持；save/rollback 有 y/n 交互提示，脚本化执行注意挂起。\n\n# ===== 创建 VLAN 三层接口并作为网关（山石 StoneOS）=====\n# ---- 0. 变更前保存当前配置为回退基线（交互提示按 y）----\nsave\nconfigure\n# ---- 1. 创建 VLAN ----\nvlan {{vlan_id}}\nexit\n# ---- 2. 上联交换机 trunk 口放通该 VLAN（二层透传）----\ninterface {{uplink_if}}\n switchmode trunk vlan {{vlan_id}}\nexit\n# ---- 3. 创建 VLAN 三层接口：划安全域 + 配网关地址 ----\ninterface vlan{{vlan_id}}\n zone {{zone_name}}\n ip address {{gateway_ip}}/{{prefix_len}}\n manage ping\nexit\nend\nsave\n# 复核：接口应已存在并 UP\nshow configuration running",
+      "params": [
+        {
+          "name": "vlan_id",
+          "type": "int",
+          "label": "VLAN ID",
+          "required": true,
+          "default": "10",
+          "description": "要创建/放通的业务 VLAN 编号；取值 1-4094（1 为默认 VLAN，1002-1005 系统保留勿用）；与对端交换机必须一致，错号即隔离",
+          "range": "1-4094",
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "uplink_if",
+          "type": "string",
+          "label": "上联物理口",
+          "required": true,
+          "default": "ethernet0/0",
+          "description": "接交换机 Trunk 的物理口；switchmode trunk 后该口二层化，原有三层 IP/zone 配置失效，选错口会断管理或业务",
+          "example": "ethernet0/0"
+        },
+        {
+          "name": "zone_name",
+          "type": "enum",
+          "label": "安全域",
+          "required": true,
+          "default": "trust",
+          "description": "接口所属安全域（StoneOS 策略按 zone 方向组织）；trust=内网 / untrust=外网 / dmz=隔离区 / mgt=带外管理；域配错会\"配置正确但不通\"",
+          "choices": [
+            "trust",
+            "untrust",
+            "dmz",
+            "mgt"
+          ],
+          "example": "trust"
+        },
+        {
+          "name": "gateway_ip",
+          "type": "ip",
+          "label": "网关 IP",
+          "required": true,
+          "default": "",
+          "description": "VLAN 接口的三层地址，即该网段的网关；填写合法 IPv4；与网段内其他设备网关冲突会引发 ARP 抖动",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "prefix_len",
+          "type": "int",
+          "label": "掩码长度",
+          "required": true,
+          "default": "24",
+          "description": "子网掩码长度（CIDR）；取值 1-32；与规划表核对，错掩码会导致广播域错乱或路由不可达",
+          "range": "1-32",
+          "example": "24"
+        }
+      ],
+      "notes": "1) ★ 骨架条目（占位转正）：命令关键字按 StoneOS 5.5 公开手册/官方知识库核对，未经真机验证，执行前先 ? 确认。\n2) save/rollback 均有 y/n 交互提示，SSH 脚本直发会挂起，人工确认。\n3) 变更类回退依赖变更前 save 基线——变更前那一步 save 不能省。\n4) 示例 IP 一律文档测试段，替换为规划值。",
+      "verified": 0,
+      "exec_level": "skeleton",
+      "rollback": "# 回退：整体回退到变更前 save 的配置基线（前置：变更前的 save 必须已执行）\n# ⚠ 骨架条目：rollback 的交互提示/作用范围待真机核对\nrollback\nsave\n# 复核：确认 VLAN 三层接口 已消失\nshow configuration running"
+    },
+    {
+      "uuid": "3bf3551e-4f3b-59d3-ace5-04f1387cf349",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "hillstone",
+      "os_family": "stoneos",
+      "models": "SG-6000 系列（StoneOS 5.5.x）",
+      "category": "VLAN",
+      "title": "创建 VLAN 子接口（802.1Q 终结，山石 StoneOS，骨架）",
+      "description": "单臂路由形态：物理口不动，用 e0/1.N 子接口终结 VLAN 并做网关。",
+      "commands": "# ⚠ 待真机核对：本条目按 StoneOS 5.5 官方知识库/命令行手册核对过关键字，未在真机验证。\n# 核对方法：Console/SSH 登录后先敲 ? 确认当前视图/版本支持；save/rollback 有 y/n 交互提示，脚本化执行注意挂起。\n\n# ===== 创建 VLAN 子接口（山石 StoneOS）=====\n# ---- 0. 变更前保存当前配置为回退基线（交互提示按 y）----\nsave\nconfigure\n# ---- 1. 子接口：父口._VLANID，划安全域 + 配地址 ----\ninterface {{parent_if}}.{{vlan_id}}\n zone {{zone_name}}\n ip address {{gateway_ip}}/{{prefix_len}}\n manage ping\nexit\nend\nsave\n# 复核\nshow configuration running",
+      "params": [
+        {
+          "name": "parent_if",
+          "type": "string",
+          "label": "父物理口",
+          "required": true,
+          "default": "ethernet0/1",
+          "description": "承载 802.1Q 标签的物理口；对端交换机该口必须是 trunk 且放通同 VLAN，否则子接口不通",
+          "example": "ethernet0/1"
+        },
+        {
+          "name": "vlan_id",
+          "type": "int",
+          "label": "VLAN ID",
+          "required": true,
+          "default": "10",
+          "description": "要创建/放通的业务 VLAN 编号；取值 1-4094（1 为默认 VLAN，1002-1005 系统保留勿用）；与对端交换机必须一致，错号即隔离",
+          "range": "1-4094",
+          "validate": "vlan",
+          "example": "10"
+        },
+        {
+          "name": "zone_name",
+          "type": "enum",
+          "label": "安全域",
+          "required": true,
+          "default": "trust",
+          "description": "接口所属安全域（StoneOS 策略按 zone 方向组织）；trust=内网 / untrust=外网 / dmz=隔离区 / mgt=带外管理；域配错会\"配置正确但不通\"",
+          "choices": [
+            "trust",
+            "untrust",
+            "dmz",
+            "mgt"
+          ],
+          "example": "trust"
+        },
+        {
+          "name": "gateway_ip",
+          "type": "ip",
+          "label": "网关 IP",
+          "required": true,
+          "default": "",
+          "description": "VLAN 接口的三层地址，即该网段的网关；填写合法 IPv4；与网段内其他设备网关冲突会引发 ARP 抖动",
+          "example": "192.168.10.1"
+        },
+        {
+          "name": "prefix_len",
+          "type": "int",
+          "label": "掩码长度",
+          "required": true,
+          "default": "24",
+          "description": "子网掩码长度（CIDR）；取值 1-32；与规划表核对，错掩码会导致广播域错乱或路由不可达",
+          "range": "1-32",
+          "example": "24"
+        }
+      ],
+      "notes": "1) ★ 骨架条目（占位转正）：命令关键字按 StoneOS 5.5 公开手册/官方知识库核对，未经真机验证，执行前先 ? 确认。\n2) save/rollback 均有 y/n 交互提示，SSH 脚本直发会挂起，人工确认。\n3) 变更类回退依赖变更前 save 基线——变更前那一步 save 不能省。\n4) 示例 IP 一律文档测试段，替换为规划值。",
+      "verified": 0,
+      "exec_level": "skeleton",
+      "rollback": "# 回退：整体回退到变更前 save 的配置基线（前置：变更前的 save 必须已执行）\n# ⚠ 骨架条目：rollback 的交互提示/作用范围待真机核对\nrollback\nsave\n# 复核：确认 VLAN 子接口 已消失\nshow configuration running"
+    },
+    {
+      "uuid": "3c2d46e9-9634-5fb3-b743-6104a27cbdb0",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "hillstone",
+      "os_family": "stoneos",
+      "models": "SG-6000 系列（StoneOS 5.5.x）",
+      "category": "Trunk",
+      "title": "物理口二层 trunk 透传 VLAN 列表（山石 StoneOS，骨架）",
+      "description": "把物理口二层化并批量放通 VLAN 列表，对接交换机 Trunk。",
+      "commands": "# ⚠ 待真机核对：本条目按 StoneOS 5.5 官方知识库/命令行手册核对过关键字，未在真机验证。\n# 核对方法：Console/SSH 登录后先敲 ? 确认当前视图/版本支持；save/rollback 有 y/n 交互提示，脚本化执行注意挂起。\n\n# ===== 物理口 trunk 透传 VLAN（山石 StoneOS）=====\n# ---- 0. 变更前保存当前配置为回退基线（交互提示按 y）----\nsave\nconfigure\n# ---- 1. 二层化并放通 VLAN 列表 ----\ninterface {{uplink_if}}\n switchmode trunk vlan {{vlan_list}}\nexit\nend\nsave\n# 复核：对端交换机同步放通后流量才通\nshow interface {{uplink_if}}",
+      "params": [
+        {
+          "name": "uplink_if",
+          "type": "string",
+          "label": "上联物理口",
+          "required": true,
+          "default": "ethernet0/0",
+          "description": "要二层化的物理口；switchmode trunk 生效后原三层配置失效，管理口慎选",
+          "example": "ethernet0/0"
+        },
+        {
+          "name": "vlan_list",
+          "type": "string",
+          "label": "放通 VLAN 列表",
+          "required": true,
+          "default": "10,20,30",
+          "description": "放通的 VLAN 编号，逗号分隔（如 10,20,30）；必须与对端交换机放通列表一致，漏放通即单侧隔离",
+          "example": "10,20,30"
+        }
+      ],
+      "notes": "1) ★ 骨架条目（占位转正）：命令关键字按 StoneOS 5.5 公开手册/官方知识库核对，未经真机验证，执行前先 ? 确认。\n2) save/rollback 均有 y/n 交互提示，SSH 脚本直发会挂起，人工确认。\n3) 变更类回退依赖变更前 save 基线——变更前那一步 save 不能省。\n4) 示例 IP 一律文档测试段，替换为规划值。",
+      "verified": 0,
+      "exec_level": "skeleton",
+      "rollback": "# 回退：整体回退到变更前 save 的配置基线（前置：变更前的 save 必须已执行）\n# ⚠ 骨架条目：rollback 的交互提示/作用范围待真机核对\nrollback\nsave\n# 复核：确认 trunk 放通 已消失\nshow configuration running"
+    },
+    {
+      "uuid": "c7fcc342-f772-57d4-a922-d8ef17d5d812",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "hillstone",
+      "os_family": "stoneos",
+      "models": "SG-6000 系列（StoneOS 5.5.x）",
+      "category": "接口诊断",
+      "title": "接口状态诊断（show interface 族，山石 StoneOS，骨架）",
+      "description": "看接口 UP/DOWN、IP、安全域与收发包/错包计数，链路排查第一站。",
+      "commands": "# ⚠ 待真机核对：本条目按 StoneOS 5.5 官方知识库/命令行手册核对过关键字，未在真机验证。\n# 核对方法：Console/SSH 登录后先敲 ? 确认当前视图/版本支持；save/rollback 有 y/n 交互提示，脚本化执行注意挂起。\n\n# ===== 接口状态诊断（山石 StoneOS）=====\n# ---- 接口总览：UP/DOWN、IP、zone ----\nshow interface\n# ---- 单口详情：双工/速率/收发包/错包 ----\nshow interface {{if_name}}",
+      "params": [
+        {
+          "name": "if_name",
+          "type": "string",
+          "label": "接口名",
+          "required": true,
+          "default": "ethernet0/0",
+          "description": "要细看的接口名（e0/0 缩写与全写等价）；填错只是查不到，无副作用",
+          "example": "ethernet0/0"
+        }
+      ],
+      "notes": "1) ★ 骨架条目（占位转正）：命令关键字按 StoneOS 5.5 公开手册/官方知识库核对，未经真机验证，执行前先 ? 确认。\n2) save/rollback 均有 y/n 交互提示，SSH 脚本直发会挂起，人工确认。\n3) 变更类回退依赖变更前 save 基线——变更前那一步 save 不能省。\n4) 示例 IP 一律文档测试段，替换为规划值。",
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "3d531cc0-a425-5e5b-bc38-7860e23474a8",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "hillstone",
+      "os_family": "stoneos",
+      "models": "SG-6000 系列（StoneOS 5.5.x）",
+      "category": "日志",
+      "title": "事件日志开启并外发 syslog（山石 StoneOS，骨架）",
+      "description": "设备事件日志（登录/配置/告警）外发集中日志服务器，审计与排障基线。",
+      "commands": "# ⚠ 待真机核对：本条目按 StoneOS 5.5 官方知识库/命令行手册核对过关键字，未在真机验证。\n# 核对方法：Console/SSH 登录后先敲 ? 确认当前视图/版本支持；save/rollback 有 y/n 交互提示，脚本化执行注意挂起。\n\n# ===== 事件日志外发 syslog（山石 StoneOS）=====\n# ---- 0. 变更前保存当前配置为回退基线 ----\nsave\nconfigure\n# ---- 1. 指定 syslog 服务器（UDP 514）----\nlogging syslog {{syslog_ip}} udp 514\n# ---- 2. 开启事件日志 ----\nlogging event on\n# ---- 3. 事件日志输出到 syslog（可按 severity 过滤级别）----\nlogging event to syslog\nend\nsave\n# 复核：日志服务器侧确认收到设备事件",
+      "params": [
+        {
+          "name": "syslog_ip",
+          "type": "ip",
+          "label": "Syslog 服务器 IP",
+          "required": true,
+          "default": "",
+          "description": "集中日志服务器地址；UDP 514 标准端口；离网环境先确认服务器侧放行 UDP 514，配错则日志静默丢失",
+          "example": "10.255.0.9"
+        }
+      ],
+      "notes": "1) ★ 骨架条目（占位转正）：命令关键字按 StoneOS 5.5 公开手册/官方知识库核对，未经真机验证，执行前先 ? 确认。\n2) save/rollback 均有 y/n 交互提示，SSH 脚本直发会挂起，人工确认。\n3) 变更类回退依赖变更前 save 基线——变更前那一步 save 不能省。\n4) 示例 IP 一律文档测试段，替换为规划值。",
+      "verified": 0,
+      "exec_level": "skeleton",
+      "rollback": "# 回退：关闭事件日志外发并移除 syslog 服务器（骨架：no 形式待真机核对）\nconfigure\nno logging event to syslog\nno logging event on\nno logging syslog {{syslog_ip}} udp 514\nend\nsave\n# 复核\nshow configuration running"
+    },
+    {
+      "uuid": "15ff963b-f386-58bf-b649-07b1d6c5c567",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "hillstone",
+      "os_family": "stoneos",
+      "models": "SG-6000 系列（StoneOS 5.5.x）",
+      "category": "日志",
+      "title": "流量日志开启并外发 syslog（山石 StoneOS，骨架）",
+      "description": "会话级流量日志外发（默认关闭，开启影响性能），安全审计/溯源用。",
+      "commands": "# ⚠ 待真机核对：本条目按 StoneOS 5.5 官方知识库/命令行手册核对过关键字，未在真机验证。\n# 核对方法：Console/SSH 登录后先敲 ? 确认当前视图/版本支持；save/rollback 有 y/n 交互提示，脚本化执行注意挂起。\n\n# ===== 流量日志外发 syslog（山石 StoneOS）=====\n# ---- 0. 变更前保存当前配置为回退基线 ----\nsave\nconfigure\nlogging syslog {{syslog_ip}} udp 514\n# ---- 开启流量日志（默认关闭；开启影响性能，按需启用）----\nlogging traffic session on\n# ---- 流量日志输出到 syslog ----\nlogging traffic to syslog\nend\nsave\n# 复核：日志服务器侧确认收到流量日志",
+      "params": [
+        {
+          "name": "syslog_ip",
+          "type": "ip",
+          "label": "Syslog 服务器 IP",
+          "required": true,
+          "default": "",
+          "description": "集中日志服务器地址；流量日志量大，确认服务器磁盘与采集能力；UDP 514 标准端口",
+          "example": "10.255.0.9"
+        }
+      ],
+      "notes": "1) ★ 骨架条目（占位转正）：命令关键字按 StoneOS 5.5 公开手册/官方知识库核对，未经真机验证，执行前先 ? 确认。\n2) save/rollback 均有 y/n 交互提示，SSH 脚本直发会挂起，人工确认。\n3) 变更类回退依赖变更前 save 基线——变更前那一步 save 不能省。\n4) 示例 IP 一律文档测试段，替换为规划值。",
+      "verified": 0,
+      "exec_level": "skeleton",
+      "rollback": "# 回退：关闭流量日志外发（骨架：no 形式待真机核对）\nconfigure\nno logging traffic to syslog\nno logging traffic session on\nno logging syslog {{syslog_ip}} udp 514\nend\nsave\n# 复核\nshow configuration running"
+    },
+    {
+      "uuid": "ed4c4add-8c6b-5bfa-b48f-7c8451f97f6e",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "hillstone",
+      "os_family": "stoneos",
+      "models": "SG-6000 系列（StoneOS 5.5.x）",
+      "category": "防火墙诊断",
+      "title": "会话表排查（show session，山石 StoneOS，骨架）",
+      "description": "会话有无直接分流：有会话不通查路由/回程，无会话查策略。",
+      "commands": "# ⚠ 待真机核对：本条目按 StoneOS 5.5 官方知识库/命令行手册核对过关键字，未在真机验证。\n# 核对方法：Console/SSH 登录后先敲 ? 确认当前视图/版本支持；save/rollback 有 y/n 交互提示，脚本化执行注意挂起。\n\n# ===== 会话表排查（山石 StoneOS）=====\n# ---- 会话总览：条数/协议分布 ----\nshow session\n# ---- 按源地址过滤会话（客户端 IP）----\nshow session | include {{src_ip}}",
+      "params": [
+        {
+          "name": "src_ip",
+          "type": "ip",
+          "label": "客户端源 IP",
+          "required": true,
+          "default": "",
+          "description": "要在会话表里过滤的源地址；填错只是过滤不到会话，无副作用",
+          "example": "192.168.10.10"
+        }
+      ],
+      "notes": "1) ★ 骨架条目（占位转正）：命令关键字按 StoneOS 5.5 公开手册/官方知识库核对，未经真机验证，执行前先 ? 确认。\n2) save/rollback 均有 y/n 交互提示，SSH 脚本直发会挂起，人工确认。\n3) 变更类回退依赖变更前 save 基线——变更前那一步 save 不能省。\n4) 示例 IP 一律文档测试段，替换为规划值。",
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "3b1a7378-a7fb-5f1a-aaf1-324bd2c9d914",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "hillstone",
+      "os_family": "stoneos",
+      "models": "SG-6000 系列（StoneOS 5.5.x）",
+      "category": "防火墙诊断",
+      "title": "连通性诊断（ping/traceroute，山石 StoneOS，骨架）",
+      "description": "从设备侧发起 ping 与逐跳 traceroute，定位防火墙内外断点。",
+      "commands": "# ⚠ 待真机核对：本条目按 StoneOS 5.5 官方知识库/命令行手册核对过关键字，未在真机验证。\n# 核对方法：Console/SSH 登录后先敲 ? 确认当前视图/版本支持；save/rollback 有 y/n 交互提示，脚本化执行注意挂起。\n\n# ===== 连通性诊断（山石 StoneOS）=====\n# ---- 从设备发起 ping（默认走全局路由表）----\nping {{dst_ip}}\n# ---- 逐跳定位断点 ----\ntraceroute {{dst_ip}}",
+      "params": [
+        {
+          "name": "dst_ip",
+          "type": "ip",
+          "label": "目标 IP",
+          "required": true,
+          "default": "",
+          "description": "要测试连通性的目标地址；从设备侧发起，注意与终端侧路径可能不同",
+          "example": "10.255.0.9"
+        }
+      ],
+      "notes": "1) ★ 骨架条目（占位转正）：命令关键字按 StoneOS 5.5 公开手册/官方知识库核对，未经真机验证，执行前先 ? 确认。\n2) save/rollback 均有 y/n 交互提示，SSH 脚本直发会挂起，人工确认。\n3) 变更类回退依赖变更前 save 基线——变更前那一步 save 不能省。\n4) 示例 IP 一律文档测试段，替换为规划值。",
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "36b0c997-01e2-5607-ac62-8474e54b9465",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "hillstone",
+      "os_family": "stoneos",
+      "models": "SG-6000 系列（StoneOS 5.5.x）",
+      "category": "保存配置",
+      "title": "保存配置与启动配置核对（山石 StoneOS，骨架）",
+      "description": "StoneOS 无 write mem：save 把运行配置持久化为启动配置（有 y/n 交互提示）。",
+      "commands": "# ⚠ 待真机核对：本条目按 StoneOS 5.5 官方知识库/命令行手册核对过关键字，未在真机验证。\n# 核对方法：Console/SSH 登录后先敲 ? 确认当前视图/版本支持；save/rollback 有 y/n 交互提示，脚本化执行注意挂起。\n\n# ===== 保存配置（山石 StoneOS）=====\n# ---- save 持久化运行配置（交互提示见下）----\nsave\n# 提示 1：Save configuration, are you sure? [y]/n  → y\n# 提示 2：Backup start configuration file, are you sure? y/[n] → 需备份旧启动配置选 y\n# ---- 复核：running 与 startup 应一致 ----\nshow configuration running\nshow configuration startup",
+      "params": [],
+      "notes": "1) ★ 骨架条目（占位转正）：命令关键字按 StoneOS 5.5 公开手册/官方知识库核对，未经真机验证，执行前先 ? 确认。\n2) save/rollback 均有 y/n 交互提示，SSH 脚本直发会挂起，人工确认。\n3) 变更类回退依赖变更前 save 基线——变更前那一步 save 不能省。\n4) 示例 IP 一律文档测试段，替换为规划值。",
+      "verified": 0,
+      "exec_level": "skeleton",
+      "rollback": "# 回退：误保存后回退到上一份启动配置（骨架：交互提示待真机核对）\nrollback\nsave\n# 复核\nshow configuration running"
+    },
+    {
+      "uuid": "b9587a04-52b8-58fe-b630-056d4ddd1cea",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "hillstone",
+      "os_family": "stoneos",
+      "models": "SG-6000 系列（StoneOS 5.5.x）",
+      "category": "保存配置",
+      "title": "配置核对（show configuration running/startup，山石 StoneOS，骨架）",
+      "description": "变更前后各取一份配置人工 diff，证明\"改了什么\"（StoneOS 无 show diff）。",
+      "commands": "# ⚠ 待真机核对：本条目按 StoneOS 5.5 官方知识库/命令行手册核对过关键字，未在真机验证。\n# 核对方法：Console/SSH 登录后先敲 ? 确认当前视图/版本支持；save/rollback 有 y/n 交互提示，脚本化执行注意挂起。\n\n# ===== 配置核对（山石 StoneOS）=====\n# ---- 运行配置全文（变更前取基线、变更后再取一份 diff）----\nshow configuration running\n# ---- 启动配置全文（确认 save 是否已生效）----\nshow configuration startup",
+      "params": [],
+      "notes": "1) ★ 骨架条目（占位转正）：命令关键字按 StoneOS 5.5 公开手册/官方知识库核对，未经真机验证，执行前先 ? 确认。\n2) save/rollback 均有 y/n 交互提示，SSH 脚本直发会挂起，人工确认。\n3) 变更类回退依赖变更前 save 基线——变更前那一步 save 不能省。\n4) 示例 IP 一律文档测试段，替换为规划值。",
+      "verified": 0,
+      "exec_level": "skeleton"
+    }
+  ]
+}
