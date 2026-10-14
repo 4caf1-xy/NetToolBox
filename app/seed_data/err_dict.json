@@ -2,7 +2,7 @@
   "format": "netcmdl - command library",
   "schema": 2,
   "vendor_file": "err_dict.json",
-  "count": 82,
+  "count": 97,
   "err_dict": [
     {
       "err_id": "f1204b1c-e3f1-5186-b85b-8f63dde2b333",
@@ -2043,6 +2043,372 @@
       ],
       "verified": 0,
       "exec_level": "skeleton"
+    },
+    {
+      "err_id": "63643e54-41fa-59e4-9355-bab685490a60",
+      "vendor": "linux",
+      "os_family": "linux",
+      "pattern": "Failed to get D-Bus connection|not been booted with systemd",
+      "category": "服务",
+      "cause": "在无 systemd 的环境（容器/chroot/救援模式）里执行 systemctl 系命令——systemd 未作为 PID 1 运行，D-Bus/systemd 总线不可用。（场 2 实验室真实回显转正，err_unresolved #2；centos7 容器 systemd 219 与 cgroup v2 宿主结构性不兼容同此回显）",
+      "solution_steps": [
+        {
+          "text": "确认环境：ps -p 1 -o comm= 看 PID 1 是不是 systemd（容器/chroot 常是 bash/tini）"
+        },
+        {
+          "text": "容器内管理服务改走宿主侧 systemctl 或直接操作进程；救援/chroot 下先挂载 /run /sys 再试"
+        },
+        {
+          "text": "真机/VM 上正常环境的服务管理对照",
+          "ref_entry_uuid": "86214216-5e00-5e49-954b-5a369f2587d7"
+        },
+        {
+          "text": "确需 systemd 环境：--privileged + cgroup 驱动匹配，或改用真机/VM（勿反复重试）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Failed to get D-Bus connection: Operation not permitted",
+        "System has not been booted with systemd as init system (PID 1). Can't operate."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "3df9959e-864c-5048-af45-90f82ea62e94",
+      "vendor": "linux",
+      "os_family": "linux",
+      "pattern": "% OSPF is not running in instance mode",
+      "category": "服务",
+      "cause": "FRR vtysh 下 ospfd 进程在但 OSPF 实例未初始化，`router ospf 1` 被拒。实验室 WSL2 实测（err_unresolved #4）；真机 IOS 无此命令形态，属 FRR 特有。",
+      "solution_steps": [
+        {
+          "text": "确认 ospfd 守护进程已加载：/etc/frr/daemons 里 ospfd=yes 后 systemctl restart frr"
+        },
+        {
+          "text": "daemon 起来后重进 vtysh：configure terminal → router ospf 1"
+        },
+        {
+          "text": "真机/网络设备侧 OSPF 配置对照",
+          "ref_entry_uuid": "28250c48-48c3-50ee-b4d7-3b12495327e8"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% OSPF is not running in instance mode",
+        "router ospf 1\n% OSPF is not running in instance mode"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "2610f95d-3bfe-5c71-8fca-652d5aa12908",
+      "vendor": "ops",
+      "os_family": "linux",
+      "pattern": "sha256sum: .*: Is a directory",
+      "category": "语法",
+      "cause": "sha256sum 的参数给成了目录——它只吃文件。校验落盘包/备份时路径少写到文件名。（实验室实证，err_unresolved #5）",
+      "solution_steps": [
+        {
+          "text": "路径补到具体文件：sha256sum /backup/openEuler.iso（不是 /backup/）；分卷校验流程对照",
+          "ref_entry_uuid": "aa9c2c24-c478-5614-bf42-0a3a606023fd"
+        },
+        {
+          "text": "目录级粗验用 du -sh 两侧对比；逐文件校验 find <dir> -type f -exec sha256sum {} +"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "sha256sum: '/backup/': Is a directory",
+        "sha256sum: '/mnt/usb/pkg/': Is a directory"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "0cb34a9b-e0af-54f4-8f7a-81a528df3811",
+      "vendor": "linux",
+      "os_family": "ubuntu2204",
+      "pattern": "Refusing to operate on alias name or linked unit file",
+      "category": "服务",
+      "cause": "对别名单元执行 systemctl enable/disable 被拒——Ubuntu 的 sshd.service 是 ssh.service 的别名，enable 必须针对单元本名。（实验室实证，err_unresolved #6）",
+      "solution_steps": [
+        {
+          "text": "用本名操作：systemctl enable --now ssh（Ubuntu 侧服务管理条目）",
+          "ref_entry_uuid": "297246ef-c222-5d30-b76b-d0daaad8b08b"
+        },
+        {
+          "text": "确认别名关系：systemctl cat ssh.service 看单元文件头部 Alias="
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Failed to enable unit: Refusing to operate on alias name or linked unit file: sshd.service",
+        "Failed to disable unit: Refusing to operate on alias name or linked unit file: sshd.service"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "d6245223-83c9-5983-9760-0c8bc733570d",
+      "vendor": "linux",
+      "os_family": "ubuntu2204",
+      "pattern": "Permissions for /etc/netplan/.* are too open",
+      "category": "权限",
+      "cause": "netplan 配置文件权限过宽（非 600），netplan apply 拒绝生效并告警——netplan 明文含网络配置，官方要求 600。（实验室实证，err_unresolved #7）",
+      "solution_steps": [
+        {
+          "text": "chmod 600 /etc/netplan/<文件>.yaml 后重新 netplan apply（netplan 配置条目）",
+          "ref_entry_uuid": "154befa8-8969-5566-8ec7-3711dba0958b"
+        },
+        {
+          "text": "写文件后顺手 chown root:root，避免编辑器用普通用户落盘"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Permissions for /etc/netplan/01-vlans.yaml are too open. Netplan configuration should NOT be accessible by others.",
+        "Permissions for /etc/netplan/99-config.yaml are too open. Netplan configuration should NOT be accessible by others."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "1f4cf914-449f-5501-9cdb-13f5944891aa",
+      "vendor": "linux",
+      "os_family": "ubuntu2204",
+      "pattern": "org.freedesktop.timesync1 was not provided",
+      "category": "依赖",
+      "cause": "timedatectl 查询时间同步状态失败——systemd-timesyncd 未安装或未运行，D-Bus 上没有 timesync1 服务。（实验室实证，err_unresolved #8）",
+      "solution_steps": [
+        {
+          "text": "确认服务存在与运行：systemctl status systemd-timesyncd；没有就 apt 装 systemd-timesyncd 或改用 chrony（timesyncd 配置条目）",
+          "ref_entry_uuid": "e28d4a54-7e60-5293-8459-af5c1bb57a71"
+        },
+        {
+          "text": "chrony 机器上用 chronyc tracking / chronyc sources 查状态（timedatectl 会报同样错）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Failed to query server: The name org.freedesktop.timesync1 was not provided by any .service files",
+        "Failed to query server: The name org.freedesktop.timesync1 was not provided by any .service files."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "5cc6c2ee-b329-5c3f-8e91-09703f503512",
+      "vendor": "linux",
+      "os_family": "centos7",
+      "pattern": "sed: cannot rename .*: Device or resource busy",
+      "category": "资源冲突",
+      "cause": "sed -i 靠 rename 原子替换文件，目标是 bind-mount（如容器内 /etc/resolv.conf）或被占用文件时 rename 失败。（Docker centos7 容器实证，err_unresolved #9）",
+      "solution_steps": [
+        {
+          "text": "改用 cp 备份 + 直接覆写（不经过 rename）：先 cp -a /etc/resolv.conf /etc/resolv.conf.bak-YYYYMMDD，改完 cp 覆盖回去（DNS 配置条目）",
+          "ref_entry_uuid": "5ca5ddd1-6be9-5069-b81d-52f1c7183b87"
+        },
+        {
+          "text": "容器内确认挂载：cat /proc/mounts | grep resolv——bind-mount 文件一律别用 sed -i"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "sed: cannot rename /etc/sed9fK2wQ: Device or resource busy",
+        "sed: cannot rename /etc/sedXy7zP1: Device or resource busy"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "454efd22-f15b-5123-8635-388740280bcf",
+      "vendor": "linux",
+      "os_family": "centos7",
+      "pattern": "adjtimex.*Operation not permitted",
+      "category": "权限",
+      "cause": "chronyd 调整系统时钟被拒——容器/受限环境没有 CAP_SYS_TIME capability，adjtimex 系统调用被拦。（Docker centos7 非 privileged 实证，err_unresolved #10）",
+      "solution_steps": [
+        {
+          "text": "容器内确认：capsh --print | grep sys_time；无 SYS_TIME 就别在容器内校时，改在宿主/真机做（chrony 配置条目）",
+          "ref_entry_uuid": "c1eb0f12-9b7a-5a8e-85c2-2c87e9a35b49"
+        },
+        {
+          "text": "确需容器内校时：--cap-add SYS_TIME 或 privileged 运行（先评估必要性）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "chronyd: adjtimex(0x8001) failed : Operation not permitted",
+        "chronyd[8123]: adjtimex failed: Operation not permitted"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "5b16b9b2-f0b9-59a4-a6c5-6ffcbd4cb296",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "No space left on device",
+      "category": "磁盘",
+      "cause": "磁盘/inode 写满——cp/tar/日志落盘全部失败。先分清空间满还是 inode 满，两者症状同、药方不同。",
+      "solution_steps": [
+        {
+          "text": "df -h 与 df -i 双查（空间满 / inode 满是两种病）",
+          "ref_entry_uuid": "a3d432c9-5bc7-5b62-a099-eb37fb106890"
+        },
+        {
+          "text": "定位大文件；删除被进程占用的已删文件（lsof | grep deleted 后重启对应进程）"
+        },
+        {
+          "text": "清理前先确认文件归属，勿删他人数据；句柄排查细节见磁盘排查条目",
+          "ref_entry_uuid": "0836ad94-f869-5d7f-bc04-77ffbdbc05ee"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "cp: cannot create regular file '/backup/db.dump': No space left on device",
+        "tar: db.dump: Cannot write: No space left on device"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "99f90fc7-1718-5264-82be-8e23ad396051",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "sudo: (no tty present and no askpass program specified|a password is required)",
+      "category": "管理认证",
+      "cause": "非交互环境（cron/脚本/管道）下 sudo 要密码又没有终端可输——无 tty 且无 askpass。",
+      "solution_steps": [
+        {
+          "text": "脚本场景：确认该命令是否必须 root——能进 root shell 就 su - 后执行"
+        },
+        {
+          "text": "确需 sudo：visudo 给该条命令配 NOPASSWD（最小化到具体命令，别整用户免密）"
+        },
+        {
+          "text": "cron 场景优先把任务写进 root 的 crontab，而不是普通用户套 sudo"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "sudo: no tty present and no askpass program specified",
+        "sudo: a password is required"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "20ce289f-b969-583b-8a92-7d3c3040d780",
+      "vendor": "ops",
+      "os_family": "linux",
+      "pattern": "bad interpreter: No such file or directory",
+      "category": "语法",
+      "cause": "Windows 侧编辑/传输带来的 CRLF 行尾：shebang 变成 /bin/bash^M，内核找不到解释器。离网介质（U 盘/Windows 共享）往返高发。",
+      "solution_steps": [
+        {
+          "text": "确认行尾：cat -A 脚本 | head，行尾见 ^M 即 CRLF（U 盘传输场景条目）",
+          "ref_entry_uuid": "773e37b3-60e1-5687-8c6e-ae29cbd59dee"
+        },
+        {
+          "text": "修复：sed -i 's/\\r$//' 脚本名 或 dos2unix（离网没有 dos2unix 就用 sed 方案）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "bash: ./sync.sh: /bin/bash\r: bad interpreter: No such file or directory",
+        "-bash: ./check.sh: /bin/sh\r: bad interpreter: No such file or directory"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "8a018fce-4bb5-5e61-a9b8-a924b82d234b",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Text file busy",
+      "category": "资源冲突",
+      "cause": "目标文件正在被执行/映射（常见：覆盖正在跑的脚本或二进制），内核拒绝写入。",
+      "solution_steps": [
+        {
+          "text": "先停进程再替换：fuser -v <文件> 看占用，kill 后再 cp/写（进程排查条目）",
+          "ref_entry_uuid": "cda05342-8fe9-58c0-ae88-7d95a6f84d4f"
+        },
+        {
+          "text": "规范做法：写新文件后 mv 原子替换（同分区 mv 是 rename，不受 busy 限制）"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "-bash: ./agent.sh: Text file busy",
+        "cp: cannot create regular file '/opt/app/agent.sh': Text file busy"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "26cc8341-9cb2-5ebe-9ff6-31c20dc59838",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Unable to locate package|no installation candidate",
+      "category": "依赖",
+      "cause": "apt 索引里没有这个包——没 update 过 / 源里确实没有（离网常见）/ 拼错包名。",
+      "solution_steps": [
+        {
+          "text": "先 apt update 刷索引再装；仍报错则 apt-cache search 关键字确认源里是否真有"
+        },
+        {
+          "text": "离网环境：配置本地源/ISO 源后重试（本地 apt 源条目）",
+          "ref_entry_uuid": "c5f087ce-249d-53df-b710-cb956350d397"
+        },
+        {
+          "text": "手上有 .deb 但缺依赖：走离线 deb 安装（含依赖处理）",
+          "ref_entry_uuid": "8269a8fc-9951-5617-a6a3-c5cb20b54f56"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "E: Unable to locate package iperf3",
+        "E: Package 'iperf3' has no installation candidate"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "99cf51b0-13a1-54c8-b95c-8be11340f318",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Job for .* failed",
+      "category": "服务",
+      "cause": "systemd 单元启动失败——这条回显只是入口，真实原因要看 journalctl。多发行版通用。",
+      "solution_steps": [
+        {
+          "text": "systemctl status <单元名> 看退出码与最近日志行（服务管理条目）",
+          "ref_entry_uuid": "86214216-5e00-5e49-954b-5a369f2587d7"
+        },
+        {
+          "text": "journalctl -u <单元名> -n 50 --no-pager 看完整日志定位根因",
+          "ref_entry_uuid": "e2da85a1-b6a5-54d7-8909-edba295ead46"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Job for network.service failed because the control process exited with error code. See \"systemctl status network.service\" and \"journalctl -xe\" for details.",
+        "Job for sshd.service failed. See 'systemctl status sshd.service' and 'journalctl -xe' for details."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "473a3e0d-e2ec-5dea-ba0c-40a1cb5ff537",
+      "vendor": "linux",
+      "os_family": "",
+      "pattern": "Read-only file system",
+      "category": "磁盘",
+      "cause": "目标挂载点只读——U 盘写保护开关、文件系统报错后内核 remount-ro、或本来就 ro 挂载。",
+      "solution_steps": [
+        {
+          "text": "mount | grep <挂载点> 确认 ro/rw；U 盘先查物理写保护开关（U 盘挂载条目）",
+          "ref_entry_uuid": "773e37b3-60e1-5687-8c6e-ae29cbd59dee"
+        },
+        {
+          "text": "文件系统错误后自动 ro：dmesg | tail 看 I/O error；umount 后 fsck 修复再 mount （磁盘排查条目）",
+          "ref_entry_uuid": "0836ad94-f869-5d7f-bc04-77ffbdbc05ee"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "cp: cannot create regular file '/mnt/usb/toolbox.exe': Read-only file system",
+        "mkdir: cannot create directory '/media/usb0/pkg': Read-only file system"
+      ],
+      "verified": 0
     }
   ],
   "generated_at": "2026-09-28"
