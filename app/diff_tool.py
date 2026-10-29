@@ -269,17 +269,17 @@ def extract_items(text, rule, noise_compiled):
     """
     用规则的全部厂商变体试提取，取命中条数最多的变体（厂商自动适配）。
     返回 (items, variant_used, noise_dropped)。
+
+    ★ 噪声不参与提取过滤：提取正则本就精确（键/状态形态强约束），
+      而噪声正则是整行级的——OSPF 邻居行含 Dead Time（00:00:35）、
+      接口详情行含时间戳，按行剔除会把真实状态行一并杀掉。
+      噪声只作用于 ① noise_dropped 计数 ② 降级行级比对（diff_lines）。
     """
     text = text or ""
-    lines = text.splitlines()
     noise_dropped = 0
-    clean_lines = []
-    for ln in lines:
+    for ln in text.splitlines():
         if ln.strip() and is_noise_line(ln, noise_compiled):
             noise_dropped += 1
-        else:
-            clean_lines.append(ln)
-    clean_text = "\n".join(clean_lines)
 
     best = ({}, None)
     for variant in rule.get("variants") or []:
@@ -287,7 +287,7 @@ def extract_items(text, rule, noise_compiled):
             compiled = re.compile(variant.get("line") or "", re.IGNORECASE)
         except re.error:
             continue
-        items = _extract_with_variant(clean_text, compiled)
+        items = _extract_with_variant(text, compiled)
         if len(items) > len(best[0]):
             best = (items, variant)
     return best[0], best[1], noise_dropped

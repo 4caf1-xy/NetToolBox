@@ -41,8 +41,8 @@
         {
           "vendor": "h3c",
           "os_family": "comware7",
-          "note": "display interface brief：Link 列",
-          "line": "(?P<key>[A-Za-z][\\w/-]*\\d[\\w/-]*)\\s+(?P<value>UP|DOWN|DOWN\\s*\\(a\\)|Admin-s)\\s{2,}"
+          "note": "display interface brief：Link 列（值组大小写敏感锁大写——Comware 打印 UP/DOWN，避免吃到 Juniper 等小写 up 输出）",
+          "line": "(?P<key>[A-Za-z][\\w/-]*\\d[\\w/-]*)\\s+(?P<value>(?-i:UP|DOWN|DOWN\\s*\\(a\\)|Admin-s))\\s{2,}"
         },
         {
           "vendor": "ruijie",
@@ -96,13 +96,13 @@
           "vendor": "huawei",
           "os_family": "vrp5/vrp8",
           "note": "display ospf peer brief：Area + 接口 + 邻居 ID + State",
-          "line": "(?P<area>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+\\S+\\s+(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+(?P<value>Down|Init|Attempt|2-?Way|ExStart|Exchange|Loading|Full)\\s*$"
+          "line": "(?:\\d{1,3}(?:\\.\\d{1,3}){3})\\s+\\S+\\s+(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+(?P<value>Down|Init|Attempt|2-?Way|ExStart|Exchange|Loading|Full)\\s*$"
         },
         {
           "vendor": "h3c",
           "os_family": "comware7",
           "note": "display ospf peer brief：与华为 brief 同构",
-          "line": "(?P<area>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+\\S+\\s+(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+(?P<value>Down|Init|Attempt|2-?Way|ExStart|Exchange|Loading|Full)\\s*$"
+          "line": "(?:\\d{1,3}(?:\\.\\d{1,3}){3})\\s+\\S+\\s+(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+(?P<value>Down|Init|Attempt|2-?Way|ExStart|Exchange|Loading|Full)\\s*$"
         },
         {
           "vendor": "cisco",
