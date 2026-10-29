@@ -5,6 +5,46 @@
 **补充口径（2026-10-12）**：发布后短窗内完成的 MVP 追加批次收口走 **patch**（0.6.x）；
 独立排期的功能批走 **minor**（下一个功能批从 0.7.0 起算）。
 
+## 未发布（O 批——交换机命令特化扩容，2026-10-29，不发版不 tag）
+
+> v0.9 功能线开局批：用户点名专注种子库交换机命令，对相关命令特化增加。纯数据为主、
+> 连带报错库与提取规则，**不动应用代码**。规模 358→**397 条** / 26 树 / 97→**100 报错** /
+> 变更对比规则 4 类 17 变体→**8 类 34 变体**。
+
+#### O 批子批 1：低洼补缺 +39 条（4041fde）
+- **八类新分类落地**（用户点名场景，覆盖 cisco / huawei / h3c / ruijie / zte / juniper 六厂商）：
+  链路聚合×6（LACP：Port-Channel / Eth-Trunk / Bridge-Aggregation / AggregatePort / smartgroup / ae）、
+  堆叠×5（StackWise / CSS / IRF / VSU / Virtual Chassis——zte 命令形态未核实暂缺）、
+  VRRP×6、端口安全×6、POE×6、风暴抑制×6、MAC地址表×2、ARP×2（zte/juniper 此前该两格为 0）；
+- 骨架 2 条：zte POE / zte 风暴抑制（exec_level=skeleton，待真机核对）；
+- 写法纪律：结构化 params + 变更类 rollback 全覆盖 + notes 含验证方法/回显判读；
+  ZXR10 smartgroup/VRRP/port-security、RGOS VSU/storm-control 等形态经厂商官方文档核实后入库；
+- 连带修正：E 批 2 条同型注释式 rollback 移除——空回退不应渲染「回退方案」Tab
+  （smoke_schema_rollback D1 抓住该语义偏差）；冒烟五套件硬编码底数 358→397 同步。
+
+#### O 批子批 2：既有交换机命令特化（e952863）
+- **notes 补齐 57 条**（命令文本零改动，仅 notes 追加「验证方法：复核命令 + 回显判读」）：
+  VLAN/Trunk/ACL/SSH/密码/SNMP/保存配置 + 静态路由/OSPF/NAT + 接口诊断/日志/CPU 查询类；
+- **报错库 97→100**（均经 solution_steps.ref_entry_uuid 关联条目）：
+  cisco %PORT_SECURITY-2-PSECURE_VIOLATION（端口安全违规）、cisco ERR_DISABLE（整口关闭族）、
+  cisco EC-5-CANNOT_BUNDLE（聚合成员属性不一致），关联 O 批新增端口安全/链路聚合条目；
+- 冒烟底数 97→100 同步（diff / regex_guard / scenarios）。
+
+#### O 批子批 3：diff_rules 交换机类规则扩容（a70bc38）
+- **新增 4 类 17 变体**（总量 8 类 / 34 厂商变体，复用 H 批 schema，回显形态依据厂商官方手册）：
+  STP 状态（huawei/h3c/cisco/ruijie，PortID 列桥接 + STS 并入状态值）、
+  链路聚合成员（cisco/huawei/zte——ZXR10 FA* 标志出自 5900E 手册；cisco 成员多口同行单 search
+  限制已在 variant note 写明）、VRRP 状态（六厂商 brief/明细 Master/Backup）、
+  MAC 地址表（set 语义，三种分隔格式 - / . / :）；
+- smoke_diff：A2 八类规则 / A3 34 变体 / D 节 +17 变体逐个过样本（D1 ≥30 / D2 全 34 命中），62/62 全过。
+
+#### O 批收尾对账
+- validate-seed EXIT=0（397 / 26 / 100，[E]=0，[W] 1 处存量 zte skeleton 场景包提示无新增）；
+- CI validate-seed@HEAD（a70bc38）绿；主库经 `--allow-main-db` 同步（备份 command_lib-pre-obatch-20261029-172549.db），
+  仪表盘矩阵重算 286 格 **mismatch=0**；四档分布：命令 绿27 / 语法核对61 / 未验证283（含 skeleton 53）；
+- 全量冒烟：scenarios 38/38、diff 62/62、tree_visual 46/46、schema_rollback 9/9、panel_dashboard 62/62、
+  regex_guard / keyvault 全过；三子批独立提交，每批 validate + 推送，不发版不 tag。
+
 ## v0.8.0（2026-10-29）
 
 > 功能线收口版：D 收藏 / E 数据扩容 / H 变更对比 / F 排查树可视化编辑器四批收齐出库；

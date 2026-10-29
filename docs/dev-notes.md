@@ -418,3 +418,47 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 | 树编辑器二批 | **挂 v0.9** | 第一期边界清晰（26 底数稳定、只动既有树内部结构），二批项（整树新建/删除、跨树复制、TreeManagerDialog 选择器化、exe 语境导出）属维护增强，功能线已收官无需阻塞。 |
 
 四项均未关闭：全部仍为有效积压，无一项因需求消失而作废。
+
+## O 批 交换机命令特化扩容（2026-10-29，4041fde / e952863 / a70bc38，v0.9 功能线开局）
+
+纯数据批不动应用代码：种子 +39 条（358→397）/ 报错 +3（97→100）/ diff_rules +4 类 17 变体
+（4 类 17 → 8 类 34）。三子批独立提交，每批 validate EXIT=0 + 推送；不发版不 tag。
+
+### 盘点结论（厂商×场景矩阵，六交换机厂商）
+低洼格（本批填充）：链路聚合/堆叠/端口安全/POE/风暴抑制此前全 0；VRRP 仅 huawei 一条检查类；
+MAC/ARP 仅 zte/juniper 缺格。填充后仍留空：zte×堆叠（VSC/IRF 形态未核实，不做）。
+分类侧：新增八类（链路聚合/堆叠/VRRP/端口安全/POE/风暴抑制/MAC地址表/ARP）——
+seed-guide「新分类先 Issue」约定由用户点名场景直接授权，后续新分类仍走 Issue。
+
+### 子批 1（+39 条，4041fde）要点与坑
+- ZXR10 smartgroup/VRRP/port-security、RGOS VSU（show switch virtual 族）/storm-control（level/pps
+  双计量）等形态经官方文档/命令参考核实后入库（检索证据：锐捷官网 VSU 配置与命令参考 PDF、
+  ZXR10 5900E Reliability Guide、2900E Command Reference、3228 链路聚合手册）；
+- ★ 坑：查询类条目写注释式 rollback（"# 本条全为只读…"）会让「回退方案」Tab 渲染出来——
+  `_sync_rollback_tab` 按非空即显示，查询类语义应**整个不写 rollback 键**；E 批 2 条同型一并修正
+  （smoke_schema_rollback D1 抓住）。要点：rollback 免填 = 免到「键不存在」，不是「注释占位」。
+- 冒烟硬编码底数五处同步（diff/regex_guard/scenarios/schema_rollback/tree_visual）。
+
+### 子批 2（notes +57 / err +3，e952863）要点
+- notes 补齐用 uuid 精确匹配追加「验证方法：复核命令+回显判读」；命令文本零改动故不触发
+  sanitize/export 套件重跑义务（E/H 批教训仅适用于改 commands 的场景）；
+- 报错 +3 全部走 ref_entry_uuid 关联（PSECURE_VIOLATION / ERR_DISABLE / EC-5-CANNOT_BUNDLE，
+  关联 O 批 cisco 端口安全与链路聚合条目）；ZTE 交换机特有报错形态未核实不补（骨架口径延续）。
+
+### 子批 3（diff_rules 4 类 17 变体，a70bc38）要点与坑
+- ★ 坑 1：回显行普遍有前导空格——行级正则带 `^` 锚时必须 `^\s*` 开头（vrrp family/h3c/juniper
+  首版全栽在这，自测抓出）；
+- ★ 坑 2：提取列桥接——华为 display stp brief 的 PortID 列（128.1）、cisco etherchannel 的组号列
+  （1 Po1(SU)）横在 key 与 value 之间，用可选桥接组 `(?:\d+\.\d+\s+)?` / `(?:\d+\s+)?`；
+- ★ 坑 3：STP 的 BLK→FWD（Sts 列）首次正则未捕获导致"角色不变则无变化"假阴性——把 STS 列
+  并入状态值（sts 命名组按约定并入 value）；
+- ★ 坑 4：cisco etherchannel summary 成员多口同行、`extract_items` 单行单 search 只取首个——
+  引擎限制下 variant 只提取聚合口标志（Po1(SU→SD)），note 写明成员级变化由降级行级比对兜底；
+- D 节纪律升级：新增变体必须逐个加进 smoke_diff VARIANT_SAMPLES（D2 全 34 命中断言）。
+
+### 收尾对账
+- 主库同步：备份 command_lib-pre-obatch-20261029-172549.db → `--allow-main-db` 导入；
+  矩阵 286 格 mismatch=0；底数 397/26/100；
+- 四档分布（主库）：未验证 283（含 skeleton 53）/ 语法核对 61 / 绿 27（web-only 0 档无条目）；
+- CI validate-seed@HEAD（a70bc38）绿；全量冒烟六套件复跑全过（scenarios 38 / diff 62 /
+  tree_visual 46 / schema_rollback 9 / panel_dashboard 62 / regex_guard / keyvault）。

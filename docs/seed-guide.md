@@ -291,11 +291,16 @@ Before/After 变更对比的**状态提取规则**随种子走：`seed_data/diff
 命名组缺失或与语义不符 / rule_id 非法或重复 / (rule_id, vendor) 重复 / noise 坏正则。
 **[W]**：pattern 超长等复杂度提示、vendor 未收录。
 
-首批 4 类 × 17 变体：接口状态（huawei/cisco/h3c/ruijie/juniper）、VLAN 表
+首批 4 类 × 17 变体（H 批）：接口状态（huawei/cisco/h3c/ruijie/juniper）、VLAN 表
 （huawei/cisco/ruijie，set 语义）、OSPF 邻居（huawei/h3c/cisco/ruijie）、
-路由表摘要（huawei/h3c/cisco/ruijie/linux）。新增变体前先看
+路由表摘要（huawei/h3c/cisco/ruijie/linux）。O 批（2026-10-29）扩至 **8 类 × 34 变体**，
+新增交换机四类：STP 状态（huawei/h3c/cisco/ruijie，kv）、链路聚合成员
+（cisco/huawei/zte，kv——cisco 成员口多口同行受单 search 引擎限制，仅提取聚合口
+标志，variant note 写明）、VRRP 状态（六厂商，kv）、MAC 地址表（huawei/cisco/
+ruijie/juniper，set）。新增变体前先看
 `app/seed_data/diff_rules.json` 现有 rule_id；样本语料优先复用 E 批验证会沉淀的
-真实回显（伴生仓 docs/verify）。
+真实回显（伴生仓 docs/verify）；D 节冒烟纪律：**每个变体必须在 smoke_diff
+VARIANT_SAMPLES 里逐个过样本**（D2 全变体命中断言）。
 
 ## 五、命名 / 分类 / 厂商代码约定（从现有种子归纳，不新造）
 
