@@ -72,7 +72,7 @@
           "description": "接口描述文字，标注对端设备/用途；纯展示不影响转发"
         }
       ],
-      "notes": "1) Junos 改完必须 commit 才生效；commit and-quit 提交并退出配置模式，\n   rollback 0 丢弃未提交改动，rollback 1 回到上一次提交。\n2) members 写 VLAN 名称还是 VLAN ID 取决于版本：新版(15.1+)用名称，老版本可直接写 VLAN ID；\n   写错会提示对象不存在。\n3) 接口名是两段式 ge-0/0/1（FPC/PIC/端口），QFX 上常见 xe-/et- 前缀，别按思科 0/1 敲。\n4) show | compare 是 Junos 上最好用的自检命令，提交前一定要看一眼改了什么。",
+      "notes": "1) Junos 改完必须 commit 才生效；commit and-quit 提交并退出配置模式，\n   rollback 0 丢弃未提交改动，rollback 1 回到上一次提交。\n2) members 写 VLAN 名称还是 VLAN ID 取决于版本：新版(15.1+)用名称，老版本可直接写 VLAN ID；\n   写错会提示对象不存在。\n3) 接口名是两段式 ge-0/0/1（FPC/PIC/端口），QFX 上常见 xe-/et- 前缀，别按思科 0/1 敲。\n4) show | compare 是 Junos 上最好用的自检命令，提交前一定要看一眼改了什么。\n验证方法：show vlans 回显 vlan 名/vlan-id/interfaces 列含目标口；show ethernet-switching table 看终端 MAC 落在预期接口。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -134,7 +134,7 @@
           "description": "接口描述文字，标注对端设备/用途；纯展示不影响转发"
         }
       ],
-      "notes": "1) Junos 的成员列表是\"空格分隔\"，与思科/华为的逗号或 to 段完全不同：\n   set ... vlan members VLAN10-OFFICE VLAN20-FINANCE\n2) native-vlan-id 写在 family ethernet-switching 层，不是写在 unit 上。\n3) trunk 放通全部用 vlan members all；生产上建议显式列举，便于审计。",
+      "notes": "1) Junos 的成员列表是\"空格分隔\"，与思科/华为的逗号或 to 段完全不同：\n   set ... vlan members VLAN10-OFFICE VLAN20-FINANCE\n2) native-vlan-id 写在 family ethernet-switching 层，不是写在 unit 上。\n3) trunk 放通全部用 vlan members all；生产上建议显式列举，便于审计。\n验证方法：show configuration interfaces ge-0/0/48 复核 interface-mode trunk 与 vlan members；show vlans 放行 VLAN 成员列含该口。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -563,7 +563,7 @@
           "description": "登录公告文字，用户认证前显示的法律/告警声明；纯提示不影响认证；含空格须整体引号包裹"
         }
       ],
-      "notes": "1) Junos 上没有\"明文口令\"参数可安全用于脚本：set ... authentication plain-text-password\n   会交互提示输入两次口令，脚本粘贴进去会停在提示符上不动 —— 现场必须手工敲。\n2) 想在脚本里一次配好，用 encrypted-password 直接贴 $1$/$6$ 加密串\n   （可先在设备上用 plain-text-password 配好，再 show configuration 取出复用）。\n3) root-login deny 是安全基线要求；uid 不要用 0（0 是 root）。\n4) class 决定权限：super-user / operator / read-only，管理用 super-user。",
+      "notes": "1) Junos 上没有\"明文口令\"参数可安全用于脚本：set ... authentication plain-text-password\n   会交互提示输入两次口令，脚本粘贴进去会停在提示符上不动 —— 现场必须手工敲。\n2) 想在脚本里一次配好，用 encrypted-password 直接贴 $1$/$6$ 加密串\n   （可先在设备上用 plain-text-password 配好，再 show configuration 取出复用）。\n3) root-login deny 是安全基线要求；uid 不要用 0（0 是 root）。\n4) class 决定权限：super-user / operator / read-only，管理用 super-user。\n验证方法：show configuration system services 回显 ssh；show system users 会话在列；ssh 实连成功。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -617,7 +617,7 @@
           "description": "口令最小长度，常见 8-12 位；配合复杂度策略（数字/特殊字符下限）使用"
         }
       ],
-      "notes": "1) Junos 的 console 没有独立口令：console 登录用 root 或普通用户账号，改口令就是改账号口令。\n2) set system root-authentication plain-text-password 是**交互式**命令：粘贴脚本后会停在\n   \"Enter new password:\" 等待输入，这是 Junos 上最常见的\"脚本卡住\"原因。\n3) 忘记 root 口令的恢复方式：重启，在 loader 提示符下 boot -s 进单用户模式改配置，\n   属破坏性操作，需现场做且建议先导出配置。\n4) 安全基线：口令长度 ≥12、启用复杂度（change-type character-sets）、root-login deny。",
+      "notes": "1) Junos 的 console 没有独立口令：console 登录用 root 或普通用户账号，改口令就是改账号口令。\n2) set system root-authentication plain-text-password 是**交互式**命令：粘贴脚本后会停在\n   \"Enter new password:\" 等待输入，这是 Junos 上最常见的\"脚本卡住\"原因。\n3) 忘记 root 口令的恢复方式：重启，在 loader 提示符下 boot -s 进单用户模式改配置，\n   属破坏性操作，需现场做且建议先导出配置。\n4) 安全基线：口令长度 ≥12、启用复杂度（change-type character-sets）、root-login deny。\n验证方法：show configuration system root-authentication 与 system users 加密口令在列；重登验证新口令生效。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -710,7 +710,7 @@
           "description": "Juniper SNMP trap 组名，定义告警类别（link/startup/authentication 等）与 SNMP 版本；网管按组接收告警"
         }
       ],
-      "notes": "1) 强烈建议给团体字加 clients 限制源地址（set snmp community X clients <网管IP>/32），\n   不加等于对全网开放，安全审计必查。\n2) trap-group 的 targets 逐条设置即可添加多个上报目标。\n3) location/contact/description 都要带引号，含空格也能正常保存。\n4) show snmp statistics 能看收发包计数，判断网管是否真的在采集。",
+      "notes": "1) 强烈建议给团体字加 clients 限制源地址（set snmp community X clients <网管IP>/32），\n   不加等于对全网开放，安全审计必查。\n2) trap-group 的 targets 逐条设置即可添加多个上报目标。\n3) location/contact/description 都要带引号，含空格也能正常保存。\n4) show snmp statistics 能看收发包计数，判断网管是否真的在采集。\n验证方法：show configuration snmp 社区与 trap 目标在列；网管侧 snmpwalk 取 sysDescr.0 验证。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -752,7 +752,7 @@
           "description": "配置/镜像备份在本地（flash/USB）的保存文件名；仅本机留痕，建议再 execute backup 到 TFTP 异机一份防单点"
         }
       ],
-      "notes": "1) Junos 是\"候选配置 + commit\"模型：改完不 commit 不生效，也没有 write memory。\n2) commit comment 会把变更单号写进提交记录，show system commit 可查历史，审计很好用。\n3) request system configuration rescue save 保存\"救命配置\"，现场改坏了 rollback rescue 即可恢复；\n   上生产前建议先做一次 rescue。\n4) 备份文件在 /var/tmp 或 /config 下；要取回本机需用 SCP/USB，隔离网络下建议直接留档在设备上。",
+      "notes": "1) Junos 是\"候选配置 + commit\"模型：改完不 commit 不生效，也没有 write memory。\n2) commit comment 会把变更单号写进提交记录，show system commit 可查历史，审计很好用。\n3) request system configuration rescue save 保存\"救命配置\"，现场改坏了 rollback rescue 即可恢复；\n   上生产前建议先做一次 rescue。\n4) 备份文件在 /var/tmp 或 /config 下；要取回本机需用 SCP/USB，隔离网络下建议直接留档在设备上。\n验证方法：commit 回显 commit complete；show system snapshot 备份文件在；show system configuration rescue 确认救命配置已生成。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",

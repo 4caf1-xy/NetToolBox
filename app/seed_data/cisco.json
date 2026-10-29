@@ -53,7 +53,7 @@
           "description": "端口范围表达式（如 0/1-0/10、0/1,0/3,0/5-0/7），生成器按厂商命名规则展开为接口列表；展开结果先在预览区核对再执行"
         }
       ],
-      "notes": "1) interface range 语法 IOS 12.2(55)SE 之后才支持，更老的版本要逐口敲。\n2) 端口短写 Gi0/1 与全写 GigabitEthernet0/1 等价；堆叠机框写 1/0/1。\n3) 只 end 不 write memory，重启后配置全丢，务必保存。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "notes": "1) interface range 语法 IOS 12.2(55)SE 之后才支持，更老的版本要逐口敲。\n2) 端口短写 Gi0/1 与全写 GigabitEthernet0/1 等价；堆叠机框写 1/0/1。\n3) 只 end 不 write memory，重启后配置全丢，务必保存。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n验证方法：show vlan brief 出现新 VLAN 行（Status active）且 Ports 列含目标口；show interfaces status 对应口 Status connected、VLAN 列正确。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -105,7 +105,7 @@
           "description": "Trunk 口 Native VLAN（untagged 承载的 VLAN），两端必须一致否则原生流量跨链路丢失；安全上建议改掉默认 VLAN 1，设为闲置 VLAN"
         }
       ],
-      "notes": "1) switchport trunk encapsulation dot1q 只有 3560/3750 这类支持多封装的老平台需要；\n   2960/9300 敲了会报 Invalid input，直接跳过这条即可。\n2) allowed vlan 用逗号列举(10,20,30)、短横线区间(10-20)，两者可混写(10,20-25,30)。\n3) 两端 native VLAN 必须一致，否则会报 native vlan mismatch 且生成树异常。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "notes": "1) switchport trunk encapsulation dot1q 只有 3560/3750 这类支持多封装的老平台需要；\n   2960/9300 敲了会报 Invalid input，直接跳过这条即可。\n2) allowed vlan 用逗号列举(10,20,30)、短横线区间(10-20)，两者可混写(10,20-25,30)。\n3) 两端 native VLAN 必须一致，否则会报 native vlan mismatch 且生成树异常。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n验证方法：show interfaces trunk 出现目标口且 Mode trunking、Encapsulation 802.1Q；Vlans allowed 列含放行清单；对端 show interfaces trunk 对称。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -332,7 +332,7 @@
           "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故"
         }
       ],
-      "notes": "1) 每个 ACL 末尾都隐含 deny any any，看不到但一定生效；要放通必须显式写 permit。\n2) in / out 是\"相对设备\"的方向：in = 从该接口进来的流量，最容易搞反。\n3) 命名 ACL 想插规则要带序号（如 permit 15 ...），直接改文本会整段重排导致序号变化。",
+      "notes": "1) 每个 ACL 末尾都隐含 deny any any，看不到但一定生效；要放通必须显式写 permit。\n2) in / out 是\"相对设备\"的方向：in = 从该接口进来的流量，最容易搞反。\n3) 命名 ACL 想插规则要带序号（如 permit 15 ...），直接改文本会整段重排导致序号变化。\n验证方法：show access-lists 规则在列且 match 计数随业务流量增长；show ip interface 目标口显示 Inbound access list 引用本 ACL。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -538,7 +538,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) 必须先生成 RSA 密钥，且要先有 hostname 和 ip domain-name，\n   否则提示 \"% Please define a domain-name first\"。\n2) modulus 低于 768 时 IOS 15 会拒绝启用 SSHv2，建议 2048。\n3) transport input ssh 会一并关掉 Telnet，改之前确认 SSH 已能登录，别把自己锁在外面。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "notes": "1) 必须先生成 RSA 密钥，且要先有 hostname 和 ip domain-name，\n   否则提示 \"% Please define a domain-name first\"。\n2) modulus 低于 768 时 IOS 15 会拒绝启用 SSHv2，建议 2048。\n3) transport input ssh 会一并关掉 Telnet，改之前确认 SSH 已能登录，别把自己锁在外面。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n验证方法：show ip ssh 回显 SSH Enabled - version 2.0；客户端 ssh 实连成功后 show users 出现 vty 会话行。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -591,7 +591,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) enable secret 用强哈希存储，enable password 是弱加密（7 类），新设备只用 secret；\n   两者同时存在时 secret 优先生效。\n2) console 下只写 login 用的是 line password（权限 1）；要直进特权 15 用 login local + 本地用户。\n3) logging synchronous 防止日志把正在敲的命令冲散，强烈建议加上。",
+      "notes": "1) enable secret 用强哈希存储，enable password 是弱加密（7 类），新设备只用 secret；\n   两者同时存在时 secret 优先生效。\n2) console 下只写 login 用的是 line password（权限 1）；要直进特权 15 用 login local + 本地用户。\n3) logging synchronous 防止日志把正在敲的命令冲散，强烈建议加上。\n验证方法：show running-config | include secret 显示 enable secret 5 $… 密文；Console/vty 用新口令重登成功、旧口令失效。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -703,7 +703,7 @@
           "description": "SNMPv3 加密口令（AES-128），对报文内容加密；与网管侧配置一致"
         }
       ],
-      "notes": "1) 团体字别用 public/private，等保与安全审计会直接判违规；改写后记得同步网管侧。\n2) 只读团体字给网管采集（RO），读写团体字仅在有配置下发需求时开，用完即删。\n3) SNMPv3 的 auth sha + priv aes 128 是常用组合；v2c 团体字在网上是明文传输的。",
+      "notes": "1) 团体字别用 public/private，等保与安全审计会直接判违规；改写后记得同步网管侧。\n2) 只读团体字给网管采集（RO），读写团体字仅在有配置下发需求时开，用完即删。\n3) SNMPv3 的 auth sha + priv aes 128 是常用组合；v2c 团体字在网上是明文传输的。\n验证方法：show snmp community 团体字在列且权限正确；show snmp host 列出 trap 目标；网管侧 snmpwalk 取 sysDescr 成功。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -735,7 +735,7 @@
           "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本"
         }
       ],
-      "notes": "1) copy run start 会二次确认 Destination filename，脚本里直接回车即可。\n2) 隔离网络不要用 copy running-config tftp:，改存 flash: 更稳，配合变更单编号命名。\n3) configure replace 是整段替换（会对比差异）比直接 copy 安全，但执行前务必确认备份可用。",
+      "notes": "1) copy run start 会二次确认 Destination filename，脚本里直接回车即可。\n2) 隔离网络不要用 copy running-config tftp:，改存 flash: 更稳，配合变更单编号命名。\n3) configure replace 是整段替换（会对比差异）比直接 copy 安全，但执行前务必确认备份可用。\n验证方法：write memory 回显 Building configuration... [OK]；show startup-config 与 running-config 核对一致；dir flash: 备份文件在且大小合理。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",

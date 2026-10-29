@@ -437,8 +437,8 @@ def case_e():
     with contextlib.redirect_stdout(buf):
         rc_ok = mainmod.validate_seed()
     check("E9 移除坏文件后 validate 复位 EXIT=0", rc_ok == 0, "rc=%s" % rc_ok)
-    check("E10 底数不变（397/26/97 口径）",
-          "397 条条目 + 26 棵排查树 + 97 条报错字典" in buf.getvalue(), "")
+    check("E10 底数不变（397/26/100 口径）",
+          "397 条条目 + 26 棵排查树 + 100 条报错字典" in buf.getvalue(), "")
 
 
 # ======================================================================

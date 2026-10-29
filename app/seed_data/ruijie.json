@@ -53,7 +53,7 @@
           "description": "端口范围表达式（如 0/1-0/10、0/1,0/3,0/5-0/7），生成器按厂商命名规则展开为接口列表；展开结果先在预览区核对再执行"
         }
       ],
-      "notes": "1) 锐捷接口名按机型不同：独立式多为 Gi0/1，盒式/机框式为 Gi0/0/1，以 show interface 实际提示为准。\n2) 锐捷支持 interface range 且支持逗号列表，与思科写法一致。\n3) 保存命令是 write（等价 write memory），部分版本会二次确认。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "notes": "1) 锐捷接口名按机型不同：独立式多为 Gi0/1，盒式/机框式为 Gi0/0/1，以 show interface 实际提示为准。\n2) 锐捷支持 interface range 且支持逗号列表，与思科写法一致。\n3) 保存命令是 write（等价 write memory），部分版本会二次确认。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n验证方法：show vlan brief 新 VLAN 行端口在列；show interfaces status 对应口 VLAN 列正确、Status connected。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -105,7 +105,7 @@
           "description": "Trunk 口 PVID（untagged VLAN），决定无标签流量归入哪个 VLAN；两端 PVID 不一致会导致原生态流量进错 VLAN 丢失"
         }
       ],
-      "notes": "1) 锐捷用 allowed vlan add 追加；不带 add 是覆盖式设置，会把原有放通列表冲掉。\n2) 取消放通用 switchport trunk allowed vlan remove <vlan>。\n3) native VLAN 两端必须一致，否则会出现跨 VLAN 串流或协议报文异常。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "notes": "1) 锐捷用 allowed vlan add 追加；不带 add 是覆盖式设置，会把原有放通列表冲掉。\n2) 取消放通用 switchport trunk allowed vlan remove <vlan>。\n3) native VLAN 两端必须一致，否则会出现跨 VLAN 串流或协议报文异常。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n验证方法：show interfaces trunk 目标口 trunking 且 Allowed VLANs 清单正确；show interfaces GigabitEthernet0/49 switchport 复核模式。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -343,7 +343,7 @@
           "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故"
         }
       ],
-      "notes": "1) 锐捷 ACL 语法与思科高度一致（含隐含 deny any any），但部分版本不支持 log 关键字。\n2) in/out 是相对本设备的方向，别把出方向当入方向配。\n3) 改完用 show ip access-lists 看命中计数验证是否生效。",
+      "notes": "1) 锐捷 ACL 语法与思科高度一致（含隐含 deny any any），但部分版本不支持 log 关键字。\n2) in/out 是相对本设备的方向，别把出方向当入方向配。\n3) 改完用 show ip access-lists 看命中计数验证是否生效。\n验证方法：show access-lists match 计数随流量增长；show ip interface 目标口 access group 引用本 ACL。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -549,7 +549,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) 必须先配 hostname 和 ip domain-name，再生成 RSA 密钥。\n2) 部分版本的 crypto key generate rsa 不接受 modulus 参数，会直接提示输入位数，按提示录入即可。\n3) transport input ssh 会关掉 Telnet，务必留一个已连通的 SSH 会话再执行。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "notes": "1) 必须先配 hostname 和 ip domain-name，再生成 RSA 密钥。\n2) 部分版本的 crypto key generate rsa 不接受 modulus 参数，会直接提示输入位数，按提示录入即可。\n3) transport input ssh 会关掉 Telnet，务必留一个已连通的 SSH 会话再执行。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n验证方法：客户端 ssh 实连成功后 show users 出现 vty 会话；SSH 服务状态查询关键字按 ? 核对（show ip ssh 类）。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -602,7 +602,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) 与思科一样，enable secret 优先于 enable password，且是加密存储，新设备只用 secret。\n2) console 下只写 login 用 line password（权限 1）；要直进特权 15 用 login local + 本地用户。\n3) logging synchronous 防止日志打断命令行输入。",
+      "notes": "1) 与思科一样，enable secret 优先于 enable password，且是加密存储，新设备只用 secret。\n2) console 下只写 login 用 line password（权限 1）；要直进特权 15 用 login local + 本地用户。\n3) logging synchronous 防止日志打断命令行输入。\n验证方法：show running-config | include secret 显示密文；Console/vty 重登验证新口令生效。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -674,7 +674,7 @@
           "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明"
         }
       ],
-      "notes": "1) 锐捷的 ro/rw 关键字会原样存储（不做大小写转换），大小写写错会导致权限不符预期。\n2) 只用采集时给 ro 即可；rw 有被下发配置的风险，用完及时删除。\n3) 部分版本 snmp-server host 需要显式加 traps 关键字，报错时按 ? 提示调整。",
+      "notes": "1) 锐捷的 ro/rw 关键字会原样存储（不做大小写转换），大小写写错会导致权限不符预期。\n2) 只用采集时给 ro 即可；rw 有被下发配置的风险，用完及时删除。\n3) 部分版本 snmp-server host 需要显式加 traps 关键字，报错时按 ? 提示调整。\n验证方法：show snmp 回显团体字与报文统计；trap 目标按 ? 核对 show snmp host；网管侧 snmpwalk 验证。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -706,7 +706,7 @@
           "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本"
         }
       ],
-      "notes": "1) 锐捷保存用 write（部分版本有 write memory 等价形式），执行后用 show startup-config 核对。\n2) 隔离网络不要用 TFTP 方式备份，直接存 flash: 最稳。\n3) 备份文件带日期或变更单号，多版本并存才好回滚。",
+      "notes": "1) 锐捷保存用 write（部分版本有 write memory 等价形式），执行后用 show startup-config 核对。\n2) 隔离网络不要用 TFTP 方式备份，直接存 flash: 最稳。\n3) 备份文件带日期或变更单号，多版本并存才好回滚。\n验证方法：write 回显 Building configuration...[OK]；show startup-config 与 running-config 核对一致。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",

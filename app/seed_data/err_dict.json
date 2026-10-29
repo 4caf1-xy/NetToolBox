@@ -2,7 +2,7 @@
   "format": "netcmdl - command library",
   "schema": 2,
   "vendor_file": "err_dict.json",
-  "count": 97,
+  "count": 100,
   "err_dict": [
     {
       "err_id": "f1204b1c-e3f1-5186-b85b-8f63dde2b333",
@@ -2407,6 +2407,81 @@
       "examples": [
         "cp: cannot create regular file '/mnt/usb/toolbox.exe': Read-only file system",
         "mkdir: cannot create directory '/media/usb0/pkg': Read-only file system"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "e38dab2c-7226-58a5-ba56-f5c98892c49d",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "%PORT_SECURITY-2-PSECURE_VIOLATION",
+      "category": "模式",
+      "cause": "接入口出现了超出 max-mac 上限或不在安全 MAC 表内的源 MAC，端口按 violation 动作处置（shutdown 动作会把整口置 err-disable，restrict/protect 只丢包）。",
+      "solution_steps": [
+        {
+          "text": "show port-security interface <口> 看违规端口、当前安全 MAC 与 Last Source Address"
+        },
+        {
+          "text": "判断违规 MAC 是误杀（终端下挂了小交换机/AP）还是陌生设备；误杀就调大 maximum 或改 restrict",
+          "ref_entry_uuid": "bbc970b6-0942-5279-9d9c-1da1ad991cbf"
+        },
+        {
+          "text": "violation shutdown 触发的 err-disable：接口下 shutdown + no shutdown 手动拉起，或配 errdisable recovery cause psecure-violation 自动恢复"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "%PORT_SECURITY-2-PSECURE_VIOLATION: Security violation on port GigabitEthernet0/1, caused by MAC address 0011.2233.4455.",
+        "%PORT_SECURITY-2-PSECURE_VIOLATION: Security violation on port GigabitEthernet0/5, caused by MAC address aabb.ccdd.eeff."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "b50980bb-c63d-5677-9a89-ae23467d07cd",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "ERR_DISABLE",
+      "category": "模式",
+      "cause": "端口因触发保护机制被整口置 err-disable——具体原因跟在报错里（psecure-violation/bpduguard/loopback 等），恢复前必须先清根因，否则拉起会再次触发。",
+      "solution_steps": [
+        {
+          "text": "show errdisable recovery 看触发原因清单与自动恢复配置"
+        },
+        {
+          "text": "按原因处置：psecure-violation 调整端口安全、bpduguard 查下游误接交换机、loopback 查环路",
+          "ref_entry_uuid": "bbc970b6-0942-5279-9d9c-1da1ad991cbf"
+        },
+        {
+          "text": "接口下 shutdown + no shutdown 拉起，或 errdisable recovery cause <原因> 开自动恢复"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "%PM-4-ERR_DISABLE: psecure-violation error detected on Gi0/1, putting Gi0/1 in err-disable state",
+        "%PM-4-ERR_DISABLE: bpduguard error detected on Gi0/2, putting Gi0/2 in err-disable state"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "6f71e8b7-a7b9-52e8-9284-c48cafc409d4",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "EC-5-CANNOT_BUNDLE",
+      "category": "模式",
+      "cause": "成员口属性与聚合组既有成员不一致（trunk 模式/放行 VLAN/速率双工/口类型任一不同），该口被拒绝绑入 Port-Channel、单独成活——聚合带宽不降反少一条链路。",
+      "solution_steps": [
+        {
+          "text": "show etherchannel summary 看成员标志：(P)=在组转发，(I)=独立，(s)=挂起"
+        },
+        {
+          "text": "对齐成员口属性：switchport mode / allowed vlan / speed / duplex 与既有成员完全一致后重新绑入",
+          "ref_entry_uuid": "8e83b6d4-f82c-5991-9313-11fcc5d01354"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "%EC-5-CANNOT_BUNDLE2: Gi0/2 is not compatible with Gi0/1 and will be active in future (channel group Gi0/1)",
+        "%EC-5-CANNOT_BUNDLE2: Te1/0/2 is not compatible with Te1/0/1 and will be active in future (channel group Te1/0/1)"
       ],
       "verified": 0
     }

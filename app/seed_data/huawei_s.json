@@ -72,7 +72,7 @@
           "description": "批量端口区间结束号，与 port_start 圈定 range 范围；区间内包含不该动的口会被一起改——执行前逐口核对"
         }
       ],
-      "notes": "1) VRP 没有 Cisco 那种 interface range；批量配口用 port-group（较新版本支持），\n   老版本只能逐口 interface GigabitEthernet 0/0/1 敲。\n2) 华为交换机端口是三段式 槽位/子槽位/端口（0/0/1），不能按思科的 0/1 敲。\n3) save 会二次确认 [Y/N]，脚本里必须跟一行 y，否则粘贴后会一直停在提示符。",
+      "notes": "1) VRP 没有 Cisco 那种 interface range；批量配口用 port-group（较新版本支持），\n   老版本只能逐口 interface GigabitEthernet 0/0/1 敲。\n2) 华为交换机端口是三段式 槽位/子槽位/端口（0/0/1），不能按思科的 0/1 敲。\n3) save 会二次确认 [Y/N]，脚本里必须跟一行 y，否则粘贴后会一直停在提示符。\n验证方法：display vlan 出现新 VID 行且 Ports 列含目标口；display port vlan GigabitEthernet0/0/1 复核 pvid/untag 归属正确。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -124,7 +124,7 @@
           "description": "Trunk 口 PVID（untagged VLAN），决定无标签流量归入哪个 VLAN；两端 PVID 不一致会导致原生态流量进错 VLAN 丢失"
         }
       ],
-      "notes": "1) 华为是 allow-pass，别写成思科的 allowed；连续段用 \"vlan 10 to 20\"，\n   不连续列表用 \"vlan 10 20 30\"，两者不能混在一条命令里。\n2) port trunk allow-pass vlan all 会放通全部 VLAN，生产上有隔离要求时是个隐患。\n3) pvid 相当于思科的 native VLAN，两端必须一致。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "notes": "1) 华为是 allow-pass，别写成思科的 allowed；连续段用 \"vlan 10 to 20\"，\n   不连续列表用 \"vlan 10 20 30\"，两者不能混在一条命令里。\n2) port trunk allow-pass vlan all 会放通全部 VLAN，生产上有隔离要求时是个隐患。\n3) pvid 相当于思科的 native VLAN，两端必须一致。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n验证方法：display port vlan active 回显目标口 Link Type trunk、allow-pass VLAN 清单正确；对端 display port vlan active 对称。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -197,7 +197,7 @@
           "description": "路由优先级（华为/H3C/Juniper），数值越小越优先（华为/H3C 静态默认 60）；浮动静态路由把备份侧 preference 调大"
         }
       ],
-      "notes": "1) 三层转发的前提是先建 vlanif 并在 vlanif 上配 IP，否则没有直连路由可用。\n2) preference 越小越优先（默认 60），写成 1 会让静态路由抢走 OSPF 的路由。\n3) 缺省路由写 ip route-static 0.0.0.0 0.0.0.0 <下一跳>，掩码写 0 或 0.0.0.0 都认。",
+      "notes": "1) 三层转发的前提是先建 vlanif 并在 vlanif 上配 IP，否则没有直连路由可用。\n2) preference 越小越优先（默认 60），写成 1 会让静态路由抢走 OSPF 的路由。\n3) 缺省路由写 ip route-static 0.0.0.0 0.0.0.0 <下一跳>，掩码写 0 或 0.0.0.0 都认。\n验证方法：display ip routing-table protocol static 回显路由在列（Proto 列 Static）；ping 对端网段验证可达。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -280,7 +280,7 @@
           "description": "OSPF 静默接口（华为/H3C silent-interface），该口不收发 Hello；接终端的口建议设静默防误建邻居"
         }
       ],
-      "notes": "1) 华为 OSPF 用\"进程 → 区域 → network\"的嵌套视图，quit 的层数别数错。\n2) network 后面是反掩码；宣告错网段会出现接口 UP 但邻居起不来，先看 display ospf peer。\n3) silent-interface 让业务口不发不收 OSPF 报文（等效 Cisco 的 passive-interface），\n   接口段要写紧凑格式 GigabitEthernet0/0/1，带空格会解析失败。",
+      "notes": "1) 华为 OSPF 用\"进程 → 区域 → network\"的嵌套视图，quit 的层数别数错。\n2) network 后面是反掩码；宣告错网段会出现接口 UP 但邻居起不来，先看 display ospf peer。\n3) silent-interface 让业务口不发不收 OSPF 报文（等效 Cisco 的 passive-interface），\n   接口段要写紧凑格式 GigabitEthernet0/0/1，带空格会解析失败。\n验证方法：display ospf peer brief 邻居 State 为 Full；display ip routing-table protocol ospf 学到对端宣告路由。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -363,7 +363,7 @@
           "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故"
         }
       ],
-      "notes": "1) 基本 ACL 2000-2999 只能匹配源地址；高级 ACL 3000-3999 可匹配协议/源目/端口。\n2) rule 后面的数字是规则序号，默认步长 5；要插规则就用中间序号（如 rule 6），\n   序号小的先匹配，末尾隐含 deny。\n3) 华为应用到接口用 traffic-filter，H3C 用 packet-filter，两者别记混。",
+      "notes": "1) 基本 ACL 2000-2999 只能匹配源地址；高级 ACL 3000-3999 可匹配协议/源目/端口。\n2) rule 后面的数字是规则序号，默认步长 5；要插规则就用中间序号（如 rule 6），\n   序号小的先匹配，末尾隐含 deny。\n3) 华为应用到接口用 traffic-filter，H3C 用 packet-filter，两者别记混。\n验证方法：display acl all 规则 match 计数随流量增长；display traffic-filter applied-record 显示 ACL 挂载记录。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -457,7 +457,7 @@
           "description": "NAT 地址池编号，PAT/地址池复用转换时的地址组标识；被 nat outbound 引用，改前先解除引用关系"
         }
       ],
-      "notes": "1) 纯二层 S5700-LI 不支持 NAT，需要 NAT 的场合请用 AR 路由器或支持 NAT 的三层型号，\n   上设备前先用 display version 确认产品形态。\n2) nat outbound <acl> 是 Easy IP（借用出接口地址）；带 address-group 才是地址池 PAT。\n3) ACL 匹配的是内网源地址，别写成公网地址。",
+      "notes": "1) 纯二层 S5700-LI 不支持 NAT，需要 NAT 的场合请用 AR 路由器或支持 NAT 的三层型号，\n   上设备前先用 display version 确认产品形态。\n2) nat outbound <acl> 是 Easy IP（借用出接口地址）；带 address-group 才是地址池 PAT。\n3) ACL 匹配的是内网源地址，别写成公网地址。\n验证方法：display nat session all 回显转换会话（私网源地址→出接口地址）；display nat outbound 确认 ACL 与出接口关联。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -520,7 +520,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) 必须先 rsa local-key-pair create 生成密钥，否则 stelnet server enable 会报错。\n2) irreversible-cipher 是不可逆加密存储，比 cipher 更安全；密码至少 8 位含大小写数字。\n3) protocol inbound ssh 会禁掉 Telnet，改之前务必先确认 SSH 能登录，避免锁死设备。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "notes": "1) 必须先 rsa local-key-pair create 生成密钥，否则 stelnet server enable 会报错。\n2) irreversible-cipher 是不可逆加密存储，比 cipher 更安全；密码至少 8 位含大小写数字。\n3) protocol inbound ssh 会禁掉 Telnet，改之前务必先确认 SSH 能登录，避免锁死设备。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n验证方法：display ssh server status 回显 STelnet: Enable；display ssh user-information 用户在列；stelnet 实连成功。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -574,7 +574,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) authentication-mode password 是\"只有口令\"；要用户名+口令请用 authentication-mode aaa\n   并配合本地 local-user 创建账号。\n2) cipher 表示按密文存储（输入的是明文，设备加密后保存）；忘记口令只能清空配置重来。\n3) user privilege level 15 才能进所有视图；给 0-1 级会出现能登录但什么都配不了。",
+      "notes": "1) authentication-mode password 是\"只有口令\"；要用户名+口令请用 authentication-mode aaa\n   并配合本地 local-user 创建账号。\n2) cipher 表示按密文存储（输入的是明文，设备加密后保存）；忘记口令只能清空配置重来。\n3) user privilege level 15 才能进所有视图；给 0-1 级会出现能登录但什么都配不了。\n验证方法：user-interface console 0 下 display this 显示认证模式与口令；断开重登验证新口令生效、旧口令失效。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -646,7 +646,7 @@
           "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明"
         }
       ],
-      "notes": "1) community 后面跟 cipher 表示密文存储；团体字别用 public/private，安全审计会判违规。\n2) Trap 目标必须带 udp-domain 与 params securityname，只写 IP 是不生效的。\n3) 只用采集时给 read 团体字就够了，write 团体字有下发配置的风险。",
+      "notes": "1) community 后面跟 cipher 表示密文存储；团体字别用 public/private，安全审计会判违规。\n2) Trap 目标必须带 udp-domain 与 params securityname，只写 IP 是不生效的。\n3) 只用采集时给 read 团体字就够了，write 团体字有下发配置的风险。\n验证方法：display snmp-agent community 团体字与读写权限在列；display snmp-agent trap target-host 目标地址正确。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -678,7 +678,7 @@
           "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本"
         }
       ],
-      "notes": "1) save 必须跟一行 y 确认；也可以用 save force 免交互直接落盘。\n2) 默认保存到 flash:/vrpcfg.zip，备份前先用 dir 确认实际文件名（部分版本名不同）。\n3) 改坏了可以用 startup saved-configuration 指定回滚文件后重启恢复。",
+      "notes": "1) save 必须跟一行 y 确认；也可以用 save force 免交互直接落盘。\n2) 默认保存到 flash:/vrpcfg.zip，备份前先用 dir 确认实际文件名（部分版本名不同）。\n3) 改坏了可以用 startup saved-configuration 指定回滚文件后重启恢复。\n验证方法：save 确认后回显 configuration saved；display saved-configuration 与 display current-configuration 核对一致；dir 看备份文件。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",

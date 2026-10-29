@@ -62,7 +62,7 @@
           "description": "批量端口区间结束号，与 port_start 圈定 range 范围；区间内包含不该动的口会被一起改——执行前逐口核对"
         }
       ],
-      "notes": "1) Comware7 支持 interface range；Comware5 不支持，老设备只能逐口配。\n2) H3C 端口默认带堆叠成员号，单机也是 Gi1/0/1（不是 Gi0/1），按设备实际提示敲。\n3) save force 免交互直接落盘；save 会问是否保存，脚本里容易卡住。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "notes": "1) Comware7 支持 interface range；Comware5 不支持，老设备只能逐口配。\n2) H3C 端口默认带堆叠成员号，单机也是 Gi1/0/1（不是 Gi0/1），按设备实际提示敲。\n3) save force 免交互直接落盘；save 会问是否保存，脚本里容易卡住。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n验证方法：display vlan 新 VLAN 行端口列含目标口；display interface GigabitEthernet1/0/1 brief 链路 UP、VLAN 归属正确。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -114,7 +114,7 @@
           "description": "Trunk 口 PVID（untagged VLAN），决定无标签流量归入哪个 VLAN；两端 PVID 不一致会导致原生态流量进错 VLAN 丢失"
         }
       ],
-      "notes": "1) H3C 用 permit vlan（不是思科的 allowed、华为的 allow-pass），三家动词都不同。\n2) port trunk permit vlan all 放通全部 VLAN，生产上慎用。\n3) 放通列表支持 \"vlan 10 20 30\" 与 \"vlan 10 to 20\"，混写会报语法错误。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "notes": "1) H3C 用 permit vlan（不是思科的 allowed、华为的 allow-pass），三家动词都不同。\n2) port trunk permit vlan all 放通全部 VLAN，生产上慎用。\n3) 放通列表支持 \"vlan 10 20 30\" 与 \"vlan 10 to 20\"，混写会报语法错误。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n验证方法：display interface GigabitEthernet1/0/1 回显 Port link-type trunk；display vlan 放行 VLAN 的端口列含该口。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -270,7 +270,7 @@
           "description": "OSPF 静默接口（华为/H3C silent-interface），该口不收发 Hello；接终端的口建议设静默防误建邻居"
         }
       ],
-      "notes": "1) 与华为语法高度相似（都是 进程→区域→network 嵌套），主要差异在提示符与保存命令。\n2) network 用反掩码；宣告错网段会出现接口 UP 但邻居起不来，先看 display ospf peer。\n3) silent-interface 接口段写紧凑格式 GigabitEthernet1/0/1，带空格会解析失败。",
+      "notes": "1) 与华为语法高度相似（都是 进程→区域→network 嵌套），主要差异在提示符与保存命令。\n2) network 用反掩码；宣告错网段会出现接口 UP 但邻居起不来，先看 display ospf peer。\n3) silent-interface 接口段写紧凑格式 GigabitEthernet1/0/1，带空格会解析失败。\n验证方法：display ospf peer brief 邻居 State 为 Full；display ip routing-table protocol ospf 学到对端路由。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -530,7 +530,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) 必须先用 public-key local create rsa 生成密钥，否则 ssh server enable 报错。\n2) Comware7 的本地用户分 manage（管理类）与 network（网络接入类），SSH 登录用 class manage；\n   权限靠 authorization-attribute user-role network-admin 给（不是 privilege level）。\n3) password 支持 simple / hash 两种存储，生产建议 hash；改完先验证能登录再关 Telnet。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n5) ★ 本条含交互式输入（RSA 密钥模数需手工键入），不适合脚本渲染/批量粘贴；逐条手工执行。\n",
+      "notes": "1) 必须先用 public-key local create rsa 生成密钥，否则 ssh server enable 报错。\n2) Comware7 的本地用户分 manage（管理类）与 network（网络接入类），SSH 登录用 class manage；\n   权限靠 authorization-attribute user-role network-admin 给（不是 privilege level）。\n3) password 支持 simple / hash 两种存储，生产建议 hash；改完先验证能登录再关 Telnet。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n5) ★ 本条含交互式输入（RSA 密钥模数需手工键入），不适合脚本渲染/批量粘贴；逐条手工执行。\n验证方法：display ssh server status 回显 SSH server 启用；display ssh user-information 用户在列；ssh 实连成功。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -574,7 +574,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) Comware7 用 user-role（如 network-admin）授权，不再用 level 15。\n2) set authentication password 后面的参数决定存储方式：simple 明文可见、hash 单向哈希。\n3) 忘记 console 口令需进 BootROM 跳过配置启动，属破坏性操作，口令一定要留档。",
+      "notes": "1) Comware7 用 user-role（如 network-admin）授权，不再用 level 15。\n2) set authentication password 后面的参数决定存储方式：simple 明文可见、hash 单向哈希。\n3) 忘记 console 口令需进 BootROM 跳过配置启动，属破坏性操作，口令一定要留档。\n验证方法：display local-user 用户与角色在列；user-interface console 0 下 display this 认证模式正确；重登验证新口令。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -646,7 +646,7 @@
           "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明"
         }
       ],
-      "notes": "1) 团体字不用 public/private，也不要与主机名/项目名雷同，安全审计会抽查。\n2) Trap 目标必须带 udp-domain 与 params securityname，只给 IP 不生效。\n3) 采集只需要 read 团体字；write 团体字用完建议直接删掉。",
+      "notes": "1) 团体字不用 public/private，也不要与主机名/项目名雷同，安全审计会抽查。\n2) Trap 目标必须带 udp-domain 与 params securityname，只给 IP 不生效。\n3) 采集只需要 read 团体字；write 团体字用完建议直接删掉。\n验证方法：display snmp-agent community 团体字在列；display snmp-agent target-host trap 目标正确；网管侧 snmpwalk 验证。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -678,7 +678,7 @@
           "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本"
         }
       ],
-      "notes": "1) save force 免交互；只用 save 会被问 \"Are you sure? [Y/N]\"，脚本里会卡住。\n2) Comware7 的启动配置文件通常叫 startup.cfg，先 dir 确认实际文件名再 copy。\n3) 回滚方式：把备份文件改名回 startup.cfg，或用 startup-configuration 指定，再重启生效。",
+      "notes": "1) save force 免交互；只用 save 会被问 \"Are you sure? [Y/N]\"，脚本里会卡住。\n2) Comware7 的启动配置文件通常叫 startup.cfg，先 dir 确认实际文件名再 copy。\n3) 回滚方式：把备份文件改名回 startup.cfg，或用 startup-configuration 指定，再重启生效。\n验证方法：save 确认后回显 configuration saved；display saved-configuration 与当前配置核对一致。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",

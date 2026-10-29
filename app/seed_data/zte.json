@@ -52,7 +52,7 @@
           "description": "接口名/接口编号，进入该接口视图后所做的配置只作用于这一个口；先 show/display 确认接口存在与状态——进错接口改配置是现场常见事故"
         }
       ],
-      "notes": "1) ZXR10 接口名形如 gei_1/1（千兆以太网），三段式（gei_1/1/1）在机框式设备上常见，\n   以 show interface 的实际提示为准。\n2) ZXR10 命令体系接近 Cisco（enable / configure terminal / interface / exit），\n   但不同 ROS 版本差异较大，上机前建议先用 ? 确认命令是否存在。\n3) 保存命令为 write（部分版本可用 write memory / save），执行后用 show startup-config 核对。\n4) 批量配口可尝试 interface range（部分型号支持），不支持则逐口配。\n5) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "notes": "1) ZXR10 接口名形如 gei_1/1（千兆以太网），三段式（gei_1/1/1）在机框式设备上常见，\n   以 show interface 的实际提示为准。\n2) ZXR10 命令体系接近 Cisco（enable / configure terminal / interface / exit），\n   但不同 ROS 版本差异较大，上机前建议先用 ? 确认命令是否存在。\n3) 保存命令为 write（部分版本可用 write memory / save），执行后用 show startup-config 核对。\n4) 批量配口可尝试 interface range（部分型号支持），不支持则逐口配。\n5) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n验证方法：show vlan 回显新 VLAN 行且 PvidPorts/UntagPorts 列含目标口；show interface brief 口状态 up。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -104,7 +104,7 @@
           "description": "Trunk 口 PVID（untagged VLAN），决定无标签流量归入哪个 VLAN；两端 PVID 不一致会导致原生态流量进错 VLAN 丢失"
         }
       ],
-      "notes": "1) 部分 ZXR10 版本用 switchport trunk vlan <列表>（不带 allowed），以 ? 提示为准；\n   两者语义相同，只是关键字差异。\n2) 放通全部用 switchport trunk vlan all（慎用）。\n3) native VLAN 两端必须一致，否则会出现跨 VLAN 串流或协议报文异常。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n",
+      "notes": "1) 部分 ZXR10 版本用 switchport trunk vlan <列表>（不带 allowed），以 ? 提示为准；\n   两者语义相同，只是关键字差异。\n2) 放通全部用 switchport trunk vlan all（慎用）。\n3) native VLAN 两端必须一致，否则会出现跨 VLAN 串流或协议报文异常。\n4) ★ 本条含 shutdown / undo shutdown 类端口操作：对生产端口执行会瞬断链路，请在业务低峰期变更，并确认有带外/备用管理通道再动手。\n验证方法：show vlan 目标口出现在 TagPorts 列；show interface brief 口状态 up；对端 show vlan 对称。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -549,7 +549,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) 生成 RSA 密钥前必须有 hostname 与 ip domain-name，否则报错。\n2) crypto key generate rsa 在部分版本是交互式（提示输入模数），脚本会停在提示符上，\n   需手工输入 2048 后继续。\n3) transport input ssh 会关掉 Telnet，改之前务必留一个已连通的 SSH 会话。\n4) 特权级别写法与 Cisco 一致（privilege 15）；部分版本用 user privilege level 15。\n5) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "notes": "1) 生成 RSA 密钥前必须有 hostname 与 ip domain-name，否则报错。\n2) crypto key generate rsa 在部分版本是交互式（提示输入模数），脚本会停在提示符上，\n   需手工输入 2048 后继续。\n3) transport input ssh 会关掉 Telnet，改之前务必留一个已连通的 SSH 会话。\n4) 特权级别写法与 Cisco 一致（privilege 15）；部分版本用 user privilege level 15。\n5) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n验证方法：show ssh 服务状态开启；show online-user 登录后见会话；客户端 ssh 实连成功。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -602,7 +602,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) 与 Cisco 一致：enable secret 优先于 enable password 且加密存储，新设备只用 secret。\n2) console 下只写 login 用 line password（权限 1）；要直进特权 15 用 login local + 本地用户。\n3) 部分版本 line console 提示符为 line console 0 或 console 0，按 ? 确认。",
+      "notes": "1) 与 Cisco 一致：enable secret 优先于 enable password 且加密存储，新设备只用 secret。\n2) console 下只写 login 用 line password（权限 1）；要直进特权 15 用 login local + 本地用户。\n3) 部分版本 line console 提示符为 line console 0 或 console 0，按 ? 确认。\n验证方法：show user-account 用户与权限级别在列；重登验证新口令生效。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -674,7 +674,7 @@
           "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明"
         }
       ],
-      "notes": "1) 不同 ROS 版本 snmp-server host 的参数顺序差异较大（trap/version/团体字位置），\n   报错时按 ? 逐项确认。\n2) 只用采集时给 ro 即可；rw 有被下发配置的风险，用完及时删除。\n3) 团体字别用 public/private，安全审计会判违规。",
+      "notes": "1) 不同 ROS 版本 snmp-server host 的参数顺序差异较大（trap/version/团体字位置），\n   报错时按 ? 逐项确认。\n2) 只用采集时给 ro 即可；rw 有被下发配置的风险，用完及时删除。\n3) 团体字别用 public/private，安全审计会判违规。\n验证方法：show snmp-agent 回显 community 配置；网管侧 snmpwalk 取 sysDescr 验证。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -706,7 +706,7 @@
           "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本"
         }
       ],
-      "notes": "1) ZXR10 保存用 write（等效 write memory）；部分版本为 save，按 ? 确认。\n2) 隔离网络不要用 TFTP 方式备份，直接存 flash: 最稳。\n3) flash 路径可能是 flash:/ 或 cfg/，先用 dir 看现有文件再决定路径。",
+      "notes": "1) ZXR10 保存用 write（等效 write memory）；部分版本为 save，按 ? 确认。\n2) 隔离网络不要用 TFTP 方式备份，直接存 flash: 最稳。\n3) flash 路径可能是 flash:/ 或 cfg/，先用 dir 看现有文件再决定路径。\n验证方法：write 成功回显；show startup-config 与 running 核对一致。（验证人/型号/日期验证通过后回填 verified）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -1214,7 +1214,7 @@
       "description": "查 PoE 功率与各口供电状态，按口开关供电（命令形态待真机核对）。",
       "commands": "! ===== PoE 供电管理（中兴 ZXR10，骨架参照）=====\n! ★ 待真机核对：ZXR10 PoE 命令形态（poe 类关键字）在各型号差异大，\n!   上机后先 ? 核对整机查询与口级开关的实际关键字（show poe / power 类），\n!   核对通过后转正本条（补真实命令与回显，exec_level 升 verified-cli）。",
       "params": [],
-      "notes": "1) ★ 待真机核对：ZXR10 PoE 命令形态未核实，本条为骨架参照。\n2) 排查口径不变：先看整机功率预算，再查口级状态，最后查 PD 等级与线缆。\n核对通过后回填本条并升 exec_level 为 verified-cli。",
+      "notes": "1) ★ 待真机核对：ZXR10 PoE 命令形态未核实，本条为骨架参照。\n2) 排查口径不变：先看整机功率预算，再查口级状态，最后查 PD 等级与线缆。\n核对通过后回填本条并升 exec_level 为 verified-cli。\n验证方法：骨架条目——真机 ? 核对 poe 关键字转正后补真实命令与回显再回填 verified。（验证人/型号/日期验证通过后回填 verified）",
       "verified": 0,
       "exec_level": "skeleton"
     },
@@ -1230,7 +1230,7 @@
       "description": "按端口带宽百分比抑制广播流量，超限丢包（命令形态待真机核对）。",
       "commands": "! ===== 广播风暴抑制（中兴 ZXR10，骨架参照）=====\n! ★ 待真机核对：ZXR10 风暴抑制命令形态（broadcast-suppression / storm-control 类关键字）\n!   各 ROS 版本差异大，上机后在接口视图用 ? 核对实际关键字与计量单位（%/pps），\n!   核对通过后转正本条（补真实命令与回显，exec_level 升 verified-cli）。",
       "params": [],
-      "notes": "1) ★ 待真机核对：ZXR10 风暴抑制命令形态未核实，本条为骨架参照。\n2) 口径不变：接入口配置、上联口禁用；阈值取带宽百分比 1%-10%。\n核对通过后回填本条并升 exec_level 为 verified-cli。",
+      "notes": "1) ★ 待真机核对：ZXR10 风暴抑制命令形态未核实，本条为骨架参照。\n2) 口径不变：接入口配置、上联口禁用；阈值取带宽百分比 1%-10%。\n核对通过后回填本条并升 exec_level 为 verified-cli。\n验证方法：骨架条目——真机 ? 核对风暴抑制关键字转正后补真实命令与回显再回填 verified。（验证人/型号/日期验证通过后回填 verified）",
       "verified": 0,
       "exec_level": "skeleton"
     },
