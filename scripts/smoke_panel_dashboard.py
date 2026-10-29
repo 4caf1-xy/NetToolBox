@@ -370,13 +370,15 @@ def case_e():
         db = seeded_db()
         w = ui_main.MainWindow(db)
         titles = [w.tabs.tabText(i) for i in range(w.tabs.count())]
-        # 2026-10-12：操作单 Tab（裁决②）+ 场景包 Tab（排查向导后）→ 5 → 6
-        check("E/Tab-六个（操作单+场景包加入）", w.tabs.count() == 6
+        # 2026-10-12：操作单 Tab（裁决②）+ 场景包 Tab（排查向导后）→ 5 → 6；
+        # 2026-10-14（H 批）：变更对比 Tab（操作单后）→ 6 → 7
+        check("E/Tab-七个（变更对比加入）", w.tabs.count() == 7
               and titles == ["命令库", "排查向导", "场景包", "报错诊断",
-                             "操作单", "AI 诊断"],
+                             "操作单", "变更对比", "AI 诊断"],
               str(titles))
         check("E/操作单Tab-可恢复分栏", hasattr(w.tab_runbook, "restore_split_state"), "")
         check("E/场景包Tab-可恢复分栏", hasattr(w.tab_scenario, "restore_split_state"), "")
+        check("E/变更对比Tab-可恢复分栏", hasattr(w.tab_diff, "restore_split_state"), "")
         # 仪表盘卡片在命令库 Tab（父链可达 main_split）
         p, in_tab = w.dashboard, False
         while p is not None:

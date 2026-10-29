@@ -817,6 +817,11 @@ class MainWindow(QMainWindow):
         from ui_runbook import RunbookTab
         self.tab_runbook, self._tab_rb_ok = self._safe_tab(
             "操作单", lambda: RunbookTab(self.db, self))
+        # 变更对比 Tab（H 批 2026-10-14：Before/After 粘贴流差异摘要——
+        # 离线变更验证最后一环；位置：操作单之后（出单执行 → 回显比对闭环））
+        from ui_diff import DiffTab
+        self.tab_diff, self._tab_diff_ok = self._safe_tab(
+            "变更对比", lambda: DiffTab(self.db))
         # AI 诊断 Tab（任务：主程序直接集成；常驻，不动态探测不排除模块。
         # 构造失败（如 PyQt5 之外的意外）也不拖垮主窗 —— _safe_tab 兜底占位页）
         self.tab_ai, self._tab_ai_ok = self._safe_tab(
@@ -829,6 +834,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.tab_scenario, "场景包")    # 位置：排查向导后（2026-10-12）
         self.tabs.addTab(self.tab_errorfix, "报错诊断")
         self.tabs.addTab(self.tab_runbook, "操作单")     # 位置：报错诊断之后（2026-10-12 裁决②）
+        self.tabs.addTab(self.tab_diff, "变更对比")      # 位置：操作单之后（H 批 2026-10-14）
         self.tabs.addTab(self.tab_ai, "AI 诊断")        # 位置：末位
         self.setCentralWidget(self.tabs)
 
@@ -980,6 +986,14 @@ class MainWindow(QMainWindow):
         except Exception:
             return
         save_ui_state(payload)
+
+    def open_diff_tab(self):
+        """跳转变更对比 Tab（H 批：操作单步骤「对比 Before/After」旁挂入口）。
+        Tab 构造失败（_safe_tab 占位页）时静默不动——旁挂入口不可用不阻断操作单。"""
+        if getattr(self, "_tab_diff_ok", False) and getattr(self, "tab_diff", None) is not None:
+            self.tabs.setCurrentWidget(self.tab_diff)
+            if hasattr(self.tab_diff, "ed_before"):
+                self.tab_diff.ed_before.setFocus()
 
     def _safe_tab(self, tab_title, factory):
         """

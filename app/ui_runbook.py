@@ -245,6 +245,10 @@ class RunbookTab(QWidget):
         self.btn_copy_rb = QPushButton("复制该步回退")
         self.btn_copy_rb.clicked.connect(self.on_copy_rollback)
         row_copy.addWidget(self.btn_copy_rb)
+        # 变更对比旁挂入口（H 批 2026-10-14）：复制回显 → 跳转变更对比 Tab 粘贴比对
+        self.btn_diff = QPushButton("对比 Before/After")
+        self.btn_diff.clicked.connect(self.on_open_diff)
+        row_copy.addWidget(self.btn_diff)
         row_copy.addStretch(1)
         self.lbl_step_state = QLabel("")
         self.lbl_step_state.setObjectName("Hint")
@@ -759,6 +763,15 @@ class RunbookTab(QWidget):
             self._status("复制失败（剪贴板被占用）。")
             return
         self._status("已复制第 %d 步回退方案。" % (self._cur + 1))
+
+    def on_open_diff(self):
+        """跳转变更对比 Tab（H 批旁挂入口）。main 缺席（offscreen 冒烟 /
+        独立构造）时提示而不是崩——按钮本身可用但无主窗可跳。"""
+        main = getattr(self, "main", None)
+        if main is None or not hasattr(main, "open_diff_tab"):
+            self._status("当前无主窗上下文，请在主程序中使用变更对比。")
+            return
+        main.open_diff_tab()
 
     # ==================================================================
     # 导出 HTML
