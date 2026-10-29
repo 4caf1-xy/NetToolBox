@@ -7,6 +7,16 @@
 
 ## Unreleased
 
+#### H 批：Before/After 变更对比 MVP（离线变更验证最后一环，2026-10-14/29）
+- **新功能「变更对比」Tab**（操作单之后）：变更前后各粘贴一次同命令回显，自动输出状态差异摘要——逐项四态（✓ 不变 / ⚠ 变化 before→after / ＋ 新增 / － 消失）+ 汇总三级（L0 一致 / L1 状态值变化 / L2 键集增删）；uptime、包计数器、时间戳、CPU 瞬时值等噪声行自动忽略；粘贴流纯本地零联网（Copy Only 不变），无规则命中自动降级行级比对不崩；
+- **提取规则随种子走**（`seed_data/diff_rules.json`，不新增条目，358/26/97 底数不变）：MVP 4 类命令 × 17 厂商变体——接口状态（华为 VRP/思科 IOS/H3C Comware/锐捷 RGOS/Juniper Junos）、VLAN 表（华为/思科/锐捷，集合语义）、OSPF 邻居（华为/华三 brief + 思科/锐捷）、路由表摘要（华为/华三/思科/锐捷/Linux `ip route`，含下一跳捕获——via 变更照样报 ⚠）；坏规则由 `--validate-seed` **[E] 硬拦截**（坏正则 / 命名组不符语义 / 重复 rule_id / 非法 semantics / 全局噪声坏正则），vendor 未收录 [W] 提示；validate 统计行与 [OK] 行扩展「变更对比规则 N 类 / M 厂商变体」；
+- **操作单旁挂入口**：步骤操作行新增「对比 Before/After」按钮跳转对比 Tab（复制回显 → 粘贴比对闭环）；Tab 总数 6→7；
+- **差异卡片导出 HTML**：A4 打印可用、四态徽章 + 汇总分级条 + 噪声计数 + 比对模式标注；打印 token 与操作单**同一套**（runbook_export.PRINT_TOKENS，theme.py 改色即漂移拒绝导出 rc=6）；零 script / 零外链 / 零 url()；
+- 冒烟：**smoke_diff 新增 62 项**（八案：规则加载/华为接口真实格式四态+噪声不假变化/思科+华为+Linux 各类真实格式/17 变体逐个抽验/坏规则端到端 [E] 拦截+复位对账/降级行级不崩/HTML 导出断言/离屏 UI+零联网源码断言），主库零接触过；smoke_panel_dashboard + smoke_scenarios 的 Tab 数断言 6→7；
+- **基线遗留修复（顺带收口）**：sanitize_scan secret 豁免清单补命令旗标形态（`passwd -S/-l/-u` 的旗标被误判为 secret 真值——E 批 passwd 锁定排查条目引发的 smoke_export_site 6 处误报，非本批引入）；本批同时补回会话中断丢失的 validate [X] 变更对比规则硬拦截块（smoke_diff E6 端到端用例抓住）；
+- 全量 **16 套冒烟 rc=0**（原 15 + smoke_diff）+ validate-seed EXIT=0（358/26/97 底数不变、[E]=0、[W] 基线 1 处 zte skeleton 场景包提示无新增）；
+- 三子批独立提交（134ecd1 / 3bdf6cd / H批子批3），不发版不 tag。
+
 #### E 批：数据扩容（报错库 + 空缺厂商，纯数据批不动产品代码，2026-10-14）
 - **报错字典 82→97**：err_unresolved 场1/场2 沉淀的真实回显转正 8 条（systemd 容器 D-Bus / FRR ospf 实例 / sha256sum 目录 / sshd 别名单元 / netplan 权限 / timesync1 缺失 / sed bind-mount / chronyd SYS_TIME，逐条关联命令条目 uuid）；linux/ops 低洼补缺 7 条（ENOSPC / sudo 无 tty / CRLF 坏解释器 / Text file busy / apt 缺包 / Job failed 入口 / 只读文件系统）；「权限」类目首次启用（0→2）；
 - **山石网科（StoneOS）占位目录转正**：最小可用集 10 条（VLAN 三层网关+子接口 / trunk 透传 / show interface / 事件+流量日志外发 syslog / show session / ping+traceroute / save 与配置核对），结构化 params、变更类 rollback 全覆盖（save 基线 + rollback 回退式）；关键字按 StoneOS 5.5 官方知识库与 CLI 手册核对，全量 exec_level=skeleton 待真机验证；

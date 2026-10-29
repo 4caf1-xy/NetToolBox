@@ -151,7 +151,8 @@ def case_c():
     db = seeded_db()
     w = ui_main.MainWindow(db)
 
-    check("C/六Tab", w.tabs.count() == 6, str(w.tabs.count()))
+    # 2026-10-14（H 批）：变更对比 Tab 加入 → 6 → 7
+    check("C/七Tab", w.tabs.count() == 7, str(w.tabs.count()))
     sc = w.tab_scenario
     check("C/包列表3项", sc.lst_packs.count() == 3, "")
     check("C/split状态", sc.split_state().get("scenario_split"), "")

@@ -239,6 +239,64 @@ by_vendor 厂商非 slug、**三类引用不存在**（entry uuid / tree_id / er
 只读体检）、故障应急回退（8 家回滚 + 4 树 + 4 保存类报错）。新增包前先查
 `app/seed_data/scenario_packs.json` 现有 pack_id 避免语义重复。
 
+## 四·D、变更对比提取规则写法（diff_rules.json，H 批 2026-10-14）
+
+Before/After 变更对比的**状态提取规则**随种子走：`seed_data/diff_rules.json`，
+独立文件、**不新增条目**（无 entries/trees/errs/packs 键，随大流导入空转）。
+运行时经 `diff_tool.load_rules()` 按 seed_dirs 同名优先级读取——U 盘现场改规则
+重启即生效；UI 入口：变更对比 Tab（主）+ 操作单步骤「对比 Before/After」（旁挂）。
+
+```json
+{
+  "format": "netcmdl - before/after diff extract rules",
+  "schema": 1,
+  "noise": [ {"pattern": "\\buptime\\b", "desc": "运行时长"} ],
+  "diff_rules": [
+    {
+      "rule_id": "if_status",
+      "label": "接口状态",
+      "semantics": "kv",
+      "match": "(display\\s+interface\\b|show\\s+interfaces?\\b)",
+      "noise": [],
+      "variants": [
+        {"vendor": "huawei", "os_family": "vrp5/vrp8",
+         "note": "一句为什么这条正则长这样（回显形态出处）",
+         "line": "(?P<key>[A-Za-z][\\w./:-]*\\d[\\w./:-]*)\\s+current state\\s*:\\s*(?P<value>\\S+)"}
+      ]
+    }
+  ]
+}
+```
+
+**字段规则**：
+
+- 顶层 `noise`（全局噪声清单）+ 规则内 `noise`（可省）：命中行在**降级行级比对**
+  中剔除、并计入噪声过滤计数；**不参与规则提取过滤**（提取正则形态强约束，
+  行级剔除会误杀含时间戳/Dead Time 的真实状态行——实测教训见 dev-notes H 批）；
+  首批覆盖 uptime / CPU / load average / 计数器行 / 端口速率瞬时值 / 两类时间戳 /
+  -- More -- / 裸提示符 / 分隔线；
+- `rule_id`：小写字母开头的 `[a-z0-9_]`，全局唯一；规则顺序 = 选规优先级
+  （`match` 在粘贴文本任一行命中即入选，before 优先于 after）；
+- `semantics` 二选一：`kv`（键值：键变化/值变化/新增/消失）或 `set`（集合：只看键集）；
+- `match`：命令回显识别正则（提示符行也能命中，如 `<HUAWEI>display vlan`）；
+- `variants[].line`：回显**行级**提取正则，统一 IGNORECASE 编译；命名组硬约定——
+  `kv` 语义必须有 `key` + `value`，`set` 语义必须有 `item`；**key/value 之外的其余
+  命名组按出现顺序以 " / " 并入状态值**（如思科路由的 `via` 组 → "S / 10.1.1.2"，
+  下一跳变更才能报 ⚠）——不想要的组用非捕获 `(?:…)`；
+- `variants[].vendor`：仅作展示（运行时按 match 文本特征选规则、按变体命中数
+  自动适配）；不在 VENDOR_SLUGS 的取值给 [W] 不拦截。
+
+**validate [E] 硬拦截**：文件缺失 / 坏 JSON / diff_rules 空或非数组 / 结构坏 /
+正则无法编译 / 嵌套量词等复杂度 [E]（复用 error_match.pattern_lint 同一门禁）/
+命名组缺失或与语义不符 / rule_id 非法或重复 / (rule_id, vendor) 重复 / noise 坏正则。
+**[W]**：pattern 超长等复杂度提示、vendor 未收录。
+
+首批 4 类 × 17 变体：接口状态（huawei/cisco/h3c/ruijie/juniper）、VLAN 表
+（huawei/cisco/ruijie，set 语义）、OSPF 邻居（huawei/h3c/cisco/ruijie）、
+路由表摘要（huawei/h3c/cisco/ruijie/linux）。新增变体前先看
+`app/seed_data/diff_rules.json` 现有 rule_id；样本语料优先复用 E 批验证会沉淀的
+真实回显（伴生仓 docs/verify）。
+
 ## 五、命名 / 分类 / 厂商代码约定（从现有种子归纳，不新造）
 
 **vendor（小写 slug）**：`cisco` / `huawei` / `h3c` / `juniper` / `ruijie` / `zte` /

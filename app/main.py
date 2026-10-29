@@ -819,6 +819,17 @@ def validate_seed(db_path=None):
             print("   - " + item)
         if len(err_warnings) > 10:
             print("   … 其余 %d 处" % (len(err_warnings) - 10))
+    if diff_problems:
+        print("[X] 变更对比规则发现 %d 个问题（坏提取规则按 [E] 硬拦截）：" % len(diff_problems))
+        for item in diff_problems[:40]:
+            print("   - " + item)
+        return 1
+    if diff_warnings:
+        print("[W] 变更对比规则提示 %d 处（vendor 未收录等，不阻塞打包）：" % len(diff_warnings))
+        for item in diff_warnings[:10]:
+            print("   - " + item)
+        if len(diff_warnings) > 10:
+            print("   … 其余 %d 处" % (len(diff_warnings) - 10))
     if pack_problems:
         print("[X] 场景包发现 %d 个问题（坏引用按 [E] 硬拦截）：" % len(pack_problems))
         for item in pack_problems[:40]:

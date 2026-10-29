@@ -68,14 +68,16 @@ _SECRET_RE = re.compile(
     r"\b(password|secret|passwd|pwd|community)[ \t]+"
     r"([A-Za-z0-9!@#$%^&*._+=-]{2,})\b", re.IGNORECASE)
 _PLACEHOLDER_RE = re.compile(r"\{\{[^}]*\}\}|<[^<>\n]{0,40}>")
-# 值为厂商子命令词 / 常见英文语句词 → 豁免（`community read {{x}}` 剔占位后
-# 剩 `community read`，read 是子命令不是真值）
+# 值为厂商子命令词 / 常见英文语句词 / 命令旗标 → 豁免（`community read {{x}}`
+# 剔占位后剩 `community read`，read 是子命令不是真值；`passwd -S` 的 -S 是
+# 命令旗标不是真值——E 批 passwd 锁定排查条目实锤的误报形态，H 批收口）
 _SECRET_VALUE_EXEMPT = re.compile(
     r"^(?:\?\?|.*\?| certification|level|class|order|policy|storage|"
     r"algorithm|regeneration|override|unlock|control|authentication|"
     r"encryption|profile|server|enable|disable|auto|none|0|7|"
     r"RO|RW|read|write|cipher|simple|plain|irreversible-cipher|"
     r"minimum-length|change-type|authentication-order|"
+    r"-(?:S|L|U|l|u|d|e|n|x)\w*|"
     r"has|been|expired|is|are|was|locked|for|failed|failure)$", re.IGNORECASE)
 # 子命令歧义豁免已并入 _SECRET_VALUE_EXEMPT（cipher/simple/等级词等）
 

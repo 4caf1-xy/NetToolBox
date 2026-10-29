@@ -349,3 +349,31 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 - 场 2 遗留 err_unresolved 无效残留 4 条待 UI 侧清理或批量归档。
 - BSD（FreeBSD）与迪普 DPtech 落地需代码侧厂商注册，建议另立批次。
 - 山石 10 条全为骨架：真机核对后经回填流程转绿（对照防火墙树组 slug 扩展一并做）。
+
+## H 批 Before/After 变更对比 MVP（2026-10-14/29，134ecd1 / 3bdf6cd / 子批3）
+
+### 定位与盘点结论
+- 离线变更验证最后一环：变更前后各粘贴一次同命令回显 → 状态差异摘要。粘贴流零联网（diff_tool / diff_export / ui_diff 三模块**源码级零网络 import**，smoke H9 断言），Copy Only 原则不变。
+- 可复用件盘点：error_match.compile_pattern + pattern_lint（规则正则同一门禁）；runbook_export.PRINT_TOKENS / verify_print_tokens_against_theme / _css_vars（导出同源，不造第二套色）；sanitize_scan 口径（结构上不外发，无需主动脱敏）；smoke_runbook 离屏模式。
+- **提取器落位裁决：种子侧 JSON**（seed_data/diff_rules.json，独立文件不新增条目）——随包分发 U 盘现场可改（_collect_seed_files 同名优先级自动生效）、validate 门禁可拦、E 批真实回显语料沉淀即改 JSON；不进 DB 表（避免 schema 浪潮，smoke_schema_rollback 口径不动）。import_seed_dir 对无 entries/trees/errs/packs 键的文件空转 (0,0,0)。
+
+### 四类规则 × 17 变体（首批）
+接口状态 kv（huawei current state / cisco is up,line protocol / h3c brief Link 列（值组 (?-i:) 锁大写防吃 Juniper 小写 up）/ ruijie 同 cisco / juniper terse）；VLAN 表 set（huawei VID+type / cisco+ ruijie brief）；OSPF 邻居 kv（huawei+h3c peer brief（area 非捕获组，不入状态值）/ cisco+ruijie show ip ospf neighbor）；路由表摘要 kv（huawei+h3c routing-table（proto+via）/ cisco+ruijie show ip route（码列+[...] via）/ linux ip route（default|前缀 + via/dev））。
+
+### 关键实现决策与坑
+1. **噪声不参与提取过滤**（实测教训）：噪声是整行级正则，OSPF 邻居行含 Dead Time（00:00:35）、接口详情行含时间戳——按行剔除会把真实状态行一并杀掉（smoke C5 首跑实锤）。噪声只作用于 ① noise_dropped 计数 ② 降级行级比对（diff_lines）。提取正则本就键/状态形态强约束，不怕噪声行混入。
+2. **同构变体取最多命中**：extract_items 用全部变体试提取取条数最多者，同构厂商（ruijie≈cisco、h3c≈huawei）line 逐字相同时命中首个——smoke D 案按「正则等价组」断言（命中任一逐字等价变体即过，异构正则命中即 FAIL）。
+3. **★ 中断丢块事故**：会话中断导致子批 1 的 validate [X] 硬拦截块（diff_problems 判定 + return 1）编辑结果部分回滚，commit 134ecd1 带着缺口进了库（validate 对坏规则静默 rc=0）——smoke E6 端到端用例抓住（rc=1 断言失败），子批 3 补回。教训：中断后先 diff 复核前次编辑是否完整落盘再继续。
+4. diff_export 的 %-format 模板里 `width:30%"` 字面 % 未转义 → 渲染 rc=8，`%%` 修复。
+5. 受管 Python 升级重建（3.13.12 目录实跑 3.13.14）后 site-packages 清空，PyQt5 缺失——按项目惯例 `pip install --target=_vendor PyQt5` 落项目本地（GUI 冒烟统一 `PYTHONPATH=_vendor`）。
+
+### 明确不做（写进文档，留后续批）
+- 全自动解析所有厂商所有命令（规则按类逐步扩）
+- 设备直连采集（坚持粘贴流）
+- AI 辅助判读（差异语义解释）
+- 规则编辑 UI / 规则入 DB 表
+
+### 验证账
+- smoke_diff 62 项（八案）rc=0，主库零接触过；smoke_runbook 62/62；smoke_panel_dashboard Tab 6→7 后全过
+- validate-seed EXIT=0：358/26/97 底数不变、4 类 / 17 变体过闸、[E]=0、[W] 基线 1 处（zte skeleton 场景包提示）无新增
+- 端到端坏规则注入（临时 seed 目录同名文件优先级）→ validate rc=1 + [X] 变更对比规则 + 定位坏正则；移除后复位 rc=0
