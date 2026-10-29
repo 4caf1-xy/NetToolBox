@@ -696,6 +696,29 @@ def validate_seed(db_path=None):
                                 "%s：by_vendor[%s] 引用的条目是 skeleton 骨架（%s）"
                                 % (label, v, (e.get("title") or "")[:30]))
 
+    # ---- 变更对比规则校验（H 批 2026-10-14：坏提取规则 [E] 硬拦截）----
+    # 规则随种子走（seed_data/diff_rules.json，不新增条目）：
+    #   文件缺失/坏 JSON/结构坏/正则坏/命名组不符语义/重复 rule_id → [E] 硬拦截
+    #   vendor 未收录 → [W] 提示（运行时按 match 文本特征选规则，仅展示用）
+    diff_problems = []
+    diff_warnings = []
+    try:
+        import diff_tool as _dt
+        rules_data, diff_file_problems = _dt.load_rules()
+        diff_problems.extend(diff_file_problems)
+        diff_rule_count = len(rules_data.get("diff_rules") or [])
+        diff_variant_count = sum(
+            len(r.get("variants") or []) for r in rules_data.get("diff_rules") or [])
+        if not diff_file_problems and diff_rule_count == 0:
+            diff_problems.append("diff_rules.json：diff_rules 为空或缺失")
+        elif diff_rule_count:
+            _d_errs, _d_warns = _dt.validate_rules(rules_data)
+            diff_problems.extend(_d_errs)
+            diff_warnings.extend(_d_warns)
+    except Exception as exc:
+        diff_problems.append("变更对比规则模块加载失败：%s" % exc)
+        diff_rule_count = diff_variant_count = 0
+
     # ---- 输出分析器规则校验（模块 04 第 7 轮）----
     analyzer_problems = []
     try:
@@ -739,6 +762,8 @@ def validate_seed(db_path=None):
         len(packs),
         "｜".join("%s %d 项" % (p.get("title") or p.get("pack_id"),
                                 len(p.get("items") or [])) for p in packs)))
+    print("变更对比规则：%d 类 ｜ %d 厂商变体（H 批 Before/After 提取规则）"
+          % (diff_rule_count, diff_variant_count))
     if duration_count:
         print("生效方式：" + "｜".join("%s %d 条" % (dbmod.DURATIONS.get(k, k), v)
                                     for k, v in sorted(duration_count.items())))
@@ -812,7 +837,9 @@ def validate_seed(db_path=None):
         return 1
     print("[OK] 种子库质检通过：%d 条条目 + %d 棵排查树 + %d 条报错字典"
           "（样例自测 100%% 命中）+ %d 个场景包 + 输出分析器 %d 类规则"
-          % (len(entries), len(trees), len(errs), len(packs), len(_oa.RULES)))
+          "+ 变更对比规则 %d 类 / %d 厂商变体"
+          % (len(entries), len(trees), len(errs), len(packs), len(_oa.RULES),
+             diff_rule_count, diff_variant_count))
     return 0
 
 

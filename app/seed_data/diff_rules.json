@@ -1,0 +1,161 @@
+{
+  "format": "netcmdl - before/after diff extract rules",
+  "schema": 1,
+  "generated_at": "2026-10-14",
+  "notes": "Before/After 变更对比提取规则（H 批）。不新增条目：本文件随 import_seed_dir 大流导入时无 entries/trees/errs/packs 键，自动 (0,0,0) 空转。规则字段说明见 docs/seed-guide.md；坏规则由 --validate-seed [E] 硬拦截。规则顺序即选规优先级。提取正则统一 IGNORECASE；kv 语义要求命名组 key+value（其余命名组按序以 ' / ' 并入状态值）；set 语义要求命名组 item。noise 命中的行在提取前剔除（uptime/计数器/时间戳/CPU 瞬时值），零联网纯本地。",
+  "noise": [
+    {"pattern": "\\buptime\\b", "desc": "运行时长"},
+    {"pattern": "\\bload\\s+average\\b", "desc": "系统负载瞬时值"},
+    {"pattern": "CPU utilization", "desc": "CPU 瞬时值"},
+    {"pattern": "\\bmemory\\s+usage\\b", "desc": "内存瞬时值"},
+    {"pattern": "Last clearing of", "desc": "计数器清零时间"},
+    {"pattern": "\\d+\\s*(second|sec|min|minute)s?\\s+(input|output)\\s+rate", "desc": "端口速率瞬时值"},
+    {"pattern": "\\b\\d+\\s+(packets?|bytes|errors?|broadcasts?|multicasts?|giants|runts|frames?|overruns?|ignored|CRC)\\b", "desc": "包/字节计数器行"},
+    {"pattern": "\\b\\d+d\\d+h\\d*m?\\b", "desc": "运行时长缩写（1d02h30m）"},
+    {"pattern": "\\b\\d{2}:\\d{2}:\\d{2}\\b", "desc": "时分秒时间戳 / Dead Time"},
+    {"pattern": "\\b\\d{4}-\\d{2}-\\d{2}\\b", "desc": "日期时间戳"},
+    {"pattern": "^\\s*-{2,}\\s*More\\s*-{2,}\\s*$", "desc": "-- More -- 分页"},
+    {"pattern": "^\\s*[<\\[][\\w.\\-]+[>\\]]\\s*$", "desc": "裸提示符行"},
+    {"pattern": "^\\s*[-=~*_]{4,}\\s*$", "desc": "分隔线"}
+  ],
+  "diff_rules": [
+    {
+      "rule_id": "if_status",
+      "label": "接口状态",
+      "semantics": "kv",
+      "match": "(display\\s+interface\\b|show\\s+interfaces?\\b)",
+      "noise": [],
+      "variants": [
+        {
+          "vendor": "huawei",
+          "os_family": "vrp5/vrp8",
+          "note": "display interface：物理口状态行（Line protocol 行因 key 无数字天然不命中）",
+          "line": "(?P<key>[A-Za-z][\\w./:-]*\\d[\\w./:-]*)\\s+current state\\s*:\\s*(?P<value>\\S+)"
+        },
+        {
+          "vendor": "cisco",
+          "os_family": "ios",
+          "note": "show interfaces：接口首行状态 + line protocol",
+          "line": "(?P<key>[A-Za-z][\\w./-]*\\d[\\w./-]*)\\s+is\\s+(?P<value>administratively down|up|down|reset|deleted)\\s*,\\s*line protocol is\\s+(?P<lp>up|down)"
+        },
+        {
+          "vendor": "h3c",
+          "os_family": "comware7",
+          "note": "display interface brief：Link 列",
+          "line": "(?P<key>[A-Za-z][\\w/-]*\\d[\\w/-]*)\\s+(?P<value>UP|DOWN|DOWN\\s*\\(a\\)|Admin-s)\\s{2,}"
+        },
+        {
+          "vendor": "ruijie",
+          "os_family": "rgos",
+          "note": "show interfaces：与思科同构",
+          "line": "(?P<key>[A-Za-z][\\w./-]*\\d[\\w./-]*)\\s+is\\s+(?P<value>administratively down|up|down|reset|deleted)\\s*,\\s*line protocol is\\s+(?P<lp>up|down)"
+        },
+        {
+          "vendor": "juniper",
+          "os_family": "junos",
+          "note": "show interfaces terse：物理口行（unit 行带地址不以 up down 结尾，天然排除）",
+          "line": "(?P<key>[a-z][\\w./:-]*\\d[\\w./:-]*)\\s+(?P<value>up|down)\\s+(?P<lp>up|down)\\s*$"
+        }
+      ]
+    },
+    {
+      "rule_id": "vlan_table",
+      "label": "VLAN 表",
+      "semantics": "set",
+      "match": "(display\\s+vlan\\b|show\\s+vlan\\b)",
+      "noise": [],
+      "variants": [
+        {
+          "vendor": "huawei",
+          "os_family": "vrp5/vrp8",
+          "note": "display vlan：VID + 类型列",
+          "line": "^\\s*(?P<item>\\d{1,4})\\s+(?:common|super|dynamic|sub)\\b"
+        },
+        {
+          "vendor": "cisco",
+          "os_family": "ios",
+          "note": "show vlan brief：VLAN 号 + 状态列",
+          "line": "^\\s*(?P<item>\\d{1,4})\\s+\\S+\\s+(?:active|act/unsup|suspended|shutdown)\\b"
+        },
+        {
+          "vendor": "ruijie",
+          "os_family": "rgos",
+          "note": "show vlan brief：与思科同构",
+          "line": "^\\s*(?P<item>\\d{1,4})\\s+\\S+\\s+(?:active|act/unsup|suspended|shutdown)\\b"
+        }
+      ]
+    },
+    {
+      "rule_id": "ospf_peer",
+      "label": "OSPF 邻居",
+      "semantics": "kv",
+      "match": "(display\\s+ospf\\s+peer\\b|show\\s+ip\\s+ospf\\s+neighbor\\b)",
+      "noise": [],
+      "variants": [
+        {
+          "vendor": "huawei",
+          "os_family": "vrp5/vrp8",
+          "note": "display ospf peer brief：Area + 接口 + 邻居 ID + State",
+          "line": "(?P<area>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+\\S+\\s+(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+(?P<value>Down|Init|Attempt|2-?Way|ExStart|Exchange|Loading|Full)\\s*$"
+        },
+        {
+          "vendor": "h3c",
+          "os_family": "comware7",
+          "note": "display ospf peer brief：与华为 brief 同构",
+          "line": "(?P<area>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+\\S+\\s+(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+(?P<value>Down|Init|Attempt|2-?Way|ExStart|Exchange|Loading|Full)\\s*$"
+        },
+        {
+          "vendor": "cisco",
+          "os_family": "ios",
+          "note": "show ip ospf neighbor：Neighbor ID + State（FULL/DR 只取 / 前状态）",
+          "line": "(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+\\d+\\s+(?P<value>DOWN|ATTEMPT|INIT|2WAY|EXSTART|EXCHANGE|LOADING|FULL)\\b(?:/\\S+)?"
+        },
+        {
+          "vendor": "ruijie",
+          "os_family": "rgos",
+          "note": "show ip ospf neighbor：与思科同构",
+          "line": "(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+\\d+\\s+(?P<value>DOWN|ATTEMPT|INIT|2WAY|EXSTART|EXCHANGE|LOADING|FULL)\\b(?:/\\S+)?"
+        }
+      ]
+    },
+    {
+      "rule_id": "route_table",
+      "label": "路由表摘要",
+      "semantics": "kv",
+      "match": "(display\\s+ip\\s+routing-table|show\\s+ip\\s+route\\b|ip\\s+route\\s+(?:show|list))",
+      "noise": [],
+      "variants": [
+        {
+          "vendor": "huawei",
+          "os_family": "vrp5/vrp8",
+          "note": "display ip routing-table：前缀 + 协议（可带 NextHop）",
+          "line": "^\\s*(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3}(?:/\\d{1,2})?)\\s+(?P<value>Direct|Static|OSPF|RIP|BGP|IS-IS|UNR)\\b(?:\\s+\\d+\\s+\\d+\\s+\\S+\\s+(?P<via>\\d{1,3}(?:\\.\\d{1,3}){3}))?"
+        },
+        {
+          "vendor": "h3c",
+          "os_family": "comware7",
+          "note": "display ip routing-table：与华为同构",
+          "line": "^\\s*(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3}(?:/\\d{1,2})?)\\s+(?P<value>Direct|Static|OSPF|RIP|BGP|IS-IS|UNR)\\b(?:\\s+\\d+\\s+\\d+\\s+\\S+\\s+(?P<via>\\d{1,3}(?:\\.\\d{1,3}){3}))?"
+        },
+        {
+          "vendor": "cisco",
+          "os_family": "ios",
+          "note": "show ip route：路由码列（C/S/O/B/L/R，含 IA/E1/E2/N1/N2 修饰），可带 via 下一跳（下一跳变更要能报 ⚠）",
+          "line": "^\\s*(?P<value>[CDSOLBRE]\\*?(?:\\s+(?:IA|E1|E2|N1|N2|L1|L2))?)\\s+(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3}(?:/\\d{1,2})?)\\b(?:\\s+\\[[^\\]]+\\]\\s+via\\s+(?P<via>\\d{1,3}(?:\\.\\d{1,3}){3}))?"
+        },
+        {
+          "vendor": "ruijie",
+          "os_family": "rgos",
+          "note": "show ip route：与思科同构",
+          "line": "^\\s*(?P<value>[CDSOLBRE]\\*?(?:\\s+(?:IA|E1|E2|N1|N2|L1|L2))?)\\s+(?P<key>\\d{1,3}(?:\\.\\d{1,3}){3}(?:/\\d{1,2})?)\\b(?:\\s+\\[[^\\]]+\\]\\s+via\\s+(?P<via>\\d{1,3}(?:\\.\\d{1,3}){3}))?"
+        },
+        {
+          "vendor": "linux",
+          "os_family": "-",
+          "note": "ip route show：default/前缀 + via/dev（metric 等瞬态不入状态值）",
+          "line": "^(?P<key>default|\\d{1,3}(?:\\.\\d{1,3}){3}(?:/\\d{1,2})?)\\s+(?P<value>(?:via\\s+\\S+\\s+)?dev\\s+\\S+)"
+        }
+      ]
+    }
+  ]
+}
