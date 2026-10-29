@@ -405,3 +405,16 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 - 全量 17 套冒烟 rc=0（原 16 + 本套件）；validate-seed EXIT=0（358/26/97 底数不变、[E]=0、[W] 基线 1 处 zte skeleton 无新增）
 - 真 CLI 门禁实测：tree_seed_io 编辑真种子（fw-policy-deny 加验证步骤 sx）→ `python app/main.py --validate-seed` EXIT=0（26 棵树）→ git 还原 → EXIT=0
 - 离屏实测渲染均值 1ms/棵（26 棵全量 0.02s）
+
+## N 批 v0.8.0 收口发版（2026-10-29）
+
+### 遗留池裁决（四项，逐条一句理由）
+
+| 遗留项 | 裁决 | 理由 |
+|---|---|---|
+| 防火墙 4 家场景包 | **挂 v0.9** | 其引用的防火墙四家 71 条（54 非骨架+17 骨架）全卡真机验证线（无免许可容器化路径），数据未经验证不进收口版，随真机验证排期一并产出。 |
+| BSD（FreeBSD）最小集 | **挂 v0.9（另立数据+代码合批）** | 需代码侧厂商注册（VENDOR_SLUGS/platform/端口展开）非纯数据批，与迪普 DPtech 同路径（E 批结论），收口版不宜引入 schema/代码面风险。 |
+| Runbook 二批 | **挂 v0.9** | MVP 闭环已验证可用（smoke_runbook 62 项护航），二批四项（模板库/AI 生成草稿/PDF 导出/执行留痕）为增强项不阻塞收口，按 runbook-guide §6 规划排期。 |
+| 树编辑器二批 | **挂 v0.9** | 第一期边界清晰（26 底数稳定、只动既有树内部结构），二批项（整树新建/删除、跨树复制、TreeManagerDialog 选择器化、exe 语境导出）属维护增强，功能线已收官无需阻塞。 |
+
+四项均未关闭：全部仍为有效积压，无一项因需求消失而作废。
