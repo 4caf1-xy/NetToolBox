@@ -85,8 +85,9 @@ def locate_tree_file(seed_dir, tree_id):
 
 def serialize(doc, crlf=False):
     """dict → 种子文本。既有文件口径：UTF-8 无 BOM / indent=2 / 尾部换行。
-    换行风格按文件保留（实测 4 文件不一致：firewall/ops=CRLF，linux/network=LF），
-    crlf=True 输出 CRLF，否则 LF——由调用方按原文件探测后传入。"""
+    换行风格按调用方探测传入（crlf=True 输出 CRLF，否则 LF）。
+    2026-10-12 起 .gitattributes 对 *.json 钉死 eol=lf，四份树文件磁盘均已
+    规范化为 LF；探测保留逻辑仅为兼容磁盘残留（回环逐字节一致），不应再产生 CRLF。"""
     text = json.dumps(doc, ensure_ascii=False, indent=2)
     if crlf:
         return text.replace("\n", "\r\n") + "\r\n"
@@ -94,7 +95,8 @@ def serialize(doc, crlf=False):
 
 
 def detect_crlf(raw):
-    """原文件字节 → 是否 CRLF 风格（含 \\r\\n 即按 CRLF 处理）"""
+    """原文件字节 → 是否 CRLF 风格（含 \\r\\n 即按 CRLF 处理）。
+    .gitattributes eol=lf 起磁盘应恒为 LF；本探测仅为兼容历史残留。"""
     return b"\r\n" in raw
 
 

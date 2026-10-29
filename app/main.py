@@ -178,6 +178,7 @@ RUNTIME_FILES = ["main.py", "db.py", "renderer.py", "error_match.py",
                  "output_analyzer.py", "report.py", "migrate_to_slug.py",
                  "ui_main.py", "ui_generator.py", "ui_editor.py",
                  "ui_troubleshoot.py", "ui_errorfix.py", "ui_tree_editor.py",
+                 "ui_tree_visual.py", "tree_seed_io.py",
                  "check_db.py"]
 DEV_FILES = ["build_exe.py"]
 

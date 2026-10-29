@@ -127,6 +127,14 @@ class TroubleshootTab(QWidget):
         self.btn_manage.setToolTip("新建/编辑/删除排查树与步骤（全部落 history）")
         self.btn_manage.clicked.connect(self.open_tree_manager)
         top.addWidget(self.btn_manage)
+        # ★ 排查树可视化编辑器入口（F 批 2026-10-29）：面向 seed_data 的
+        #   只读预览 + 结构编辑 + 种子导出（validate 门禁），与上面直写
+        #   数据库的「管理排查树」分工见 ui_tree_visual.py 模块注释。
+        self.btn_visual = QPushButton("可视化编辑（种子）")
+        self.btn_visual.setObjectName("Ghost")
+        self.btn_visual.setToolTip("树形预览 + 步骤增删改 + 导出 seed_data 差异（validate 门禁）")
+        self.btn_visual.clicked.connect(self.open_tree_visual)
+        top.addWidget(self.btn_visual)
         self.btn_mark = QPushButton("标记整树已验证")
         self.btn_mark.setObjectName("Ghost")
         self.btn_mark.clicked.connect(self.mark_tree_verified)
@@ -797,6 +805,15 @@ class TroubleshootTab(QWidget):
             if again:
                 self.current_tree = again
                 self.render_current_step()
+
+    def open_tree_visual(self):
+        """打开排查树可视化编辑器（F 批 MVP：预览 + 结构编辑 + 种子导出）"""
+        from ui_tree_visual import TreeVisualEditorDialog
+        dlg = TreeVisualEditorDialog(self.db, self)
+        dlg.exec_()
+        # 种子导出不改库（库由种子重导入同步），但导出成功后提示一下当前库口径
+        if dlg.seed_dir:
+            self._status("排查树编辑器已关闭。种子导出改动重导入种子后进入本机命令库。")
 
     def open_analyzer(self):
         """打开输出分析器（可把结论并入之后的报告）"""
