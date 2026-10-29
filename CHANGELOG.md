@@ -7,6 +7,17 @@
 
 ## Unreleased
 
+#### F 批：排查树可视化编辑器 MVP（功能线收官件·两期制第一期，2026-10-29）
+- **新入口「可视化编辑（种子）」**（排查向导工具栏，与直写数据库的「管理排查树」并列分工）：面向 seed_data 的只读树形预览 + 结构编辑 + 种子导出——左树列表（26 棵）/ 中树形预览（现象根节点 → 步骤节点 → 分支「→ goto ｜ when」子节点，goto 目标缺失、cmd_ref 逐厂商解析状态（✓ N 厂商 / ✗ 缺坏厂商）实时标注）/ 右步骤详情；
+- **两期制第一期边界（26 底数稳定）**：只编辑既有 26 棵树的内部结构——步骤增/删/改/上移下移、分支 when→goto、叶子结论与动作、cmd_ref 逐厂商改引用；整树新建/删除、跨树拖拽复制、批量重构、多树并排对比留二批；
+- **cmd_ref 选择器（硬裁决）**：uuid 只能经选择器从库内挑选（CmdRefPickerDialog 复用命令库搜索：关键字 + 厂商锁定 + 场景分类），uuid 展示单元格只读禁止手写；
+- **导出 = 差异预览 → 人工确认 → validate 门禁 → 失败自动回滚**：保存不走数据库，直接产出种子 JSON 统一差异（逐字节保持既有文件格式：UTF-8 无 BOM / indent=2 / 换行按文件探测保留）；确认写入后跑 validate 门禁（与 CLI `--validate-seed` 同源同 EXIT 语义），EXIT≠0 自动原字节回滚；写入走同目录临时文件 + os.replace 原子替换，编辑中断/写盘中途失败均不在种子目录留中间态；
+- **顺带归一化**：trouble_trees_ops.json 磁盘 CRLF 历史残留归一为 LF（`.gitattributes` eol=lf 规范口径，blob 零变化、validate 复跑 EXIT=0）；
+- 引擎与界面分件：`app/tree_seed_io.py`（纯逻辑零 Qt：定位/加载/按 tree_id 原位替换 + count 同步/统一差异/门禁写入回滚，validate 以可调用注入）+ `app/ui_tree_visual.py`（预览/编辑/导出流）；两模块入 main.RUNTIME_FILES 离网审计清单；
+- 冒烟：**smoke_tree_visual 新增 45 项**（六案：tree_seed_io 字节回环/回滚 identical/重复归属报错、26 棵树全量渲染离屏断言（均值 1ms/棵）、编辑流端到端（加节点+改引用 → diff 含预期增改 → EXIT=0 → 新库重导入逐 uuid 可解析）、坏 uuid 反例被 [E]「解析不到条目」拦截+回滚无中间态、dirty 关闭不写盘 + os.replace 注入失败中断安全、RUNTIME_FILES 登记 + 零联网源码断言 + 真种子 sha256 零接触实证）；
+- 全量 **17 套冒烟 rc=0**（原 16 + smoke_tree_visual）+ validate-seed EXIT=0（358/26/97 底数不变）；真 CLI 门禁实测：编辑真种子 → `python app/main.py --validate-seed` EXIT=0 → 还原后 EXIT=0；
+- 三子批独立提交（tree_seed_io 引擎 / 编辑器 UI+接线 / 冒烟+文档），不发版不 tag。
+
 #### H 批：Before/After 变更对比 MVP（离线变更验证最后一环，2026-10-14/29）
 - **新功能「变更对比」Tab**（操作单之后）：变更前后各粘贴一次同命令回显，自动输出状态差异摘要——逐项四态（✓ 不变 / ⚠ 变化 before→after / ＋ 新增 / － 消失）+ 汇总三级（L0 一致 / L1 状态值变化 / L2 键集增删）；uptime、包计数器、时间戳、CPU 瞬时值等噪声行自动忽略；粘贴流纯本地零联网（Copy Only 不变），无规则命中自动降级行级比对不崩；
 - **提取规则随种子走**（`seed_data/diff_rules.json`，不新增条目，358/26/97 底数不变）：MVP 4 类命令 × 17 厂商变体——接口状态（华为 VRP/思科 IOS/H3C Comware/锐捷 RGOS/Juniper Junos）、VLAN 表（华为/思科/锐捷，集合语义）、OSPF 邻居（华为/华三 brief + 思科/锐捷）、路由表摘要（华为/华三/思科/锐捷/Linux `ip route`，含下一跳捕获——via 变更照样报 ⚠）；坏规则由 `--validate-seed` **[E] 硬拦截**（坏正则 / 命名组不符语义 / 重复 rule_id / 非法 semantics / 全局噪声坏正则），vendor 未收录 [W] 提示；validate 统计行与 [OK] 行扩展「变更对比规则 N 类 / M 厂商变体」；

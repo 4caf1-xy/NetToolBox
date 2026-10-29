@@ -377,3 +377,31 @@ centos7 systemctl/firewalld 组、kylin/openeuler 其余 69 条、netplan try �
 - smoke_diff 62 项（八案）rc=0，主库零接触过；smoke_runbook 62/62；smoke_panel_dashboard Tab 6→7 后全过
 - validate-seed EXIT=0：358/26/97 底数不变、4 类 / 17 变体过闸、[E]=0、[W] 基线 1 处（zte skeleton 场景包提示）无新增
 - 端到端坏规则注入（临时 seed 目录同名文件优先级）→ validate rc=1 + [X] 变更对比规则 + 定位坏正则；移除后复位 rc=0
+
+## F 批 排查树可视化编辑器 MVP（2026-10-29，两期制第一期）
+
+### 第 0 步盘点结论（只读，并入执行）
+- 26 棵树分布 4 文件：firewall 4 / linux 7 / network 14 / ops 1；树级字段 tree_id/symptom/category/vendor_hint/steps/verified；步骤 cmd_ref 123 处**全部为 by_vendor 形态**（vendor_category + by_vendor{slug:{uuid,title}}），叶子动作 cmd_ref 18 处里 16 处 legacy（vendor_category+title_keyword / +os_family）——编辑器两形态都保留可编。
+- validate 排查树节 [E] 清单（main.validate_seed）：tree_id 重复 / 无步骤 / 步骤缺 title / 分支 goto 目标不存在 / 叶子缺结论 / 步骤缺 cmd_ref / cmd_ref 对所有 vendor_hint 厂商解析不到 / 动作内嵌命令文本 / 动作 cmd_ref.uuid 不存在；逐厂商歧义/缺条目归 [W] 提示（tree_notes，不阻塞）。
+- **落位裁决：app/（exe 随主程序）而非 scripts/**——需复用 db 层（选择器搜索 / get_entry 解析核对 / seed_dirs）与 main.validate_seed 门禁；与 H 批 diff 三件套同理属功能件，scripts/ 只放纯 CLI 工具。形态取**对话框**（排查向导工具栏入口）不加新 Tab：种子维护面与 TreeManagerDialog 同层，Tab 计数断言（七 Tab）不动。
+- 与 TreeManagerDialog 分工：那个直写**数据库**（现场 DB 维护），本编辑器面向 **seed_data JSON**（导出流 + validate 门禁），导出不改库（库由种子重导入同步）。
+
+### 关键实现决策与坑
+1. **换行风格按文件探测保留 + 本批归一化**（实测教训）：盘点时磁盘 4 文件不一致——firewall/ops=CRLF、linux/network=LF。追因：`.gitattributes`（2026-10-12 v0.6.2）对 *.json 钉死 eol=lf，仓库 blob 全 LF，磁盘 CRLF 是该声明前脚本写盘的历史残留（git 状态 clean，字节不对）。本批将 ops.json 磁盘归一为 LF（blob 零变化、validate 复跑 EXIT=0）；firewall 的归一由 git checkout 按 attr 触发。serialize 按原文件探测（detect_crlf）后输出，回环逐字节一致，导出 diff 无行尾噪声；磁盘残留清零后 detect 恒 False。
+2. **键序保持**：SeedStepDialog 在原步骤 dict 深拷贝上改字段（不重建 dict），replace_tree 原位替换——导出 diff 只含语义变化。新增步骤键序 = id,title,observe?,explain?,cmd_ref,branches?,leafs?。
+3. **门禁语义**：编辑器内进程调 main.validate_seed()（CLI --validate-seed 同源函数，EXIT 语义一致）；不跑 CLI 子进程——离网审计 FORBIDDEN_SNIPPETS 禁 subprocess.run/Popen 字面量（RUNTIME_FILES 已登记两新模块）。真 CLI 通路另行实测：编辑真种子 → CLI EXIT=0 → 还原 EXIT=0（见验证账）。
+4. **写盘原子化**：同目录临时文件 + os.replace；validate 失败原字节写回回滚。编辑中断（dirty 直接关）天然不写盘；写入中途异常不留半截文件。smoke E 案对 os.replace 注入失败做了实测。
+5. 种子目录定位：db.seed_dirs() 里第一个含 trouble_trees_*.json 的目录；exe 内置种子（_MEIPASS）不可持久写 → 无可写种子目录时禁编辑并明示（exe 语境编辑导出属二批议题）。
+6. validate_seed 捕获 stdout 用 redirect_stdout（windowed exe 下 sys.stdout 已被 _ensure_streams 兜底，不会 None 崩）。
+
+### 明确不做（留二批）
+- 整树新建/删除、跨树拖拽复制、批量重构、多树并排对比（第一期边界，26 底数稳定）
+- 树级字段（symptom/category/vendor_hint）编辑——第一期只动内部结构，树级改动走种子 JSON 或 TreeManagerDialog
+- TreeManagerDialog（DB 通路）的 uuid 手写输入框选择器化——DB 维护通路遗留，建议二批一并收口
+- exe 内置种子的就地编辑导出
+
+### 验证账
+- smoke_tree_visual 45 项（六案）rc=0；主库零接触过 + 真种子 4 文件 sha256 前后一致
+- 全量 17 套冒烟 rc=0（原 16 + 本套件）；validate-seed EXIT=0（358/26/97 底数不变、[E]=0、[W] 基线 1 处 zte skeleton 无新增）
+- 真 CLI 门禁实测：tree_seed_io 编辑真种子（fw-policy-deny 加验证步骤 sx）→ `python app/main.py --validate-seed` EXIT=0（26 棵树）→ git 还原 → EXIT=0
+- 离屏实测渲染均值 1ms/棵（26 棵全量 0.02s）
