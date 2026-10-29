@@ -6,7 +6,7 @@
   "vendor_slug": "ruijie",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 15,
+  "count": 21,
   "entries": [
     {
       "uuid": "1c128aa6-de9b-53c7-90de-802fa9aa2e13",
@@ -945,6 +945,247 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "898f54fa-dced-5ff8-adb7-7c19c9904562",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / S6220",
+      "category": "链路聚合",
+      "title": "配置链路聚合（AggregatePort LACP，锐捷 RGOS）",
+      "description": "创建 AggregatePort 聚合口（LACP active），成员口经 port-group 绑入。",
+      "commands": "! ===== 链路聚合（AggregatePort LACP，锐捷 RGOS）=====\nconfigure terminal\ninterface aggregateport {{agg_id}}\n switchport mode trunk\n exit\n! ---- 成员口绑入聚合组 ----\ninterface range {{port_range}}\n port-group {{agg_id}} mode active\n exit\nend\nwrite\nshow aggregatePort summary",
+      "rollback": "! 回退：先解绑成员口，再删聚合口\ninterface range {{port_range}}\n no port-group {{agg_id}}\n exit\nno interface aggregateport {{agg_id}}\nend\nwrite",
+      "params": [
+        {
+          "name": "agg_id",
+          "type": "int",
+          "label": "聚合组编号",
+          "required": true,
+          "default": "1",
+          "description": "AggregatePort 接口号，控制聚合口标识；两端模式必须一致；write 前重启丢失",
+          "range": "1-64",
+          "example": "1"
+        },
+        {
+          "name": "port_range",
+          "type": "string",
+          "label": "成员口范围",
+          "required": true,
+          "default": "",
+          "description": "加入聚合组的物理口范围；选错口会把业务口绑进聚合组导致断流",
+          "example": "GigabitEthernet0/1-2",
+          "validate": "port_range",
+          "expand": "port"
+        }
+      ],
+      "notes": "1) mode active = LACP 主动；对端须同 LACP（active/passive），都 on 则走静态聚合。\n2) 聚合口属性在 aggregateport 视图下配，成员口自动继承；成员口自己改属性可能被踢出组。\n3) RGOS 版本间 aggregateport 编号上限不同，以 ? 为准。\n验证方法：show aggregatePort summary 中 Ag1 显示 Up 且成员标志一致；show lacp summary 看 LACP 协商状态。",
+      "verified": 0
+    },
+    {
+      "uuid": "ff8b6451-5822-5d29-9614-00052636bc5d",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S6220 / S6000 / S8600（VSU）",
+      "category": "堆叠",
+      "title": "堆叠状态核查（VSU，锐捷 RGOS 交换机）",
+      "description": "VSU 堆叠成员角色/域号/VSL 链路/双主检测状态核查（只读组合）。",
+      "commands": "! ===== 堆叠状态核查（VSU，锐捷 RGOS）=====\n! 成员概要：域号/优先级/角色（ACTIVE/STANDBY）\nshow switch virtual\n! 各机箱角色明细\nshow switch virtual role\n! VSL 堆叠链路状态\nshow switch virtual link\n! 双主检测状态\nshow switch virtual dual-active summary",
+      "params": [],
+      "notes": "1) show switch virtual 的 Status 列 OK 正常；Recovery = 该成员进入双主恢复模式（业务口被 shutdown）。\n2) 单机模式执行 show switch virtual 显示 STANDALONE，属正常。\n3) VSL 链路建议 ≥2 条，单条抖动会导致 VSU 不稳定（官方口径）。\n4) 模式切换用 switch convert mode virtual（高危：会备份删除配置并重启），本条不含该操作。\n验证方法：show switch virtual role 显示 1 ACTIVE + 1 STANDBY、Status 均为 OK。",
+      "verified": 0
+    },
+    {
+      "uuid": "dccbaa7b-af77-51a4-aaad-a91c21769d49",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750（三层）",
+      "category": "VRRP",
+      "title": "配置 VRRP 网关冗余（锐捷 RGOS 三层交换机）",
+      "description": "在 SVI 上配 VRRP 备份组（命令风格与 IOS 同构）：虚拟 IP 作下联网关。",
+      "commands": "! ===== VRRP 网关冗余（锐捷 RGOS 三层交换机）=====\nconfigure terminal\ninterface vlan {{vlan_id}}\n ip address {{local_ip}} {{mask}}\n vrrp {{vrid}} ip {{vip}}\n vrrp {{vrid}} priority {{priority}}\n exit\nend\nwrite\nshow vrrp brief",
+      "rollback": "! 回退：删除 VRRP 备份组（下联网关若指向 VIP，先确认对端 VRRP 在位再删）\nconfigure terminal\ninterface vlan {{vlan_id}}\n no vrrp {{vrid}}\n exit\nend\nwrite",
+      "params": [
+        {
+          "name": "vlan_id",
+          "type": "int",
+          "label": "VLAN ID",
+          "required": true,
+          "default": "10",
+          "description": "SVI 所属 VLAN 编号，VRRP 配在该三层接口上；须先建 VLAN",
+          "validate": "vlan",
+          "range": "1-4094"
+        },
+        {
+          "name": "local_ip",
+          "type": "ip",
+          "label": "本机接口 IP",
+          "required": true,
+          "default": "",
+          "description": "本机 SVI 的真实 IP（每台不同）；不能与 VIP、对端接口 IP 冲突",
+          "example": "10.255.10.2"
+        },
+        {
+          "name": "mask",
+          "type": "string",
+          "label": "子网掩码",
+          "required": true,
+          "default": "255.255.255.0",
+          "description": "SVI 子网掩码（点分十进制）；与对端不一致会导致网段不通",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "vrid",
+          "type": "int",
+          "label": "备份组号",
+          "required": true,
+          "default": "10",
+          "description": "VRRP 备份组 ID 1-255，同组两台必须一致",
+          "range": "1-255",
+          "example": "10"
+        },
+        {
+          "name": "vip",
+          "type": "ip",
+          "label": "虚拟网关 IP",
+          "required": true,
+          "default": "",
+          "description": "下联设备的网关地址（组内共享）；不能与本机接口 IP 相同",
+          "example": "10.255.10.1"
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "label": "优先级",
+          "required": true,
+          "default": "120",
+          "description": "VRRP 优先级 1-254（默认 100），高者为 Master",
+          "range": "1-254",
+          "example": "120"
+        }
+      ],
+      "notes": "1) 两台设备同 vrid + 同 VIP 成组；接口 IP 不能与 VIP 相同。\n2) 优先级高者为 Master（默认 100），1-254；抢占默认开，防回切抖动可配延迟。\n3) 下联设备网关指向 VIP 而非接口 IP。\n4) RGOS 版本间 VRRP 命令形态有差异（部分平台抢占用 preempt 关键字），上机先 ? 核对。\n验证方法：show vrrp brief 中本机 State 为 Master（对端 Backup）。",
+      "verified": 0
+    },
+    {
+      "uuid": "5999bca7-0627-5b9f-9ac1-9ea47f1eae0a",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750（接入层）",
+      "category": "端口安全",
+      "title": "配置端口安全（Port Security，锐捷 RGOS）",
+      "description": "限制接入口 MAC 学习数量，违规 restrict 丢包告警（命令风格与 IOS 同构）。",
+      "commands": "! ===== 端口安全（Port Security，锐捷 RGOS）=====\nconfigure terminal\ninterface {{ifname}}\n switchport mode access\n switchport port-security\n switchport port-security maximum {{max_mac}}\n switchport port-security violation {{action}}\n exit\nend\nwrite\nshow port-security interface {{ifname}}",
+      "rollback": "! 回退：关闭端口安全\nconfigure terminal\ninterface {{ifname}}\n no switchport port-security\n exit\nend\nwrite",
+      "params": [
+        {
+          "name": "ifname",
+          "type": "string",
+          "label": "接入口",
+          "required": true,
+          "default": "",
+          "description": "要开启端口安全的物理口（access 口）；trunk/上联口禁用",
+          "example": "GigabitEthernet0/1"
+        },
+        {
+          "name": "max_mac",
+          "type": "int",
+          "label": "最大 MAC 数",
+          "required": true,
+          "default": "2",
+          "description": "端口允许学习的安全 MAC 上限；设小于终端数会误杀正常终端",
+          "range": "1-1024",
+          "example": "2"
+        },
+        {
+          "name": "action",
+          "type": "enum",
+          "label": "违规动作",
+          "required": true,
+          "default": "restrict",
+          "description": "违规时处置：restrict 丢包+告警 / shutdown 置 err-disable（需人工恢复） / protect 静默丢包",
+          "choices": [
+            "restrict",
+            "shutdown",
+            "protect"
+          ],
+          "example": "restrict"
+        }
+      ],
+      "notes": "1) RGOS 端口安全语法与 IOS 同构；个别平台 violation 选项命名有差，先 ? 核对。\n2) violation shutdown 触发后端口 err-disable，恢复要 shutdown + no shutdown。\n3) 安全 MAC 粘滞用 switchport port-security mac-address sticky。\n验证方法：show port-security interface 显示 Secure-up；show port-security address 看安全 MAC。",
+      "verified": 0
+    },
+    {
+      "uuid": "3a2051d0-3541-53b8-a354-d71330e58ffc",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910-P / S5750-P（PoE 型号）",
+      "category": "POE",
+      "title": "PoE 供电管理与口级开关（锐捷 RGOS 交换机）",
+      "description": "查整机 PoE 功率与各口供电状态，按口开启供电。",
+      "commands": "! ===== PoE 供电管理（锐捷 RGOS 交换机）=====\n! ---- 整机功率与各口状态 ----\nshow poe power\n! ---- 口级开关 ----\nconfigure terminal\ninterface {{ifname}}\n poe enable\n exit\nend\nwrite",
+      "rollback": "! 回退：关闭该口供电\nconfigure terminal\ninterface {{ifname}}\n no poe enable\n exit\nend\nwrite",
+      "params": [
+        {
+          "name": "ifname",
+          "type": "string",
+          "label": "PoE 接口",
+          "required": true,
+          "default": "",
+          "description": "要管理的 PoE 物理口；非 PoE 型号该命令不存在（报错属正常）",
+          "example": "GigabitEthernet0/3"
+        }
+      ],
+      "notes": "1) RGOS PoE 查询命令在不同平台有 show poe power / show poe interface 等形态，先 ? 核对。\n2) 口供电异常优先查 PD 等级与线缆；force 供电慎用。\n3) 默认口级 PoE 多为使能状态，本条用于显式管理。\n验证方法：show poe power 中目标口状态 on 且有功率消耗。",
+      "verified": 0
+    },
+    {
+      "uuid": "d1998a2c-3529-56ab-ba3f-f7161a143a6f",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750（接入层）",
+      "category": "风暴抑制",
+      "title": "配置广播/组播风暴抑制（storm-control，锐捷 RGOS）",
+      "description": "按端口带宽百分比抑制广播/组播/未知单播流量，超限丢包（官方实施口径：接入口 1%-10%）。",
+      "commands": "! ===== 风暴抑制（storm-control，锐捷 RGOS）=====\nconfigure terminal\ninterface range {{port_range}}\n storm-control broadcast level {{pct}}\n storm-control multicast level {{pct}}\n storm-control unicast level {{pct}}\n exit\nend\nwrite\nshow storm-control",
+      "rollback": "! 回退：删除风暴抑制\nconfigure terminal\ninterface range {{port_range}}\n no storm-control broadcast level\n no storm-control multicast level\n no storm-control unicast level\n exit\nend\nwrite",
+      "params": [
+        {
+          "name": "port_range",
+          "type": "string",
+          "label": "接入口范围",
+          "required": true,
+          "default": "",
+          "description": "要抑制的接口范围（建议批量配接入口，上联口禁用）",
+          "example": "GigabitEthernet0/1-24",
+          "validate": "port_range",
+          "expand": "port"
+        },
+        {
+          "name": "pct",
+          "type": "int",
+          "label": "抑制阈值(%)",
+          "required": true,
+          "default": "1",
+          "description": "占用端口带宽的百分比阈值，超限丢弃；官方实施口径接入口 1%-10%（100M×1%=1M）",
+          "range": "0-100",
+          "example": "1"
+        }
+      ],
+      "notes": "1) 也可按 pps 抑制：storm-control broadcast pps 200（官方推荐未知单播/广播 100-300 pps）。\n2) show storm-control 逐口显示三类阈值与动作（none=只丢包不上报）。\n3) 上联口不要配风暴抑制——正常广播也会被截断。\n验证方法：show storm-control 中目标口三类控制显示设定百分比、Action none。",
+      "verified": 0
     }
   ]
 }

@@ -6,7 +6,7 @@
   "vendor_slug": "juniper",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 20,
+  "count": 28,
   "entries": [
     {
       "uuid": "2eb086b7-9e35-5a3e-b98b-68a782066662",
@@ -1089,6 +1089,326 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "949f1e25-8c26-5332-831e-cfb66a80ed24",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2300 / EX3400 / EX4300 / QFX5100",
+      "category": "链路聚合",
+      "title": "配置链路聚合（aggregated ethernet ae，Junos）",
+      "description": "开 chassis 聚合能力，建 ae 聚合口（LACP active），成员口 ether-options 802.3ad 绑入。",
+      "commands": "# ===== 链路聚合（aggregated ethernet ae，Junos）=====\nconfigure\n# ---- 先开聚合能力（改这个要重启才完全生效，一般默认留 1-2 个）----\nset chassis aggregated-devices ethernet device-count {{device_count}}\nset interfaces ae{{agg_id}} aggregated-ether-options lacp active\nset interfaces ae{{agg_id}} unit 0 family ethernet-switching interface-mode trunk\nset interfaces ae{{agg_id}} unit 0 family ethernet-switching vlan members {{vlans}}\n# ---- 成员口绑入 ae ----\nset interfaces {{port_a}} ether-options 802.3ad ae{{agg_id}}\nset interfaces {{port_b}} ether-options 802.3ad ae{{agg_id}}\nshow | compare\ncommit and-quit\nshow lacp interfaces ae{{agg_id}}",
+      "rollback": "# 回退：删 ae 聚合口并解绑成员口（未 commit 的改动用 rollback 0 丢弃）\ndelete interfaces ae{{agg_id}}\ndelete interfaces {{port_a}} ether-options 802.3ad\ndelete interfaces {{port_b}} ether-options 802.3ad\ncommit and-quit",
+      "params": [
+        {
+          "name": "device_count",
+          "type": "int",
+          "label": "聚合口数量上限",
+          "required": true,
+          "default": "2",
+          "description": "chassis 层预留的 ae 接口数量，决定了可用 aeN 的最大编号；改后需重启才完全生效",
+          "range": "1-64",
+          "example": "2"
+        },
+        {
+          "name": "agg_id",
+          "type": "int",
+          "label": "聚合组编号",
+          "required": true,
+          "default": "1",
+          "description": "ae 接口号（ae0 起），控制聚合口标识；须小于 device_count；commit 前不生效",
+          "range": "0-63",
+          "example": "1"
+        },
+        {
+          "name": "vlans",
+          "type": "string",
+          "label": "放通 VLAN 列表",
+          "required": false,
+          "default": "all",
+          "description": "trunk 放行的 VLAN（名称或 ID，空格分隔；all 全放）；写错导致对端 VLAN 不通",
+          "example": "OA_BIZ OA_IP"
+        },
+        {
+          "name": "port_a",
+          "type": "string",
+          "label": "成员口 A",
+          "required": true,
+          "default": "",
+          "description": "加入聚合组的物理口（两段式 ge-0/0/1）；选错口会把业务口绑进聚合组导致断流",
+          "example": "ge-0/0/1"
+        },
+        {
+          "name": "port_b",
+          "type": "string",
+          "label": "成员口 B",
+          "required": true,
+          "default": "",
+          "description": "加入聚合组的第二个物理口；对端须配 LACP（active/passive）否则协商不起来",
+          "example": "ge-0/0/2"
+        }
+      ],
+      "notes": "1) Junos 改完必须 commit 才生效；show | compare 提交前看改动。\n2) device-count 不够时 aeN 配不上（No aggregated device available），先调大并等待。\n3) QFX 上成员口前缀常见 xe-/et-；10G 以上口才建议做聚合成员。\n验证方法：show lacp interfaces ae1 成员口 Collecting/Distributing 均为 yes；show interfaces ae1 extensive 看 LACP 状态。",
+      "verified": 0
+    },
+    {
+      "uuid": "cdfa6949-a81d-5db4-96f2-12275fae47b2",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2300 / EX3400 / EX4300（Virtual Chassis）",
+      "category": "堆叠",
+      "title": "堆叠状态核查（Virtual Chassis，Junos EX 交换机）",
+      "description": "VC 堆叠成员角色、优先级与 VC 口状态核查（只读组合）。",
+      "commands": "# ===== 堆叠状态核查（Virtual Chassis，Junos EX）=====\n# 成员角色/优先级/邻居\nshow virtual-chassis status\n# VC 互联端口状态\nshow virtual-chassis vc-ports\n",
+      "params": [],
+      "notes": "1) show virtual-chassis status 的 Master 列：* 为当前主控；Role 列 Linecard 正常。\n2) 成员间 VC 口 Down 优先查堆叠线缆（VCP）；EX2300/3400 默认口即 VC 口，EX4300 需模块或软件转 VCP。\n3) 需要人工指定主控时用 set virtual-chassis member N priority（变更走配置条目）。\n验证方法：1 Master + 1 Backup + 其余 Linecard；vc-ports 全 Up。",
+      "verified": 0
+    },
+    {
+      "uuid": "fcc2782f-de24-516b-8536-85a28c9e376a",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX4300 / QFX5100（三层）",
+      "category": "VRRP",
+      "title": "配置 VRRP 网关冗余（Junos 三层交换机）",
+      "description": "在三层接口地址下挂 vrrp-group：虚拟 IP 作下联网关，commit 后生效。",
+      "commands": "# ===== VRRP 网关冗余（Junos 三层交换机）=====\nconfigure\nset interfaces {{ifname}} unit {{unit}} family inet address {{local_ip}}/{{masklen}} vrrp-group {{vrid}} virtual-address {{vip}}\nset interfaces {{ifname}} unit {{unit}} family inet address {{local_ip}}/{{masklen}} vrrp-group {{vrid}} priority {{priority}}\nset interfaces {{ifname}} unit {{unit}} family inet address {{local_ip}}/{{masklen}} vrrp-group {{vrid}} preempt\nshow | compare\ncommit and-quit\nshow vrrp",
+      "rollback": "# 回退：删除 vrrp-group（下联网关若指向 VIP，先确认对端 VRRP 在位再删）\ndelete interfaces {{ifname}} unit {{unit}} family inet address {{local_ip}}/{{masklen}} vrrp-group {{vrid}}\ncommit and-quit",
+      "params": [
+        {
+          "name": "ifname",
+          "type": "string",
+          "label": "三层接口",
+          "required": true,
+          "default": "",
+          "description": "承载 VRRP 的三层接口（如 vlan.10 SVI 或路由口 ge-0/0/24）；接口/IP 不存在则配置不生效",
+          "example": "vlan.10"
+        },
+        {
+          "name": "unit",
+          "type": "int",
+          "label": "逻辑单元号",
+          "required": true,
+          "default": "0",
+          "description": "Junos 逻辑接口单元号，SVI 惯用 0；填错等于配到另一个逻辑接口上",
+          "range": "0-16385",
+          "example": "0"
+        },
+        {
+          "name": "local_ip",
+          "type": "ip",
+          "label": "本机接口 IP",
+          "required": true,
+          "default": "",
+          "description": "本机接口的真实 IP（每台不同，含掩码一起写在 address 里）；不能与 VIP 冲突",
+          "example": "10.255.10.2"
+        },
+        {
+          "name": "masklen",
+          "type": "int",
+          "label": "掩码长度",
+          "required": true,
+          "default": "24",
+          "description": "子网掩码位数，写在本机 address 后的 /N；与对端不一致会导致网段不通",
+          "range": "1-32",
+          "example": "24"
+        },
+        {
+          "name": "vrid",
+          "type": "int",
+          "label": "备份组号",
+          "required": true,
+          "default": "10",
+          "description": "VRRP 组 ID 1-255，同组两台必须一致",
+          "range": "1-255",
+          "example": "10"
+        },
+        {
+          "name": "vip",
+          "type": "ip",
+          "label": "虚拟网关 IP",
+          "required": true,
+          "default": "",
+          "description": "下联设备的网关地址（组内共享）；不能与本机接口 IP 相同",
+          "example": "10.255.10.1"
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "label": "优先级",
+          "required": true,
+          "default": "120",
+          "description": "VRRP 优先级 1-254（默认 100），高者为 Master",
+          "range": "1-254",
+          "example": "120"
+        }
+      ],
+      "notes": "1) 两台设备同 vrid + 同 VIP 成组；接口 IP 不能与 VIP 相同。\n2) 优先级高者为 Master（默认 100），1-254；抢占默认开，防回切抖动可配延迟。\n3) 下联设备网关指向 VIP 而非接口 IP。\n4) Junos 改完必须 commit；vrrp-group 挂在 address 节点下，删 address 会连带删 VRRP。\n验证方法：show vrrp 中本机 state 为 master（对端 backup）；show vrrp detail 看抢占状态。",
+      "verified": 0
+    },
+    {
+      "uuid": "7c3037cc-cc5f-50b6-af54-64439e06072d",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2300 / EX3400 / EX4300（ELS）",
+      "category": "端口安全",
+      "title": "配置端口安全（MAC 限制，Junos ELS 交换机）",
+      "description": "限制接口 MAC 学习数量，超限丢包（packet-action drop）；非 ELS 老版本走 switch-options 层级。",
+      "commands": "# ===== 端口安全（MAC 限制，Junos ELS 交换机）=====\nconfigure\nset interfaces {{port}} unit 0 family ethernet-switching interface-mode access\nset interfaces {{port}} unit 0 family ethernet-switching interface-mac-limit {{max_mac}} packet-action drop\nshow | compare\ncommit and-quit\nshow ethernet-switching table interface {{port}}.0",
+      "rollback": "# 回退：删除 MAC 限制（interface-mode 如属本条新增也一并删）\ndelete interfaces {{port}} unit 0 family ethernet-switching interface-mac-limit\ncommit and-quit",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接入口",
+          "required": true,
+          "default": "",
+          "description": "要限 MAC 的物理口（两段式 ge-0/0/1）；trunk/上联口禁用",
+          "example": "ge-0/0/1"
+        },
+        {
+          "name": "max_mac",
+          "type": "int",
+          "label": "最大 MAC 数",
+          "required": true,
+          "default": "2",
+          "description": "接口允许学习的 MAC 上限；超限动作默认 drop；设小于终端数会误杀正常终端",
+          "range": "1-1024",
+          "example": "2"
+        }
+      ],
+      "notes": "1) 非 ELS 老版本（EX4200/3300 等）层级是 switch-options interface ge-x/x/x.0 interface-mac-limit，本条为 ELS 写法。\n2) packet-action drop 超限静默丢包；要日志用 drop-and-log。\n3) MAC 学习被动触发：终端发包后才计入，配置完让终端通信一次再核查。\n验证方法：show ethernet-switching table interface 计数不超 max；show interfaces {{port}} extensive 看 MAC limit 生效。",
+      "verified": 0
+    },
+    {
+      "uuid": "9404d4d0-5df3-5e29-b67a-5e011615bd3e",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2300-P / EX3400-P / EX4300-P（PoE 型号）",
+      "category": "POE",
+      "title": "PoE 供电管理与口级开关（Junos EX 交换机）",
+      "description": "查整机 PoE 功率与各口供电状态，按口开启/关闭供电（commit 后生效）。",
+      "commands": "# ===== PoE 供电管理（Junos EX 交换机）=====\n# ---- 整机功率与各口状态 ----\nshow poe interface\n# ---- 口级开关 ----\nconfigure\nset poe interface {{port}}\nshow | compare\ncommit and-quit\nshow poe interface {{port}}",
+      "rollback": "# 回退：关闭该口供电\ndelete poe interface {{port}}\ncommit and-quit",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "PoE 接口",
+          "required": true,
+          "default": "",
+          "description": "要管理的 PoE 物理口（两段式 ge-0/0/2）；非 PoE 型号该层级不存在",
+          "example": "ge-0/0/2"
+        }
+      ],
+      "notes": "1) Junos 改完必须 commit 才生效；show | compare 提交前看改动。\n2) 口级可再限功率上限：set poe interface {{port}} maximum-power 15.4。\n3) 非 PoE 型号 show poe interface 报错属正常。\n验证方法：show poe interface 中目标口 Enabled/Priority/Power 与预期一致。",
+      "verified": 0
+    },
+    {
+      "uuid": "3d4b1139-a14c-59f9-b6d4-61e874563cf0",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2300 / EX3400 / EX4300（ELS）",
+      "category": "风暴抑制",
+      "title": "配置广播风暴抑制（storm-control profile，Junos ELS）",
+      "description": "定义风暴抑制档（按带宽百分比），绑定到接口 family ethernet-switching 上（commit 后生效）。",
+      "commands": "# ===== 风暴抑制（Junos ELS 交换机）=====\nconfigure\n# ---- 定义抑制档（作用于广播/组播/未知单播三类）----\nset storm-control-profiles {{profile}} all bandwidth-percentage {{pct}}\n# ---- 绑定到接口 ----\nset interfaces {{port}} unit 0 family ethernet-switching storm-control {{profile}}\nshow | compare\ncommit and-quit",
+      "rollback": "# 回退：解除绑定并删除抑制档\ndelete interfaces {{port}} unit 0 family ethernet-switching storm-control\ndelete storm-control-profiles {{profile}}\ncommit and-quit",
+      "params": [
+        {
+          "name": "profile",
+          "type": "string",
+          "label": "抑制档名称",
+          "required": true,
+          "default": "SC-ACCESS",
+          "description": "风暴抑制档的配置名（自取，绑定接口时引用）；一个档可绑多个口，改档全体生效",
+          "example": "SC-ACCESS"
+        },
+        {
+          "name": "pct",
+          "type": "int",
+          "label": "抑制阈值(%)",
+          "required": true,
+          "default": "5",
+          "description": "占用端口带宽的百分比阈值，超限丢包；设太高防不住风暴，太低误杀正常广播",
+          "range": "1-100",
+          "example": "5"
+        },
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接入口",
+          "required": true,
+          "default": "",
+          "description": "绑定抑制档的物理口（两段式 ge-0/0/1）；上联口禁用",
+          "example": "ge-0/0/1"
+        }
+      ],
+      "notes": "1) 非 ELS 老版本没有 storm-control-profiles 层级，直接接口下配——先看版本。\n2) 档内可按类别细分：broadcast/multicast/unknown-unicast 分别配 bandwidth-percentage。\n3) 超限默认丢包不上报；要联动关口需另配（drop 与 shutdown 行为版本间有差）。\n验证方法：show configuration storm-control-profiles 与接口绑定正确；风暴模拟时丢包计数增长。",
+      "verified": 0
+    },
+    {
+      "uuid": "0803cd41-2419-50ce-ae05-e9c474999d96",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2300 / EX3400 / EX4300",
+      "category": "MAC地址表",
+      "title": "MAC 地址表核查（Junos EX 交换机）",
+      "description": "查看以太网交换表：定位终端接入口、核查 MAC 漂移与异常学习。",
+      "commands": "# ===== MAC 地址表核查（Junos EX 交换机）=====\n# ---- 全表 ----\nshow ethernet-switching table\n# ---- 按接口过滤（定位某终端落在哪个口）----\nshow ethernet-switching table interface {{port}}.0",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口名",
+          "required": false,
+          "default": "ge-0/0/1",
+          "description": "按物理口过滤表项（写物理口，系统自动跟 .0 逻辑口）；只影响显示不影响转发",
+          "example": "ge-0/0/1"
+        }
+      ],
+      "notes": "1) MAC flags 列：D=dynamic 正常；同一 MAC 出现在两个接口=MAC 漂移。\n2) 排查逻辑：终端 ping 网关后看其 MAC 落在预期接口；漂移持续告警先查环路再查终端。\n3) EX 上 VLAN 以名称组织（ELS），表项按 VLAN 名分组显示。\n验证方法：目标终端 MAC 出现在预期接口行；无异常漂移告警。",
+      "verified": 0
+    },
+    {
+      "uuid": "41d2989d-fbfd-501c-be80-4dae9b87ca84",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2300 / EX3400 / EX4300（三层）",
+      "category": "ARP",
+      "title": "ARP 表核查（Junos 三层交换机）",
+      "description": "查看 ARP 解析表：核查网关学习、静态绑定与 ARP 欺骗排查。",
+      "commands": "# ===== ARP 表核查（Junos 三层交换机）=====\n# ---- 全表 ----\nshow arp\n# ---- 不做 DNS 反解（快）----\nshow arp no-resolve\n# ---- 按接口过滤 ----\nshow arp interface {{port}}.0",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口名",
+          "required": false,
+          "default": "vlan.10",
+          "description": "按三层逻辑口过滤（SVI 写 vlan.N）；只影响显示不影响转发",
+          "example": "vlan.10"
+        }
+      ],
+      "notes": "1) show arp no-resolve 免 DNS 反解，批量核查时快得多。\n2) 网关 IP 的 MAC 必须落在 VRRP/主控预期侧，漂到异常接口=二层环路或欺骗。\n3) permanent 表项是静态绑定；排查 ARP 欺骗时对比台账 MAC。\n验证方法：目标终端 IP 的 MAC 与台账一致、接口正确；无异常动态刷新。",
+      "verified": 0
     }
   ]
 }

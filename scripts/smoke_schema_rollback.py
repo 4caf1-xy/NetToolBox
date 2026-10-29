@@ -122,8 +122,8 @@ def main():
         assert "rollback" not in cols or True   # 老备份无 rollback 列属正常
         cur = dbmod.Database(":memory:")
         cur.import_seed_dir()
-        assert cur.count() == 358
-    check("C2 备份锚点存在 + 种子条目数稳定 358", c2)
+        assert cur.count() == 397
+    check("C2 备份锚点存在 + 种子条目数稳定 397", c2)
 
     # ---- D. UI ----
     def d_all():

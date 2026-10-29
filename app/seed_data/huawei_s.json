@@ -6,7 +6,7 @@
   "vendor_slug": "huawei",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 17,
+  "count": 23,
   "entries": [
     {
       "uuid": "fc982ad5-2758-5749-9f78-a5b2b52e41db",
@@ -957,6 +957,263 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "044ded2e-c286-54e5-85e5-dd0e3d803833",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720 / S6720",
+      "category": "链路聚合",
+      "title": "配置链路聚合（Eth-Trunk LACP，华为 VRP5 交换机）",
+      "description": "创建 Eth-Trunk 聚合口（LACP 静态模式），成员口经 trunkport 绑入；两端必须同模式。",
+      "commands": "# ===== 链路聚合（Eth-Trunk LACP，华为 VRP5 交换机）=====\nsystem-view\ninterface Eth-Trunk {{trunk_id}}\n mode lacp-static\n port link-type trunk\n port trunk allow-pass vlan {{vlans}}\n quit\n# ---- 成员口绑入聚合组 ----\ninterface Eth-Trunk {{trunk_id}}\n trunkport GigabitEthernet {{member_ports}}\n quit\nsave\ndisplay eth-trunk {{trunk_id}}",
+      "rollback": "# 回退：先摘成员口再删聚合口（成员在组时删除聚合口会被拒绝）\ninterface Eth-Trunk {{trunk_id}}\n undo trunkport GigabitEthernet {{member_ports}}\n quit\nundo interface Eth-Trunk {{trunk_id}}\nsave",
+      "params": [
+        {
+          "name": "trunk_id",
+          "type": "int",
+          "label": "聚合组编号",
+          "required": true,
+          "default": "1",
+          "description": "Eth-Trunk 接口号，控制聚合口标识；两端编号可不同但对端必须同模式；save 前重启丢失",
+          "range": "0-127",
+          "example": "1"
+        },
+        {
+          "name": "vlans",
+          "type": "string",
+          "label": "放通 VLAN 列表",
+          "required": false,
+          "default": "10 20",
+          "description": "trunk 放行的 VLAN 清单（空格分隔，可带区间 10 to 20）；写错导致对端 VLAN 不通",
+          "example": "10 20"
+        },
+        {
+          "name": "member_ports",
+          "type": "string",
+          "label": "成员口列表",
+          "required": true,
+          "default": "",
+          "description": "加入聚合组的物理口（如 0/0/1 to 0/0/2）；选错口会把业务口绑进聚合组导致断流",
+          "example": "0/0/1 to 0/0/2"
+        }
+      ],
+      "notes": "1) mode lacp-static 是 LACP 模式；不配 mode 默认手工负载分担（无协商，对端挂了感知慢）。\n2) 老版本 VRP 关键字为 mode lacp，新版本用 lacp-static——以 ? 为准。\n3) 成员口先摘出再改属性；聚合口成员在组时删除聚合口会被拒绝（rollback 顺序已按此写）。\n验证方法：display eth-trunk 1 显示 WorkingMode: STATIC、成员口 Selected；display lacp statistics 看收发计数。",
+      "verified": 0
+    },
+    {
+      "uuid": "050c4581-ed89-534e-a199-b82cd090e7a6",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S6720（CSS 集群）",
+      "category": "堆叠",
+      "title": "堆叠状态核查（CSS 集群，华为 VRP5 交换机）",
+      "description": "CSS 堆叠成员、堆叠口与主备状态核查（只读组合）。",
+      "commands": "# ===== 堆叠状态核查（CSS，华为 VRP5 交换机）=====\n# 成员角色与主备状态\ndisplay stack\n# 堆叠配置与端口分配\ndisplay stack configuration\n# 单板/成员设备在位状态\ndisplay device",
+      "params": [],
+      "notes": "1) display stack 的 Slot/Role 列：Master/Standby 正常；出现两台 Master = 集群分裂，立即处理。\n2) CSS 与 iStack 是华为两套堆叠形态（框式 CSS / 盒式 iStack），命令同名不同义，看设备型号。\n3) 分裂检测（mad detect）状态要确认 enabled，否则双主会双网关冲突。\n验证方法：display stack 显示 1 Master + 1 Standby、堆叠口 Up；display device 两台成员均 Normal。",
+      "verified": 0
+    },
+    {
+      "uuid": "8e68b73c-058e-5b6f-b224-fdf9fce42d8e",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S6720（三层）",
+      "category": "VRRP",
+      "title": "配置 VRRP 网关冗余（华为 VRP5 三层交换机）",
+      "description": "在 Vlanif 上配 VRRP 备份组：虚拟 IP 作下联网关，主备切换由优先级与抢占决定。",
+      "commands": "# ===== VRRP 网关冗余（华为 VRP5 三层交换机）=====\nsystem-view\ninterface Vlanif {{vlan_id}}\n ip address {{local_ip}} {{masklen}}\n vrrp vrid {{vrid}} virtual-ip {{vip}}\n vrrp vrid {{vrid}} priority {{priority}}\n vrrp vrid {{vrid}} preempt-mode timer delay {{delay}}\n quit\nsave\ndisplay vrrp brief",
+      "rollback": "# 回退：删除 VRRP 备份组（下联网关若指向 VIP，先确认对端 VRRP 在位再删）\nsystem-view\ninterface Vlanif {{vlan_id}}\n undo vrrp vrid {{vrid}}\n quit\nsave",
+      "params": [
+        {
+          "name": "vlan_id",
+          "type": "int",
+          "label": "VLAN ID",
+          "required": true,
+          "default": "10",
+          "description": "Vlanif 所属 VLAN 编号，VRRP 配在该三层接口上；须先建 VLAN，否则 Vlanif 不起",
+          "validate": "vlan",
+          "range": "1-4094"
+        },
+        {
+          "name": "local_ip",
+          "type": "ip",
+          "label": "本机接口 IP",
+          "required": true,
+          "default": "",
+          "description": "本机 Vlanif 的真实 IP（每台不同）；不能与 VIP、对端接口 IP 冲突",
+          "example": "10.255.10.2"
+        },
+        {
+          "name": "masklen",
+          "type": "int",
+          "label": "掩码长度",
+          "required": true,
+          "default": "24",
+          "description": "SVI 子网掩码位数；与对端不一致会导致网段不通",
+          "range": "1-32",
+          "example": "24"
+        },
+        {
+          "name": "vrid",
+          "type": "int",
+          "label": "备份组号",
+          "required": true,
+          "default": "10",
+          "description": "VRRP 备份组 ID 1-255，同组两台必须一致；不同业务用不同 vrid 隔离",
+          "range": "1-255",
+          "example": "10"
+        },
+        {
+          "name": "vip",
+          "type": "ip",
+          "label": "虚拟网关 IP",
+          "required": true,
+          "default": "",
+          "description": "下联设备的网关地址（组内共享）；不能与本机接口 IP 相同；改 VIP 要同步改下联网关",
+          "example": "10.255.10.1"
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "label": "优先级",
+          "required": true,
+          "default": "120",
+          "description": "VRRP 优先级 1-254（默认 100），高者为 Master；两台同优先级比接口 IP 大小",
+          "range": "1-254",
+          "example": "120"
+        },
+        {
+          "name": "delay",
+          "type": "int",
+          "label": "抢占延迟(秒)",
+          "required": true,
+          "default": "10",
+          "description": "回切抢占延迟秒数（0 立即抢占），防止主备震荡；业务上行有收敛要求时加大",
+          "range": "0-3600",
+          "example": "10"
+        }
+      ],
+      "notes": "1) 两台设备同 vrid + 同 VIP 成组；接口 IP 不能与 VIP 相同。\n2) 优先级高者为 Master（默认 100），1-254；抢占默认开，防回切抖动可配延迟。\n3) 下联设备网关指向 VIP 而非接口 IP。\n验证方法：display vrrp brief 中本机 State 为 Master（对端 Backup）；shutdown 主机 Vlanif，对端按 delay 切 Master。",
+      "verified": 0
+    },
+    {
+      "uuid": "28c3edf7-56c7-5d37-a85b-8458bb5ed4b4",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720（接入层）",
+      "category": "端口安全",
+      "title": "配置端口安全（华为 VRP5 接入交换机）",
+      "description": "限制接入口 MAC 学习数量，违规 restrict 丢包告警（shutdown 动作会把口整口关掉）。",
+      "commands": "# ===== 端口安全（华为 VRP5 接入交换机）=====\nsystem-view\ninterface GigabitEthernet0/0/{{port}}\n port link-type access\n port-security enable\n port-security max-mac-count {{max_mac}}\n port-security protect-action {{action}}\n quit\nsave\ndisplay port-security",
+      "rollback": "# 回退：按子配置逆序拆除（先拆动作/上限，最后关端口安全）\nsystem-view\ninterface GigabitEthernet0/0/{{port}}\n undo port-security protect-action\n undo port-security max-mac-count\n undo port-security enable\n quit\nsave",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接入口编号",
+          "required": true,
+          "default": "",
+          "description": "要开启端口安全的接口编号（0/0/1）；trunk/上联口禁用——终端一多立即触发违规断流",
+          "example": "1"
+        },
+        {
+          "name": "max_mac",
+          "type": "int",
+          "label": "最大 MAC 数",
+          "required": true,
+          "default": "2",
+          "description": "端口允许学习的安全 MAC 上限；设小于终端数会误杀正常终端",
+          "range": "1-4096",
+          "example": "2"
+        },
+        {
+          "name": "action",
+          "type": "enum",
+          "label": "违规动作",
+          "required": true,
+          "default": "restrict",
+          "description": "违规时处置：restrict 丢包+告警 / protect 静默丢包 / shutdown 整口关闭（恢复要人工）",
+          "choices": [
+            "restrict",
+            "protect",
+            "shutdown"
+          ],
+          "example": "restrict"
+        }
+      ],
+      "notes": "1) port-security enable 会把接口 MAC 学习切为安全模式，DHCP snooping/802.1X 可叠加。\n2) protect-action shutdown 触发后接口 error-down，用 undo shutdown 或 error-down auto-recovery 恢复。\n3) 终端发一次包才会被记为安全 MAC；配置完让终端主动通信一次再核查。\n验证方法：display port-security 显示 Enabled；display mac-address security 看安全 MAC 学习。",
+      "verified": 0
+    },
+    {
+      "uuid": "6300570a-f1cf-5d8c-ab10-a986efbe5f74",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5720-P / S5731-P（PoE 型号）",
+      "category": "POE",
+      "title": "PoE 供电管理与口级开关（华为 VRP5 交换机）",
+      "description": "查整机 PoE 功率与各口供电状态，按口开启/关闭供电。",
+      "commands": "# ===== PoE 供电管理（华为 VRP5 交换机）=====\n# ---- 整机功率与各口状态 ----\ndisplay poe power\ndisplay poe power-state\n# ---- 口级开关 ----\nsystem-view\ninterface GigabitEthernet0/0/{{port}}\n poe enable\n quit\nsave\ndisplay poe power-state interface GigabitEthernet0/0/{{port}}",
+      "rollback": "# 回退：关闭该口供电\nsystem-view\ninterface GigabitEthernet0/0/{{port}}\n undo poe enable\n quit\nsave",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "PoE 接口编号",
+          "required": true,
+          "default": "",
+          "description": "要管理的 PoE 接口编号（0/0/1）；非 PoE 型号该命令不存在",
+          "example": "1"
+        }
+      ],
+      "notes": "1) display poe power 看剩余功率；预算耗尽新口上不了电（日志看 POE 告警）。\n2) 口供电异常优先 poe force-power？不——先查 PD 等级与线缆，force 会有烧口风险，仅在确认 PD 后用。\n3) 非 PoE 型号执行 poe enable 报错属正常。\n验证方法：display poe power-state 中目标口 Power On、功率与 PD 等级匹配。",
+      "verified": 0
+    },
+    {
+      "uuid": "c9a42279-f681-598f-8916-d30034b86ef0",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720（接入层）",
+      "category": "风暴抑制",
+      "title": "配置广播风暴抑制（broadcast-suppression，华为 VRP5）",
+      "description": "按端口带宽百分比抑制广播流量，超限丢包，防广播风暴拖垮接入网。",
+      "commands": "# ===== 广播风暴抑制（华为 VRP5 接入交换机）=====\nsystem-view\ninterface GigabitEthernet0/0/{{port}}\n broadcast-suppression {{pct}}\n quit\nsave\ndisplay this",
+      "rollback": "# 回退：删除风暴抑制\nsystem-view\ninterface GigabitEthernet0/0/{{port}}\n undo broadcast-suppression\n quit\nsave",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接入口编号",
+          "required": true,
+          "default": "",
+          "description": "要抑制的接口编号；建议接入口配，上联口禁用——上联被抑制会截断正常广播域流量",
+          "example": "1"
+        },
+        {
+          "name": "pct",
+          "type": "int",
+          "label": "抑制阈值(%)",
+          "required": true,
+          "default": "5",
+          "description": "占用端口带宽的百分比阈值 0-100，超限部分丢弃；设太高防不住风暴，太低误杀正常广播",
+          "range": "0-100",
+          "example": "5"
+        }
+      ],
+      "notes": "1) VRP 支持 pps 计量：broadcast-suppression pps 200（按报文数抑制），按需选用。\n2) 组播/未知单播抑制分别用 multicast-suppression / unicast-suppression。\n3) 抑制只在超限时丢包，正常流量不受影响；display this 确认接口视图下配置。\n验证方法：display this 中 broadcast-suppression 值正确；风暴模拟时口丢弃计数增长。",
+      "verified": 0
     }
   ]
 }

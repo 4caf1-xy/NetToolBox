@@ -6,7 +6,7 @@
   "vendor_slug": "cisco",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 17,
+  "count": 23,
   "entries": [
     {
       "uuid": "e3971cfc-1d22-5542-89d5-7b72b2c3ee6a",
@@ -1014,6 +1014,290 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "8e83b6d4-f82c-5991-9313-11fcc5d01354",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960 / 3560 / 3750 / 9300",
+      "category": "链路聚合",
+      "title": "配置链路聚合（LACP Port-Channel，Cisco IOS）",
+      "description": "把两条以上物理口绑成一个 Port-Channel（LACP 主动模式），带带宽冗余；成员口属性必须与聚合口一致。",
+      "commands": "# ===== 链路聚合（LACP，Cisco IOS）=====\nconfigure terminal\ninterface port-channel {{po_id}}\n switchport mode trunk\n switchport trunk allowed vlan {{vlans}}\n exit\n# ---- 成员口绑入聚合组（mode active = LACP 主动）----\ninterface range {{port_range}}\n switchport mode trunk\n channel-group {{po_id}} mode active\n no shutdown\n exit\nend\nwrite memory\nshow etherchannel summary",
+      "rollback": "# 回退：先解绑成员口，再删聚合口（顺序反了删不掉）\ninterface range {{port_range}}\n no channel-group {{po_id}}\n exit\nno interface port-channel {{po_id}}\nend\nwrite memory",
+      "params": [
+        {
+          "name": "po_id",
+          "type": "int",
+          "label": "聚合组编号",
+          "required": true,
+          "default": "1",
+          "description": "Port-Channel 接口号，控制聚合口标识；同号即同组，两端设备各自编号可不同；write memory 前仅 running-config 生效",
+          "range": "1-128",
+          "example": "1"
+        },
+        {
+          "name": "vlans",
+          "type": "string",
+          "label": "放通 VLAN 列表",
+          "required": false,
+          "default": "10,20",
+          "description": "聚合口 trunk 放行的 VLAN 清单；写错会导致对端 VLAN 不通；all 表示全放行（不推荐，广播域过大）",
+          "example": "10,20"
+        },
+        {
+          "name": "port_range",
+          "type": "string",
+          "label": "成员口范围",
+          "required": true,
+          "default": "",
+          "description": "加入聚合组的物理口范围；选错口会把业务口绑进聚合组导致断流，影响转发",
+          "example": "GigabitEthernet0/1-2",
+          "validate": "port_range",
+          "expand": "port"
+        }
+      ],
+      "notes": "1) 成员口在绑入前必须与聚合口同构（同 trunk 模式、同放通 VLAN），属性不一致会被踢出组。\n2) mode active 两侧都主动发 LACP；对端配 passive 也能协商，两侧都 passive 则聚合不起来。\n3) 聚合口 down 多为单侧没配 LACP 或成员口属性不一致——show etherchannel summary 看成员标志。\n验证方法：show etherchannel summary 中 Po1 显示 SU、成员口标 (P)；拔一条成员链路业务不断。",
+      "verified": 0
+    },
+    {
+      "uuid": "7360013d-d04e-590c-b255-833fa499bf7c",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960X / 9300（StackWise）",
+      "category": "堆叠",
+      "title": "堆叠状态核查与成员优先级（StackWise，Cisco IOS）",
+      "description": "StackWise 堆叠成员/堆叠口状态核查，含可选的成员优先级调整（影响主控选举）。",
+      "commands": "# ===== 堆叠状态核查（StackWise，Cisco IOS）=====\nshow switch\n# Ready 状态成员口才在转发；show detail 看每口堆叠链路状态\nshow switch detail\nshow switch stack-ports\n# ---- 可选：调整成员优先级（影响下次主控选举，现主控不切换）----\nconfigure terminal\nswitch {{member}} priority {{priority}}\nend\nwrite memory",
+      "rollback": "# 回退：优先级改回默认值 1（仅影响下次选举，不切换现主控）\nconfigure terminal\nswitch {{member}} priority 1\nend\nwrite memory",
+      "params": [
+        {
+          "name": "member",
+          "type": "int",
+          "label": "成员编号",
+          "required": true,
+          "default": "1",
+          "description": "堆叠成员的 Switch 编号（show switch 查到）；填错会把优先级改到别的成员上，影响选举",
+          "range": "1-8",
+          "example": "1"
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "label": "成员优先级",
+          "required": true,
+          "default": "15",
+          "description": "堆叠选举优先级 1-15，数值大者当选主控；改了不立即切换，重启/重选举才生效",
+          "range": "1-15",
+          "example": "15"
+        }
+      ],
+      "notes": "1) show switch 的 State 列 Ready = 正常；Provisioned 说明成员号预留但设备不在位。\n2) show switch stack-ports 看堆叠线缆状态， HALF/DOWN 优先查堆叠模块和线缆。\n3) 优先级调整只影响下次选举；要立即重选举需重启指定成员（高危，业务窗口做）。\n验证方法：show switch 中目标成员 Priority 已更新；主控（Master）角色符合预期。",
+      "verified": 0
+    },
+    {
+      "uuid": "a2a566da-a5db-50c5-bd3d-185eea4b5224",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 3560 / 3750 / 9300（三层）",
+      "category": "VRRP",
+      "title": "配置 VRRP 网关冗余（Cisco IOS 三层交换机）",
+      "description": "在 SVI 上配 VRRP 备份组：虚拟 IP 作下联网关，主备切换由优先级与抢占决定。",
+      "commands": "# ===== VRRP 网关冗余（Cisco IOS 三层交换机）=====\nconfigure terminal\ninterface vlan {{vlan_id}}\n ip address {{local_ip}} {{mask}}\n vrrp {{vrid}} ip {{vip}}\n vrrp {{vrid}} priority {{priority}}\n vrrp {{vrid}} preempt\n exit\nend\nwrite memory\nshow vrrp brief",
+      "rollback": "# 回退：删除 VRRP 备份组（下联网关若指向 VIP，先确认对端 VRRP 在位再删）\nconfigure terminal\ninterface vlan {{vlan_id}}\n no vrrp {{vrid}}\n exit\nend\nwrite memory",
+      "params": [
+        {
+          "name": "vlan_id",
+          "type": "int",
+          "label": "VLAN ID",
+          "required": true,
+          "default": "10",
+          "description": "SVI 所属 VLAN 编号，VRRP 配在该三层接口上；接口不存在会自动创建空 SVI，须先建 VLAN",
+          "validate": "vlan",
+          "range": "1-4094"
+        },
+        {
+          "name": "local_ip",
+          "type": "ip",
+          "label": "本机接口 IP",
+          "required": true,
+          "default": "",
+          "description": "本机 SVI 的真实 IP（每台不同）；不能与 VIP、对端接口 IP 冲突",
+          "example": "10.255.10.2"
+        },
+        {
+          "name": "mask",
+          "type": "string",
+          "label": "子网掩码",
+          "required": true,
+          "default": "255.255.255.0",
+          "description": "SVI 子网掩码（点分十进制）；与对端不一致会导致网段不通",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "vrid",
+          "type": "int",
+          "label": "备份组号",
+          "required": true,
+          "default": "10",
+          "description": "VRRP 备份组 ID 1-255，同组两台必须一致；不同业务用不同 vrid 隔离",
+          "range": "1-255",
+          "example": "10"
+        },
+        {
+          "name": "vip",
+          "type": "ip",
+          "label": "虚拟网关 IP",
+          "required": true,
+          "default": "",
+          "description": "下联设备的网关地址（组内共享）；不能与本机接口 IP 相同；改 VIP 要同步改下联网关",
+          "example": "10.255.10.1"
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "label": "优先级",
+          "required": true,
+          "default": "120",
+          "description": "VRRP 优先级 1-254（默认 100），高者为 Master；IP 拥有者强制 255；两台同优先级比接口 IP",
+          "range": "1-254",
+          "example": "120"
+        }
+      ],
+      "notes": "1) 两台设备同 vrid + 同 VIP 成组；接口 IP 不能与 VIP 相同。\n2) 优先级高者为 Master（默认 100），1-254；抢占默认开，防回切抖动可配延迟。\n3) 下联设备网关指向 VIP 而非接口 IP。\n验证方法：show vrrp brief 中本机 State 为 Master（对端 Backup）；shutdown 主机 SVI，对端 3 秒内切 Master。",
+      "verified": 0
+    },
+    {
+      "uuid": "bbc970b6-0942-5279-9d9c-1da1ad991cbf",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960 / 3560 / 3750 / 9300",
+      "category": "端口安全",
+      "title": "配置端口安全（Port Security，Cisco IOS）",
+      "description": "限制接入口 MAC 学习数量，违规时 restrict 丢包告警（默认 shutdown 会把口打 err-disable）。",
+      "commands": "# ===== 端口安全（Port Security，Cisco IOS）=====\nconfigure terminal\ninterface {{ifname}}\n switchport mode access\n switchport port-security\n switchport port-security maximum {{max_mac}}\n switchport port-security violation {{action}}\n exit\nend\nwrite memory\nshow port-security interface {{ifname}}",
+      "rollback": "# 回退：关闭端口安全（连带清掉 maximum/violation 等子配置）\nconfigure terminal\ninterface {{ifname}}\n no switchport port-security\n exit\nend\nwrite memory",
+      "params": [
+        {
+          "name": "ifname",
+          "type": "string",
+          "label": "接入口",
+          "required": true,
+          "default": "",
+          "description": "要开启端口安全的物理口（access 口）；trunk/上联口禁用——终端一多立即触发违规断流",
+          "example": "GigabitEthernet0/1"
+        },
+        {
+          "name": "max_mac",
+          "type": "int",
+          "label": "最大 MAC 数",
+          "required": true,
+          "default": "2",
+          "description": "端口允许学习的安全 MAC 上限；设小于终端数会误杀正常终端",
+          "range": "1-1024",
+          "example": "2"
+        },
+        {
+          "name": "action",
+          "type": "enum",
+          "label": "违规动作",
+          "required": true,
+          "default": "restrict",
+          "description": "违规时处置：restrict 丢包+告警 / shutdown 置 err-disable（默认，需人工恢复） / protect 静默丢包",
+          "choices": [
+            "restrict",
+            "shutdown",
+            "protect"
+          ],
+          "example": "restrict"
+        }
+      ],
+      "notes": "1) 端口安全只能在 access 口上开，trunk 口配了不生效。\n2) violation shutdown（默认）触发后端口 err-disable，恢复要 shutdown + no shutdown 或配 errdisable recovery cause psecure-violation。\n3) 安全 MAC 默认粘滞不保存，重启丢失；要持久化加 switchport port-security mac-address sticky。\n验证方法：show port-security interface 下 Secure-up、Last Source Address 为终端 MAC；违规事件看 show port-security / %PORT_SECURITY 日志。",
+      "verified": 0
+    },
+    {
+      "uuid": "0c8fb7d5-c5b3-567a-930c-5c6a7d68df37",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960X / 9300（PoE 型号）",
+      "category": "POE",
+      "title": "PoE 供电管理与口级开关（Cisco IOS）",
+      "description": "查整机 PoE 功率预算与各口供电状态，按口开启/关闭供电。",
+      "commands": "# ===== PoE 供电管理（Cisco IOS）=====\n# ---- 整机功率预算与各口状态 ----\nshow power inline\n# ---- 口级开关：auto 按类协商 / static 预留 / never 关闭供电 ----\nconfigure terminal\ninterface {{ifname}}\n power inline {{mode}}\n exit\nend\nwrite memory",
+      "rollback": "# 回退：恢复默认供电模式 auto\nconfigure terminal\ninterface {{ifname}}\n power inline auto\n exit\nend\nwrite memory",
+      "params": [
+        {
+          "name": "ifname",
+          "type": "string",
+          "label": "PoE 接口",
+          "required": true,
+          "default": "",
+          "description": "要管理的 PoE 物理口；对非 PoE 型号该命令不存在（报 Invalid input 属正常）",
+          "example": "GigabitEthernet1/0/5"
+        },
+        {
+          "name": "mode",
+          "type": "enum",
+          "label": "供电模式",
+          "required": true,
+          "default": "auto",
+          "description": "auto 按受电设备类协商（默认） / static 预留功率优先保障 / never 关闭该口供电（排查供电故障用）",
+          "choices": [
+            "auto",
+            "static",
+            "never"
+          ],
+          "example": "auto"
+        }
+      ],
+      "notes": "1) show power inline 的 Available/Watts 列是剩余功率预算；预算耗尽新口上电失败（日志看 %POWER）。\n2) PD 检测不到先查 mode 是否被改成 never、线缆及 PD 等级。\n3) non-PoE 口执行 power inline 会报错，不影响其他配置。\n验证方法：show power inline 中目标口 AdminState 与预期一致、Oper 为 on 且有 Watts 消耗。",
+      "verified": 0
+    },
+    {
+      "uuid": "b07f735d-57cf-5ea0-8405-79972a1c2df9",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960 / 3560 / 3750 / 9300",
+      "category": "风暴抑制",
+      "title": "配置广播/组播风暴抑制（storm-control，Cisco IOS）",
+      "description": "按端口带宽百分比抑制广播/组播流量，超限丢包，防广播风暴拖垮接入网。",
+      "commands": "# ===== 风暴抑制（storm-control，Cisco IOS）=====\nconfigure terminal\ninterface {{ifname}}\n storm-control broadcast level {{pct}}\n storm-control multicast level {{pct}}\n exit\nend\nwrite memory\nshow storm-control {{ifname}}",
+      "rollback": "# 回退：删除风暴抑制（恢复默认不抑制）\nconfigure terminal\ninterface {{ifname}}\n no storm-control broadcast level\n no storm-control multicast level\n exit\nend\nwrite memory",
+      "params": [
+        {
+          "name": "ifname",
+          "type": "string",
+          "label": "接入口",
+          "required": true,
+          "default": "",
+          "description": "要抑制的接入口（建议接入口配，上联口禁用——上联被抑制会截断正常广播域流量）",
+          "example": "GigabitEthernet0/1"
+        },
+        {
+          "name": "pct",
+          "type": "int",
+          "label": "抑制阈值(%)",
+          "required": true,
+          "default": "5",
+          "description": "占用端口带宽的百分比阈值 0-100，超限部分丢弃；设太高防不住风暴，太低误杀正常广播（ARP/ND 是正常广播）",
+          "range": "0-100",
+          "example": "5"
+        }
+      ],
+      "notes": "1) 超限动作默认丢包；要联动 shutdown 加 storm-control action shutdown（触发即 err-disable，慎用）。\n2) level 支持 0.00-100.00 小数；ppc/pps 计量按平台支持度用 ? 核对。\n3) 风暴抑制只丢包不上报前没有可见现象，日常用 show storm-control 看有没有触发。\n验证方法：show storm-control 中目标口 Broadcast/Multicast 列显示设定值，无 Filtered 增长",
+      "verified": 0
     }
   ]
 }

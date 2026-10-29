@@ -6,7 +6,7 @@
   "vendor_slug": "zte",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 20,
+  "count": 27,
   "entries": [
     {
       "uuid": "b2f47889-8b45-55e0-8cb6-625459ca06ef",
@@ -1023,6 +1023,257 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "a5ccfe70-5374-502b-aad3-fae25c1729d1",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5250 / 5950 / 6900 系列",
+      "category": "链路聚合",
+      "title": "配置链路聚合（smartgroup LACP，中兴 ZXR10）",
+      "description": "创建 smartgroup 聚合口（802.3ad 动态聚合），成员口经 smartgroup N mode active 绑入。",
+      "commands": "! ===== 链路聚合（smartgroup LACP，中兴 ZXR10）=====\nenable\nconfigure terminal\ninterface smartgroup{{agg_id}}\n smartgroup mode 802.3ad\n switchport mode trunk\n switchport trunk vlan {{vlans}}\n exit\n! ---- 成员口绑入聚合组 ----\ninterface {{port_a}}\n smartgroup {{agg_id}} mode active\n exit\ninterface {{port_b}}\n smartgroup {{agg_id}} mode active\n exit\nexit\nwrite\nshow lacp {{agg_id}} internal",
+      "rollback": "! 回退：先解绑成员口，再删聚合口（ZXR10 版本差异大，回退前用 ? 核对关键字）\ninterface {{port_a}}\n no smartgroup {{agg_id}}\n exit\ninterface {{port_b}}\n no smartgroup {{agg_id}}\n exit\nno interface smartgroup{{agg_id}}\nexit\nwrite",
+      "params": [
+        {
+          "name": "agg_id",
+          "type": "int",
+          "label": "聚合组编号",
+          "required": true,
+          "default": "1",
+          "description": "smartgroup 编号，控制聚合口标识（接口名即 smartgroupN）；两端模式必须一致；write 前重启丢失",
+          "range": "1-64",
+          "example": "1"
+        },
+        {
+          "name": "vlans",
+          "type": "string",
+          "label": "放通 VLAN 列表",
+          "required": false,
+          "default": "10,20",
+          "description": "trunk 放行的 VLAN 清单（逗号分隔，可带区间 100-200）；写错导致对端 VLAN 不通",
+          "example": "10,20"
+        },
+        {
+          "name": "port_a",
+          "type": "string",
+          "label": "成员口 A",
+          "required": true,
+          "default": "",
+          "description": "加入聚合组的物理口（ZXR10 命名如 gei_1/1、xgei-0/1/1/49，以 show interface 实际提示为准）；选错口会把业务口绑进聚合组导致断流",
+          "example": "gei_1/15"
+        },
+        {
+          "name": "port_b",
+          "type": "string",
+          "label": "成员口 B",
+          "required": true,
+          "default": "",
+          "description": "加入聚合组的第二个物理口；两端聚合模式必须一致否则聚合不起来",
+          "example": "gei_1/16"
+        }
+      ],
+      "notes": "1) smartgroup mode 802.3ad = 动态 LACP；mode on = 静态聚合（无协商，两端都要 on）。\n2) ZXR10 ROS 版本差异大：老平台 smartgroup mode 802.3ad 可能省略（部分型号无此命令），上机前先 ? 核对；接口名 gei_/xgei- 前缀随框式/盒式不同。\n3) show lacp N internal 中成员口带 * 才在转发；Rx 计数为 0 说明对端没发 LACP 报文。\n验证方法：show lacp 1 internal 成员口标 ACTIVE 且带 *；拔一条成员链路业务不断。",
+      "verified": 0
+    },
+    {
+      "uuid": "84e1651c-7b7c-5806-83bc-553660d591b8",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5950 / 6900（三层）",
+      "category": "VRRP",
+      "title": "配置 VRRP 网关冗余（中兴 ZXR10 三层交换机）",
+      "description": "在 VLAN 三层接口上配 VRRP 备份组：虚拟 IP 作下联网关。",
+      "commands": "! ===== VRRP 网关冗余（中兴 ZXR10 三层交换机）=====\nenable\nconfigure terminal\ninterface vlan {{vlan_id}}\n ip address {{local_ip}} {{mask}}\n vrrp {{vrid}} ip {{vip}}\n vrrp {{vrid}} priority {{priority}}\n vrrp {{vrid}} preempt\n exit\nexit\nwrite\nshow vrrp brief",
+      "rollback": "! 回退：删除 VRRP 备份组（下联网关若指向 VIP，先确认对端 VRRP 在位再删）\nconfigure terminal\ninterface vlan {{vlan_id}}\n no vrrp {{vrid}}\n exit\nexit\nwrite",
+      "params": [
+        {
+          "name": "vlan_id",
+          "type": "int",
+          "label": "VLAN ID",
+          "required": true,
+          "default": "10",
+          "description": "VLAN 三层接口编号，VRRP 配在该接口上；须先建 VLAN",
+          "validate": "vlan",
+          "range": "1-4094"
+        },
+        {
+          "name": "local_ip",
+          "type": "ip",
+          "label": "本机接口 IP",
+          "required": true,
+          "default": "",
+          "description": "本机接口的真实 IP（每台不同）；不能与 VIP、对端接口 IP 冲突",
+          "example": "10.255.10.2"
+        },
+        {
+          "name": "mask",
+          "type": "string",
+          "label": "子网掩码",
+          "required": true,
+          "default": "255.255.255.0",
+          "description": "接口子网掩码（点分十进制）；与对端不一致会导致网段不通",
+          "example": "255.255.255.0"
+        },
+        {
+          "name": "vrid",
+          "type": "int",
+          "label": "备份组号",
+          "required": true,
+          "default": "10",
+          "description": "VRRP 备份组 ID 1-255，同组两台必须一致",
+          "range": "1-255",
+          "example": "10"
+        },
+        {
+          "name": "vip",
+          "type": "ip",
+          "label": "虚拟网关 IP",
+          "required": true,
+          "default": "",
+          "description": "下联设备的网关地址（组内共享）；不能与本机接口 IP 相同",
+          "example": "10.255.10.1"
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "label": "优先级",
+          "required": true,
+          "default": "120",
+          "description": "VRRP 优先级 1-254（默认 100），高者为 Master",
+          "range": "1-254",
+          "example": "120"
+        }
+      ],
+      "notes": "1) 两台设备同 vrid + 同 VIP 成组；接口 IP 不能与 VIP 相同。\n2) 优先级高者为 Master（默认 100），1-254；抢占默认开，防回切抖动可配延迟。\n3) 下联设备网关指向 VIP 而非接口 IP。\n4) ZXR10 新平台（5900E V3 起）改为 vrrp 配置模式 + vrrp N ipv4 形态，老平台（5900/5200/8900）为接口下 vrrp N ip 形态——本条为老平台写法，上机先 ? 核对。\n验证方法：show vrrp brief 中本机 State 为 Master（对端 Backup）。",
+      "verified": 0
+    },
+    {
+      "uuid": "6e043c7d-6f35-5152-9d8d-f5e07602cdfb",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5250 / 2950 系列（接入层）",
+      "category": "端口安全",
+      "title": "配置端口安全（Port Security，中兴 ZXR10）",
+      "description": "限制接入口 MAC 学习数量，违规 protect 丢包（ZXR10-2950 系语法与 IOS 同构）。",
+      "commands": "! ===== 端口安全（Port Security，中兴 ZXR10）=====\nenable\nconfigure terminal\ninterface {{ifname}}\n switchport port-security\n switchport port-security maximum {{max_mac}}\n switchport port-security violation {{action}}\n exit\nexit\nwrite\nshow port-security interface {{ifname}}",
+      "rollback": "! 回退：关闭端口安全（连带清掉 maximum/violation 子配置）\nconfigure terminal\ninterface {{ifname}}\n no switchport port-security\n exit\nexit\nwrite",
+      "params": [
+        {
+          "name": "ifname",
+          "type": "string",
+          "label": "接入口",
+          "required": true,
+          "default": "",
+          "description": "要开启端口安全的物理口（ZXR10 命名如 gei_1/1，以 show interface 为准）；trunk/上联口禁用",
+          "example": "gei_1/1"
+        },
+        {
+          "name": "max_mac",
+          "type": "int",
+          "label": "最大 MAC 数",
+          "required": true,
+          "default": "2",
+          "description": "端口允许学习的安全 MAC 上限；设小于终端数会误杀正常终端",
+          "range": "1-1024",
+          "example": "2"
+        },
+        {
+          "name": "action",
+          "type": "enum",
+          "label": "违规动作",
+          "required": true,
+          "default": "protect",
+          "description": "违规时处置：protect 静默丢包（生产首选） / restrict 丢包+告警 / shutdown 置 err-disable",
+          "choices": [
+            "protect",
+            "restrict",
+            "shutdown"
+          ],
+          "example": "protect"
+        }
+      ],
+      "notes": "1) violation 子命令必须在 switchport port-security 之后配（顺序颠倒报 Command not allowed）。\n2) 安全 MAC 被动学习：终端主动发包后才激活绑定，配置完让终端 ping 一次网关。\n3) ZXR10 老平台（2900E）端口安全为 set port 1,5 security enable 形态，与本条不同——按型号 ? 核对。\n验证方法：show port-security interface 显示 Enabled / Security MAC 数与终端一致。",
+      "verified": 0
+    },
+    {
+      "uuid": "0ab54a59-8430-56a6-99fd-88b381323742",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5250-P / 5260-P（PoE 型号）",
+      "category": "POE",
+      "title": "PoE 供电管理与口级开关（中兴 ZXR10，骨架参照）",
+      "description": "查 PoE 功率与各口供电状态，按口开关供电（命令形态待真机核对）。",
+      "commands": "! ===== PoE 供电管理（中兴 ZXR10，骨架参照）=====\n! ★ 待真机核对：ZXR10 PoE 命令形态（poe 类关键字）在各型号差异大，\n!   上机后先 ? 核对整机查询与口级开关的实际关键字（show poe / power 类），\n!   核对通过后转正本条（补真实命令与回显，exec_level 升 verified-cli）。",
+      "params": [],
+      "notes": "1) ★ 待真机核对：ZXR10 PoE 命令形态未核实，本条为骨架参照。\n2) 排查口径不变：先看整机功率预算，再查口级状态，最后查 PD 等级与线缆。\n核对通过后回填本条并升 exec_level 为 verified-cli。",
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "42b0fd32-37ef-5aa3-b91e-6872e356d443",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5250 / 5950 系列（接入层）",
+      "category": "风暴抑制",
+      "title": "配置广播风暴抑制（中兴 ZXR10，骨架参照）",
+      "description": "按端口带宽百分比抑制广播流量，超限丢包（命令形态待真机核对）。",
+      "commands": "! ===== 广播风暴抑制（中兴 ZXR10，骨架参照）=====\n! ★ 待真机核对：ZXR10 风暴抑制命令形态（broadcast-suppression / storm-control 类关键字）\n!   各 ROS 版本差异大，上机后在接口视图用 ? 核对实际关键字与计量单位（%/pps），\n!   核对通过后转正本条（补真实命令与回显，exec_level 升 verified-cli）。",
+      "params": [],
+      "notes": "1) ★ 待真机核对：ZXR10 风暴抑制命令形态未核实，本条为骨架参照。\n2) 口径不变：接入口配置、上联口禁用；阈值取带宽百分比 1%-10%。\n核对通过后回填本条并升 exec_level 为 verified-cli。",
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "3a938af7-10e4-5f5b-a6d3-5ca1d2e5dcbe",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5250 / 5950 / 6900 系列",
+      "category": "MAC地址表",
+      "title": "MAC 地址表核查（中兴 ZXR10）",
+      "description": "查看交换机学到的 MAC 表：定位终端接入口、核查 MAC 漂移与异常学习。",
+      "commands": "! ===== MAC 地址表核查（中兴 ZXR10）=====\n! ---- 全表（版本间存在 show mac table / show mac-address / show mac address-table 三种形态）----\nshow mac table\n! ---- 按 VLAN 过滤 ----\nshow mac table vlan {{vlan_id}}",
+      "params": [
+        {
+          "name": "vlan_id",
+          "type": "int",
+          "label": "VLAN ID",
+          "required": false,
+          "default": "10",
+          "description": "按 VLAN 过滤 MAC 表；只影响显示不影响转发",
+          "validate": "vlan",
+          "range": "1-4094"
+        }
+      ],
+      "notes": "1) ZXR10 版本间 MAC 表命令形态差异大：show mac table（5260 系）/ show mac-address（等保口径）/ show mac address-table（2950 系），以 ? 为准。\n2) 排查逻辑：终端 ping 网关后看其 MAC 落在预期接口；同一 MAC 出现在两个接口=MAC 漂移。\n3) 表项类型 dynamic 正常，static 是手工绑定，drop 为丢弃型表项（防漂移用）。\n验证方法：目标终端 MAC 出现在预期接口行；无异常漂移告警。",
+      "verified": 0
+    },
+    {
+      "uuid": "67a7802b-3863-548c-93ba-21e6f7677314",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5250 / 5950 / 6900 系列（三层）",
+      "category": "ARP",
+      "title": "ARP 表核查（中兴 ZXR10 三层交换机）",
+      "description": "查看 ARP 解析表：核查网关学习、静态绑定与 ARP 欺骗排查。",
+      "commands": "! ===== ARP 表核查（中兴 ZXR10 三层交换机）=====\n! ---- 全表 ----\nshow arp\n! ---- 静态绑定（permanent 表项）核查 ----\nshow arp permanent",
+      "params": [],
+      "notes": "1) show arp 看 IP-MAC-接口-VLAN 四元组；Age 判断新鲜度，恒 0 刷新频繁可能是 ARP 攻击。\n2) 网关 IP 的 MAC 必须落在 VRRP/主控预期侧，漂到异常接口=二层环路或欺骗。\n3) 静态绑定排查用 show arp permanent（等保 IP-MAC 绑定加固项）；未绑定为空属正常。\n验证方法：目标终端 IP 的 MAC 与台账一致、接口正确；无异常动态刷新。",
+      "verified": 0
     }
   ]
 }

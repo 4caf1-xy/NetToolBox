@@ -6,7 +6,7 @@
   "vendor_slug": "h3c",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 16,
+  "count": 22,
   "entries": [
     {
       "uuid": "ed4efc39-7d65-5f6b-84fd-db4df71f2a63",
@@ -926,6 +926,239 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "11e85041-04b6-58a9-8469-27c1c2e971e7",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / S6520",
+      "category": "链路聚合",
+      "title": "配置链路聚合（Bridge-Aggregation LACP，H3C Comware7）",
+      "description": "创建二层聚合口 Bridge-Aggregation（动态 LACP），成员口经 port link-aggregation group 绑入。",
+      "commands": "# ===== 链路聚合（Bridge-Aggregation LACP，H3C Comware7）=====\nsystem-view\ninterface Bridge-Aggregation {{agg_id}}\n link-aggregation mode dynamic\n port link-type trunk\n port trunk permit vlan {{vlans}}\n quit\n# ---- 成员口绑入聚合组 ----\ninterface range {{port_range}}\n port link-type trunk\n port link-aggregation group {{agg_id}}\n quit\nsave\ndisplay link-aggregation summary",
+      "rollback": "# 回退：先摘成员口再删聚合口（成员在组时删除聚合口会被拒绝）\ninterface range {{port_range}}\n undo port link-aggregation group\n quit\nundo interface Bridge-Aggregation {{agg_id}}\nsave",
+      "params": [
+        {
+          "name": "agg_id",
+          "type": "int",
+          "label": "聚合组编号",
+          "required": true,
+          "default": "1",
+          "description": "Bridge-Aggregation 接口号，控制聚合口标识；两端各自编号但模式必须一致；save 前重启丢失",
+          "range": "1-1024",
+          "example": "1"
+        },
+        {
+          "name": "vlans",
+          "type": "string",
+          "label": "放通 VLAN 列表",
+          "required": false,
+          "default": "10 20",
+          "description": "trunk 放行的 VLAN 清单（空格分隔，可带 to 区间）；写错导致对端 VLAN 不通",
+          "example": "10 20"
+        },
+        {
+          "name": "port_range",
+          "type": "string",
+          "label": "成员口范围",
+          "required": true,
+          "default": "",
+          "description": "加入聚合组的物理口范围（如 GigabitEthernet1/0/1 to GigabitEthernet1/0/2）；选错口会把业务口绑进聚合组导致断流",
+          "example": "GigabitEthernet1/0/1 to GigabitEthernet1/0/2"
+        }
+      ],
+      "notes": "1) link-aggregation mode dynamic 才是 LACP；缺省 static（无协商）。\n2) 成员口必须先配 link-type trunk 再绑组（继承聚合口属性）；属性不一致成员口进不了 Selected。\n3) H3C 老平台（Comware5）没有 interface range，逐口进视图绑组。\n验证方法：display link-aggregation summary 中聚合口显示 S（static）/D（dynamic）且成员 Selected。",
+      "verified": 0
+    },
+    {
+      "uuid": "bf1c3f10-c919-5a4e-b7e8-4f6e34c53858",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5560X / S6520 / S6800（IRF）",
+      "category": "堆叠",
+      "title": "堆叠状态核查（IRF，H3C Comware7 交换机）",
+      "description": "IRF 堆叠成员、拓扑与堆叠口状态核查（只读组合）。",
+      "commands": "# ===== 堆叠状态核查（IRF，H3C Comware7）=====\n# 成员角色与优先级\ndisplay irf\n# 各成员的 irf 配置（域号、优先级、堆叠口绑定）\ndisplay irf configuration\n# 拓扑连接（谁和谁直连）\ndisplay irf topology",
+      "params": [],
+      "notes": "1) display irf 的 Role 列 Master/Slave 正常；出现两台 Master = IRF 分裂（MAD 生效会shutdown备网）。\n2) display irf topology 看堆叠口互连是否成环状/链状全通，断口优先查线缆与 irf-port 绑定。\n3) MAD 状态用 display mad verbose 核查，分裂后恢复要先恢复链路再释放 shutdown 口。\n验证方法：display irf 显示 1 Master + N Slave、成员号连续；display irf topology 链路全 Up。",
+      "verified": 0
+    },
+    {
+      "uuid": "d82326ef-cc89-5eaf-961b-2da34fc720d6",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / S6520（三层）",
+      "category": "VRRP",
+      "title": "配置 VRRP 网关冗余（H3C Comware7 三层交换机）",
+      "description": "在 Vlan-interface 上配 VRRP 备份组：虚拟 IP 作下联网关，主备切换由优先级与抢占决定。",
+      "commands": "# ===== VRRP 网关冗余（H3C Comware7 三层交换机）=====\nsystem-view\ninterface Vlan-interface {{vlan_id}}\n ip address {{local_ip}} {{masklen}}\n vrrp vrid {{vrid}} virtual-ip {{vip}}\n vrrp vrid {{vrid}} priority {{priority}}\n quit\nsave\ndisplay vrrp",
+      "rollback": "# 回退：删除 VRRP 备份组（下联网关若指向 VIP，先确认对端 VRRP 在位再删）\nsystem-view\ninterface Vlan-interface {{vlan_id}}\n undo vrrp vrid {{vrid}}\n quit\nsave",
+      "params": [
+        {
+          "name": "vlan_id",
+          "type": "int",
+          "label": "VLAN ID",
+          "required": true,
+          "default": "10",
+          "description": "Vlan-interface 所属 VLAN 编号，VRRP 配在该三层接口上；须先建 VLAN",
+          "validate": "vlan",
+          "range": "1-4094"
+        },
+        {
+          "name": "local_ip",
+          "type": "ip",
+          "label": "本机接口 IP",
+          "required": true,
+          "default": "",
+          "description": "本机 Vlan-interface 的真实 IP（每台不同）；不能与 VIP、对端接口 IP 冲突",
+          "example": "10.255.10.2"
+        },
+        {
+          "name": "masklen",
+          "type": "int",
+          "label": "掩码长度",
+          "required": true,
+          "default": "24",
+          "description": "SVI 子网掩码位数；与对端不一致会导致网段不通",
+          "range": "1-32",
+          "example": "24"
+        },
+        {
+          "name": "vrid",
+          "type": "int",
+          "label": "备份组号",
+          "required": true,
+          "default": "10",
+          "description": "VRRP 备份组 ID 1-255，同组两台必须一致；不同业务用不同 vrid 隔离",
+          "range": "1-255",
+          "example": "10"
+        },
+        {
+          "name": "vip",
+          "type": "ip",
+          "label": "虚拟网关 IP",
+          "required": true,
+          "default": "",
+          "description": "下联设备的网关地址（组内共享）；不能与本机接口 IP 相同；改 VIP 要同步改下联网关",
+          "example": "10.255.10.1"
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "label": "优先级",
+          "required": true,
+          "default": "120",
+          "description": "VRRP 优先级 1-254（默认 100），高者为 Master；Comware 抢占默认开启",
+          "range": "1-254",
+          "example": "120"
+        }
+      ],
+      "notes": "1) 两台设备同 vrid + 同 VIP 成组；接口 IP 不能与 VIP 相同。\n2) 优先级高者为 Master（默认 100），1-254；抢占默认开，防回切抖动可配延迟。\n3) 下联设备网关指向 VIP 而非接口 IP。\n验证方法：display vrrp 中本机 State 为 Master（对端 Backup）；shutdown 主机 Vlan-interface，对端切 Master。",
+      "verified": 0
+    },
+    {
+      "uuid": "600237fb-4ddd-59ff-b731-c9a70fa03ebf",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560（接入层）",
+      "category": "端口安全",
+      "title": "配置端口安全（H3C Comware7 接入交换机）",
+      "description": "全局开 port-security 特性，接入口配 autolearn 模式 + MAC 上限，违规丢包告警。",
+      "commands": "# ===== 端口安全（H3C Comware7 接入交换机）=====\nsystem-view\n# ---- 全局先开端口安全特性（不开接口配置不生效）----\nport-security enable\ninterface GigabitEthernet1/0/{{port}}\n port link-type access\n port-security max-mac-count {{max_mac}}\n port-security port-mode autolearn\n quit\nsave\ndisplay port-security",
+      "rollback": "# 回退：先撤接口子配置，再关全局特性（顺序反了接口配置残留）\nsystem-view\ninterface GigabitEthernet1/0/{{port}}\n undo port-security port-mode\n undo port-security max-mac-count\n quit\nundo port-security enable\nsave",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接入口编号",
+          "required": true,
+          "default": "",
+          "description": "要开启端口安全的接口编号（1/0/1）；trunk/上联口禁用",
+          "example": "1"
+        },
+        {
+          "name": "max_mac",
+          "type": "int",
+          "label": "最大 MAC 数",
+          "required": true,
+          "default": "2",
+          "description": "端口允许学习的安全 MAC 上限；设小于终端数会误杀正常终端",
+          "range": "1-1024",
+          "example": "2"
+        }
+      ],
+      "notes": "1) Comware 端口安全是全局特性：system 视图 port-security enable 是前提。\n2) autolearn 模式动态学习安全 MAC；违规默认丢包+trap（intrusion-protection 可配 block-port）。\n3) 与 802.1X 组合用 userlogin/autolearn 之外的模式时先读版本手册。\n验证方法：display port-security 显示 enabled；display port-security interface 看模式与 MAC 数。",
+      "verified": 0
+    },
+    {
+      "uuid": "cc06e156-6e9b-517e-b447-76cbe6530642",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130-P / S5560S-P（PoE 型号）",
+      "category": "POE",
+      "title": "PoE 供电管理与口级开关（H3C Comware7 交换机）",
+      "description": "查整机 PoE 功率与各口供电状态，按口开启/关闭供电。",
+      "commands": "# ===== PoE 供电管理（H3C Comware7 交换机）=====\n# ---- 整机功率与各口状态 ----\ndisplay poe power\ndisplay poe interface\n# ---- 口级开关 ----\nsystem-view\ninterface GigabitEthernet1/0/{{port}}\n poe enable\n quit\nsave\ndisplay poe interface GigabitEthernet1/0/{{port}}",
+      "rollback": "# 回退：关闭该口供电\nsystem-view\ninterface GigabitEthernet1/0/{{port}}\n undo poe enable\n quit\nsave",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "PoE 接口编号",
+          "required": true,
+          "default": "",
+          "description": "要管理的 PoE 接口编号（1/0/5）；非 PoE 型号该命令不存在",
+          "example": "5"
+        }
+      ],
+      "notes": "1) display poe power 看剩余功率；预算耗尽新口上不了电。\n2) 口供电异常先查 PD 等级与线缆；poe force-power 慎用（有烧 PD 风险）。\n3) 非 PoE 型号执行 poe enable 报错属正常。\n验证方法：display poe interface 中目标口 PoE enabled、Status on 且有功率值。",
+      "verified": 0
+    },
+    {
+      "uuid": "b5f6a980-fbb8-5d8a-a127-494227acf964",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560（接入层）",
+      "category": "风暴抑制",
+      "title": "配置广播风暴抑制（broadcast-suppression，H3C Comware7）",
+      "description": "按端口带宽百分比抑制广播流量，超限丢包，防广播风暴拖垮接入网。",
+      "commands": "# ===== 广播风暴抑制（H3C Comware7 接入交换机）=====\nsystem-view\ninterface GigabitEthernet1/0/{{port}}\n broadcast-suppression {{pct}}\n quit\nsave\ndisplay this",
+      "rollback": "# 回退：删除风暴抑制\nsystem-view\ninterface GigabitEthernet1/0/{{port}}\n undo broadcast-suppression\n quit\nsave",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接入口编号",
+          "required": true,
+          "default": "",
+          "description": "要抑制的接口编号；建议接入口配，上联口禁用",
+          "example": "1"
+        },
+        {
+          "name": "pct",
+          "type": "int",
+          "label": "抑制阈值(%)",
+          "required": true,
+          "default": "5",
+          "description": "占用端口带宽的百分比阈值 0-100，超限部分丢弃；设太高防不住风暴，太低误杀正常广播",
+          "range": "0-100",
+          "example": "5"
+        }
+      ],
+      "notes": "1) Comware 支持 pps/kbps 计量：broadcast-suppression pps 200，按需选用。\n2) 组播/未知单播抑制分别用 multicast-suppression / unicast-suppression。\n3) 抑制只在超限时丢包，正常流量不受影响。\n验证方法：display this 中 broadcast-suppression 值正确；风暴模拟时口丢弃计数增长。",
+      "verified": 0
     }
   ]
 }
