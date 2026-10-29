@@ -4,19 +4,58 @@
   "generated_at": "2026-10-14",
   "notes": "Before/After 变更对比提取规则（H 批）。不新增条目：本文件随 import_seed_dir 大流导入时无 entries/trees/errs/packs 键，自动 (0,0,0) 空转。规则字段说明见 docs/seed-guide.md；坏规则由 --validate-seed [E] 硬拦截。规则顺序即选规优先级。提取正则统一 IGNORECASE；kv 语义要求命名组 key+value（其余命名组按序以 ' / ' 并入状态值）；set 语义要求命名组 item。noise 命中的行在提取前剔除（uptime/计数器/时间戳/CPU 瞬时值），零联网纯本地。",
   "noise": [
-    {"pattern": "\\buptime\\b", "desc": "运行时长"},
-    {"pattern": "\\bload\\s+average\\b", "desc": "系统负载瞬时值"},
-    {"pattern": "CPU utilization", "desc": "CPU 瞬时值"},
-    {"pattern": "\\bmemory\\s+usage\\b", "desc": "内存瞬时值"},
-    {"pattern": "Last clearing of", "desc": "计数器清零时间"},
-    {"pattern": "\\d+\\s*(second|sec|min|minute)s?\\s+(input|output)\\s+rate", "desc": "端口速率瞬时值"},
-    {"pattern": "\\b\\d+\\s+(packets?|bytes|errors?|broadcasts?|multicasts?|giants|runts|frames?|overruns?|ignored|CRC)\\b", "desc": "包/字节计数器行"},
-    {"pattern": "\\b\\d+d\\d+h\\d*m?\\b", "desc": "运行时长缩写（1d02h30m）"},
-    {"pattern": "\\b\\d{2}:\\d{2}:\\d{2}\\b", "desc": "时分秒时间戳 / Dead Time"},
-    {"pattern": "\\b\\d{4}-\\d{2}-\\d{2}\\b", "desc": "日期时间戳"},
-    {"pattern": "^\\s*-{2,}\\s*More\\s*-{2,}\\s*$", "desc": "-- More -- 分页"},
-    {"pattern": "^\\s*[<\\[][\\w.\\-]+[>\\]]\\s*$", "desc": "裸提示符行"},
-    {"pattern": "^\\s*[-=~*_]{4,}\\s*$", "desc": "分隔线"}
+    {
+      "pattern": "\\buptime\\b",
+      "desc": "运行时长"
+    },
+    {
+      "pattern": "\\bload\\s+average\\b",
+      "desc": "系统负载瞬时值"
+    },
+    {
+      "pattern": "CPU utilization",
+      "desc": "CPU 瞬时值"
+    },
+    {
+      "pattern": "\\bmemory\\s+usage\\b",
+      "desc": "内存瞬时值"
+    },
+    {
+      "pattern": "Last clearing of",
+      "desc": "计数器清零时间"
+    },
+    {
+      "pattern": "\\d+\\s*(second|sec|min|minute)s?\\s+(input|output)\\s+rate",
+      "desc": "端口速率瞬时值"
+    },
+    {
+      "pattern": "\\b\\d+\\s+(packets?|bytes|errors?|broadcasts?|multicasts?|giants|runts|frames?|overruns?|ignored|CRC)\\b",
+      "desc": "包/字节计数器行"
+    },
+    {
+      "pattern": "\\b\\d+d\\d+h\\d*m?\\b",
+      "desc": "运行时长缩写（1d02h30m）"
+    },
+    {
+      "pattern": "\\b\\d{2}:\\d{2}:\\d{2}\\b",
+      "desc": "时分秒时间戳 / Dead Time"
+    },
+    {
+      "pattern": "\\b\\d{4}-\\d{2}-\\d{2}\\b",
+      "desc": "日期时间戳"
+    },
+    {
+      "pattern": "^\\s*-{2,}\\s*More\\s*-{2,}\\s*$",
+      "desc": "-- More -- 分页"
+    },
+    {
+      "pattern": "^\\s*[<\\[][\\w.\\-]+[>\\]]\\s*$",
+      "desc": "裸提示符行"
+    },
+    {
+      "pattern": "^\\s*[-=~*_]{4,}\\s*$",
+      "desc": "分隔线"
+    }
   ],
   "diff_rules": [
     {
@@ -154,6 +193,144 @@
           "os_family": "-",
           "note": "ip route show：default/前缀 + via/dev（metric 等瞬态不入状态值）",
           "line": "^(?P<key>default|\\d{1,3}(?:\\.\\d{1,3}){3}(?:/\\d{1,2})?)\\s+(?P<value>(?:via\\s+\\S+\\s+)?dev\\s+\\S+)"
+        }
+      ]
+    },
+    {
+      "rule_id": "stp_state",
+      "label": "STP 端口角色/状态",
+      "semantics": "kv",
+      "match": "(display\\s+stp\\b|show\\s+spanning-tree\\b)",
+      "noise": [],
+      "variants": [
+        {
+          "vendor": "huawei",
+          "os_family": "vrp5/vrp8",
+          "note": "display stp brief：Port Role + Port State 列（DESI/ROOT/ALTE/BACK）",
+          "line": "(?P<key>[A-Za-z][\\w./-]*\\d[\\w./-]*)\\s+(?:\\d{1,4}\\.\\d\\s+)?(?P<value>DESI|ROOT|ALTE|BACK)\\s+(?:FORWARDING|DISCARDING|LEARNING)\\b"
+        },
+        {
+          "vendor": "h3c",
+          "os_family": "comware7",
+          "note": "display stp brief：与华为 brief 同构（Role+State 列）",
+          "line": "(?P<key>[A-Za-z][\\w./-]*\\d[\\w./-]*)\\s+(?:\\d{1,4}\\.\\d\\s+)?(?P<value>DESI|ROOT|ALTE|BACK)\\s+(?:FORWARDING|DISCARDING|LEARNING)\\b"
+        },
+        {
+          "vendor": "cisco",
+          "os_family": "ios",
+          "note": "show spanning-tree：Role(Root/Altn/Desg) + Sts(FWD/BLK) 列",
+          "line": "(?P<key>[A-Za-z][\\w/-]*\\d[\\w/-]*)\\s+(?P<value>Root|Altn|Desg|Back)\\s+(?P<sts>BLK|FWD|LRN|LIS|DIS)\\b"
+        },
+        {
+          "vendor": "ruijie",
+          "os_family": "rgos",
+          "note": "show spanning-tree：与思科同构",
+          "line": "(?P<key>[A-Za-z][\\w/-]*\\d[\\w/-]*)\\s+(?P<value>Root|Altn|Desg|Back)\\s+(?P<sts>BLK|FWD|LRN|LIS|DIS)\\b"
+        }
+      ]
+    },
+    {
+      "rule_id": "lag_member",
+      "label": "链路聚合成员状态",
+      "semantics": "kv",
+      "match": "(display\\s+eth-trunk\\b|show\\s+etherchannel\\b|show\\s+lacp\\b)",
+      "noise": [],
+      "variants": [
+        {
+          "vendor": "cisco",
+          "os_family": "ios",
+          "note": "show etherchannel summary：聚合口括号标志（Po1(SU)/Po1(SD)；成员口多口同行，单 search 取首个的引擎限制下不提取成员列，成员变化由降级行级比对兜底）",
+          "line": "^\\s*(?:\\d+\\s+)?(?P<key>Po\\d+)\\((?P<value>[A-Za-z]{1,3})\\)"
+        },
+        {
+          "vendor": "huawei",
+          "os_family": "vrp5/vrp8",
+          "note": "display eth-trunk N：成员口 Status 列（Up/Down + Weight）",
+          "line": "(?P<key>[A-Za-z][\\w/-]*\\d[\\w/-]*)\\s+(?P<value>Up|Down)\\s+\\d+\\s*$"
+        },
+        {
+          "vendor": "zte",
+          "os_family": "zxr10",
+          "note": "show lacp N internal：成员口 Port[Flags]（FA* 带星=在组转发）",
+          "line": "(?P<key>[A-Za-z][\\w/-]*\\d[\\w/-]*)\\[(?P<value>[A-Z*]+)\\]\\s+ACTIVE"
+        }
+      ]
+    },
+    {
+      "rule_id": "vrrp_state",
+      "label": "VRRP 备份组状态",
+      "semantics": "kv",
+      "match": "(display\\s+vrrp\\b|show\\s+vrrp\\b|show\\s+standby\\b)",
+      "noise": [],
+      "variants": [
+        {
+          "vendor": "huawei",
+          "os_family": "vrp5/vrp8",
+          "note": "display vrrp brief：VRID + State 列（Master/Backup/Initialize）",
+          "line": "^\\s*(?P<key>\\d{1,3})\\s+(?P<value>Master|Backup|Initialize)\\b"
+        },
+        {
+          "vendor": "h3c",
+          "os_family": "comware7",
+          "note": "display vrrp：Interface VRID State 三列（key=接口+VRID）",
+          "line": "^\\s*(?P<key>\\S+\\s+\\d{1,3})\\s+(?P<value>Master|Backup|Initialize)\\b"
+        },
+        {
+          "vendor": "cisco",
+          "os_family": "ios",
+          "note": "show vrrp brief：Interface Grp … State 列（key=接口+组号；Own/Pre 列桥接）",
+          "line": "^\\s*(?P<key>[A-Za-z][\\w/-]*\\d[\\w-]*\\s+\\d{1,4})\\s+\\d+\\s+\\d+\\s+(?:\\S+\\s+){0,2}(?P<value>Master|Backup|Init)\\b"
+        },
+        {
+          "vendor": "ruijie",
+          "os_family": "rgos",
+          "note": "show vrrp brief：与思科同构",
+          "line": "^\\s*(?P<key>[A-Za-z][\\w/-]*\\d[\\w-]*\\s+\\d{1,4})\\s+\\d+\\s+\\d+\\s+(?:\\S+\\s+){0,2}(?P<value>Master|Backup|Init)\\b"
+        },
+        {
+          "vendor": "zte",
+          "os_family": "zxr10",
+          "note": "show vrrp brief（5900E 手册）：Interface vrID … A P State 列",
+          "line": "^\\s*(?P<key>[A-Za-z][\\w/-]*\\d[\\w-]*\\s+\\d{1,4})\\s+\\d+\\s+\\d+\\s+(?:\\S+\\s+){0,2}(?P<value>Master|Backup|Init)\\b"
+        },
+        {
+          "vendor": "juniper",
+          "os_family": "junos",
+          "note": "show vrrp：Interface + VR state 列（key=逻辑接口，小写 master/backup）",
+          "line": "^\\s*(?P<key>[a-z][\\w./:-]*\\d[\\w./:-]*)\\s+up\\s+\\d+\\s+(?P<value>master|backup|init)\\b"
+        }
+      ]
+    },
+    {
+      "rule_id": "mac_table",
+      "label": "MAC 地址表",
+      "semantics": "set",
+      "match": "(display\\s+mac-address\\b|show\\s+mac-address\\b|show\\s+mac\\b|show\\s+ethernet-switching\\s+table\\b)",
+      "noise": [],
+      "variants": [
+        {
+          "vendor": "huawei",
+          "os_family": "vrp5/vrp8",
+          "note": "display mac-address：连字符 MAC（5489-98ab-cd12）",
+          "line": "(?P<item>[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4})"
+        },
+        {
+          "vendor": "cisco",
+          "os_family": "ios",
+          "note": "show mac address-table：点分 MAC（0011.2233.4455）",
+          "line": "(?P<item>[0-9a-f]{4}\\.[0-9a-f]{4}\\.[0-9a-f]{4})"
+        },
+        {
+          "vendor": "ruijie",
+          "os_family": "rgos",
+          "note": "show mac-address-table：与思科点分格式同构",
+          "line": "(?P<item>[0-9a-f]{4}\\.[0-9a-f]{4}\\.[0-9a-f]{4})"
+        },
+        {
+          "vendor": "juniper",
+          "os_family": "junos",
+          "note": "show ethernet-switching table：冒号 MAC（00:11:22:33:44:55）",
+          "line": "(?P<item>[0-9a-f]{2}(?::[0-9a-f]{2}){5})"
         }
       ]
     }

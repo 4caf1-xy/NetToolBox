@@ -3,11 +3,11 @@
 smoke_diff.py —— Before/After 变更对比（H 批）冒烟（2026-10-14 新增）
 
 覆盖八案（全部 offscreen + 本地样本，主库零接触、零联网）：
-    [A] 规则随种子：load_rules 4 类 / 17 变体；validate_rules 零 [E]/[W]
+    [A] 规则随种子：load_rules 8 类 / 34 变体；validate_rules 零 [E]/[W]
     [B] 华为接口真实格式 diff：四态齐全；uptime/时间戳/计数器行不产生假变化
     [C] 思科接口 + VLAN 集合增删 + OSPF（华为/思科 brief）+ 路由（华为/思科/Linux）
         —— 下一跳变更必须报 ⚠
-    [D] 变体抽验 ≥15 命中（沿用 E 批纪律，实际 17 变体逐个跑样本）
+    [D] 变体抽验 ≥30 命中（沿用 E 批纪律，实际 34 变体逐个跑样本）
     [E] 坏提取规则被 validate [E] 硬拦截（临时 seed 目录同名文件优先级注入，
         端到端跑 main.validate_seed）；恢复后 validate 复位 EXIT=0
     [F] 降级行级 diff：无规则命中/空输入/规则命中零提取 均不崩；
@@ -207,10 +207,11 @@ def case_a():
     check("A1 规则文件载入无文件级问题", problems == [], "; ".join(problems))
     rules = data.get("diff_rules") or []
     ids = [r.get("rule_id") for r in rules]
-    check("A2 四类规则（接口/VLAN/OSPF/路由）",
-          sorted(ids) == ["if_status", "ospf_peer", "route_table", "vlan_table"], str(ids))
+    check("A2 八类规则（接口/VLAN/OSPF/路由/STP/聚合/VRRP/MAC）",
+          sorted(ids) == ["if_status", "lag_member", "mac_table", "ospf_peer",
+                          "route_table", "stp_state", "vlan_table", "vrrp_state"], str(ids))
     n_var = sum(len(r.get("variants") or []) for r in rules)
-    check("A3 厂商变体 17 个", n_var == 17, str(n_var))
+    check("A3 厂商变体 34 个", n_var == 34, str(n_var))
     errs, warns = diff_tool.validate_rules(data)
     check("A4 validate_rules 零 [E]", errs == [], "; ".join(errs[:3]))
     check("A5 validate_rules 零 [W]", warns == [], "; ".join(warns[:3]))
@@ -218,7 +219,9 @@ def case_a():
     sem = {r["rule_id"]: r.get("semantics") for r in rules}
     check("A6 语义标注（kv=键值 / set=集合）",
           sem.get("if_status") == "kv" and sem.get("ospf_peer") == "kv"
-          and sem.get("route_table") == "kv" and sem.get("vlan_table") == "set", str(sem))
+          and sem.get("route_table") == "kv" and sem.get("vlan_table") == "set"
+          and sem.get("stp_state") == "kv" and sem.get("lag_member") == "kv"
+          and sem.get("vrrp_state") == "kv" and sem.get("mac_table") == "set", str(sem))
 
 
 # ======================================================================
@@ -321,7 +324,7 @@ def case_c():
 
 
 # ======================================================================
-# [D] 变体抽验 ≥15（沿用 E 批纪律；17 变体逐个过样本）
+# [D] 变体抽验 ≥30（沿用 E 批纪律；34 变体逐个过样本）
 # ======================================================================
 VARIANT_SAMPLES = [
     # (rule_id, vendor, sample_before, sample_after)
@@ -344,6 +347,58 @@ VARIANT_SAMPLES = [
     ("route_table", "cisco", CISCO_ROUTE_BEFORE, CISCO_ROUTE_AFTER),
     ("route_table", "ruijie", CISCO_ROUTE_BEFORE, CISCO_ROUTE_AFTER),
     ("route_table", "linux", LINUX_ROUTE_BEFORE, LINUX_ROUTE_AFTER),
+    # ---- O 批子批 3 新增：STP/聚合/VRRP/MAC ----
+    ("stp_state", "huawei",
+     "<HUAWEI>display stp brief\n 0      GigabitEthernet0/0/1  128.1  DESI  FORWARDING  NONE\n 0      GigabitEthernet0/0/2  128.2  ALTE  DISCARDING  NONE",
+     "0      GigabitEthernet0/0/1  128.1  DESI  FORWARDING  NONE\n 0      GigabitEthernet0/0/2  128.2  DESI  FORWARDING  NONE"),
+    ("stp_state", "h3c",
+     "<H3C>display stp brief\n 0       GE1/0/1     DESI    FORWARDING  NONE\n 0       GE1/0/2     ALTE    DISCARDING  NONE",
+     "0       GE1/0/1     DESI    FORWARDING  NONE\n 0       GE1/0/2     DESI    FORWARDING  NONE"),
+    ("stp_state", "cisco",
+     "sw1#show spanning-tree vlan 10\n Gi0/1               Root FWD 4         128.2    P2p\n Gi0/2               Altn BLK 4         128.3    P2p",
+     "Gi0/1               Root FWD 4         128.2    P2p\n Gi0/2               Root FWD 4         128.3    P2p"),
+    ("stp_state", "ruijie",
+     "Ruijie#show spanning-tree\n Gi0/1               Desg FWD 4         128.2    P2p\n Gi0/2               Root BLK 4         128.3    P2p",
+     "Gi0/1               Desg FWD 4         128.2    P2p\n Gi0/2               Root FWD 4         128.3    P2p"),
+    ("lag_member", "cisco",
+     "sw1#show etherchannel summary\n 1      Po1(SU)         LACP      Gi0/1(P)    Gi0/2(P)",
+     "1      Po1(SD)         LACP      Gi0/1(D)    Gi0/2(D)"),
+    ("lag_member", "huawei",
+     "<HUAWEI>display eth-trunk 1\n GigabitEthernet0/0/1          Up          1\n GigabitEthernet0/0/2          Down        1",
+     "GigabitEthernet0/0/1          Up          1\n GigabitEthernet0/0/2          Up          1"),
+    ("lag_member", "zte",
+     "ZXR10#show lacp 13 internal\n cgei-0/0/0/4[FA*]   ACTIVE   30       32768 0xd0b  0x3d  CURRENT      COLL&DIST\n cgei-0/1/0/4[FA*]   ACTIVE   30       32768 0xd0b  0x3d  CURRENT      COLL&DIST",
+     "cgei-0/0/0/4[FA*]   ACTIVE   30       32768 0xd0b  0x3d  CURRENT      COLL&DIST\n cgei-0/1/0/4[FA]    ACTIVE   30       32768 0xd0b  0x3d  CURRENT      COLL&DIST"),
+    ("vrrp_state", "huawei",
+     "<HUAWEI>display vrrp brief\n 10   Master      Vlanif10                 NORMAL   10.255.10.1     local\n 20   Backup      Vlanif20                 NORMAL   10.255.20.1     10.255.20.2",
+     "10   Master      Vlanif10                 NORMAL   10.255.10.1     local\n 20   Master      Vlanif20                 NORMAL   10.255.20.1     local"),
+    ("vrrp_state", "h3c",
+     "<H3C>display vrrp\n Vlan-interface10   10    Backup      120    100    None  10.255.10.1",
+     "Vlan-interface10   10    Master      120    100    None  10.255.10.1"),
+    ("vrrp_state", "cisco",
+     "sw1#show vrrp brief\n Vl10               10  120 3570        Y  Master  10.255.10.1",
+     "Vl10               10  120 3570        Y  Backup  10.255.10.1"),
+    ("vrrp_state", "ruijie",
+     "Ruijie#show vrrp brief\n Vl10               10  120 3570        Y  Master  10.255.10.1",
+     "Vl10               10  120 3570        Y  Backup  10.255.10.1"),
+    ("vrrp_state", "zte",
+     "ZXR10#show vrrp brief\n vlan30 1 100 1000 A P Master 10.0.0.1 10.0.0.3",
+     "vlan30 1 100 1000 A P Backup 10.0.0.1 10.0.0.3"),
+    ("vrrp_state", "juniper",
+     "root> show vrrp\n vlan.10       up             10   master    Active      A  0.363  lcl    10.255.10.2",
+     "vlan.10       up             10   backup    Active      A  0.363  lcl    10.255.10.2"),
+    ("mac_table", "cisco",
+     "sw1#show mac address-table\n Vlan    Mac Address       Type        Ports\n   10    0011.2233.4455    DYNAMIC     Gi0/1\n   10    0011.2233.4456    DYNAMIC     Gi0/2",
+     "Vlan    Mac Address       Type        Ports\n   10    0011.2233.4455    DYNAMIC     Gi0/1\n   10    0011.2233.4457    DYNAMIC     Gi0/3"),
+    ("mac_table", "huawei",
+     "<HUAWEI>display mac-address\n 5489-98ab-cd12 10/-        GE0/0/1         dynamic\n 5489-98ab-cd13 20/-        GE0/0/2         dynamic",
+     "5489-98ab-cd12 10/-        GE0/0/1         dynamic\n 5489-98ab-cd14 20/-        GE0/0/3         dynamic"),
+    ("mac_table", "ruijie",
+     "Ruijie#show mac-address-table\n Vlan    Mac Address       Type        Ports\n   10    0011.2233.4455    DYNAMIC     Gi0/1",
+     "Vlan    Mac Address       Type        Ports\n   10    0011.2233.4458    DYNAMIC     Gi0/1"),
+    ("mac_table", "juniper",
+     "root> show ethernet-switching table\n   OA_BIZ                    *          00:11:22:33:44:55   Learn   0  ge-0/0/1.0\n   OA_BIZ                    *          00:11:22:33:44:56   Learn   0  ge-0/0/2.0",
+     "OA_BIZ                    *          00:11:22:33:44:55   Learn   0  ge-0/0/1.0\n   OA_BIZ                    *          00:11:22:33:44:57   Learn   0  ge-0/0/3.0"),
 ]
 
 
@@ -370,9 +425,9 @@ def case_d():
             hits += 1
         else:
             misses.append("%s/%s(提取 %d, 命中变体 %s)" % (rule_id, vendor, len(items), used_vendor))
-    check("D1 变体抽验 ≥15 命中", hits >= 15,
+    check("D1 变体抽验 ≥30 命中", hits >= 30,
           "hits=%d misses=%s" % (hits, misses))
-    check("D2 全 17 变体命中（E 批纪律从优）", hits == 17 and not misses, str(misses))
+    check("D2 全 34 变体命中（E 批纪律从优）", hits == 34 and not misses, str(misses))
 
 
 # ======================================================================
