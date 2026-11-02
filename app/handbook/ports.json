@@ -1,0 +1,586 @@
+{
+  "doc_id": "ports",
+  "title": "常用端口",
+  "subtitle": "常用端口集：IANA 服务名 + 传输层 + 语义备注（未登记端口逐条标注）",
+  "source": "IANA Service Name and Transport Protocol Port Number Registry（service-names-port-numbers）；未登记端口在服务名列标注并说明业界惯例来源",
+  "updated": "2026-11-02",
+  "notes": [
+    "端口号与传输层是一对：同一个号码在 TCP 与 UDP 下可以是两个完全不同的服务（典型：514/TCP = shell，514/UDP = syslog）。查端口必须连协议一起看。",
+    "「未登记」表示 IANA 注册表中查不到该端口，但业界事实标准就是用这个号（软件文档写明）；生产环境仍以产品文档为准，不要拿本表去改配置。",
+    "端口段划分：0–1023 系统端口（Unix 下绑定需 root）；1024–49151 用户注册端口；49152–65535 动态/私有端口。",
+    "安全排查：对外暴露 22 / 3389 / 3306 / 6379 / 9200 等高危端口是常见失分项；开放端口不等于服务可用，需再用连通性测试确认。",
+    "本表只收常用集，不追求全量；查完整注册表请以 IANA 官方 registry 为准。"
+  ],
+  "groups": [
+    {
+      "name": "名称解析与基础协议",
+      "desc": "网络能不能通的第一层：域名解析、地址分配、时间同步、局域网名称发现。",
+      "columns": [
+        "端口",
+        "传输层",
+        "服务名（IANA）",
+        "说明 / 备注"
+      ],
+      "rows": [
+        [
+          "53",
+          "TCP/UDP",
+          "domain",
+          "DNS。查询一般走 UDP 53；响应被截断（TC 标志）或区域传送（AXFR/IXFR）走 TCP 53"
+        ],
+        [
+          "67",
+          "UDP",
+          "bootps",
+          "DHCP 服务端监听；客户端广播请求的目的端口"
+        ],
+        [
+          "68",
+          "UDP",
+          "bootpc",
+          "DHCP 客户端监听；服务端应答的目的端口"
+        ],
+        [
+          "69",
+          "UDP",
+          "tftp",
+          "TFTP，设备固件/配置文件上传下载常用（无认证，只在隔离网内使用）"
+        ],
+        [
+          "123",
+          "UDP",
+          "ntp",
+          "NTP 时间同步。国内常用 ntp.aliyun.com；偏差过大时先查 123/UDP 是否被策略拦截"
+        ],
+        [
+          "137",
+          "UDP",
+          "netbios-ns",
+          "NetBIOS 名称服务（Windows 旧式名称解析）"
+        ],
+        [
+          "138",
+          "UDP",
+          "netbios-dgm",
+          "NetBIOS 数据报服务（广播式通信）"
+        ],
+        [
+          "139",
+          "TCP",
+          "netbios-ssn",
+          "NetBIOS 会话服务（SMB over NetBIOS，老式文件共享）"
+        ],
+        [
+          "520",
+          "UDP",
+          "route",
+          "RIP 路由协议；RIPv2 组播 224.0.0.9，仍走 520/UDP"
+        ],
+        [
+          "546",
+          "UDP",
+          "dhcpv6-client",
+          "DHCPv6 客户端"
+        ],
+        [
+          "547",
+          "UDP",
+          "dhcpv6-server",
+          "DHCPv6 服务端"
+        ],
+        [
+          "5353",
+          "UDP",
+          "mdns",
+          "mDNS（Bonjour / Avahi），组播 224.0.0.251，局域网 .local 名称解析"
+        ],
+        [
+          "5355",
+          "UDP",
+          "llmnr",
+          "LLMNR（Windows 链路本地多播名称解析），常被用于名称欺骗攻击面"
+        ]
+      ]
+    },
+    {
+      "name": "远程管理与运维",
+      "desc": "登录、配置、带外/图形远程。这组端口是安全加固的重点对象。",
+      "columns": [
+        "端口",
+        "传输层",
+        "服务名（IANA）",
+        "说明 / 备注"
+      ],
+      "rows": [
+        [
+          "22",
+          "TCP",
+          "ssh",
+          "SSH 登录 / SFTP / SCP / 端口转发；设备 netconf over ssh 之外的一切远程运维主通道"
+        ],
+        [
+          "23",
+          "TCP",
+          "telnet",
+          "Telnet 明文登录（含口令明文），生产环境应禁用并改 SSH"
+        ],
+        [
+          "49",
+          "TCP/UDP",
+          "tacacs",
+          "TACACS+ 集中认证（网络设备 AAA 常用；TACACS+ 实际只用 TCP 49）"
+        ],
+        [
+          "830",
+          "TCP",
+          "netconf-ssh",
+          "NETCONF over SSH，自动化配置下发通道"
+        ],
+        [
+          "3389",
+          "TCP/UDP",
+          "ms-wbt-server",
+          "Windows 远程桌面（RDP）。暴露公网是高危项，至少加 VPN/堡垒机"
+        ],
+        [
+          "5900",
+          "TCP",
+          "rfb",
+          "VNC 远程桌面（RFB 协议）；5901 起为第二个显示号"
+        ],
+        [
+          "5985",
+          "TCP",
+          "wsman",
+          "WinRM HTTP（PowerShell Remoting 默认）"
+        ],
+        [
+          "5986",
+          "TCP",
+          "wsmans",
+          "WinRM over TLS"
+        ]
+      ]
+    },
+    {
+      "name": "Web 与代理",
+      "desc": "业务访问面。80/443 之外，8080/8443 常是管理面或反向代理的备用端口。",
+      "columns": [
+        "端口",
+        "传输层",
+        "服务名（IANA）",
+        "说明 / 备注"
+      ],
+      "rows": [
+        [
+          "80",
+          "TCP",
+          "http",
+          "HTTP（IANA 同时登记 www、www-http 两个别名）"
+        ],
+        [
+          "443",
+          "TCP/UDP",
+          "https",
+          "HTTPS；UDP 443 为 HTTP/3（QUIC）使用"
+        ],
+        [
+          "1080",
+          "TCP",
+          "socks",
+          "SOCKS 代理（SOCKS4/5），常用于内网穿透与抓包代理"
+        ],
+        [
+          "8080",
+          "TCP",
+          "http-alt",
+          "HTTP 备用端口：Tomcat、反向代理后端、Web 管理面常用"
+        ],
+        [
+          "8443",
+          "TCP",
+          "pcsync-https",
+          "IANA 登记名为 pcsync-https，实际被大量产品当作 HTTPS 备用端口（8443 管理面）"
+        ],
+        [
+          "554",
+          "TCP/UDP",
+          "rtsp",
+          "RTSP 流媒体控制（视频监控取流常见）；RTP 媒体走动态端口"
+        ]
+      ]
+    },
+    {
+      "name": "邮件",
+      "desc": "收信/发信/网页邮箱后端。注意 465 与 587 的分工别搞混。",
+      "columns": [
+        "端口",
+        "传输层",
+        "服务名（IANA）",
+        "说明 / 备注"
+      ],
+      "rows": [
+        [
+          "25",
+          "TCP",
+          "smtp",
+          "SMTP 服务器之间投递邮件（MTA-to-MTA）；多数云厂商封禁出站 25"
+        ],
+        [
+          "110",
+          "TCP",
+          "pop3",
+          "POP3 收信（明文，可 STLS 升级）"
+        ],
+        [
+          "143",
+          "TCP",
+          "imap",
+          "IMAP 收信（明文，可 STARTTLS 升级）"
+        ],
+        [
+          "465",
+          "TCP",
+          "smtps / submissions",
+          "隐式 TLS 的 SMTP 提交（客户端发信首选），IANA 同时登记 smtps 与 submissions"
+        ],
+        [
+          "587",
+          "TCP",
+          "submission",
+          "SMTP 提交端口，先用明文连接再 STARTTLS 升级"
+        ],
+        [
+          "993",
+          "TCP",
+          "imaps",
+          "IMAP over TLS（隐式 TLS）"
+        ],
+        [
+          "995",
+          "TCP",
+          "pop3s",
+          "POP3 over TLS（隐式 TLS）"
+        ]
+      ]
+    },
+    {
+      "name": "文件与共享",
+      "desc": "文件传输与共享服务；SMB/NFS 的暴露面排查优先看这几项。",
+      "columns": [
+        "端口",
+        "传输层",
+        "服务名（IANA）",
+        "说明 / 备注"
+      ],
+      "rows": [
+        [
+          "20",
+          "TCP",
+          "ftp-data",
+          "FTP 主动模式的数据连接端口（被动模式改用服务端协商的高位端口）"
+        ],
+        [
+          "21",
+          "TCP",
+          "ftp",
+          "FTP 控制连接（明文，含口令）；能用 SFTP 就别用 FTP"
+        ],
+        [
+          "111",
+          "TCP/UDP",
+          "sunrpc",
+          "RPC portmapper，NFS 相关服务靠它注册端口"
+        ],
+        [
+          "445",
+          "TCP",
+          "microsoft-ds",
+          "SMB over TCP（Windows 文件共享 / 域内访问核心端口）"
+        ],
+        [
+          "515",
+          "TCP",
+          "printer",
+          "LPD 打印服务"
+        ],
+        [
+          "873",
+          "TCP",
+          "rsync",
+          "rsync 守护进程模式（rsync:// 服务端）"
+        ],
+        [
+          "2049",
+          "TCP/UDP",
+          "nfs",
+          "NFS 服务（NFSv4 只需 2049；v3 还要 111 + mountd 动态端口）"
+        ]
+      ]
+    },
+    {
+      "name": "目录与认证",
+      "desc": "AD/LDAP/RADIUS/Kerberos：域环境与集中认证的基础端口。",
+      "columns": [
+        "端口",
+        "传输层",
+        "服务名（IANA）",
+        "说明 / 备注"
+      ],
+      "rows": [
+        [
+          "135",
+          "TCP",
+          "msrpc",
+          "Windows RPC 端点映射器（epmapper）；AD 登录与 SMB 依赖它，暴露公网属高危"
+        ],
+        [
+          "88",
+          "TCP/UDP",
+          "kerberos",
+          "Kerberos 认证（Windows 域票据）；时间偏差 >5 分钟会认证失败"
+        ],
+        [
+          "389",
+          "TCP/UDP",
+          "ldap",
+          "LDAP 目录服务（明文或 STARTTLS）"
+        ],
+        [
+          "636",
+          "TCP/UDP",
+          "ldaps",
+          "LDAP over TLS（隐式 TLS）"
+        ],
+        [
+          "1812",
+          "UDP",
+          "radius",
+          "RADIUS 认证（802.1X、VPN、设备登录集中认证）"
+        ],
+        [
+          "1813",
+          "UDP",
+          "radius-acct",
+          "RADIUS 计费（Accounting）"
+        ],
+        [
+          "3268",
+          "TCP",
+          "msft-gc",
+          "AD 全局编录（Global Catalog）"
+        ],
+        [
+          "3269",
+          "TCP",
+          "msft-gc-ssl",
+          "AD 全局编录 over TLS"
+        ]
+      ]
+    },
+    {
+      "name": "路由、隧道与二层扩展",
+      "desc": "设备间协议与 VPN 隧道；排障时常被中间防火墙的策略卡住。",
+      "columns": [
+        "端口",
+        "传输层",
+        "服务名（IANA）",
+        "说明 / 备注"
+      ],
+      "rows": [
+        [
+          "179",
+          "TCP",
+          "bgp",
+          "BGP 邻居建立与更新（必须双向 TCP 179 可达）"
+        ],
+        [
+          "500",
+          "UDP",
+          "isakmp",
+          "IPsec IKE 阶段一协商"
+        ],
+        [
+          "1701",
+          "UDP",
+          "l2tp",
+          "L2TP 隧道（常与 IPsec 组合为 L2TP/IPsec）"
+        ],
+        [
+          "1723",
+          "TCP",
+          "pptp",
+          "PPTP 控制通道（协议本身已不安全，不推荐）"
+        ],
+        [
+          "1194",
+          "UDP",
+          "openvpn",
+          "OpenVPN 默认端口（可改；TCP 模式亦常见）"
+        ],
+        [
+          "3784",
+          "UDP",
+          "bfd-control",
+          "BFD 控制报文（毫秒级链路故障检测）"
+        ],
+        [
+          "4500",
+          "UDP",
+          "ipsec-nat-t",
+          "IPsec NAT 穿越（NAT-T，ESP 封装进 UDP）"
+        ],
+        [
+          "4789",
+          "UDP",
+          "vxlan",
+          "VXLAN 封装（数据中心大二层）"
+        ],
+        [
+          "5060",
+          "TCP/UDP",
+          "sip",
+          "SIP 信令（VoIP）"
+        ],
+        [
+          "5061",
+          "TCP",
+          "sips",
+          "SIP over TLS"
+        ],
+        [
+          "6081",
+          "UDP",
+          "geneve",
+          "Geneve 封装（OVN/部分 SDN 方案）"
+        ]
+      ]
+    },
+    {
+      "name": "数据库与中间件",
+      "desc": "交付实施最常见的业务端口。审计类产品要在这些口上取流量/日志。",
+      "columns": [
+        "端口",
+        "传输层",
+        "服务名（IANA）",
+        "说明 / 备注"
+      ],
+      "rows": [
+        [
+          "1433",
+          "TCP",
+          "ms-sql-s",
+          "Microsoft SQL Server（命名实例另用 1434/UDP 做浏览器查询）"
+        ],
+        [
+          "1521",
+          "TCP",
+          "ncube-lm",
+          "Oracle 监听器惯例端口；IANA 该号登记为 ncube-lm，Oracle 属事实标准"
+        ],
+        [
+          "3306",
+          "TCP",
+          "mysql",
+          "MySQL / MariaDB 默认端口"
+        ],
+        [
+          "5432",
+          "TCP",
+          "postgresql",
+          "PostgreSQL 默认端口"
+        ],
+        [
+          "5672",
+          "TCP",
+          "amqp",
+          "RabbitMQ / AMQP 0-9-1 默认端口（管理台 15672 未登记）"
+        ],
+        [
+          "6379",
+          "TCP",
+          "（IANA 未登记）",
+          "Redis 惯例端口；无认证暴露即高危，务必绑内网 + 设密码"
+        ],
+        [
+          "9200",
+          "TCP",
+          "（IANA 未登记）",
+          "Elasticsearch HTTP API 惯例端口（传输层 9300）"
+        ],
+        [
+          "2181",
+          "TCP",
+          "（IANA 未登记）",
+          "ZooKeeper 客户端连接惯例端口"
+        ],
+        [
+          "27017",
+          "TCP",
+          "（IANA 未登记）",
+          "MongoDB 默认端口"
+        ]
+      ]
+    },
+    {
+      "name": "日志与监控",
+      "desc": "网管/审计产品取数的入口：SNMP、syslog、NetFlow、Agent 上报。",
+      "columns": [
+        "端口",
+        "传输层",
+        "服务名（IANA）",
+        "说明 / 备注"
+      ],
+      "rows": [
+        [
+          "161",
+          "UDP",
+          "snmp",
+          "SNMP 查询（v2c 团体名明文；生产建议 v3 authPriv）"
+        ],
+        [
+          "162",
+          "UDP",
+          "snmptrap",
+          "SNMP Trap 上报（设备主动推送告警）"
+        ],
+        [
+          "514",
+          "UDP",
+          "syslog",
+          "syslog 日志上报（UDP 无确认，丢包不可感知）"
+        ],
+        [
+          "514",
+          "TCP",
+          "shell",
+          "同一号码的 TCP 侧登记为 shell（rsh 旧服务）；别把 TCP 514 当成 syslog"
+        ],
+        [
+          "6514",
+          "TCP",
+          "syslog-tls",
+          "syslog over TLS（RFC 5425，可靠且加密）"
+        ],
+        [
+          "2055",
+          "UDP",
+          "（IANA 未登记）",
+          "NetFlow v5/v9 导出惯例端口（厂商可改；IPFIX 常用 4739）"
+        ],
+        [
+          "10050",
+          "TCP",
+          "（IANA 未登记）",
+          "Zabbix Agent 被动模式监听端口"
+        ],
+        [
+          "10051",
+          "TCP",
+          "（IANA 未登记）",
+          "Zabbix Server 接收 Agent 主动上报端口"
+        ]
+      ]
+    }
+  ]
+}

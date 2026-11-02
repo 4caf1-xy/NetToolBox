@@ -1,0 +1,681 @@
+{
+  "doc_id": "linux",
+  "title": "Linux 速查",
+  "subtitle": "运维高频命令：信息、文件、权限、进程、服务、存储、网络、包管理",
+  "source": "各命令 man-pages 与 coreutils / util-linux / iproute2 / systemd 官方文档；发行版差异以 CentOS 7、Ubuntu 22.04、Kylin V10、openEuler 22.03 实测为准",
+  "updated": "2026-11-02",
+  "notes": [
+    "示例统一以 root 或 sudo 身份书写；普通用户执行前加 sudo。",
+    "发行版差异集中在三处：包管理器（yum/dnf vs apt）、网络配置（ifcfg/NetworkManager keyfile vs netplan）、防火墙（firewalld vs ufw）。命令本身通用。",
+    "带 ★ 的为破坏性命令：执行前先确认目标路径/对象，生产环境优先先在测试机验证。",
+    "输出被截断时优先看 `journalctl -xe`、`dmesg -T`、`systemctl status <unit>` 三处，覆盖 90% 的启动/服务类故障。"
+  ],
+  "groups": [
+    {
+      "name": "系统与硬件信息",
+      "desc": "上机第一组命令：确认发行版、内核、硬件规格，避免拿错机器或错判兼容性。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "cat /etc/os-release",
+          "查看发行版名称与版本",
+          "cat /etc/os-release",
+          "脚本里比 lsb_release 更可靠"
+        ],
+        [
+          "uname -a",
+          "内核版本、架构、主机名",
+          "uname -a",
+          "确认 x86_64/aarch64，装包前必看"
+        ],
+        [
+          "hostnamectl",
+          "主机名、操作系统、内核、虚拟化类型",
+          "hostnamectl",
+          "systemd 发行版通用"
+        ],
+        [
+          "uptime",
+          "运行时长与 1/5/15 分钟负载",
+          "uptime",
+          "负载持续 > CPU 核数说明排队严重"
+        ],
+        [
+          "free -h",
+          "内存与 swap 使用（人类可读）",
+          "free -h",
+          "关注 available 而非 free；buff/cache 可回收"
+        ],
+        [
+          "lscpu",
+          "CPU 型号、核数、NUMA 拓扑",
+          "lscpu | head -20",
+          "核对产品最低配置要求"
+        ],
+        [
+          "lsblk",
+          "块设备树（磁盘/分区/挂载点）",
+          "lsblk -f",
+          "-f 显示文件系统与 UUID"
+        ],
+        [
+          "dmesg -T",
+          "内核环形缓冲（带可读时间戳）",
+          "dmesg -T | tail -50",
+          "硬件报错、OOM、网卡 up/down 都在这"
+        ],
+        [
+          "dmidecode -t system",
+          "厂商/型号/序列号（需 root）",
+          "dmidecode -t system",
+          "虚拟机下多为厂商占位信息"
+        ]
+      ]
+    },
+    {
+      "name": "文件与目录",
+      "desc": "日常操作与排查定位；找文件优先 find，找内容优先 grep。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "ls -alh",
+          "列目录（含隐藏文件、人类可读大小）",
+          "ls -alh /var/log",
+          "-t 按时间排序，-S 按大小排序"
+        ],
+        [
+          "cd / pwd",
+          "切换目录 / 显示当前路径",
+          "cd /etc/sysconfig/network-scripts",
+          "cd - 回上一个目录"
+        ],
+        [
+          "cp -a <src> <dst>",
+          "递归复制并保留权限/时间/链接",
+          "cp -a /etc /root/etc.bak-20261102",
+          "-a = -dR --preserve=all，备份配置首选"
+        ],
+        [
+          "mv <src> <dst>",
+          "移动或重命名",
+          "mv a.conf a.conf.bak",
+          "跨文件系统移动是「复制+删除」"
+        ],
+        [
+          "rm -rf <dir>",
+          "★ 递归强制删除",
+          "rm -rf /tmp/build",
+          "路径变量为空会变 rm -rf /，先 echo 确认"
+        ],
+        [
+          "ln -s <target> <link>",
+          "创建软链接",
+          "ln -s /opt/app/conf /etc/app",
+          "用绝对路径，避免相对链接失效"
+        ],
+        [
+          "find <path> -name \"*.log\" -mtime +7",
+          "按名称/时间/大小查找",
+          "find /var/log -name \"*.log\" -mtime +7",
+          "-delete 可配合删除（★ 先不带 -delete 空跑）"
+        ],
+        [
+          "find <path> -size +1G",
+          "查找大于 1G 的文件",
+          "find / -xdev -size +1G 2>/dev/null",
+          "-xdev 不跨文件系统，避免扫挂载盘"
+        ],
+        [
+          "stat <file>",
+          "查看 inode、权限、三个时间戳",
+          "stat /etc/passwd",
+          "mtime=内容改，ctime=元数据改，atime=访问"
+        ],
+        [
+          "file <file>",
+          "按魔数判断真实文件类型",
+          "file backup.bin",
+          "后缀不可信时用它"
+        ],
+        [
+          "tar -czf out.tar.gz dir/",
+          "打包压缩（gzip）",
+          "tar -czf /tmp/etc-20261102.tar.gz /etc",
+          "解包 -xzf；只看内容 -tzf"
+        ],
+        [
+          "rsync -av --delete src/ dst/",
+          "增量同步（可跨主机）",
+          "rsync -av /data/ /backup/data/",
+          "★ --delete 会删目标端多余文件；源路径结尾 / 语义不同"
+        ]
+      ]
+    },
+    {
+      "name": "权限与账户",
+      "desc": "最小权限原则落地：谁能读、谁能改、谁能 sudo，全部可查可审计。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "ls -l",
+          "查看权限位与属主",
+          "ls -l /etc/shadow",
+          "第一位 d 目录、l 链接、- 普通文件"
+        ],
+        [
+          "chmod 640 <file>",
+          "按八进制改权限",
+          "chmod 640 /etc/app/secret.conf",
+          "u+x / g-w 形式按角色改；-R 递归（★ 慎用）"
+        ],
+        [
+          "chown user:group <file>",
+          "改属主与属组",
+          "chown app:app /opt/app -R",
+          "★ 递归改根目录属主会毁系统"
+        ],
+        [
+          "chmod +x <script>",
+          "给脚本加执行权限",
+          "chmod +x deploy.sh",
+          "挂载盘带 noexec 时加了也跑不了"
+        ],
+        [
+          "umask",
+          "查看/设置新建文件默认权限掩码",
+          "umask 027",
+          "022 → 文件 644、目录 755"
+        ],
+        [
+          "id / whoami",
+          "当前用户 UID/GID 与所属组",
+          "id",
+          "排障「为什么权限不够」先看这个"
+        ],
+        [
+          "useradd -m -s /bin/bash <user>",
+          "创建用户并建家目录",
+          "useradd -m -s /bin/bash ops",
+          "Debian 系对应 adduser"
+        ],
+        [
+          "usermod -aG <group> <user>",
+          "把用户加入附加组（保留原有组）",
+          "usermod -aG wheel ops",
+          "★ 漏 -a 会把用户从其他附加组里踢出"
+        ],
+        [
+          "passwd -l <user>",
+          "锁定账户（禁止口令登录）",
+          "passwd -l oldadmin",
+          "-u 解锁；-S 查看锁定状态"
+        ],
+        [
+          "sudo -l -U <user>",
+          "查看某用户可执行的 sudo 命令",
+          "sudo -l -U ops",
+          "审计提权面时逐用户过一遍"
+        ],
+        [
+          "visudo",
+          "安全编辑 /etc/sudoers（带语法检查）",
+          "visudo -c",
+          "直接编辑 sudoers 语法错了会锁死 sudo"
+        ]
+      ]
+    },
+    {
+      "name": "进程与信号",
+      "desc": "定位「谁占着 CPU/内存/端口」，再决定是重启还是抓现场。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "ps aux --sort=-%cpu | head",
+          "按 CPU 排序看进程",
+          "ps aux --sort=-%cpu | head -10",
+          "RSS 列是常驻内存（KB）"
+        ],
+        [
+          "ps -ef | grep <name>",
+          "按名称找进程（含父进程）",
+          "ps -ef | grep nginx",
+          "更推荐 pgrep -a <name>"
+        ],
+        [
+          "pgrep -a <name>",
+          "按名称查 PID 与完整命令行",
+          "pgrep -a java",
+          "避免 grep 自身命中的假结果"
+        ],
+        [
+          "top -b -n 1 | head -20",
+          "一次性快照式资源占用",
+          "top -b -n 1 | head -20",
+          "交互模式按 P/M 排序、按 1 展开每核"
+        ],
+        [
+          "kill -15 <pid>",
+          "发送 TERM（优雅退出）",
+          "kill -15 12345",
+          "先 15 后 9：直接 -9 可能丢数据"
+        ],
+        [
+          "kill -9 <pid>",
+          "★ 强制杀死进程",
+          "kill -9 12345",
+          "内核强杀，进程无清理机会"
+        ],
+        [
+          "pkill -f <pattern>",
+          "按命令行模式杀进程",
+          "pkill -f \"python app/main.py\"",
+          "★ -f 匹配范围大，先 pgrep -af 确认"
+        ],
+        [
+          "lsof -p <pid>",
+          "查看进程打开的文件/端口",
+          "lsof -p 12345 | head",
+          "删了文件不释放空间时用 lsof +L1 找"
+        ],
+        [
+          "nice -n 10 <cmd> / renice",
+          "调整调度优先级",
+          "renice 10 -p 12345",
+          "nice 值越大优先级越低（-20~19）"
+        ]
+      ]
+    },
+    {
+      "name": "服务与日志（systemd）",
+      "desc": "systemd 发行版统一口径：unit 状态、开机自启、日志三件套。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "systemctl status <unit>",
+          "查看服务状态与最近日志",
+          "systemctl status sshd",
+          "failed 时最后几行常直接给出原因"
+        ],
+        [
+          "systemctl start / stop / restart <unit>",
+          "启动、停止、重启服务",
+          "systemctl restart nginx",
+          "restart 会中断连接，生产先看 reload 支持"
+        ],
+        [
+          "systemctl reload <unit>",
+          "重载配置（不中断服务）",
+          "systemctl reload nginx",
+          "unit 未实现 reload 时会报错"
+        ],
+        [
+          "systemctl enable --now <unit>",
+          "设开机自启并立即启动",
+          "systemctl enable --now firewalld",
+          "disable 取消自启"
+        ],
+        [
+          "systemctl list-units --failed",
+          "列出所有失败单元",
+          "systemctl list-units --failed",
+          "上机巡检必跑"
+        ],
+        [
+          "systemctl daemon-reload",
+          "重载 unit 文件（改 .service 后必做）",
+          "systemctl daemon-reload",
+          "不改 unit 文件则不必执行"
+        ],
+        [
+          "journalctl -u <unit> -n 100 --no-pager",
+          "看某服务最近 100 行日志",
+          "journalctl -u sshd -n 100 --no-pager",
+          "-f 实时跟随；--since \"10 min ago\""
+        ],
+        [
+          "journalctl -xe",
+          "看最近错误与提示（含解释）",
+          "journalctl -xe",
+          "服务起不来时的第一现场"
+        ],
+        [
+          "journalctl --disk-usage",
+          "日志占用空间",
+          "journalctl --disk-usage",
+          "清理：journalctl --vacuum-size=500M"
+        ],
+        [
+          "tail -f /var/log/messages",
+          "实时跟踪传统日志文件",
+          "tail -f /var/log/messages",
+          "Ubuntu 系多为 /var/log/syslog"
+        ]
+      ]
+    },
+    {
+      "name": "存储与文件系统",
+      "desc": "容量、挂载、inode 三件事；「磁盘没满但写不进去」通常是 inode 或已删除未释放。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "df -hT",
+          "各文件系统容量与类型",
+          "df -hT",
+          "关注 Use% 与挂载点"
+        ],
+        [
+          "df -i",
+          "inode 使用率",
+          "df -i",
+          "小文件多（缓存/邮件队列）时先满 inode"
+        ],
+        [
+          "du -sh <dir>/*",
+          "统计子目录占用",
+          "du -sh /var/* | sort -h",
+          "du 与 df 差异大 → 有已删除未释放文件"
+        ],
+        [
+          "findmnt",
+          "以树形显示挂载关系",
+          "findmnt -T /data",
+          "比 mount 输出更易读"
+        ],
+        [
+          "mount / umount",
+          "挂载 / 卸载",
+          "mount /dev/sdb1 /data",
+          "★ umount 前确认无进程占用（lsof +D /data）"
+        ],
+        [
+          "blkid",
+          "查看分区 UUID 与文件系统类型",
+          "blkid /dev/sdb1",
+          "写 /etc/fstab 用 UUID 更稳"
+        ],
+        [
+          "lsblk -f",
+          "块设备与文件系统一览",
+          "lsblk -f",
+          "交付分区规划核对的第一条命令"
+        ],
+        [
+          "mkfs.xfs /dev/sdb1",
+          "★ 格式化分区",
+          "mkfs.xfs -f /dev/sdb1",
+          "★ 数据全丢；先 lsblk 确认盘符"
+        ],
+        [
+          "parted -l",
+          "查看分区表（支持 GPT）",
+          "parted -l",
+          "fdisk -l 亦可"
+        ],
+        [
+          "mount -o remount,rw /",
+          "把根分区重挂为可写",
+          "mount -o remount,rw /",
+          "只读文件系统故障（fsck 后）常用"
+        ],
+        [
+          "xfs_growfs / ext4: resize2fs",
+          "扩容文件系统（先扩分区/LV）",
+          "xfs_growfs /data",
+          "ext4 用 resize2fs /dev/mapper/vg-lv"
+        ],
+        [
+          "cat /etc/fstab",
+          "查看开机自动挂载配置",
+          "cat /etc/fstab",
+          "写错会导致开机进 emergency，改前先备份"
+        ]
+      ]
+    },
+    {
+      "name": "网络配置与诊断",
+      "desc": "iproute2 取代 ifconfig/route/netstat；四步排查法：链路 → 地址 → 路由 → 端口。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "ip addr",
+          "查看/配置接口地址",
+          "ip addr show ens192",
+          "临时加地址：ip addr add 10.0.0.2/24 dev ens192"
+        ],
+        [
+          "ip link set <dev> up",
+          "启用网卡",
+          "ip link set ens192 up",
+          "down 为关闭；改动重启失效"
+        ],
+        [
+          "ip route",
+          "查看路由表",
+          "ip route show",
+          "默认路由形如 default via 10.113.66.1"
+        ],
+        [
+          "ip neigh",
+          "ARP/邻居表",
+          "ip neigh show",
+          "确认对端 MAC 是否学到（旧命令 arp -n）"
+        ],
+        [
+          "ss -tunlp",
+          "查看监听端口与对应进程",
+          "ss -tunlp | grep 443",
+          "-t TCP / -u UDP / -n 数字 / -l 监听 / -p 进程"
+        ],
+        [
+          "ss -s",
+          "连接状态统计汇总",
+          "ss -s",
+          "TIME-WAIT 过多时看这里"
+        ],
+        [
+          "nmcli con show",
+          "查看 NetworkManager 连接配置",
+          "nmcli -p con show",
+          "openEuler/Kylin 改 IP 后 nmcli con up <name>"
+        ],
+        [
+          "ping -c 4 <host>",
+          "ICMP 连通性",
+          "ping -c 4 223.5.5.5",
+          "不通≠网络断（可能被禁 ping），配合 tcping/ss"
+        ],
+        [
+          "traceroute <host>",
+          "逐跳路径（UDP/ICMP）",
+          "traceroute -n 10.113.66.1",
+          "Windows 为 tracert；部分设备不回 ICMP 显示 *"
+        ],
+        [
+          "dig +short <name> @<dns>",
+          "DNS 解析（指定服务器）",
+          "dig +short www.example.com @223.5.5.5",
+          "排查「解析到哪台」比 nslookup 更清晰"
+        ],
+        [
+          "tcpdump -i <dev> -nn port 443",
+          "抓包（需 root）",
+          "tcpdump -i ens192 -nn port 443 -c 20",
+          "-w 存 pcap 用 Wireshark 看；生产注意性能影响"
+        ],
+        [
+          "ethtool <dev>",
+          "网卡速率/双工/驱动",
+          "ethtool ens192",
+          "ethtool -S 看丢包计数"
+        ],
+        [
+          "firewall-cmd --list-all",
+          "查看 firewalld 放行规则",
+          "firewall-cmd --list-all",
+          "Ubuntu 用 ufw status verbose"
+        ]
+      ]
+    },
+    {
+      "name": "软件包管理",
+      "desc": "RPM 系（yum/dnf）与 DEB 系（apt）对照；离线环境优先本地仓库或 rpm -ivh。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "dnf install -y <pkg>",
+          "安装软件包（RHEL8+/openEuler）",
+          "dnf install -y tcpdump",
+          "CentOS 7 用 yum，参数一致"
+        ],
+        [
+          "rpm -qa | grep <pkg>",
+          "查已安装包（RPM 系）",
+          "rpm -qa | grep openssh",
+          "rpm -ql <pkg> 看包内文件清单"
+        ],
+        [
+          "rpm -ivh <file.rpm>",
+          "安装本地 rpm 包",
+          "rpm -ivh ./agent.rpm",
+          "依赖缺失时用 dnf localinstall"
+        ],
+        [
+          "apt update && apt install -y <pkg>",
+          "更新索引并安装（DEB 系）",
+          "apt install -y nginx",
+          "只装不升级：apt install 前可不 update"
+        ],
+        [
+          "dpkg -l | grep <pkg>",
+          "查已安装包（DEB 系）",
+          "dpkg -l | grep openssh",
+          "dpkg -L <pkg> 看文件清单"
+        ],
+        [
+          "dnf provides <file>",
+          "查某个文件属于哪个包",
+          "dnf provides */tcpdump",
+          "「命令找不到」时定位包名"
+        ],
+        [
+          "dnf history",
+          "查看/回滚软件包事务",
+          "dnf history rollback 5",
+          "yum history 同理，可撤销上一次升级"
+        ]
+      ]
+    },
+    {
+      "name": "文本处理与定时任务",
+      "desc": "日志分析三板斧：grep 过滤、awk 取列、sort|uniq 统计；定时任务看 cron 与 timer。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "grep -rn <pattern> <dir>",
+          "递归搜索文件内容（带行号）",
+          "grep -rn \"ERROR\" /var/log/app",
+          "-i 忽略大小写；-v 反向；-c 只计数"
+        ],
+        [
+          "grep -c <pattern> <file>",
+          "统计命中行数",
+          "grep -c \"Failed password\" /var/log/secure",
+          "配合 sort | uniq -c 做 TOP 统计"
+        ],
+        [
+          "awk '{print $1}' <file>",
+          "按列取字段",
+          "awk '{print $1}' access.log | sort | uniq -c | sort -rn | head",
+          "默认按空白分隔；-F 指定分隔符"
+        ],
+        [
+          "sed -n '10,20p' <file>",
+          "按行号打印片段",
+          "sed -n '10,20p' app.log",
+          "sed -i 是原地改（★ 先备份）"
+        ],
+        [
+          "sort | uniq -c | sort -rn",
+          "统计并排序（TOP N）",
+          "cut -d' ' -f1 access.log | sort | uniq -c | sort -rn | head",
+          "日志 TOP 分析标准管道"
+        ],
+        [
+          "tail -n 200 -f <file>",
+          "跟踪文件末尾",
+          "tail -n 200 -f app.log",
+          "Ctrl+C 退出；-F 支持日志轮转"
+        ],
+        [
+          "xargs -n1 -P4 <cmd>",
+          "把输入批量传给命令（可并发）",
+          "cat hosts.txt | xargs -n1 -P4 ping -c1",
+          "含空格路径用 -d '\\n' 并加引号处理"
+        ],
+        [
+          "crontab -l / -e",
+          "查看/编辑当前用户定时任务",
+          "crontab -e",
+          "格式：分 时 日 月 周 命令；% 需转义为 \\%"
+        ],
+        [
+          "systemctl list-timers",
+          "查看 systemd 定时器",
+          "systemctl list-timers --all",
+          "比 cron 更易审计（journalctl 有日志）"
+        ],
+        [
+          "ulimit -n",
+          "查看进程文件句柄上限",
+          "ulimit -n",
+          "调大需改 /etc/security/limits.conf 并重新登录"
+        ]
+      ]
+    }
+  ]
+}

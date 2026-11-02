@@ -1,0 +1,400 @@
+{
+  "doc_id": "ssh",
+  "title": "SSH 速查",
+  "subtitle": "用法：登录、密钥、config、跳板、三类端口转发、传输与排障",
+  "source": "OpenSSH 官方手册（ssh(1) / ssh_config(5) / sshd_config(5) / scp(1) / sftp(1) / ssh-keygen(1)）；OpenSSH 8.x-9.x 语义",
+  "updated": "2026-11-02",
+  "notes": [
+    "登录排障顺序：ssh -v（甚至 -vvv）看协商卡在哪一步；再看服务端 /var/log/secure（RHEL 系）或 journalctl -u ssh。",
+    "密钥认证三件套：本地 ssh-keygen 生成 → ssh-copy-id 上传公钥 → 服务端 ~/.ssh/authorized_keys 权限必须是 700（目录）/600（文件），属主必须是登录用户。",
+    "~/.ssh/config 是效率核心：别名、跳板、保活、密钥一次写清，后续命令短到 ssh db01。",
+    "三类转发方向别记反：-L 把「远端服务」拉到本地；-R 把「本地服务」推到远端；-D 在本机开一个 SOCKS 代理。",
+    "安全基线：禁用 PasswordAuthentication 与 PermitRootLogin yes，改端口只是降噪不是防护；务必先确认密钥登录可用再关密码登录。"
+  ],
+  "groups": [
+    {
+      "name": "连接与登录",
+      "desc": "最常用的几种连法；-v 系列是排障主力。",
+      "columns": [
+        "用法",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "ssh <user>@<host>",
+          "标准登录",
+          "ssh ops@10.113.67.14",
+          "不写 user 时用本地用户名"
+        ],
+        [
+          "ssh -p <port> <user>@<host>",
+          "指定端口登录",
+          "ssh -p 2222 ops@10.113.67.14",
+          "注意 scp 的端口参数是大写 -P"
+        ],
+        [
+          "ssh -i <key> <user>@<host>",
+          "指定私钥文件",
+          "ssh -i ~/.ssh/id_ed25519_ops ops@host",
+          "私钥权限必须 600，否则被拒"
+        ],
+        [
+          "ssh -v <host>",
+          "打印协商过程（调试）",
+          "ssh -vvv ops@host",
+          "三段 -v 最详细：算法、认证方式、失败原因"
+        ],
+        [
+          "ssh -t <host> <cmd>",
+          "强制分配伪终端执行命令",
+          "ssh -t host sudo systemctl restart nginx",
+          "sudo 需要 tty 时必加"
+        ],
+        [
+          "ssh <host> <cmd>",
+          "远程执行单条命令后退出",
+          "ssh host \"df -hT\"",
+          "不会加载完整登录环境（非交互 shell）"
+        ],
+        [
+          "ssh -G <host>",
+          "打印最终生效的配置（含 config 展开结果）",
+          "ssh -G db01 | grep -i proxy",
+          "排「到底用了哪个配置」的终极手段"
+        ],
+        [
+          "ssh -o StrictHostKeyChecking=accept-new <host>",
+          "首次连接自动接受主机密钥",
+          "ssh -o StrictHostKeyChecking=accept-new host",
+          "仅适合内网自动化；生产建议核对指纹"
+        ]
+      ]
+    },
+    {
+      "name": "密钥与认证",
+      "desc": "从生成到上传到校验，一条完整链路。",
+      "columns": [
+        "用法",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "ssh-keygen -t ed25519 -C \"备注\"",
+          "生成 Ed25519 密钥对",
+          "ssh-keygen -t ed25519 -C \"ops@2026\"",
+          "兼容老设备用 -t rsa -b 4096"
+        ],
+        [
+          "ssh-copy-id -i <pub> <user>@<host>",
+          "把公钥追加到远端 authorized_keys",
+          "ssh-copy-id -i ~/.ssh/id_ed25519.pub ops@host",
+          "会自动修权限；无该命令时手工 cat >> authorized_keys"
+        ],
+        [
+          "ssh-add <key>",
+          "把私钥加入 ssh-agent",
+          "eval $(ssh-agent) && ssh-add ~/.ssh/id_ed25519",
+          "免去每次输 passphrase"
+        ],
+        [
+          "ssh-add -l",
+          "列出 agent 中已加载的密钥指纹",
+          "ssh-add -l -E sha256",
+          "排查「为什么用的不是这把钥匙」"
+        ],
+        [
+          "ssh-keygen -lf <key>",
+          "查看密钥指纹",
+          "ssh-keygen -lf ~/.ssh/id_ed25519.pub",
+          "与服务器指纹核对"
+        ],
+        [
+          "ssh-keygen -R <host>",
+          "从 known_hosts 删除某主机记录",
+          "ssh-keygen -R 10.113.67.14",
+          "主机重装后指纹变更报错时用"
+        ],
+        [
+          "ssh -o PreferredAuthentications=publickey <host>",
+          "只允许公钥认证（验证密钥是否生效）",
+          "ssh -o PreferredAuthentications=publickey host",
+          "能登上说明密钥没问题，问题在别处"
+        ],
+        [
+          "chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys",
+          "修正密钥目录与文件权限",
+          "chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys",
+          "权限过宽会导致「密钥对了还是拒」"
+        ]
+      ]
+    },
+    {
+      "name": "客户端配置与连接复用",
+      "desc": "~/.ssh/config 写一次，全局受益；复用可显著加快批量操作。",
+      "columns": [
+        "用法",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "Host <别名> + HostName/User/Port",
+          "定义主机别名",
+          "Host db01\n  HostName 10.0.0.11\n  User ops\n  Port 2222",
+          "之后 ssh db01 即可；通配 Host * 放公共项"
+        ],
+        [
+          "IdentityFile <path>",
+          "为该主机指定私钥",
+          "IdentityFile ~/.ssh/id_ed25519_ops",
+          "多把钥匙时按主机绑定"
+        ],
+        [
+          "ProxyJump <jump>",
+          "经跳板机连接（等价 ssh -J）",
+          "ProxyJump bastion",
+          "跳板也写在 config 里即可链式跳转"
+        ],
+        [
+          "ServerAliveInterval 30",
+          "每 30 秒发保活包",
+          "ServerAliveInterval 30\nServerAliveCountMax 3",
+          "防 NAT/防火墙静默断连"
+        ],
+        [
+          "ControlMaster auto + ControlPath",
+          "连接复用（首个连接建立后共享）",
+          "ControlMaster auto\nControlPath ~/.ssh/cm-%r@%h:%p",
+          "批量 scp/ssh 提速明显；Windows 需较新版本"
+        ],
+        [
+          "Include <dir>",
+          "拆分并包含多个配置文件",
+          "Include ~/.ssh/config.d/*",
+          "团队/多环境分文件管理"
+        ],
+        [
+          "ssh -F <file> <host>",
+          "使用指定配置文件",
+          "ssh -F ./deploy_ssh_config host",
+          "临时用另一套配置"
+        ]
+      ]
+    },
+    {
+      "name": "跳板与端口转发",
+      "desc": "三类转发方向：-L 本地拉、-R 远端推、-D 动态代理。",
+      "columns": [
+        "用法",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "ssh -J <jump> <target>",
+          "经跳板机连接目标",
+          "ssh -J ops@bastion ops@10.0.0.11",
+          "跳板与目标都可带 user@ 与端口"
+        ],
+        [
+          "ssh -L <本地端口>:<目标主机>:<目标端口> <跳板>",
+          "本地转发：本地端口 → 目标服务",
+          "ssh -L 13306:10.0.0.11:3306 ops@bastion",
+          "访问本机 13306 即等于访问目标 3306"
+        ],
+        [
+          "ssh -R <远端端口>:<本地主机>:<本地端口> <远端>",
+          "远程转发：远端端口 → 本地服务",
+          "ssh -R 8080:127.0.0.1:80 ops@public",
+          "把内网服务临时暴露到远端（注意安全）"
+        ],
+        [
+          "ssh -D <本地端口> <跳板>",
+          "动态转发（本机 SOCKS5 代理）",
+          "ssh -D 1080 ops@bastion",
+          "浏览器代理设为 socks5 127.0.0.1:1080"
+        ],
+        [
+          "ssh -N -f -L ...",
+          "只建隧道不进 shell，后台运行",
+          "ssh -N -f -L 15432:db:5432 ops@bastion",
+          "关闭用 pkill -f \"15432:db:5432\""
+        ],
+        [
+          "ssh -L 多组（可重复）",
+          "一条隧道映射多个服务",
+          "ssh -L 13306:db:3306 -L 16379:redis:6379 ops@bastion",
+          "端口冲突时换本地端口"
+        ]
+      ]
+    },
+    {
+      "name": "文件传输",
+      "desc": "scp 简单、sftp 交互、rsync 增量；大目录同步优先 rsync。",
+      "columns": [
+        "用法",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "scp <src> <user>@<host>:<dst>",
+          "复制文件到远端",
+          "scp app.tar.gz ops@host:/opt/",
+          "端口参数是大写 -P"
+        ],
+        [
+          "scp -r <dir> <host>:<dst>",
+          "递归复制目录",
+          "scp -r ./conf ops@host:/etc/app/",
+          "符号链接默认跟随，-p 保留时间戳"
+        ],
+        [
+          "scp <host>:<path> ./",
+          "从远端拉回文件",
+          "scp ops@host:/var/log/app.log ./",
+          "排障取证常用"
+        ],
+        [
+          "sftp <user>@<host>",
+          "交互式 SFTP",
+          "sftp ops@host",
+          "put/get/ls/cd/mkdir；批量用 -b 脚本"
+        ],
+        [
+          "rsync -avz -e ssh <src> <host>:<dst>",
+          "增量同步（压缩 + 保留属性）",
+          "rsync -avz -e ssh ./dist/ ops@host:/opt/app/",
+          "★ --delete 会删目标多余文件"
+        ],
+        [
+          "rsync -av --dry-run ...",
+          "空跑同步，只看会做什么",
+          "rsync -avn ./dist/ ops@host:/opt/app/",
+          "生产同步前必跑"
+        ]
+      ]
+    },
+    {
+      "name": "服务端配置与加固",
+      "desc": "改 sshd_config 的铁律：先验证语法、再重启、保持一个已登录会话不断。",
+      "columns": [
+        "用法",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "sshd -t",
+          "检查 sshd_config 语法",
+          "sshd -t && echo OK",
+          "★ 改完必跑，语法错会导致 sshd 起不来"
+        ],
+        [
+          "systemctl reload sshd",
+          "重载配置（不断开现有连接）",
+          "systemctl reload sshd",
+          "Debian 系服务名是 ssh"
+        ],
+        [
+          "PermitRootLogin no",
+          "禁止 root 直接登录",
+          "PermitRootLogin no",
+          "改前确认有普通账号 + sudo"
+        ],
+        [
+          "PasswordAuthentication no",
+          "关闭口令登录（仅密钥）",
+          "PasswordAuthentication no",
+          "★ 先验证密钥可登，再关；否则自锁"
+        ],
+        [
+          "AllowUsers / AllowGroups",
+          "白名单限制可登录账号",
+          "AllowUsers ops deploy",
+          "比 DenyUsers 更可控"
+        ],
+        [
+          "Port 2222",
+          "改监听端口",
+          "Port 2222",
+          "需同步 firewall-cmd / SELinux（semanage port -a）"
+        ],
+        [
+          "MaxAuthTries 3",
+          "限制认证尝试次数",
+          "MaxAuthTries 3",
+          "配合 fail2ban 降低爆破成功率"
+        ],
+        [
+          "ClientAliveInterval 300",
+          "服务端空闲超时（秒）",
+          "ClientAliveInterval 300",
+          "闲置会话自动断开，合规常要求"
+        ]
+      ]
+    },
+    {
+      "name": "排障",
+      "desc": "连接失败按「网络 → 端口 → 认证 → 权限」四层往下压。",
+      "columns": [
+        "用法",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "ssh -vvv <host> 2>&1 | tail -40",
+          "看认证协商最后阶段",
+          "ssh -vvv host 2>&1 | tail -40",
+          "常见结论：no matching key exchange / permission denied"
+        ],
+        [
+          "ss -tlnp | grep :22",
+          "确认服务端在监听",
+          "ss -tlnp | grep sshd",
+          "没监听 → 服务未起或端口改了"
+        ],
+        [
+          "journalctl -u sshd -n 50",
+          "看服务端拒绝原因",
+          "journalctl -u sshd -n 50 --no-pager",
+          "RHEL 系也可看 /var/log/secure"
+        ],
+        [
+          "ls -ld ~/.ssh ~/.ssh/authorized_keys",
+          "核对权限与属主",
+          "ls -ld ~/.ssh ~/.ssh/authorized_keys",
+          "目录 700、文件 600、属主为登录用户"
+        ],
+        [
+          "ssh -Q key",
+          "列出本端支持的密钥算法",
+          "ssh -Q key | head",
+          "老服务器与新客户端算法不匹配时对照"
+        ],
+        [
+          "ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 <host>",
+          "临时启用旧算法（兼容老设备）",
+          "ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 old@host",
+          "仅临时用；长期应升级设备固件"
+        ],
+        [
+          "ssh -T git@<git-host>",
+          "测试 Git 平台 SSH 认证",
+          "ssh -T git@github.com",
+          "返回 successfully authenticated 即通路正常"
+        ]
+      ]
+    }
+  ]
+}

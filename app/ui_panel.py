@@ -3,13 +3,16 @@
 ui_panel.py —— 全局命令面板（Ctrl+K，2026-10-09 批次任务1/2）
 
 定位
-    任意 Tab 唤起的居中浮层，一次输入同时搜三库（命令 / 报错字典 / 排查树），
-    Enter 直接跳转到对应 Tab 并定位。类似 VSCode 的命令面板。
+    任意 Tab 唤起的居中浮层，一次输入同时搜**四库**（命令 / 报错字典 / 排查树 /
+    速查手册），Enter 直接跳转到对应 Tab 并定位。类似 VSCode 的命令面板。
 
 硬约束（AGENTS.md / 本批规格）
     · 搜索直接查 db：entries 走 db.search()（薄封装，不改语义）；
       err_dict / trouble_trees 在 all_errs() / all_trees() 结果上做 Python 侧
       过滤（82+26 条，微秒级），不建内存副本/缓存层
+    · 手册（R 批 2026-11-02）走 handbook.search()，数据来自 app/handbook/*.json，
+      与命令库完全解耦（不入库、不计入种子底数）；命中的 id 形如
+      "doc_id|组下标|行下标"，由主窗 jump_to('hand', …) 落到速查手册 Tab
     · 样式全走 theme.qss 既有 objectName（SearchBox / Ghost / Hint），
       不新增 QSS 选择器
     · 键盘完整可达：↑↓ 选择、Enter 跳转、Esc 关闭；空结果给文案不空白
@@ -24,10 +27,11 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLineEdit,
                              QMessageBox, QApplication, QShortcut)
 
 import db as dbmod
+import handbook as hb
 
 # 每组最多展示条数（超出提示去详情页/对应 Tab 细搜）
 GROUP_CAP = 40
-KIND_TAG = {"entry": "命令", "err": "报错", "tree": "树"}
+KIND_TAG = {"entry": "命令", "err": "报错", "tree": "树", "hand": "手册"}
 
 
 class CommandPalette(QDialog):
@@ -39,6 +43,8 @@ class CommandPalette(QDialog):
         self.recent = list(recent or [])          # [{kind, id, ts}]，主窗提供
         self.on_clear_recent = on_clear_recent
         self.choice = None
+        # 速查手册（四库之第四）：数据量小（518 行），构造时一次性加载
+        self.hb_docs, self.hb_problems = hb.load_docs()
         self.setWindowTitle("全局搜索")
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
@@ -58,7 +64,7 @@ class CommandPalette(QDialog):
         self.ed_search = QLineEdit()
         self.ed_search.setObjectName("SearchBox")     # 复用主题搜索框样式
         self.ed_search.setPlaceholderText(
-            "搜索命令 / 报错 / 排查树…（↑↓ 选择，Enter 跳转，Esc 关闭）")
+            "搜索命令 / 报错 / 排查树 / 速查手册…（↑↓ 选择，Enter 跳转，Esc 关闭）")
         self.ed_search.setClearButtonEnabled(True)
         self.ed_search.setMinimumHeight(34)
         self.ed_search.textChanged.connect(self._reload)
@@ -157,6 +163,10 @@ class CommandPalette(QDialog):
                 out.append(t)
         return out
 
+    def _search_handbook(self, kw):
+        """手册检索：命中行按「册名 · 分组」做副标题"""
+        return hb.search(self.hb_docs, kw, limit=GROUP_CAP)
+
     # ---------------- 渲染 ----------------
     @staticmethod
     def _section(text):
@@ -192,7 +202,7 @@ class CommandPalette(QDialog):
                     self._add_result(kind, rid, title, sub)
             if not favs and not recent:
                 self.lst.addItem(self._section(
-                    "输入关键字搜索三库；暂无收藏与最近使用记录。"))
+                    "输入关键字搜索四库（命令 / 报错 / 树 / 手册）；暂无收藏与最近使用记录。"))
             return
 
         found = False
@@ -238,9 +248,23 @@ class CommandPalette(QDialog):
                 self._add_result("tree", t.get("tree_id"),
                                  t.get("symptom") or "(未命名)",
                                  t.get("category") or "-")
+        # 速查手册（R 批）
+        try:
+            hand = self._search_handbook(kw)
+        except Exception:
+            hand = []
+        if hand:
+            found = True
+            self.lst.addItem(self._section("── 手册（%d%s）──"
+                             % (len(hand), "，超出仅显示前 %d" % GROUP_CAP
+                                if len(hand) > GROUP_CAP else "")))
+            for h in hand:
+                rid = "%s|%d|%d" % (h["doc_id"], h["group_index"], h["row_index"])
+                self._add_result("hand", rid, h["cells"][0][:40] if h["cells"] else h["doc_title"],
+                                 "%s · %s" % (h["doc_title"], h["group"]))
         if not found:
             self.lst.addItem(self._section(
-                "没有匹配结果 —— 换个关键字试试（命令/报错/树三库都已搜索）。"))
+                "没有匹配结果 —— 换个关键字试试（命令/报错/树/手册四库都已搜索）。"))
         # 把选中落在第一个可选条目上
         for i in range(self.lst.count()):
             if self.lst.item(i).flags() & Qt.ItemIsEnabled:

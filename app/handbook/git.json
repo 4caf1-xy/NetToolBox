@@ -1,0 +1,484 @@
+{
+  "doc_id": "git",
+  "title": "Git 速查",
+  "subtitle": "常用命令：提交线、分支线、撤销线、远程线、排障线",
+  "source": "Git 官方文档（git-scm.com/docs）与 Pro Git 第 2 版；命令选项以 Git 2.23+（含 switch/restore）为准",
+  "updated": "2026-11-02",
+  "notes": [
+    "Git 2.23 起 `git switch` / `git restore` 把「切分支」与「还原文件」从 checkout 里拆开，语义更清楚；老教程里的 checkout 仍可用但容易切错对象。",
+    "三条撤销命令的分工：`restore` 只动工作区/暂存区（不碰提交历史）；`reset` 动当前分支指针（改写本地历史）；`revert` 生成一条反向提交（安全，可用于已推送的历史）。",
+    "已推送到共享分支后不要 `reset --hard` + 强推改历史；要么 revert，要么先与协作者约定。非得强推时用 `--force-with-lease`（带远端校验），不要裸 `--force`。",
+    "`git clean -fd` 会真删未跟踪文件（含你的临时脚本），执行前先 `git clean -nd` 空跑看清单。",
+    "离网/内网仓库：remote 可指向 file:// 路径或内网 GitLab；SSH 端口被封时在 ~/.ssh/config 里把 github.com 指到 ssh.github.com:443。"
+  ],
+  "groups": [
+    {
+      "name": "配置与初始化",
+      "desc": "一次配好，长期受益；身份写错会导致提交作者信息混乱。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "git config --global user.name / user.email",
+          "设置提交作者身份",
+          "git config --global user.name \"张三\"",
+          "仓库级去掉 --global 即只对当前仓库生效"
+        ],
+        [
+          "git config --list --show-origin",
+          "查看所有配置及其来源文件",
+          "git config --list --show-origin",
+          "排障「为什么这里配置不生效」的第一条命令"
+        ],
+        [
+          "git init",
+          "把当前目录初始化为仓库",
+          "git init",
+          "默认分支名可用 init.defaultBranch 指定（如 main）"
+        ],
+        [
+          "git clone <url> [dir]",
+          "克隆远端仓库（含全部历史）",
+          "git clone git@host:group/repo.git",
+          "--depth 1 只取最近一次提交（浅克隆，历史不全）"
+        ],
+        [
+          "git remote -v",
+          "查看远端地址",
+          "git remote -v",
+          "改地址用 git remote set-url origin <new>"
+        ],
+        [
+          "git remote add <name> <url>",
+          "添加第二个远端",
+          "git remote add upstream git@host:up/repo.git",
+          "多远程便于 fork 同步"
+        ],
+        [
+          "git config core.autocrlf",
+          "换行符策略（Windows 常见坑）",
+          "git config --global core.autocrlf true",
+          "跨平台混编仓库建议统一 .gitattributes"
+        ]
+      ]
+    },
+    {
+      "name": "暂存与提交",
+      "desc": "工作区 → 暂存区 → 本地提交，三段式模型是理解 Git 的地基。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "git status -sb",
+          "查看工作区/暂存区状态（紧凑模式）",
+          "git status -sb",
+          "提交前必看：确认没把密钥/日志带进去"
+        ],
+        [
+          "git add <path>",
+          "把改动加入暂存区",
+          "git add app/ui_tools.py",
+          "git add -A 全量加入；git add . 仅当前目录树下"
+        ],
+        [
+          "git add -p",
+          "交互式按块挑选要暂存的改动",
+          "git add -p",
+          "把一次大改拆成多个语义清晰的提交"
+        ],
+        [
+          "git diff",
+          "工作区 vs 暂存区 的差异",
+          "git diff",
+          "看已暂存差异用 git diff --staged"
+        ],
+        [
+          "git diff --stat",
+          "只统计每个文件改了多少行",
+          "git diff --stat HEAD~1",
+          "发版前快速过一遍改动面"
+        ],
+        [
+          "git commit -m \"msg\"",
+          "提交暂存区内容",
+          "git commit -m \"R批：新增速查手册\"",
+          "提交信息首行 ≤50 字符，空一行再写正文"
+        ],
+        [
+          "git commit --amend",
+          "修补最后一次提交（信息或内容）",
+          "git commit --amend --no-edit",
+          "只能用于未推送的提交，否则要强推"
+        ],
+        [
+          "git rm --cached <path>",
+          "停止跟踪但保留本地文件",
+          "git rm --cached ai_config.json",
+          "误提交密钥时的第一步（随后补 .gitignore）"
+        ]
+      ]
+    },
+    {
+      "name": "分支与切换",
+      "desc": "分支只是指向提交的指针，创建/切换成本极低——按功能开分支是正解。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "git branch",
+          "列出本地分支（* 为当前）",
+          "git branch -vv",
+          "-a 含远端分支；-vv 显示跟踪关系与领先/落后"
+        ],
+        [
+          "git switch -c <name>",
+          "新建并切换到分支",
+          "git switch -c feature/curl",
+          "等价旧写法 git checkout -b"
+        ],
+        [
+          "git switch <name>",
+          "切换到已有分支",
+          "git switch main",
+          "工作区有未提交改动时可能被拒绝，先 stash 或提交"
+        ],
+        [
+          "git branch -d <name>",
+          "删除已合并分支",
+          "git branch -d feature/curl",
+          "-D 强制删除未合并分支（可能丢提交）"
+        ],
+        [
+          "git branch -m <old> <new>",
+          "重命名分支",
+          "git branch -m master main",
+          "改名后要同步远端默认分支设置"
+        ],
+        [
+          "git merge-base <a> <b>",
+          "找两个分支的共同祖先",
+          "git merge-base main feature/x",
+          "判断「这个分支到底从哪切出来的」"
+        ]
+      ]
+    },
+    {
+      "name": "合并与变基",
+      "desc": "merge 保留分叉历史，rebase 拉直历史；共享分支慎用 rebase。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "git merge <branch>",
+          "把目标分支合并进当前分支",
+          "git merge feature/curl",
+          "快进合并不产生合并提交；--no-ff 强制保留分叉记录"
+        ],
+        [
+          "git merge --abort",
+          "放弃正在进行的合并",
+          "git merge --abort",
+          "冲突解不完时退回合并前状态"
+        ],
+        [
+          "git rebase <base>",
+          "把当前分支的提交搬到新基线上",
+          "git rebase main",
+          "只对未推送的本地分支做"
+        ],
+        [
+          "git rebase -i HEAD~3",
+          "交互式整理最近 3 个提交（合并/改信息/重排）",
+          "git rebase -i HEAD~3",
+          "编辑器里 pick→squash/reword/drop"
+        ],
+        [
+          "git rebase --continue / --abort",
+          "冲突解决后继续 / 放弃变基",
+          "git rebase --continue",
+          "变基中途卡住时用 git status 看下一步"
+        ],
+        [
+          "git cherry-pick <commit>",
+          "把某个提交摘到当前分支",
+          "git cherry-pick a1b2c3d",
+          "跨分支挑单个修复很好用；-x 记录来源提交号"
+        ]
+      ]
+    },
+    {
+      "name": "远程协作",
+      "desc": "fetch 只下载不合并，pull = fetch + merge/rebase，push 才是发布动作。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "git fetch --prune",
+          "抓取远端更新并清理已删除的远端分支引用",
+          "git fetch --prune",
+          "安全的「先看看远端变了什么」"
+        ],
+        [
+          "git pull --rebase",
+          "拉取并把本地提交叠到远端之上",
+          "git pull --rebase origin main",
+          "避免无意义的 merge 提交；冲突处理同 rebase"
+        ],
+        [
+          "git push -u origin <branch>",
+          "推送并建立跟踪关系",
+          "git push -u origin feature/curl",
+          "首次推送后可直接 git push"
+        ],
+        [
+          "git push --tags",
+          "推送本地标签",
+          "git push --tags",
+          "默认 push 不带标签，发版常忘"
+        ],
+        [
+          "git push --force-with-lease",
+          "带远端校验的强制推送",
+          "git push --force-with-lease",
+          "比 --force 安全：远端被别人更新过会拒绝"
+        ],
+        [
+          "git push origin --delete <branch>",
+          "删除远端分支",
+          "git push origin --delete feature/curl",
+          "不可恢复（除非还记得提交号）"
+        ]
+      ]
+    },
+    {
+      "name": "撤销与恢复",
+      "desc": "先判断「改动在哪一层」：工作区、暂存区、本地提交、已推送提交，四层对应四种工具。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "git restore <path>",
+          "丢弃工作区改动（回到暂存区版本）",
+          "git restore app/ui_tools.py",
+          "★ 破坏性：未提交改动直接消失"
+        ],
+        [
+          "git restore --staged <path>",
+          "把文件移出暂存区（改动保留）",
+          "git restore --staged app/ui_tools.py",
+          "等价旧写法 git reset HEAD <path>"
+        ],
+        [
+          "git reset --soft HEAD~1",
+          "撤销最后一次提交，改动留在暂存区",
+          "git reset --soft HEAD~1",
+          "「提交早了/漏文件」的常用补救"
+        ],
+        [
+          "git reset HEAD~1",
+          "撤销提交并取消暂存（改动留在工作区）",
+          "git reset HEAD~1",
+          "默认 --mixed；文件内容不丢"
+        ],
+        [
+          "git reset --hard HEAD~1",
+          "撤销提交并丢弃改动",
+          "git reset --hard HEAD~1",
+          "★ 最危险的一条：提交与改动一起没，只能靠 reflog 捞"
+        ],
+        [
+          "git revert <commit>",
+          "生成一条反向提交抵消指定提交",
+          "git revert a1b2c3d",
+          "已推送历史的安全撤销方式"
+        ],
+        [
+          "git stash push -m \"说明\"",
+          "把未提交改动暂存起来",
+          "git stash push -m \"切分支前\"",
+          "含未跟踪文件加 -u"
+        ],
+        [
+          "git stash list / pop / apply",
+          "查看 / 弹出（删除记录）/ 应用（保留记录）",
+          "git stash pop",
+          "stash 不是备份，久了容易忘"
+        ]
+      ]
+    },
+    {
+      "name": "查看与定位",
+      "desc": "「什么时候、谁、为什么改了这一行」——排障与审码的主力工具。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "git log --oneline --graph --decorate -n 20",
+          "图形化看最近提交",
+          "git log --oneline --graph --decorate -20",
+          "发版前核对自己提交了什么"
+        ],
+        [
+          "git log -S\"关键字\" --oneline",
+          "按内容变化检索（谁引入/删除了这段代码）",
+          "git log -S\"force-with-lease\" --oneline",
+          "pickaxe 检索，比 grep 历史更准"
+        ],
+        [
+          "git log --follow -p -- <file>",
+          "跟踪单文件历史（含改名）",
+          "git log --follow -p -- app/db.py",
+          "定位「某行何时被改」"
+        ],
+        [
+          "git blame -L 10,30 <file>",
+          "逐行显示最后修改者与提交",
+          "git blame -L 10,30 app/db.py",
+          "配合 git show <commit> 看上下文"
+        ],
+        [
+          "git show <commit>",
+          "查看某次提交的完整改动",
+          "git show --stat HEAD",
+          "git show HEAD:path 可直接看某版本的文件内容"
+        ],
+        [
+          "git diff <a>..<b> --stat",
+          "两个提交/分支之间的差异概览",
+          "git diff main..feature/x --stat",
+          "rebase 前后对比很有用"
+        ],
+        [
+          "git reflog",
+          "本地引用变动日志（含被 reset 掉的提交）",
+          "git reflog",
+          "★ 误 reset 后的救命命令，默认保留 90 天"
+        ],
+        [
+          "git bisect start / good / bad",
+          "二分查找引入问题的提交",
+          "git bisect start HEAD v0.8.0",
+          "定位回归最快的手段；结束用 git bisect reset"
+        ]
+      ]
+    },
+    {
+      "name": "标签与发布",
+      "desc": "标签是发版锚点；语义化版本 + 附注标签是团队约定俗成的最小规范。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "git tag",
+          "列出本地标签",
+          "git tag -l \"v0.*\"",
+          "按模式过滤"
+        ],
+        [
+          "git tag -a v1.0.0 -m \"说明\"",
+          "创建附注标签（含作者/时间/说明）",
+          "git tag -a v0.9.0 -m \"速查手册+工具箱\"",
+          "轻量标签 git tag v1.0.0 不带元信息，不推荐发版用"
+        ],
+        [
+          "git show v1.0.0",
+          "查看标签指向与说明",
+          "git show v0.8.0 --stat",
+          "核对 tag 指到的提交对不对"
+        ],
+        [
+          "git tag -f v1.0.0",
+          "把标签强制移到当前提交",
+          "git tag -f v0.8.0",
+          "改完要 git push -f origin v0.8.0 同步远端"
+        ],
+        [
+          "git archive --format=zip HEAD -o out.zip",
+          "导出某版本的源码快照（不含 .git）",
+          "git archive --format=zip v0.8.0 -o src.zip",
+          "交付源码包用它最干净"
+        ]
+      ]
+    },
+    {
+      "name": "忽略、清理与工作树",
+      "desc": "仓库卫生：不该入库的东西永远别进去；工作树让「同时开两个分支」不需要来回切。",
+      "columns": [
+        "命令",
+        "说明",
+        "示例",
+        "备注"
+      ],
+      "rows": [
+        [
+          "git check-ignore -v <path>",
+          "查某文件被哪条规则忽略",
+          "git check-ignore -v ai_config.json",
+          "「为什么这个文件加不进去」的标准答案"
+        ],
+        [
+          "git clean -nd",
+          "空跑：列出将被删除的未跟踪文件",
+          "git clean -nd",
+          "★ 执行前必跑；-x 会连 .gitignore 的文件一起删"
+        ],
+        [
+          "git clean -fd",
+          "删除未跟踪文件与目录",
+          "git clean -fd",
+          "★ 破坏性：临时脚本、构建产物一并消失"
+        ],
+        [
+          "git worktree add <dir> <branch>",
+          "在另一个目录检出同一仓库的分支",
+          "git worktree add ../hotfix v0.8.0",
+          "免去 stash 切分支；用完 git worktree remove"
+        ],
+        [
+          "git submodule update --init --recursive",
+          "初始化并拉取子模块",
+          "git submodule update --init --recursive",
+          "克隆后子模块目录为空就用它"
+        ],
+        [
+          "git ls-files | wc -l",
+          "统计被跟踪文件数",
+          "git ls-files",
+          "配合 grep 查某个文件是否已入库"
+        ]
+      ]
+    }
+  ]
+}

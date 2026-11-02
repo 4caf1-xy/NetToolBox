@@ -1,0 +1,652 @@
+{
+  "doc_id": "netcmd",
+  "title": "网络命令",
+  "subtitle": "排障命令：连通性、接口路由、二层、解析、端口、抓包、性能与设备侧对照",
+  "source": "iproute2（ip-route/ip-address/ip-neighbour）、iputils、traceroute、net-tools、tcpdump、iperf3 官方手册；Windows netsh/ipconfig 与 PowerShell NetTCPIP 模块；设备侧按 Cisco IOS / 华为 VRP / H3C Comware 官方命令参考",
+  "updated": "2026-11-02",
+  "notes": [
+    "排查网络故障的固定顺序（由下往上）：物理/链路（ethtool、ip -s link）→ 地址（ip addr）→ 路由（ip route get）→ 端口（ss）→ 应用（curl/telnet）。跳步最容易白忙。",
+    "Linux 上 ifconfig / route / netstat / arp 属 net-tools，多数新发行版默认不装，请改用 ip / ss。本表保留老命令仅为读旧脚本与老系统。",
+    "设备侧命令成对记忆：Cisco 用 show，华为/H3C 用 display；Cisco 保存是 write memory（或 copy run start），华为/H3C 是 save。",
+    "「ping 不通」不必然是网络故障：目标或中间设备可能禁 ICMP；要用 tcping / nc / ss 之类端口级手段确认业务面。",
+    "抓包前先估算流量与时长（tcpdump 在高流量口上会掉包并吃 CPU），生产环境务必加过滤条件与 -c 限制。"
+  ],
+  "groups": [
+    {
+      "name": "连通性测试",
+      "desc": "先确认「能不能到」，再确认「到得对不对」。",
+      "columns": [
+        "命令",
+        "平台",
+        "说明",
+        "示例"
+      ],
+      "rows": [
+        [
+          "ping -c 4 <host>",
+          "Linux",
+          "ICMP 连通性（4 个包后退出）",
+          "ping -c 4 10.113.66.1"
+        ],
+        [
+          "ping -n 4 <host>",
+          "Windows",
+          "ICMP 连通性（Windows 的计数参数是 -n）",
+          "ping -n 4 10.113.66.1"
+        ],
+        [
+          "ping -M do -s 1472 <host>",
+          "Linux",
+          "禁止分片 + 指定载荷，用于探测 MTU",
+          "ping -M do -s 1472 8.8.8.8（1472+28=1500）"
+        ],
+        [
+          "traceroute -n <host>",
+          "Linux",
+          "逐跳路径（默认 UDP 探测）",
+          "traceroute -n -q 1 223.5.5.5"
+        ],
+        [
+          "tracert -d <host>",
+          "Windows",
+          "逐跳路径（-d 不反解域名）",
+          "tracert -d 223.5.5.5"
+        ],
+        [
+          "mtr -rw <host>",
+          "Linux",
+          "持续探测并统计每跳丢包率",
+          "mtr -rw -c 50 10.0.0.1"
+        ],
+        [
+          "arping -I <dev> <ip>",
+          "Linux",
+          "二层 ARP 级连通性（绕过 IP 层）",
+          "arping -I ens192 10.113.67.1"
+        ],
+        [
+          "nc -zv <host> <port>",
+          "Linux",
+          "TCP 端口连通性探测",
+          "nc -zv 10.0.0.11 3306"
+        ],
+        [
+          "Test-NetConnection <host> -Port <port>",
+          "Windows",
+          "PowerShell 端口级连通性测试",
+          "Test-NetConnection 10.0.0.11 -Port 443"
+        ]
+      ]
+    },
+    {
+      "name": "接口与地址",
+      "desc": "「网卡起来了吗、地址配对了吗、双工速率对不对」三问。",
+      "columns": [
+        "命令",
+        "平台",
+        "说明",
+        "示例"
+      ],
+      "rows": [
+        [
+          "ip addr show <dev>",
+          "Linux",
+          "查看接口地址/状态/MTU",
+          "ip addr show ens192"
+        ],
+        [
+          "ip -s link show <dev>",
+          "Linux",
+          "接口收发统计（errors/dropped）",
+          "ip -s link show ens192"
+        ],
+        [
+          "ip link set <dev> up/down",
+          "Linux",
+          "启用/关闭接口",
+          "ip link set ens192 up"
+        ],
+        [
+          "ip addr add <ip>/<len> dev <dev>",
+          "Linux",
+          "临时添加地址（重启失效）",
+          "ip addr add 10.0.0.2/24 dev ens192"
+        ],
+        [
+          "ip link set <dev> mtu <n>",
+          "Linux",
+          "临时改 MTU",
+          "ip link set ens192 mtu 9000"
+        ],
+        [
+          "ethtool <dev>",
+          "Linux",
+          "速率/双工/链路状态/驱动",
+          "ethtool ens192"
+        ],
+        [
+          "ethtool -S <dev>",
+          "Linux",
+          "网卡硬件统计（CRC、丢包计数）",
+          "ethtool -S ens192 | grep -i err"
+        ],
+        [
+          "nmcli device status",
+          "Linux",
+          "NetworkManager 设备状态",
+          "nmcli device status"
+        ],
+        [
+          "ipconfig /all",
+          "Windows",
+          "查看全部接口的地址、网关、DNS、MAC",
+          "ipconfig /all"
+        ],
+        [
+          "netsh interface ip show config",
+          "Windows",
+          "接口 IP 配置明细",
+          "netsh interface ip show config"
+        ]
+      ]
+    },
+    {
+      "name": "路由",
+      "desc": "「包会从哪个口出去」——用 ip route get 一次问清，而不是靠猜。",
+      "columns": [
+        "命令",
+        "平台",
+        "说明",
+        "示例"
+      ],
+      "rows": [
+        [
+          "ip route show",
+          "Linux",
+          "查看主路由表",
+          "ip route show"
+        ],
+        [
+          "ip route get <ip>",
+          "Linux",
+          "查看到某目的地址的实际出口与源地址",
+          "ip route get 8.8.8.8"
+        ],
+        [
+          "ip route add <net> via <gw>",
+          "Linux",
+          "添加静态路由（临时）",
+          "ip route add 10.20.0.0/16 via 10.113.66.1"
+        ],
+        [
+          "ip route show table all",
+          "Linux",
+          "查看所有路由表（含策略路由）",
+          "ip route show table all | head -30"
+        ],
+        [
+          "ip rule show",
+          "Linux",
+          "查看策略路由规则",
+          "ip rule show"
+        ],
+        [
+          "route -n",
+          "Linux（net-tools）",
+          "老式路由表查看",
+          "route -n"
+        ],
+        [
+          "route print",
+          "Windows",
+          "路由表（IPv4+IPv6）",
+          "route print -4"
+        ],
+        [
+          "netstat -rn",
+          "通用",
+          "以数字形式显示路由表",
+          "netstat -rn"
+        ]
+      ]
+    },
+    {
+      "name": "邻居与二层",
+      "desc": "IP 通了但业务不通时，二层问题（ARP、MAC 表、VLAN）占很大比例。",
+      "columns": [
+        "命令",
+        "平台",
+        "说明",
+        "示例"
+      ],
+      "rows": [
+        [
+          "ip neigh show",
+          "Linux",
+          "ARP/邻居表（含状态 REACHABLE/STALE/FAILED）",
+          "ip neigh show dev ens192"
+        ],
+        [
+          "ip neigh flush dev <dev>",
+          "Linux",
+          "清空某接口邻居缓存",
+          "ip neigh flush dev ens192"
+        ],
+        [
+          "arp -a",
+          "Windows",
+          "查看 ARP 缓存",
+          "arp -a"
+        ],
+        [
+          "arp -d <ip>",
+          "Windows",
+          "删除单条 ARP 缓存",
+          "arp -d 10.113.67.1"
+        ],
+        [
+          "bridge fdb show",
+          "Linux",
+          "网桥转发表（MAC → 端口）",
+          "bridge fdb show br br0"
+        ],
+        [
+          "ip -d link show <dev>",
+          "Linux",
+          "查看接口详情（VLAN/bridge/bond 从属关系）",
+          "ip -d link show ens192.100"
+        ],
+        [
+          "tcpdump -e -nn -c 5 arp",
+          "Linux",
+          "抓 ARP 交互（含 MAC）",
+          "tcpdump -e -nn -c 5 arp"
+        ]
+      ]
+    },
+    {
+      "name": "名称解析",
+      "desc": "「域名解析到哪」与「用的是哪个 DNS」必须分开验证。",
+      "columns": [
+        "命令",
+        "平台",
+        "说明",
+        "示例"
+      ],
+      "rows": [
+        [
+          "dig <name> +short",
+          "Linux",
+          "简洁解析结果",
+          "dig www.example.com +short"
+        ],
+        [
+          "dig @<dns> <name> <type>",
+          "Linux",
+          "指定 DNS 与记录类型查询",
+          "dig @223.5.5.5 example.com MX"
+        ],
+        [
+          "dig +trace <name>",
+          "Linux",
+          "从根域逐级追踪解析过程",
+          "dig +trace example.com"
+        ],
+        [
+          "nslookup <name> [dns]",
+          "通用",
+          "交互式/指定服务器的解析查询",
+          "nslookup example.com 10.113.66.150"
+        ],
+        [
+          "host <name>",
+          "Linux",
+          "快速正/反解",
+          "host 10.113.67.14"
+        ],
+        [
+          "resolvectl status",
+          "Linux(systemd)",
+          "查看当前 DNS 配置与按接口的解析器",
+          "resolvectl status"
+        ],
+        [
+          "cat /etc/resolv.conf",
+          "Linux",
+          "查看 DNS 服务器与搜索域",
+          "cat /etc/resolv.conf"
+        ],
+        [
+          "ipconfig /flushdns",
+          "Windows",
+          "清空 DNS 缓存",
+          "ipconfig /flushdns"
+        ],
+        [
+          "ipconfig /displaydns",
+          "Windows",
+          "查看 DNS 缓存内容",
+          "ipconfig /displaydns | more"
+        ]
+      ]
+    },
+    {
+      "name": "端口与服务",
+      "desc": "「谁在监听、连上了没有」——ss 是现代默认，netstat 仅作兼容。",
+      "columns": [
+        "命令",
+        "平台",
+        "说明",
+        "示例"
+      ],
+      "rows": [
+        [
+          "ss -tlnp",
+          "Linux",
+          "TCP 监听端口与进程",
+          "ss -tlnp"
+        ],
+        [
+          "ss -tunlp",
+          "Linux",
+          "TCP+UDP 监听端口与进程",
+          "ss -tunlp | grep -E ':(80|443)'"
+        ],
+        [
+          "ss -tan state established",
+          "Linux",
+          "查看已建立连接",
+          "ss -tan state established | wc -l"
+        ],
+        [
+          "ss -s",
+          "Linux",
+          "连接数汇总（含 TIME-WAIT）",
+          "ss -s"
+        ],
+        [
+          "netstat -ano",
+          "Windows",
+          "端口占用与 PID",
+          "netstat -ano | findstr :443"
+        ],
+        [
+          "lsof -i :<port>",
+          "Linux",
+          "按端口找进程（需 lsof）",
+          "lsof -i :8080"
+        ],
+        [
+          "telnet <host> <port>",
+          "通用",
+          "端口可达性（老办法，明文回显）",
+          "telnet 10.0.0.11 22"
+        ],
+        [
+          "curl -sS -o /dev/null -w '%{http_code}\\n' <url>",
+          "通用",
+          "只取 HTTP 状态码，判断服务是否可用",
+          "curl -sS -o /dev/null -w '%{http_code}\\n' http://10.0.0.11/"
+        ]
+      ]
+    },
+    {
+      "name": "抓包与流量",
+      "desc": "抓包是「事实层」证据：先定过滤条件，再限制包数与时长。",
+      "columns": [
+        "命令",
+        "平台",
+        "说明",
+        "示例"
+      ],
+      "rows": [
+        [
+          "tcpdump -i <dev> -nn host <ip>",
+          "Linux",
+          "按主机过滤抓包",
+          "tcpdump -i ens192 -nn host 10.0.0.11 -c 50"
+        ],
+        [
+          "tcpdump -i <dev> -nn port <port>",
+          "Linux",
+          "按端口过滤抓包",
+          "tcpdump -i any -nn port 3306 -c 20"
+        ],
+        [
+          "tcpdump -w out.pcap",
+          "Linux",
+          "写 pcap 文件供 Wireshark 分析",
+          "tcpdump -i ens192 -w /tmp/cap.pcap -c 1000"
+        ],
+        [
+          "tcpdump -A -s 0 port 80",
+          "Linux",
+          "以 ASCII 打印载荷（看 HTTP 明文）",
+          "tcpdump -A -s 0 -nn port 80 -c 10"
+        ],
+        [
+          "tcpdump 'tcp[tcpflags] & tcp-syn != 0'",
+          "Linux",
+          "只看 SYN 包（判断是否有连接尝试）",
+          "tcpdump -nn 'tcp[tcpflags] & tcp-syn != 0' -c 20"
+        ],
+        [
+          "iftop -i <dev>",
+          "Linux",
+          "按连接查看实时带宽（需安装）",
+          "iftop -i ens192"
+        ],
+        [
+          "nload <dev>",
+          "Linux",
+          "接口实时进出流量",
+          "nload ens192"
+        ],
+        [
+          "iptables -L -v -n",
+          "Linux",
+          "查看防火墙规则与命中计数",
+          "iptables -L -v -n | head -30"
+        ],
+        [
+          "netsh trace start capture=yes",
+          "Windows",
+          "系统级抓包（生成 etl）",
+          "netsh trace start capture=yes maxsize=100"
+        ]
+      ]
+    },
+    {
+      "name": "性能与带宽",
+      "desc": "区分「不通」与「慢」；慢的常见根因是 MTU、丢包、队列与单流限速。",
+      "columns": [
+        "命令",
+        "平台",
+        "说明",
+        "示例"
+      ],
+      "rows": [
+        [
+          "iperf3 -s / -c <server>",
+          "通用",
+          "带宽吞吐测试（TCP）",
+          "iperf3 -c 10.0.0.11 -t 10 -P 4"
+        ],
+        [
+          "iperf3 -c <server> -u -b 100M",
+          "通用",
+          "UDP 带宽与丢包测试",
+          "iperf3 -c 10.0.0.11 -u -b 100M -t 10"
+        ],
+        [
+          "mtr -rw -c 100 <host>",
+          "Linux",
+          "逐跳丢包与延迟统计",
+          "mtr -rw -c 100 10.0.0.1"
+        ],
+        [
+          "tracepath <host>",
+          "Linux",
+          "路径 MTU 探测（无需 root）",
+          "tracepath 8.8.8.8"
+        ],
+        [
+          "ping -f -c 1000 <host>",
+          "Linux",
+          "洪泛 ping（★ 需 root，慎用）",
+          "ping -f -c 1000 10.0.0.11"
+        ],
+        [
+          "sar -n DEV 1 5",
+          "Linux",
+          "接口吞吐历史/实时采样（sysstat）",
+          "sar -n DEV 1 5"
+        ]
+      ]
+    },
+    {
+      "name": "设备侧对照（Cisco / 华为 / H3C）",
+      "desc": "同一件事三种写法；排查时先统一「看什么」，再对号入座。",
+      "columns": [
+        "命令",
+        "平台",
+        "说明",
+        "示例"
+      ],
+      "rows": [
+        [
+          "show ip interface brief",
+          "Cisco",
+          "接口 IP 与 up/down 一览",
+          "show ip interface brief"
+        ],
+        [
+          "display ip interface brief",
+          "华为 / H3C",
+          "接口 IP 与物理/协议状态一览",
+          "display ip interface brief"
+        ],
+        [
+          "show interfaces status",
+          "Cisco",
+          "接口速率/双工/VLAN/状态",
+          "show interfaces status"
+        ],
+        [
+          "display interface brief",
+          "华为 / H3C",
+          "接口速率、双工、收发光功率（部分型号）",
+          "display interface brief"
+        ],
+        [
+          "show ip route",
+          "Cisco",
+          "路由表",
+          "show ip route 10.20.0.0"
+        ],
+        [
+          "display ip routing-table",
+          "华为 / H3C",
+          "路由表",
+          "display ip routing-table 10.20.0.0"
+        ],
+        [
+          "show arp",
+          "Cisco",
+          "ARP 表",
+          "show arp | include 10.113"
+        ],
+        [
+          "display arp",
+          "华为 / H3C",
+          "ARP 表",
+          "display arp | include 10.113"
+        ],
+        [
+          "show mac address-table",
+          "Cisco",
+          "MAC 地址表（含端口与 VLAN）",
+          "show mac address-table dynamic"
+        ],
+        [
+          "display mac-address",
+          "华为 / H3C",
+          "MAC 地址表",
+          "display mac-address | include 0011-2233"
+        ],
+        [
+          "show lldp neighbors",
+          "Cisco",
+          "LLDP 邻居（对端口连线最有效）",
+          "show lldp neighbors detail"
+        ],
+        [
+          "display lldp neighbor brief",
+          "华为 / H3C",
+          "LLDP 邻居简表",
+          "display lldp neighbor brief"
+        ],
+        [
+          "show version",
+          "Cisco",
+          "版本、序列号、运行时长",
+          "show version | include uptime"
+        ],
+        [
+          "display version",
+          "华为 / H3C",
+          "版本与设备信息",
+          "display version"
+        ],
+        [
+          "show running-config",
+          "Cisco",
+          "当前运行配置",
+          "show running-config | include hostname"
+        ],
+        [
+          "display current-configuration",
+          "华为 / H3C",
+          "当前配置",
+          "display current-configuration | include sysname"
+        ],
+        [
+          "write memory / copy run start",
+          "Cisco",
+          "保存配置",
+          "write memory"
+        ],
+        [
+          "save",
+          "华为 / H3C",
+          "保存配置（部分版本需确认 y）",
+          "save force"
+        ],
+        [
+          "terminal length 0",
+          "Cisco",
+          "关闭分页（脚本采集前必做）",
+          "terminal length 0"
+        ],
+        [
+          "screen-length 0 temporary",
+          "华为 / H3C",
+          "临时关闭分页",
+          "screen-length 0 temporary"
+        ],
+        [
+          "show logging / display logbuffer",
+          "Cisco / 华为 / H3C",
+          "查看日志缓冲（含接口 up/down 记录）",
+          "show logging | include LINK"
+        ],
+        [
+          "ping <ip> source <ip>",
+          "Cisco / 华为 / H3C",
+          "带源地址 ping（验证回程路由）",
+          "ping 10.20.0.1 source 10.113.67.1"
+        ]
+      ]
+    }
+  ]
+}
