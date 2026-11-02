@@ -512,7 +512,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) ssh server cipher / hmac 用来收紧加密算法（等保与漏扫常要求）；\n   老版本可能不支持这两条，报错就删掉。\n2) 先 rsa local-key-pair create 再 stelnet server enable，顺序反了会报错。\n3) 生产上建议再配 ACL 限制允许登录的源地址（并 ssh server acl <编号> 引用）。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "notes": "1) ssh server cipher / hmac 用来收紧加密算法（等保与漏扫常要求）；\n   老版本可能不支持这两条，报错就删掉。\n2) 先 rsa local-key-pair create 再 stelnet server enable，顺序反了会报错。\n3) 生产上建议再配 ACL 限制允许登录的源地址（并 ssh server acl <编号> 引用）。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n验证方法：display ssh server status 显示 Stelnet server: Enable；display users 能看到本次登录会话与源地址；用新账号 SSH 登录成功且级别为 15",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -566,7 +566,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) 若已配置 authentication-mode aaa，console 登录要输用户名+口令，改口令要改 local-user。\n2) cipher 是密文存储；配置文件被别人拿到时，明文口令（simple）等于泄露。\n3) 现场忘记口令需要重启并在启动阶段按 Ctrl+B 进 BootROM 清空配置，属破坏性操作。",
+      "notes": "1) 若已配置 authentication-mode aaa，console 登录要输用户名+口令，改口令要改 local-user。\n2) cipher 是密文存储；配置文件被别人拿到时，明文口令（simple）等于泄露。\n3) 现场忘记口令需要重启并在启动阶段按 Ctrl+B 进 BootROM 清空配置，属破坏性操作。\n验证方法：display current-configuration | include console 显示 authentication-mode 与 user privilege；退出 console 重登需输新口令；静置到 idle-timeout 自动断开",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -648,7 +648,7 @@
           "description": "SNMP trap 源接口（华为），告警报文以该接口 IP 为源；网管侧按源 IP 建资产时须与其一致"
         }
       ],
-      "notes": "1) 双出口设备一定要配 snmp-agent trap source，否则 Trap 源地址是出接口地址，\n   网管侧可能收不到或被防火墙丢弃。\n2) 团体字要和网管平台注册的一致，区分大小写。\n3) 安全基线要求：删掉默认团体字；v2c 仅内网采集使用，能上 v3 就上 v3。",
+      "notes": "1) 双出口设备一定要配 snmp-agent trap source，否则 Trap 源地址是出接口地址，\n   网管侧可能收不到或被防火墙丢弃。\n2) 团体字要和网管平台注册的一致，区分大小写。\n3) 安全基线要求：删掉默认团体字；v2c 仅内网采集使用，能上 v3 就上 v3。\n验证方法：display snmp-agent sys-info 显示 version v2c 与 location/contact；display snmp-agent community 有只读/读写团体字；网管侧 snmpget 有返回；display snmp-agent target-host 能看到 Trap 目的地",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -680,7 +680,7 @@
           "description": "备份文件版本标签，拼进备份文件名（如 backup-20260930-pre-upgrade.cfg）便于追溯；建议用『日期-动作』格式，回滚时按标签定位对应版本"
         }
       ],
-      "notes": "1) save 跟 y 确认，或直接 save force。\n2) 备份文件名带日期或变更单号，现场多版本并存时才分得清。\n3) startup saved-configuration 指定的是\"下次启动\"用的配置，改错了重启后设备会变样，务必确认。",
+      "notes": "1) save 跟 y 确认，或直接 save force。\n2) 备份文件名带日期或变更单号，现场多版本并存时才分得清。\n3) startup saved-configuration 指定的是\"下次启动\"用的配置，改错了重启后设备会变样，务必确认。\n验证方法：display saved-configuration 有内容且关键配置与当前一致；dir flash:/ 能看到 vrpcfg.zip 与备份文件；重启后 display current-configuration 未丢失",
       "duration": "",
       "verified": 0,
       "verified_by": "",

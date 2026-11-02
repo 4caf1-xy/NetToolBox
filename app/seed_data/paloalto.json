@@ -715,7 +715,7 @@
           "description": "设备主机名，标识作用不影响转发；修改后提示符与日志来源同步变化，网管侧如按主机名建资产需同步更新"
         }
       ],
-      "notes": "1) set mgt-config users X password 是交互式命令：粘贴脚本会停在 \"Enter password:\" —— 现场手工敲。\n   想在脚本里一次配好，可用 password-hash 方式（先在界面/设备上设好再导出配置复用）。\n2) permitted-ip 是\"管理面白名单\"，配了就只允许该网段访问管理接口；\n   配置前务必确认自己在白名单网段内，否则会把自己锁在外面。\n3) 角色权限用 permissions role-based superuser yes；更细的可用自定义 role。\n4) 改 port 或 permitted-ip 前，先留一个已连通的会话，改完立即用新方式验证。",
+      "notes": "1) set mgt-config users X password 是交互式命令：粘贴脚本会停在 \"Enter password:\" —— 现场手工敲。\n   想在脚本里一次配好，可用 password-hash 方式（先在界面/设备上设好再导出配置复用）。\n2) permitted-ip 是\"管理面白名单\"，配了就只允许该网段访问管理接口；\n   配置前务必确认自己在白名单网段内，否则会把自己锁在外面。\n3) 角色权限用 permissions role-based superuser yes；更细的可用自定义 role。\n4) 改 port 或 permitted-ip 前，先留一个已连通的会话，改完立即用新方式验证。\n验证方法：show admins 显示账号与角色；ssh <账号>@<设备IP> 登录成功；若配了允许源，非允许地址连接被拒",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -813,7 +813,7 @@
           "description": "口令到期提前告警天数，临近过期登录时提示用户；与 change_days 配套，常见 7-14 天"
         }
       ],
-      "notes": "1) 改口令必须交互输入，脚本粘贴会卡在 \"Enter password:\"；现场手工敲，或从界面改。\n2) PAN-OS 的 console / HTTPS / SSH 共用同一套管理员账号，改一处全套生效。\n3) 忘记 admin 口令的恢复：通过 console 在维护模式（Maintenance Recovery）重置，\n   需要重启并现场操作，属破坏性操作。\n4) 安全基线：minimum-length ≥12、必须有数字与特殊字符、有效期 ≤90 天、开启历史记录。",
+      "notes": "1) 改口令必须交互输入，脚本粘贴会卡在 \"Enter password:\"；现场手工敲，或从界面改。\n2) PAN-OS 的 console / HTTPS / SSH 共用同一套管理员账号，改一处全套生效。\n3) 忘记 admin 口令的恢复：通过 console 在维护模式（Maintenance Recovery）重置，\n   需要重启并现场操作，属破坏性操作。\n4) 安全基线：minimum-length ≥12、必须有数字与特殊字符、有效期 ≤90 天、开启历史记录。\n验证方法：用新口令登录 Web 成功、旧口令失效；管理员口令策略页的最短长度/复杂度与设定一致；连续错误登录达到阈值触发锁定",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -855,7 +855,7 @@
           "description": "网管服务器（SNMP 采集/trap 接收）IP，设备向其发送告警并接受查询；填错网管侧收不到任何数据，等于监控失明"
         }
       ],
-      "notes": "1) permitted-ip 必须配，不配等于对全网开放 SNMP，安全审计必查。\n2) 团体字别用 public/private；建议与其它设备区分，避免一处泄露全网受影响。\n3) Trap 的 community-string 要与接收端一致，否则网管收不到告警。\n4) 更安全的做法是用 SNMPv3（set deviceconfig system snmp-setting access-setting version v3 ...），\n   需要配 usm-users 与认证/加密口令。",
+      "notes": "1) permitted-ip 必须配，不配等于对全网开放 SNMP，安全审计必查。\n2) 团体字别用 public/private；建议与其它设备区分，避免一处泄露全网受影响。\n3) Trap 的 community-string 要与接收端一致，否则网管收不到告警。\n4) 更安全的做法是用 SNMPv3（set deviceconfig system snmp-setting access-setting version v3 ...），\n   需要配 usm-users 与认证/加密口令。\n验证方法：Web Device → Setup → Operations → SNMP 与下发参数一致；网管侧 snmpget 有返回；Trap 目标地址在 show 输出中可见",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -887,7 +887,7 @@
           "description": "配置/镜像备份在本地（flash/USB）的保存文件名；仅本机留痕，建议再 execute backup 到 TFTP 异机一份防单点"
         }
       ],
-      "notes": "1) PAN-OS 每次 commit 都会自动生成一个版本快照，误改后可以 load config version <版本号> 回滚。\n2) save config to <文件名> 是导出到设备本地；要取回本机需在界面上\n   Device → Setup → Operations → Export 或用 SCP 拉取（隔离网络下建议存本地归档）。\n3) 变更前先在界面做一次 \"Save named configuration snapshot\"，命名带变更单号，回滚最方便。\n4) load config 会覆盖当前运行配置，执行前确认没有其他人正在操作设备。",
+      "notes": "1) PAN-OS 每次 commit 都会自动生成一个版本快照，误改后可以 load config version <版本号> 回滚。\n2) save config to <文件名> 是导出到设备本地；要取回本机需在界面上\n   Device → Setup → Operations → Export 或用 SCP 拉取（隔离网络下建议存本地归档）。\n3) 变更前先在界面做一次 \"Save named configuration snapshot\"，命名带变更单号，回滚最方便。\n4) load config 会覆盖当前运行配置，执行前确认没有其他人正在操作设备。\n验证方法：commit 回显 commit success；Web Device → Setup → Operations → Export 能下载 xml 且大小非 0；show config list change 为空（无残留候选配置）",
       "duration": "",
       "verified": 0,
       "verified_by": "",

@@ -1040,7 +1040,7 @@
           "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达"
         }
       ],
-      "notes": "1) -xe 的 x 是补全上下文、e 是跳到最后 —— 服务起不来先看这个。\n2) -b 只看本次开机以来的日志；-p err 只看 err 及以上级别。\n3) 日志占满磁盘：journalctl --vacuum-size=500M 直接缩到指定大小。",
+      "notes": "1) -xe 的 x 是补全上下文、e 是跳到最后 —— 服务起不来先看这个。\n2) -b 只看本次开机以来的日志；-p err 只看 err 及以上级别。\n3) 日志占满磁盘：journalctl --vacuum-size=500M 直接缩到指定大小。\n验证方法：journalctl -u sshd -n 20 --no-pager 能输出该单元最近日志；journalctl -p err -b 只列 err 及以上级别；journalctl --disk-usage 显示日志实际占用",
       "duration": "temp",
       "verified": 0,
       "verified_by": "",
@@ -1071,7 +1071,7 @@
           "description": "日志检索关键字，grep 过滤 /var/log/messages 等日志文件；支持正则；关键字太泛刷屏、太窄漏报，先宽后窄收敛"
         }
       ],
-      "notes": "1) grep -C 3 显示命中行前后各 3 行，排障时上下文很重要。\n2) tail -f 跟踪时 Ctrl+C 退出；管道里 grep 要加 --line-buffered 否则缓冲会卡输出。\n3) 关键字先小写 + -i 忽略大小写，避免 \"Error\"/\"ERROR\" 漏匹配。",
+      "notes": "1) grep -C 3 显示命中行前后各 3 行，排障时上下文很重要。\n2) tail -f 跟踪时 Ctrl+C 退出；管道里 grep 要加 --line-buffered 否则缓冲会卡输出。\n3) 关键字先小写 + -i 忽略大小写，避免 \"Error\"/\"ERROR\" 漏匹配。\n验证方法：tail -n 50 /var/log/messages 有内容；grep -iE error|fail 能命中目标行；tail -f 期间新写入的日志实时出现在终端",
       "duration": "temp",
       "verified": 0,
       "verified_by": "",

@@ -654,7 +654,7 @@
           "description": "登录空闲超时（分钟），无操作自动登出；现场建议 10-30 分钟；设太短频繁重登影响效率，太长有被冒用风险"
         }
       ],
-      "notes": "1) FortiGate 默认已开 SSH，重点是\"建账号 + 限源地址\"，trusthost 不配等于对全网开放。\n2) 等保与安全基线要求：admin 账号改名、禁用 telnet、SSH 改非标端口、管理超时不超过 10 分钟。\n3) 改 admin-sport 或 trusthost 前先确认新方式可用，否则会把自己锁在门外；\n   FortiGate 靠 console + 维护模式兜底（重启后 30 秒内用默认地址登录）。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n",
+      "notes": "1) FortiGate 默认已开 SSH，重点是\"建账号 + 限源地址\"，trusthost 不配等于对全网开放。\n2) 等保与安全基线要求：admin 账号改名、禁用 telnet、SSH 改非标端口、管理超时不超过 10 分钟。\n3) 改 admin-sport 或 trusthost 前先确认新方式可用，否则会把自己锁在门外；\n   FortiGate 靠 console + 维护模式兜底（重启后 30 秒内用默认地址登录）。\n4) ★ 口令必须现场生成随机强口令，禁止沿用任何示例值；渲染对话框未填口令会标红并阻止生成。\n验证方法：show system admin 显示账号、accprofile 与 trusthost1；从信任源 ssh -p <端口> <账号>@<设备IP> 登录成功且权限符合 accprofile；从非信任源连接被拒绝（超时或拒绝）",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -718,7 +718,7 @@
           "description": "FortiGate 账号有效期（天），到期自动禁用；管理员账号建议设长或不设，避免现场账号被锁死无法登录"
         }
       ],
-      "notes": "1) FortiGate 的 console / HTTPS / SSH 共用管理员账号口令，改一处全套生效。\n2) 忘记口令时：重启设备，30 秒内在 console 用 192.168.1.99/24 登录维护账号（用户名 maintainer）\n   可在不丢配置的前提下重置 admin 口令，比清配置友好，但同样要现场操作。\n3) 口令必须满足 system password-policy；直接 set 弱口令会被拒绝并提示原因。",
+      "notes": "1) FortiGate 的 console / HTTPS / SSH 共用管理员账号口令，改一处全套生效。\n2) 忘记口令时：重启设备，30 秒内在 console 用 192.168.1.99/24 登录维护账号（用户名 maintainer）\n   可在不丢配置的前提下重置 admin 口令，比清配置友好，但同样要现场操作。\n3) 口令必须满足 system password-policy；直接 set 弱口令会被拒绝并提示原因。\n验证方法：用新口令 SSH 与 HTTPS 登录均成功、旧口令登录失败；show system password-policy 的 minimum-length / expire 与设定一致",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -811,7 +811,7 @@
           "description": "SNMP 服务允许来源的掩码，与 nms_ip 配套限定采集来源范围；配宽了等于向多余网段开放 SNMP"
         }
       ],
-      "notes": "1) FortiOS 的 SNMP 团体字是\"只读\"性质，没有 RO/RW 之分；配置下发不能靠 SNMP。\n2) hosts 里必须限定网管主机 IP，不配等于对全网开放，安全审计必查。\n3) v1 明显不安全，建议 query-v1-status 与 trap-v1-status 都 disable，只留 v2c。",
+      "notes": "1) FortiOS 的 SNMP 团体字是\"只读\"性质，没有 RO/RW 之分；配置下发不能靠 SNMP。\n2) hosts 里必须限定网管主机 IP，不配等于对全网开放，安全审计必查。\n3) v1 明显不安全，建议 query-v1-status 与 trap-v1-status 都 disable，只留 v2c。\n验证方法：show system snmp community 显示团体字与 hosts 网段；网管侧 snmpget -v2c -c <团体字> <设备IP> sysDescr 有返回；get system snmp sysinfo 的 status 为 enable",
       "duration": "",
       "verified": 0,
       "verified_by": "",
@@ -843,7 +843,7 @@
           "description": "配置/镜像备份在本地（flash/USB）的保存文件名；仅本机留痕，建议再 execute backup 到 TFTP 异机一份防单点"
         }
       ],
-      "notes": "1) FortiOS 是\"改完即写盘\"，没有 write memory 这一步；配置改动在 end 之后即持久化。\n2) 备份用 execute backup config flash <文件名>，现场更常用 U 盘：execute backup config usb。\n3) 恢复（execute restore config）会整体覆盖现有配置，执行前先备份当前的，并确认无人正在操作设备。\n4) show full-configuration 输出很长，建议配合终端日志功能留存，别只靠翻屏。",
+      "notes": "1) FortiOS 是\"改完即写盘\"，没有 write memory 这一步；配置改动在 end 之后即持久化。\n2) 备份用 execute backup config flash <文件名>，现场更常用 U 盘：execute backup config usb。\n3) 恢复（execute restore config）会整体覆盖现有配置，执行前先备份当前的，并确认无人正在操作设备。\n4) show full-configuration 输出很长，建议配合终端日志功能留存，别只靠翻屏。\n验证方法：execute backup config 回显 Current config is successfully backed up；diagnose sys flash list 能看到备份文件且大小非 0；恢复前用同一文件做一次 restore 演练",
       "duration": "",
       "verified": 0,
       "verified_by": "",

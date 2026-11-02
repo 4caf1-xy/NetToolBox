@@ -598,7 +598,7 @@
           "description": "systemd 服务名（sshd/nginx 等），start/stop/enable 的操作对象；disable/stop 关键服务（如 sshd）前确认 console 可达"
         }
       ],
-      "notes": "1) 用法与 RHEL 一致。",
+      "notes": "1) 用法与 RHEL 一致。\n验证方法：journalctl -n 20 --no-pager 输出最近日志；journalctl -p err -b 只列 err 及以上；按时间窗过滤能查到对应事件",
       "duration": "temp",
       "verified": 0,
       "verified_by": "",

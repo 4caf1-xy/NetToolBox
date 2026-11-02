@@ -2,7 +2,7 @@
   "format": "netcmdl - command library",
   "schema": 2,
   "vendor_file": "err_dict.json",
-  "count": 100,
+  "count": 106,
   "err_dict": [
     {
       "err_id": "f1204b1c-e3f1-5186-b85b-8f63dde2b333",
@@ -2482,6 +2482,180 @@
       "examples": [
         "%EC-5-CANNOT_BUNDLE2: Gi0/2 is not compatible with Gi0/1 and will be active in future (channel group Gi0/1)",
         "%EC-5-CANNOT_BUNDLE2: Te1/0/2 is not compatible with Te1/0/1 and will be active in future (channel group Te1/0/1)"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "eb5f2c97-8c70-51a0-93fc-ead09f160fb6",
+      "vendor": "linux",
+      "os_family": "linux",
+      "pattern": "is not in the sudoers file",
+      "category": "权限",
+      "cause": "当前账号不在 sudo 授权名单里——sudo 只认 /etc/sudoers 及其 drop-in 目录里的授权，不在名单的账号提权一律被拒。",
+      "solution_steps": [
+        {
+          "text": "用 id 确认账号所属组，再看 /etc/sudoers 里放开了哪个组（%wheel 或 %sudo）",
+          "ref_entry_uuid": "65f66a61-f67f-5b97-ae8b-7be0b93fe9a4"
+        },
+        {
+          "text": "把账号加入对应组：usermod -aG wheel <用户>（组名以 sudoers 为准）"
+        },
+        {
+          "text": "重新登录会话（组变更只对新会话生效），再 sudo -v 验证"
+        },
+        {
+          "text": "不要用 chmod 777 或直接改 sudoers 内容绕过——审计会判违规"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "opsadmin is not in the sudoers file.  This incident will be reported.",
+        "user is not in the sudoers file.  This incident will be reported."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "79b0a2cd-e802-50d7-a856-fe4a0328957e",
+      "vendor": "linux",
+      "os_family": "linux",
+      "pattern": "Bind to port 22 on .* failed: Address already in use",
+      "category": "服务",
+      "cause": "22 端口已被别的进程占用（常见于重复启动 sshd、容器端口映射、或别的 ssh 实现），sshd 起不来。",
+      "solution_steps": [
+        {
+          "text": "ss -lntp | grep :22 看占用进程 PID 与程序名"
+        },
+        {
+          "text": "若是残留的旧 sshd 进程，systemctl restart sshd 前先确认不是正在用的会话"
+        },
+        {
+          "text": "若是容器/其他服务占用，改 sshd 端口（Port 2222）或调整映射，二选一"
+        },
+        {
+          "text": "改完 sshd -t 校验语法再 reload；改端口前先放行防火墙，避免锁死",
+          "ref_entry_uuid": "b6e5fb59-4b07-5c34-b94c-1002d5c4a615"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "sshd[1234]: error: Bind to port 22 on 0.0.0.0 failed: Address already in use.",
+        "sshd[1234]: error: Bind to port 22 on :: failed: Address already in use."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "dd940903-9962-5a8b-a9f3-25941334a6d6",
+      "vendor": "linux",
+      "os_family": "linux",
+      "pattern": "no server suitable for synchronization found|No suitable source for synchronisation",
+      "category": "服务",
+      "cause": "时间源不可用：地址不可达、UDP 123 被防火墙拦、或 chrony/ntpd 配置里没有可用 server。",
+      "solution_steps": [
+        {
+          "text": "先看服务与配置：systemctl status chronyd、grep -E '^(server|pool)' /etc/chrony.conf",
+          "ref_entry_uuid": "24b7a4d7-695b-5273-8ce0-61411563f8e2"
+        },
+        {
+          "text": "测连通：chronyc sources -v 看源状态是否为 ^*（当前同步源）"
+        },
+        {
+          "text": "放行 UDP 123：firewall-cmd --add-service=ntp --permanent && firewall-cmd --reload"
+        },
+        {
+          "text": "内网无外网时指向内网 NTP（如公司统一时间源），不要留公网 pool"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "ntpdate[2345]: no server suitable for synchronization found",
+        "chronyd[1234]: No suitable source for synchronisation"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "bdd47b85-c0ab-5d78-8a3e-3107466fe3f6",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "pattern": "% ?Authorization failed",
+      "category": "管理认证",
+      "cause": "登录或提权时 AAA 拒绝了该用户——本地库无此账号、级别不够、或 RADIUS/TACACS+ 不可达。",
+      "solution_steps": [
+        {
+          "text": "确认账号存在与级别：show running-config | include username",
+          "ref_entry_uuid": "c51d45e0-bfe2-531c-9db4-2debdb2dba00"
+        },
+        {
+          "text": "确认 vty 的认证方式：show running-config | section line vty（login local 还是 AAA）"
+        },
+        {
+          "text": "若走 AAA，检查 radius/tacacs server 可达与共享密钥：test aaa group tacacs+ <用户> <口令> legacy"
+        },
+        {
+          "text": "AAA 故障时用本地账号 + enable secret 兜底登录，别反复试错触发锁定"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "% Authorization failed.",
+        "sw1#configure terminal\n% Authorization failed."
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "e85e413e-adfe-53d6-a325-5c293dc59fed",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "pattern": "Validation Error",
+      "category": "保存系统",
+      "cause": "提交时配置校验不通过——引用了不存在的对象、地址/区域不匹配、或必填项缺失。",
+      "solution_steps": [
+        {
+          "text": "看 Validation Error 后面的具体对象名与原因（逐条列出，不是笼统失败）"
+        },
+        {
+          "text": "核对引用的对象是否已创建（地址对象/服务/区域/模板）"
+        },
+        {
+          "text": "用 show config list change 对照本次改动范围，逐条回退可疑项",
+          "ref_entry_uuid": "2156ab5b-7fbc-5a1d-9565-b943fd139c1d"
+        },
+        {
+          "text": "磁盘打满也会导致提交失败，先用 show system disk-space 排除"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Validation Error:",
+        "Validation Error: 'rule1' is not a valid reference"
+      ],
+      "verified": 0
+    },
+    {
+      "err_id": "b7f1d505-8d8d-5653-98df-dc80e827c643",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "pattern": "Command fail",
+      "category": "语法",
+      "cause": "FortiOS 命令被拒绝——参数取值非法、该型号/固件不支持此字段、或对象名不存在。",
+      "solution_steps": [
+        {
+          "text": "看 Return code：-2 多为参数非法，-23 多为对象不存在"
+        },
+        {
+          "text": "用 ? 在当前视图列出可用字段与取值范围，确认字段拼写"
+        },
+        {
+          "text": "确认固件版本是否支持该字段（老版本无部分字段）"
+        },
+        {
+          "text": "账号权限不足（accprofile 受限）也会报 Command fail，换有权限账号复核",
+          "ref_entry_uuid": "f112709f-d6eb-5472-b61f-f11f5c36e9e0"
+        }
+      ],
+      "fix_template": "",
+      "examples": [
+        "Command fail. Return code -2",
+        "Command fail. Return code -23"
       ],
       "verified": 0
     }

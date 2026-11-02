@@ -614,7 +614,7 @@
       "description": "journalctl 按时间窗与优先级过滤，快速定位报错上下文。",
       "commands": "journalctl -xe --no-pager | tail -60\njournalctl --since \"-30 min\" --no-pager | tail -80\njournalctl -p err -b --no-pager | tail -40",
       "params": [],
-      "notes": "1) -p err 只看错误级；排查服务问题再加 -u 服务名。\n2) 日志占用大时用 journalctl --vacuum-size=500M 缩容。",
+      "notes": "1) -p err 只看错误级；排查服务问题再加 -u 服务名。\n2) 日志占用大时用 journalctl --vacuum-size=500M 缩容。\n验证方法：journalctl -xe 输出最近错误与其上下文；grep 关键词能在 /var/log/messages 命中；过滤时间窗与事件时间一致",
       "duration": "temp",
       "verified": 0,
       "verified_by": "",
