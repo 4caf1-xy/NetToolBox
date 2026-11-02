@@ -582,3 +582,63 @@ seed-guide「新分类先 Issue」约定由用户点名场景直接授权，后�
   `pre-cutover-check/huawei` 10 步（4 变更 6 查询）、`emergency-rollback/cisco` 2 步 + 8 项
   排查树/报错记账跳过；六段式保存重开无损；v1 旧单加载无警告并另存为 v2；
 - 三提交推送，**不发版不 tag**（版本号仍 v0.8.0，v0.9 收口时统一 bump）。
+
+## R 批 速查手册 + 网工计算器 + curl 生成器（2026-11-02，v0.9 功能线第三件）
+
+代码+数据批，三子批；种子零改动（459 / 26 / 106 底数不变，矩阵不动）。选题吸收 meetool.cn 大纲、
+内容自写，事实按 IANA 注册表 / RFC 9110 / 官方文档核对。权威说明见 `docs/handbook-tools-guide.md`。
+
+### 盘点结论（动手前）
+
+- 主窗原有 7 Tab，`smoke_scenarios` 与 `smoke_panel_dashboard` 都硬断言了 Tab 数量与顺序 —— 加 Tab 必红，须同步；
+- 打包侧 `build_exe.py` 用显式 `--add-data` 白名单（seed_data / theme.qss / icon.ico），
+  `smoke_keyvault` T8e 断言"恰好 3 条" —— 新增数据目录必须同步这条断言，否则安全套件假红；
+- `--audit-offline` 的 `RUNTIME_FILES` 是**手写清单**：新增运行时代码不登记就等于没审计；
+  清单里 migrate_to_slug.py / check_db.py 早已搬到 scripts/，每次审计都打两条"缺失"噪音（本批顺手删）；
+- Ctrl+K 面板（ui_panel）三库是硬编码分区（entry/err/tree）+ `jump_to(kind,id)` 三路分支，
+  加第四库要么扩展 kind，要么另起浮层 —— 选了前者（改动小、跳转机制可复用）。
+
+### 实施裁决
+
+- **手册走独立 JSON，不进 db**：用户明确「不入 command_lib.db 计数、不动种子底数」。目录解析沿用
+  `seed_dirs` 的两级优先（程序同目录 > exe 内置），现场可整册替换；
+- **四列固定 schema**：表格视图 / 检索 / TSV 复制三处都按 4 列排版，换来的是校验能一刀切（缺列即 ERROR）；
+  多列需求（如手册总览的"条数"）用视图层临时列，不动数据格式；
+- **手册检索接 Ctrl+K**：命中 id 用 `doc_id|组下标|行下标` 这种"位置串"而不是给每行编 uuid ——
+  手册是只读快照，位置串够用且零维护成本；代价是**不能记最近使用**（位置串不属三库），jump_to 里直接 return；
+- **/31 与 /32 按需区分**：/31 走 RFC 3021（2 个可用、无网络/广播，广播列显示 `-`），/32 单主机 1 个；
+  /0 不禁止但提示"覆盖过大，确认笔误"——现场确实有人拿 /0 做默认路由口径；
+- **前导零一律拒绝**：`192.168.01.1` 在 inet_aton 里会被当八进制，不同工具行为不一致，宁可报错也不猜；
+- **curl 多行体在 Windows 下拒绝而不是压缩**：单行命令无法安全承载换行，静默把换行换成空格会改变语义
+  （JSON 字符串里的换行尤其致命），所以明确报错让用户压成一行或切 POSIX。
+
+### ★ 坑（下次改这块必看）
+
+1. **`splitlines()` 会吃掉孤立 CR**：头注入检测最初用 `text.splitlines()`，`"X: a\rInjected: b"` 被切成两行，
+   `"\r" in line` 永远不成立 —— 必须 `split("\n")` 再手工剥结尾 `\r`（CRLF 正常、行内 CR 才算注入）；
+2. **PS 5.1 传参吞噬引号**：`'{"a":1}'` 交给原生 exe 时内层双引号可能丢失，所以 PowerShell 档把 `"` 一律
+   写成 `\"` 交给 curl 还原；这也是三档转义不能共用一套的原因；
+3. **CMD 的 `%` 展开**：`%7B` 这类 URL 编码在 cmd 里可能被当变量，写进 .bat 还要双写成 `%%`。
+   工具只给告警不改写（改写会破坏交互粘贴），这是有意的"半自动"；
+4. **组合框索引差一**：进制源选择是「自动 + 2/8/10/16」共 5 项，写冒烟时把"自动"当 index 1 会让
+   `0xFF` 走进二进制分支直接报错 —— UI 档位断言一律按 `currentData()` 或核对 addItem 顺序；
+5. **`check(cond, detail)` 的 detail 是立即求值**：`tbl.item(4,1).text()` 写在参数里，表为空时先崩再判，
+   冒烟里要么先取变量、要么保证行数；同类坑在 `Qt.UserRole`（值是 256，不是 32）上踩过一次；
+6. **端口映射要展开 `TCP/UDP`**：查表函数把 `TCP/UDP` 行展开成两条再比对，否则 `(53,"TCP")` 恒查不到；
+   查重也必须按展开后的单协议算（514/TCP=shell 与 514/UDP=syslog 是**两个**合法服务）；
+7. **`load_docs(dirs)` 传字符串会按字符遍历**：`for d in dirs` 对字符串逐个字符 `listdir`；
+   测试里传目录一律 `[dir]`，`validate_cli` 的"缺册"严格检查也只在默认目录下做（指定目录不挑剔）；
+8. **冒烟路径卫生**：`PYTHONPATH=_vendor` 是相对路径，`_smoke_env` 只挪自己的绝对路径；
+   手动加 scripts 到 sys.path 时要用 `os.path.abspath('scripts')` 且 `append`（不能 insert 0），
+   否则 `ai_gate→sanitize_scan` 会撞上 scripts/ 的同名薄壳（ImportError）。
+
+### 验收对账（本批实测）
+
+- `smoke_handbook` **58/58**、`smoke_tools` **104/104**（新增 162 项，主库零接触断言过）；
+- 全量 19 套件（scripts/smoke_*.py 实数）rc=0；`--validate-handbook` EXIT=0；
+  `--validate-seed` EXIT=0（459 + 26 + 106，种子零改动，[W] 仍为存量 zte 骨架 1 处）；
+- `--audit-offline` 通过：20 个运行时文件零网络依赖，噪音清理后无"文件缺失"提示；
+- 手册事实核对抽查：63 个状态码短语与来源全部对表（413 Content Too Large / 418 Unused / 306 Unused /
+  305 已弃用 / 422 Unprocessable Content 等 RFC 9110 更名项均按新名），77 条端口与 IANA 服务名逐条比对，
+  514 双协议、未登记端口标注全部到位；
+- 三提交推送，**不发版不 tag**（版本号仍 v0.8.0，v0.9 收口时统一 bump）。

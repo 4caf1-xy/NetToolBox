@@ -15,6 +15,7 @@
 | [verify-guide.md](verify-guide.md) | 验证执行者 | 怎么跑一场验证会：环境、四档判定、回填与存档 | 验证流程变更时 |
 | [lab/README.md](lab/README.md) | 验证执行者 / 贡献者 | compose 实验室怎么拉起、进入、重置；设备映射与完整验证示例 | lab 链路变更时 |
 | [runbook-guide.md](runbook-guide.md) | 使用者 / 维护者 | 操作单（变更窗口操作单）数据模型、导出口径、复用边界与二批规划 | 操作单功能变更时 |
+| [handbook-tools-guide.md](handbook-tools-guide.md) | 使用者 / 维护者 | 七本速查手册的数据口径与增补方式、子网/进制计算器边界、curl 三平台转义规则 | 手册数据或工具口径变更时 |
 | [打包与部署说明.md](打包与部署说明.md) | 打包 / 分发执行者 | 怎么打包 exe、U 盘部署、升级迁移、现场排障 | 打包链路变更时 |
 | [dev-notes.md](dev-notes.md) | 维护者 / AI 会话 | 已知问题跟踪、历史坑与结论性沉淀 | 随发现随记（append） |
 | [prompts/README.md](prompts/README.md) | 维护者 | 历次 AI 提示词批次 → 产出对照 | 每批提示词归档后 |
@@ -32,6 +33,8 @@
 | 验证会流程 / 结果判定 / 晋升 | `verify-guide.md` |
 | 打包与 U 盘部署 | `打包与部署说明.md` |
 | 操作单（数据模型 / 导出口径 / 二批规划） | `runbook-guide.md` |
+| 速查手册（七本 / 增补 / Ctrl+K 四库） | `handbook-tools-guide.md` |
+| 计算器与 curl 生成器（边界 / 转义规则） | `handbook-tools-guide.md` |
 | 架构与双仓分工 | `architecture.md` |
 | 会话产物落位 / 密钥纪律 | `AGENTS.md` |
 | 版本变更记录 | `CHANGELOG.md` |

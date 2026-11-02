@@ -27,6 +27,7 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ★ 源码目录（2026-09 起代码/种子/样式都收进 app/；构建产物收拢到根 dist_package/）
 APP_DIR = os.path.join(BASE, "app")
 SEED_DIR = os.path.join(APP_DIR, "seed_data")
+HANDBOOK_DIR = os.path.join(APP_DIR, "handbook")   # 速查手册数据（R 批，随包分发）
 APP_NAME = "NetToolBox"
 ENTRY = os.path.join(APP_DIR, "main.py")
 DIST_DIR = os.path.join(BASE, "dist_package")
@@ -121,7 +122,9 @@ def check():
     # 3) 语法编译
     import py_compile
     for name in ("main.py", "db.py", "renderer.py", "ui_main.py",
-                 "ui_generator.py", "ui_editor.py") + tuple(AI_FILES):
+                 "ui_generator.py", "ui_editor.py",
+                 "handbook.py", "ui_handbook.py",
+                 "tool_calc.py", "tool_curl.py", "ui_tools.py") + tuple(AI_FILES):
         try:
             py_compile.compile(os.path.join(APP_DIR, name), doraise=True,
                                cfile=os.path.join(APP_DIR, "__pycache__", name + "c"))
@@ -145,6 +148,18 @@ def check():
             print("  [!!] seed_data 下没有任何 .json 厂商文件")
             ok = False
 
+    # 4b) 速查手册数据（R 批）：七本 JSON 必须齐全，否则打出来的包查不到手册
+    if not os.path.isdir(HANDBOOK_DIR):
+        print("  [!!] 缺少 handbook 目录 —— 打出来的 exe 将没有速查手册")
+        ok = False
+    else:
+        hb_files = [n for n in os.listdir(HANDBOOK_DIR) if n.endswith(".json")]
+        if len(hb_files) >= 7:
+            print("  [OK] handbook 下有 %d 本手册 JSON" % len(hb_files))
+        else:
+            print("  [!!] handbook 下只有 %d 本手册（预期 7 本）" % len(hb_files))
+            ok = False
+
     # 5) 种子库质检（复用程序自带的 --validate-seed）
     print("-" * 66)
     print("运行种子库质检（python main.py --validate-seed）…")
@@ -154,6 +169,15 @@ def check():
         ok = False
     else:
         print("  [OK] 种子库质检通过")
+
+    # 5b) 速查手册质检（结构 + 端口/状态码自检，R 批）
+    print("运行速查手册质检（python main.py --validate-handbook）…")
+    code = run([sys.executable, ENTRY, "--validate-handbook"])
+    if code != 0:
+        print("  [!!] 速查手册质检未通过，请先修好 handbook/*.json 再打包")
+        ok = False
+    else:
+        print("  [OK] 速查手册质检通过")
 
     print("=" * 66)
     print("检查结果：%s" % ("全部通过，可以打包" if ok else "存在问题，请先修复"))
@@ -203,6 +227,7 @@ def build():
         "--windowed",               # 不弹黑框控制台
         "--name", APP_NAME,
         "--add-data", os.path.join(APP_DIR, "seed_data") + ";seed_data",   # 种子库打进 exe（Windows 用 ; 分隔）
+        "--add-data", HANDBOOK_DIR + ";handbook",                          # 速查手册 JSON 打进 exe（R 批）
         "--add-data", os.path.join(APP_DIR, "theme.qss") + ";.",           # 全站样式表（theme.py 运行时读取；缺失有内置兜底）
         "--add-data", os.path.join(APP_DIR, "icon.ico") + ";.",            # 主窗图标（I 批收口 2026-10-13：setWindowIcon 载入）
         # ★ exe 图标（I 批 2026-10-13）：app/icon.ico（由 docs/screenshots/tubiao.png 一次性转换）。

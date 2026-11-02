@@ -603,11 +603,21 @@ class MainWindow(QMainWindow):
         m_cmd.addAction(act_lib)
 
         m_view = bar.addMenu("视图(&V)")
-        act_palette = QAction("全局搜索（命令 / 报错 / 排查树）…", self)
+        act_palette = QAction("全局搜索（命令 / 报错 / 排查树 / 手册）…", self)
         act_palette.setShortcut(QKeySequence("Ctrl+K"))
-        act_palette.setToolTip("三库统一搜索浮层，Enter 直接跳转定位")
+        act_palette.setToolTip("四库统一搜索浮层（命令 / 报错 / 树 / 速查手册），Enter 直接跳转定位")
         act_palette.triggered.connect(self.open_command_palette)
         m_view.addAction(act_palette)
+        act_handbook = QAction("速查手册（七本离线手册）", self)
+        act_handbook.setShortcut(QKeySequence("Ctrl+Shift+H"))
+        act_handbook.setToolTip("HTTP 状态码 / 常用端口 / Git / Linux / Vim / SSH / 网络命令")
+        act_handbook.triggered.connect(self.open_handbook_tab)
+        m_view.addAction(act_handbook)
+        act_tools = QAction("工具箱（子网计算 / 进制转换 / curl 生成）", self)
+        act_tools.setShortcut(QKeySequence("Ctrl+Shift+T"))
+        act_tools.setToolTip("纯本地计算与命令生成：零联网、不执行任何命令")
+        act_tools.triggered.connect(self.open_tools_tab)
+        m_view.addAction(act_tools)
         m_view.addSeparator()
         act_refresh = QAction("刷新列表", self)
         act_refresh.setShortcut(QKeySequence("F5"))
@@ -798,11 +808,19 @@ class MainWindow(QMainWindow):
 
         # ---------- 总装：Tab 结构（模块 04/05/06 规格）----------
         #   Tab1 命令库（原有全部内容）
-        #   Tab2 排查向导（模块 04）
-        #   Tab3 报错诊断（模块 05，占位）
+        #   Tab2 速查手册（R 批：七本离线手册，紧跟命令库——同属"查阅"类）
+        #   Tab3 排查向导（模块 04）
+        #   ...
+        #   Tab8 工具箱（R 批：子网/进制/curl，倒数第二）
+        #   Tab9 AI 诊断（末位）
         from ui_troubleshoot import TroubleshootTab
         from ui_errorfix import ErrorFixTab
         from ui_ai import AiTab, StatusIndicator
+        # 速查手册 Tab（R 批 2026-11-02）：数据来自 app/handbook/*.json，
+        # 不写库、不动种子；加载失败也只是清单为空，不影响其它功能
+        from ui_handbook import HandbookTab
+        self.tab_handbook, self._tab_hb_ok = self._safe_tab(
+            "速查手册", lambda: HandbookTab())
         self.tab_troubleshoot, self._tab_ts_ok = self._safe_tab(
             "排查向导", lambda: TroubleshootTab(self.db))
         # 场景包 Tab（2026-10-12：跨三库清单式捆绑；位置裁决：排查向导之后——
@@ -822,6 +840,11 @@ class MainWindow(QMainWindow):
         from ui_diff import DiffTab
         self.tab_diff, self._tab_diff_ok = self._safe_tab(
             "变更对比", lambda: DiffTab(self.db))
+        # 工具箱 Tab（R 批 2026-11-02：子网计算器 / 进制转换 / curl 生成器，
+        # 纯本地计算与字符串生成，零网络零执行）
+        from ui_tools import ToolsTab
+        self.tab_tools, self._tab_tools_ok = self._safe_tab(
+            "工具箱", lambda: ToolsTab())
         # AI 诊断 Tab（任务：主程序直接集成；常驻，不动态探测不排除模块。
         # 构造失败（如 PyQt5 之外的意外）也不拖垮主窗 —— _safe_tab 兜底占位页）
         self.tab_ai, self._tab_ai_ok = self._safe_tab(
@@ -830,11 +853,13 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
         self.tabs.addTab(self.main_split, "命令库")
+        self.tabs.addTab(self.tab_handbook, "速查手册")   # R 批：查阅类紧跟命令库
         self.tabs.addTab(self.tab_troubleshoot, "排查向导")
         self.tabs.addTab(self.tab_scenario, "场景包")    # 位置：排查向导后（2026-10-12）
         self.tabs.addTab(self.tab_errorfix, "报错诊断")
         self.tabs.addTab(self.tab_runbook, "操作单")     # 位置：报错诊断之后（2026-10-12 裁决②）
         self.tabs.addTab(self.tab_diff, "变更对比")      # 位置：操作单之后（H 批 2026-10-14）
+        self.tabs.addTab(self.tab_tools, "工具箱")       # R 批：倒数第二
         self.tabs.addTab(self.tab_ai, "AI 诊断")        # 位置：末位
         self.setCentralWidget(self.tabs)
 
@@ -951,10 +976,11 @@ class MainWindow(QMainWindow):
         if sizes:
             self.center_split.setSizes(sizes)
 
-        # 子 Tab 分栏记忆（AI 诊断 / 报错诊断 / 排查向导 / 场景包 / 操作单，任务2-3）：
-        # 各 Tab 自校验
+        # 子 Tab 分栏记忆（AI 诊断 / 报错诊断 / 排查向导 / 场景包 / 操作单 /
+        # 速查手册 / 工具箱，任务2-3）：各 Tab 自校验
         for tab in (self.tab_ai, self.tab_errorfix, self.tab_troubleshoot,
-                    self.tab_scenario, self.tab_runbook):
+                    self.tab_scenario, self.tab_runbook, self.tab_handbook,
+                    self.tab_tools):
             if tab is not None and hasattr(tab, "restore_split_state"):
                 try:
                     tab.restore_split_state(state)
@@ -965,7 +991,8 @@ class MainWindow(QMainWindow):
         """收集子 Tab 分栏比例（构造失败的占位 Tab 无此方法，跳过）"""
         payload = {}
         for tab in (self.tab_ai, self.tab_errorfix, self.tab_troubleshoot,
-                    self.tab_scenario, self.tab_runbook):
+                    self.tab_scenario, self.tab_runbook, self.tab_handbook,
+                    self.tab_tools):
             if tab is not None and hasattr(tab, "split_state"):
                 try:
                     payload.update(tab.split_state())
@@ -1002,6 +1029,25 @@ class MainWindow(QMainWindow):
             self.tabs.setCurrentWidget(self.tab_runbook)
             if hasattr(self.tab_runbook, "lst_steps"):
                 self.tab_runbook.lst_steps.setFocus()
+
+    def open_handbook_tab(self):
+        """跳到速查手册 Tab（R 批：视图菜单 / Ctrl+K 手册命中共用）"""
+        if getattr(self, "_tab_hb_ok", False) and getattr(self, "tab_handbook", None) is not None:
+            self.tabs.setCurrentWidget(self.tab_handbook)
+            if hasattr(self.tab_handbook, "ed_search"):
+                self.tab_handbook.ed_search.setFocus()
+
+    def open_tools_tab(self, sub=None):
+        """跳到工具箱 Tab；sub ∈ {subnet, base, curl} 时切到对应子页（R 批）"""
+        if not (getattr(self, "_tab_tools_ok", False) and getattr(self, "tab_tools", None) is not None):
+            return
+        self.tabs.setCurrentWidget(self.tab_tools)
+        index = {"subnet": 0, "base": 1, "curl": 2}.get(sub or "")
+        if index is not None:
+            try:
+                self.tab_tools.sub.setCurrentIndex(index)
+            except Exception:
+                pass
 
     def _safe_tab(self, tab_title, factory):
         """
@@ -2414,7 +2460,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("最近使用记录已清空。")
 
     def open_command_palette(self):
-        """Ctrl+K：三库统一搜索浮层，选中后跳转"""
+        """Ctrl+K：四库统一搜索浮层（命令/报错/树/手册），选中后跳转"""
         if self.db.closed:
             return
         from ui_panel import CommandPalette
@@ -2446,6 +2492,18 @@ class MainWindow(QMainWindow):
         elif kind == "tree":
             self.tabs.setCurrentIndex(self.tabs.indexOf(self.tab_troubleshoot))
             self.tab_troubleshoot.focus_category(tree_id=target_id)
+        elif kind == "hand":
+            # 速查手册（R 批）：target_id = "doc_id|组下标|行下标"
+            parts = (str(target_id).split("|") + ["", "", ""])[:3]
+            self.open_handbook_tab()
+            if hasattr(self.tab_handbook, "goto"):
+                try:
+                    gi = int(parts[1]) if parts[1] else None
+                    ri = int(parts[2]) if parts[2] else 0
+                except ValueError:
+                    gi, ri = None, 0
+                self.tab_handbook.goto(parts[0], gi, ri)
+            return          # 手册不写"最近使用"（其定位串不落在三库里）
         self._record_recent(kind, target_id)
 
     # ==================================================================

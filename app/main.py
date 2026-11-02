@@ -17,6 +17,7 @@ main.py —— 离网网络运维工具箱（NetToolBox）程序入口
     --audit-offline   仅运行离网审计（确认运行时代码零网络依赖，交付前必跑）
     --audit-offline   离网审计：确认运行时代码零网络依赖（交付前必跑）
     --validate-seed   种子库质检：导入 seed_data/*.json 并逐条校验（加条目后必跑）
+    --validate-handbook  速查手册质检：app/handbook/*.json 结构与端口/状态码自检（R 批）
     --check-ai        AI 诊断集成自检：配置状态 / HTTP 依赖是否真的进包（打包后必跑）
     --db PATH         指定命令库文件路径（默认程序同目录 command_lib.db）
 """
@@ -175,11 +176,15 @@ FORBIDDEN_SNIPPETS = [
 ]
 # 运行时代码（交付必须零网络）；开发工具单独列，不算失败
 RUNTIME_FILES = ["main.py", "db.py", "renderer.py", "error_match.py",
-                 "output_analyzer.py", "report.py", "migrate_to_slug.py",
+                 "output_analyzer.py", "report.py",
                  "ui_main.py", "ui_generator.py", "ui_editor.py",
                  "ui_troubleshoot.py", "ui_errorfix.py", "ui_tree_editor.py",
                  "ui_tree_visual.py", "tree_seed_io.py",
-                 "check_db.py"]
+                 "ui_panel.py", "ui_handbook.py", "handbook.py",
+                 "ui_tools.py", "tool_calc.py", "tool_curl.py"]
+# 说明（R 批）：migrate_to_slug.py / check_db.py 实际位于 scripts/（开发工具），
+# 早前误留在 RUNTIME_FILES 里，导致每次审计都打印「运行时文件缺失」两条噪音；
+# 本次随新文件登记一并改正（审计口径不变：只审 app/ 下的运行时代码）。
 DEV_FILES = ["build_exe.py"]
 
 # 「属性调用」级检查用的网络模块名（第 4 轮 P3-5）：
@@ -1135,6 +1140,9 @@ def main():
             sys.stderr.write("[warn] --allow-main-db：validate 将把种子导入 %s"
                              "（SESSION_FIELDS 状态字段由导入护栏保留库值）\n" % db_path)
         return validate_seed(db_path)
+    if "--validate-handbook" in argv:
+        import handbook
+        return handbook.validate_cli()
     if "--check-ai" in argv:
         return check_ai()
     return run_gui(db_path)

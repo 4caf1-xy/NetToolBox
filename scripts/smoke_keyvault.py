@@ -425,9 +425,11 @@ def _run_t8():
         build_src = fp.read()
     check("T8d build_exe.py 不引用 ai_config（exe 数据不含配置文件）",
           "ai_config" not in build_src)
-    # --add-data 仅 seed_data / theme.qss / icon.ico（正向核对；带引号匹配避免数到文档字符串）
+    # --add-data 仅 seed_data / theme.qss / icon.ico / handbook（正向核对；带引号匹配避免数到文档字符串）
+    # 2026-11-02（R 批）：速查手册数据随包分发，正式登记为第 4 条
     add_data = [ln for ln in build_src.splitlines() if '"--add-data"' in ln]
-    check("T8e --add-data 参数共 3 条（seed_data/theme.qss/icon.ico）", len(add_data) == 3,
+    check("T8e --add-data 参数共 4 条（seed_data/theme.qss/icon.ico/handbook）",
+          len(add_data) == 4 and any("handbook" in ln for ln in add_data),
           str(len(add_data)))
 
 

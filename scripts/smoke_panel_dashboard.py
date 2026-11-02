@@ -371,10 +371,11 @@ def case_e():
         w = ui_main.MainWindow(db)
         titles = [w.tabs.tabText(i) for i in range(w.tabs.count())]
         # 2026-10-12：操作单 Tab（裁决②）+ 场景包 Tab（排查向导后）→ 5 → 6；
-        # 2026-10-14（H 批）：变更对比 Tab（操作单后）→ 6 → 7
-        check("E/Tab-七个（变更对比加入）", w.tabs.count() == 7
-              and titles == ["命令库", "排查向导", "场景包", "报错诊断",
-                             "操作单", "变更对比", "AI 诊断"],
+        # 2026-10-14（H 批）：变更对比 Tab（操作单后）→ 6 → 7；
+        # 2026-11-02（R 批）：速查手册（命令库后）+ 工具箱（AI 诊断前）→ 7 → 9
+        check("E/Tab-九个（手册+工具箱加入）", w.tabs.count() == 9
+              and titles == ["命令库", "速查手册", "排查向导", "场景包", "报错诊断",
+                             "操作单", "变更对比", "工具箱", "AI 诊断"],
               str(titles))
         check("E/操作单Tab-可恢复分栏", hasattr(w.tab_runbook, "restore_split_state"), "")
         check("E/场景包Tab-可恢复分栏", hasattr(w.tab_scenario, "restore_split_state"), "")
