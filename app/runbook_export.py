@@ -2,14 +2,22 @@
 """
 runbook_export.py —— 操作单（Runbook）数据模型 + 单文件 HTML 导出器
 
-数据模型（schema 1，落盘 JSON，运行数据不入库不进 git——AGENTS.md §8 口径）：
+数据模型（schema 2，落盘 JSON，运行数据不入库不进 git——AGENTS.md §8 口径）：
     {
-      "schema": 1,
+      "schema": 2,
       "meta": {title, device_model, vendor, os_family, window_start, window_end,
-               operator, reviewer, rollback_point, created_at, updated_at},
+               operator, reviewer, rollback_point, abort_criteria, template,
+               source_pack, created_at, updated_at},
       "steps": [{step_no, entry_uuid, title_snapshot, vendor_snapshot,
-                 params, expect, note, checked}]
+                 params, expect, note, checked, phase}]
     }
+
+schema 1 → 2（P 批 2026-11-02，仅增补字段，无破坏性改动）：
+    · meta.abort_criteria  六段式「回退条件」文本（触发回退的判据）
+    · meta.template        "" / "six"（六段式分组开关，非强制；空 = 旧式平铺）
+    · meta.source_pack     由场景包一键生成时的包 id（溯源，人工建单为空）
+    · step.phase           "" / pre / change / validation / rollback / post
+    v1 文件缺这些字段 → normalize 一律补默认值（空串），载入无警告、另存为 v2。
 
 设计裁决（2026-10-12 用户确认）：
     ① rollback 不落盘：渲染/导出时按 entry_uuid 实时从库取（库为权威，防漂移）；
@@ -35,15 +43,39 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import renderer  # noqa: E402
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+SUPPORTED_SCHEMAS = (1, 2)      # v1 只读兼容（载入即升 v2，增补字段补空）
 
 META_FIELDS = (
     "title", "device_model", "vendor", "os_family",
     "window_start", "window_end", "operator", "reviewer",
     "rollback_point",
+    "abort_criteria",            # schema 2：六段式「回退条件」文本
+    "template",                  # schema 2："" / "six"
+    "source_pack",               # schema 2：来源场景包 id（人工建单为空）
 )
 STEP_FIELDS = ("step_no", "entry_uuid", "title_snapshot", "vendor_snapshot",
-               "params", "expect", "note", "checked")
+               "params", "expect", "note", "checked",
+               "phase")          # schema 2：六段式阶段键（"" = 未分组）
+
+# ---------------------------------------------------------------------------
+# 六段式阶段模板（P 批 2026-11-02，可选非强制）
+# ---------------------------------------------------------------------------
+# 阶段键 → (英文段名, 中文说明)。顺序即导出/分组展示顺序。
+# 「abort（回退条件）」是文本段不是步骤段：判据写 meta.abort_criteria；
+# 「rollback（Rollback）」既可由步骤显式承担（phase=rollback），也由变更类条目
+# 的回退方案实时汇总（回退汇总页）——两处不重复落数据。
+PHASE_LABELS = {
+    "pre":        ("Pre-check",    "变更前检查"),
+    "change":     ("Change",       "变更执行"),
+    "validation": ("Validation",   "变更后验证"),
+    "abort":      ("回退条件",     "触发回退的判据（文本段，非步骤）"),
+    "rollback":   ("Rollback",     "回退执行"),
+    "post":       ("Post-check",   "收尾复核"),
+}
+PHASE_ORDER = ("pre", "change", "validation", "abort", "rollback", "post")
+STEP_PHASES = tuple(k for k in PHASE_ORDER if k != "abort")   # 步骤可标注的阶段
+TEMPLATE_SIX = "six"
 
 
 # ---------------------------------------------------------------------------
@@ -59,20 +91,29 @@ def new_runbook():
 
 
 def normalize_runbook(data):
-    """把外部 JSON 规整成合法操作单（坏值兜底，不抛异常——离网现场不因状态文件拖死）"""
+    """把外部 JSON 规整成合法操作单（坏值兜底，不抛异常——离网现场不因状态文件拖死）
+
+    schema 1 文件在这里就地升级为 2：v1 没有 phase/template/abort_criteria/source_pack，
+    一律补空串默认值（= 旧式平铺视图），**不产生任何警告**，另存即为 v2。
+    声明版本高于当前（未来文件）原样保留，交给 validate 明确拒绝，不做猜测式降级。
+    """
     out = new_runbook()
     if not isinstance(data, dict):
         return out
     try:
-        out["schema"] = int(data.get("schema") or SCHEMA_VERSION)
+        declared = int(data.get("schema") or SCHEMA_VERSION)
     except (TypeError, ValueError):
-        out["schema"] = SCHEMA_VERSION
+        declared = SCHEMA_VERSION
+    out["schema"] = SCHEMA_VERSION if declared <= SCHEMA_VERSION else declared
     meta = data.get("meta") or {}
     if isinstance(meta, dict):
         for f in META_FIELDS:
             out["meta"][f] = str(meta.get(f) or "")
         out["meta"]["created_at"] = str(meta.get("created_at") or "")
         out["meta"]["updated_at"] = str(meta.get("updated_at") or "")
+    # 模板开关只认 "six"（脏值一律回落到平铺，宁可少分组不可乱分组）
+    if out["meta"].get("template") != TEMPLATE_SIX:
+        out["meta"]["template"] = ""
     steps = data.get("steps")
     if isinstance(steps, list):
         for i, raw in enumerate(steps):
@@ -88,6 +129,10 @@ def normalize_runbook(data):
             if not isinstance(step["params"], dict):
                 step["params"] = {}
             step["checked"] = bool(step["checked"])
+            # 未知阶段键回落到未分组（旧文件/手改文件都可能带脏值）
+            step["phase"] = str(step.get("phase") or "").strip()
+            if step["phase"] not in STEP_PHASES:
+                step["phase"] = ""
             out["steps"].append(step)
     return out
 
@@ -97,10 +142,17 @@ def validate_runbook(data):
     issues = []
     if not isinstance(data, dict):
         return ["顶层不是 JSON 对象"]
-    if int(data.get("schema") or 0) != SCHEMA_VERSION:
-        issues.append("schema 版本不是 %d（收到 %r）" % (SCHEMA_VERSION, data.get("schema")))
+    try:
+        schema = int(data.get("schema") or 0)
+    except (TypeError, ValueError):
+        schema = 0
+    if schema not in SUPPORTED_SCHEMAS:
+        issues.append("schema 版本不支持（收到 %r，支持 %s）"
+                      % (data.get("schema"), "/".join(str(s) for s in SUPPORTED_SCHEMAS)))
     if not isinstance(data.get("meta"), dict):
         issues.append("meta 缺失或不是对象")
+    elif str((data.get("meta") or {}).get("template") or "") not in ("", TEMPLATE_SIX):
+        issues.append("meta.template 取值非法（只允许空串或 %r）" % TEMPLATE_SIX)
     steps = data.get("steps")
     if not isinstance(steps, list):
         issues.append("steps 缺失或不是数组")
@@ -113,6 +165,8 @@ def validate_runbook(data):
                 issues.append("第 %d 步缺 entry_uuid" % (i + 1))
             if not isinstance(s.get("params") or {}, dict):
                 issues.append("第 %d 步 params 不是对象" % (i + 1))
+            if str(s.get("phase") or "") not in ("",) + STEP_PHASES:
+                issues.append("第 %d 步 phase 取值非法（%r）" % (i + 1, s.get("phase")))
     return issues
 
 
@@ -146,7 +200,216 @@ def save_runbook(data, path):
 
 
 # ---------------------------------------------------------------------------
-# 二、打印配色 token（浅色，从 theme.py 派生 + 同源校验）
+# 二、场景包 → 操作单草稿（P 批 2026-11-02；单一事实源 = 场景包，不做模板库）
+# ---------------------------------------------------------------------------
+# 设计口径：
+#   · 只把 ref_type=entry 的包内条目排成步骤（操作单步骤模型就是「命令条目引用」）；
+#     排查树/报错条目**不静默丢弃**——进 report.skipped 逐项记账，UI 明确告知；
+#   · 多厂商包（by_vendor）必须先落到具体厂商：未指定厂商 → 该步记 skip 并说明；
+#   · 参数按条目 params 默认值预填（含 {{name:默认}} 内联默认），无默认的必填项留空，
+#     由操作单表单现场填（与手工建单同一口径）；
+#   · 包内 item.note（步骤说明）落到 step.note，不丢现场指导语。
+
+REF_TYPE_NAMES = {"entry": "命令条目", "tree": "排查树", "err": "报错字典条目"}
+
+
+def _entry_params(entry):
+    """条目 params 字段 → list（容忍 JSON 串 / list，解析失败返回 []）"""
+    raw = (entry or {}).get("params")
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            return []
+        return data if isinstance(data, list) else []
+    return []
+
+
+def prefill_params(entry):
+    """条目参数默认值 → step.params 初值（只铺有默认值的，空默认不占位）"""
+    if not entry:
+        return {}
+    try:
+        specs = renderer.merge_param_specs(_entry_params(entry), entry.get("commands") or "")
+    except Exception:
+        return {}
+    out = {}
+    for spec in specs:
+        name = str(spec.get("name") or "").strip()
+        default = str(spec.get("default") or "").strip()
+        if name and default:
+            out[name] = default
+    return out
+
+
+def _ordered_items(pack):
+    """包内 items 按 seq 升序（seq 缺失/非数值的排后面，保持原相对顺序）"""
+    raw = [it for it in ((pack or {}).get("items") or []) if isinstance(it, dict)]
+
+    def key(pair):
+        idx, it = pair
+        try:
+            seq = float(it.get("seq"))
+        except (TypeError, ValueError):
+            seq = float("inf")
+        return (seq, idx)
+
+    return [it for _i, it in sorted(enumerate(raw), key=key)]
+
+
+def build_from_pack(pack, db=None, vendor=""):
+    """
+    场景包 → 操作单草稿。返回 (data, report)，data 已 normalize。
+
+    report = {
+        "pack_id", "title", "vendor", "added", "change", "query",
+        "skipped": [{seq, ref_type, title, reason}],   # 非命令条目 / 厂商不符
+        "missing": [{seq, ref_id, reason}],            # 引用失效（uuid 不在库）
+        "os_family": "vrp5"|"" ,
+    }
+    步骤顺序 = 包内 seq 顺序；变更类不写 rollback（schema 纪律：回退实时取库）。
+    """
+    data = new_runbook()
+    report = {"pack_id": "", "title": "", "vendor": str(vendor or ""), "added": 0,
+              "change": 0, "query": 0, "skipped": [], "missing": [], "os_family": ""}
+    if not isinstance(pack, dict):
+        return data, report
+
+    report["pack_id"] = str(pack.get("pack_id") or "")
+    report["title"] = str(pack.get("title") or "")
+    data["meta"]["title"] = report["title"]
+    data["meta"]["vendor"] = report["vendor"]
+    data["meta"]["source_pack"] = report["pack_id"]
+
+    os_seen = []
+    for it in _ordered_items(pack):
+        seq = it.get("seq")
+        rtype = str(it.get("ref_type") or "")
+        if rtype != "entry":
+            report["skipped"].append({
+                "seq": seq, "ref_type": rtype,
+                "reason": "非命令条目（%s）——操作单步骤只收命令库条目"
+                          % REF_TYPE_NAMES.get(rtype, rtype or "未知类型")})
+            continue
+        bvm = it.get("by_vendor") or {}
+        if bvm:
+            if not report["vendor"]:
+                report["skipped"].append({
+                    "seq": seq, "ref_type": rtype,
+                    "reason": "多厂商步骤：未指定厂商视图（先选定目标厂商再生成）"})
+                continue
+            uid = bvm.get(report["vendor"])
+            if not uid:
+                report["skipped"].append({
+                    "seq": seq, "ref_type": rtype,
+                    "reason": "该厂商（%s）在本包内无对应条目" % report["vendor"]})
+                continue
+        else:
+            uid = it.get("ref_id")
+        entry = None
+        if db is not None and uid:
+            try:
+                entry = db.get_entry(uid)
+            except Exception:
+                entry = None
+        if not entry:
+            report["missing"].append({"seq": seq, "ref_id": str(uid or ""),
+                                      "reason": "引用失效：条目不在当前命令库"})
+            continue
+        cat = "change"
+        try:
+            cat = renderer.classify_entry(entry)
+        except Exception:
+            cat = "change"          # fail-safe：分不清当变更类（引入回退要求，不是漏要求）
+        report["change" if cat == "change" else "query"] += 1
+        data["steps"].append({
+            "step_no": len(data["steps"]) + 1,
+            "entry_uuid": entry.get("uuid") or str(uid or ""),
+            "title_snapshot": entry.get("title") or "(无标题)",
+            "vendor_snapshot": entry.get("vendor") or "",
+            "params": prefill_params(entry),
+            "expect": "",
+            "note": str(it.get("note") or ""),
+            "checked": False,
+            "phase": "",
+        })
+        osf = str(entry.get("os_family") or "")
+        if osf and osf not in os_seen:
+            os_seen.append(osf)
+
+    report["added"] = len(data["steps"])
+    # 单内 OS 一致时才写单头（混合 OS 的包不猜）
+    report["os_family"] = os_seen[0] if len(os_seen) == 1 else ""
+    data["meta"]["os_family"] = report["os_family"]
+    return data, report
+
+
+def apply_six_template(data, db=None, only_empty=True):
+    """
+    套用六段式阶段模板：meta.template="six" + 按启发式给步骤打阶段标记。
+
+    启发式（**草稿级建议，人工可改**，只填 phase 为空的步骤）：
+        · 变更类步骤                       → change
+        · 整单无变更类步骤                 → 全部 pre（"割接前检查"这类只读包）
+        · 首个变更类步骤之前的查询类       → pre
+        · 末步（且非变更类）               → post
+        · 其余查询类                       → validation
+    rollback 阶段不自动分配：回退方案由条目 rollback 实时汇总（回退汇总页），
+    只有人工显式把某步标成 rollback 时才会出现在 Rollback 段。
+    返回实际赋值的步骤数。
+    """
+    data.setdefault("meta", {})["template"] = TEMPLATE_SIX
+    steps = data.get("steps") or []
+    if not steps:
+        return 0
+    cats = []
+    for step in steps:
+        entry = None
+        if db is not None:
+            try:
+                entry = db.get_entry(step.get("entry_uuid"))
+            except Exception:
+                entry = None
+        if entry is None:
+            cats.append(None)
+            continue
+        try:
+            cats.append(renderer.classify_entry(entry))
+        except Exception:
+            cats.append("change")
+    changes = [i for i, c in enumerate(cats) if c == "change"]
+    first_change = changes[0] if changes else None
+    assigned = 0
+    for i, step in enumerate(steps):
+        if only_empty and str(step.get("phase") or "").strip():
+            continue
+        if cats[i] == "change":
+            phase = "change"
+        elif first_change is None:
+            phase = "pre"
+        elif i < first_change:
+            phase = "pre"
+        elif i == len(steps) - 1:
+            phase = "post"
+        else:
+            phase = "validation"
+        if step.get("phase") != phase:
+            step["phase"] = phase
+            assigned += 1
+    return assigned
+
+
+def clear_six_template(data):
+    """取消六段式：清模板开关 + 清全部步骤阶段标记（回到旧式平铺，数据不留半拉子）"""
+    data.setdefault("meta", {})["template"] = ""
+    for step in data.get("steps") or []:
+        step["phase"] = ""
+
+
+# ---------------------------------------------------------------------------
+# 三、打印配色 token（浅色，从 theme.py 派生 + 同源校验）
 # ---------------------------------------------------------------------------
 # 每个打印 token 记录其 theme.py 来源常量与"派生时刻"的源值：
 # verify_print_tokens_against_theme() 逐字比对 theme.py —— theme.py 改色即漂移报错，
@@ -198,7 +461,7 @@ def verify_print_tokens_against_theme():
 
 
 # ---------------------------------------------------------------------------
-# 三、步骤解析（rollback 实时取库 + 变更类实时判定）
+# 四、步骤解析（rollback 实时取库 + 变更类实时判定）
 # ---------------------------------------------------------------------------
 
 def resolve_steps(data, db):
@@ -250,7 +513,7 @@ def resolve_steps(data, db):
 
 
 # ---------------------------------------------------------------------------
-# 四、HTML 导出（单文件 / A4 打印 / 勾选框 / 回退汇总页 / 复核页）
+# 五、HTML 导出（单文件 / A4 打印 / 勾选框 / 六段式分组 / 回退汇总页 / 复核页）
 # ---------------------------------------------------------------------------
 
 def _esc(s):
@@ -332,6 +595,16 @@ pre.code .cm{color:var(--text3);font-style:italic}
 .note{font-size:11.5px;color:var(--text2);margin:1mm 0 0}
 .miss{color:var(--warning);font-size:11px;margin:1mm 0 0}
 .rbmiss{color:var(--danger);font-size:11.5px;font-weight:600;margin:1.5mm 0 0}
+/* 六段式阶段分组（P 批；meta.template=six 时才出现） */
+h3.phase{font-size:13px;margin:5mm 0 2.5mm;padding-left:2.5mm;
+border-left:3px solid var(--accent);page-break-after:avoid;break-after:avoid}
+h3.phase .en{font-weight:700;letter-spacing:.2px}
+h3.phase .cn{color:var(--text2);font-weight:400;font-size:11px;margin-left:2mm}
+.abort{border:1px solid var(--border);border-left:3px solid var(--warning);background:var(--panel);
+border-radius:5px;padding:3mm 4mm;font-size:12px;margin:0 0 3mm;
+page-break-inside:avoid;break-inside:avoid}
+.abort .lbl{font-weight:700;color:var(--warning)}
+.grp-note{color:var(--text2);font-size:11px;margin:0 0 3mm}
 /* 回退汇总页 */
 .rb-page{page-break-before:always;break-before:page}
 .rb{border:1px solid var(--border);border-left:3px solid var(--danger);border-radius:6px;
@@ -361,9 +634,11 @@ __META_TABLE__
 <div class="notice"><b>执行须知：</b>按步骤顺序执行，每步完成后勾选左侧勾选框；
 「预期回显」与实际不符时立即停止并执行回退页对应步骤；变更类步骤均附回退方案（见回退汇总页）。</div>
 <h2 class="sec">命令序列</h2>
+__PHASE_NOTE__
 __STEPS__
 <h2 class="sec rb-page">回退方案汇总（变更类步骤）</h2>
 <div class="notice"><b>回退点：</b>__ROLLBACK_POINT__</div>
+__ABORT_BLOCK__
 __ROLLBACKS__
 <h2 class="sec rb-page">复核确认</h2>
 <div class="checkline"><span class="cb"></span>变更窗口内执行，未超窗口</div>
@@ -381,11 +656,72 @@ __ROLLBACKS__
 """
 
 
+def _phase_of(step):
+    """步骤阶段键（非法值当未分组；导出侧与 normalize 同口径）"""
+    phase = str((step or {}).get("phase") or "")
+    return phase if phase in STEP_PHASES else ""
+
+
+def _phase_heading(key):
+    """阶段段标题（六段式分组用）"""
+    if key == "":
+        return ('<h3 class="phase"><span class="en">未分组</span>'
+                '<span class="cn">未标注阶段的步骤</span></h3>')
+    en, zh = PHASE_LABELS.get(key, (key, ""))
+    return ('<h3 class="phase"><span class="en">%s</span>'
+            '<span class="cn">%s</span></h3>' % (_esc(en), _esc(zh)))
+
+
+def _step_card(r):
+    """单个步骤卡（命令序列页）"""
+    step = r["step"]
+    cls = "step missing" if (r["status"] == "missing" or r["missing_rollback"]) else "step"
+    if r["status"] == "missing":
+        badge = '<span class="badge b-dead">条目失效</span>'
+    elif r["category"] == "change":
+        badge = '<span class="badge b-change">变更类</span>'
+    else:
+        badge = '<span class="badge b-query">查询类</span>'
+    head = ('<div class="head"><span class="cb"></span>'
+            '<span class="no">第 %d 步</span><span class="title">%s</span>%s</div>'
+            % (r["index"], _esc(step.get("title_snapshot") or "(无标题)"), badge))
+    body = [head]
+    if r["status"] == "missing":
+        body.append('<div class="miss">⚠ 条目已不在当前命令库中（uuid %s），'
+                    '命令以快照标题为准，请人工核对或重建操作单。</div>'
+                    % _esc(step.get("entry_uuid")))
+    else:
+        params = step.get("params") or {}
+        if params:
+            body.append('<table class="params ptable"><tr><th>参数</th><th>填入值</th></tr>%s</table>'
+                        % "".join("<tr><th>%s</th><td>%s</td></tr>" % (_esc(k), _esc(v))
+                                  for k, v in params.items()))
+        body.append('<pre class="code">%s</pre>' % _code_html(r["rendered"]))
+        if r["missing_params"]:
+            body.append('<div class="miss">⚠ 未填参数：%s（命令中保留占位）</div>'
+                        % _esc(", ".join(r["missing_params"])))
+    if str(step.get("expect") or "").strip():
+        body.append('<div class="expect"><span class="lbl">预期回显要点：</span>%s</div>'
+                    % _esc(step.get("expect")))
+    if str(step.get("note") or "").strip():
+        body.append('<div class="note"><span class="lbl">备注：</span>%s</div>'
+                    % _esc(step.get("note")))
+    if r["missing_rollback"]:
+        body.append('<div class="rbmiss">⚠⚠ 变更类步骤缺少回退方案——正常不应出现，'
+                    '请先在命令库补齐 rollback 再执行本操作单。</div>')
+    return '<div class="%s">%s</div>' % (cls, "".join(body))
+
+
+_EMPTY_STEP_CARD = ('<div class="step"><div class="head"><span class="title">'
+                    '（尚无步骤——在 NetToolBox「操作单」Tab 添加）</span></div></div>')
+
+
 def build_html(data, db=None):
     """渲染单文件 HTML（不含写盘）。data 需先 normalize_runbook"""
     data = normalize_runbook(data)
     resolved = resolve_steps(data, db)
     meta = data.get("meta") or {}
+    template_on = str(meta.get("template") or "") == TEMPLATE_SIX
 
     # ---- meta 表 ----
     rows = _meta_rows(data)
@@ -394,48 +730,39 @@ def build_html(data, db=None):
         meta_table = '<table class="meta">%s</table>' % "".join(
             "<tr><th>%s</th><td>%s</td></tr>" % (_esc(k), _esc(v)) for k, v in rows)
 
-    # ---- 步骤卡 ----
-    step_cards = []
-    for r in resolved:
-        step = r["step"]
-        cls = "step missing" if (r["status"] == "missing" or r["missing_rollback"]) else "step"
-        if r["status"] == "missing":
-            badge = '<span class="badge b-dead">条目失效</span>'
-        elif r["category"] == "change":
-            badge = '<span class="badge b-change">变更类</span>'
-        else:
-            badge = '<span class="badge b-query">查询类</span>'
-        head = ('<div class="head"><span class="cb"></span>'
-                '<span class="no">第 %d 步</span><span class="title">%s</span>%s</div>'
-                % (r["index"], _esc(step.get("title_snapshot") or "(无标题)"), badge))
-        body = [head]
-        if r["status"] == "missing":
-            body.append('<div class="miss">⚠ 条目已不在当前命令库中（uuid %s），'
-                        '命令以快照标题为准，请人工核对或重建操作单。</div>'
-                        % _esc(step.get("entry_uuid")))
-        else:
-            params = step.get("params") or {}
-            if params:
-                body.append('<table class="params ptable"><tr><th>参数</th><th>填入值</th></tr>%s</table>'
-                            % "".join("<tr><th>%s</th><td>%s</td></tr>" % (_esc(k), _esc(v))
-                                      for k, v in params.items()))
-            body.append('<pre class="code">%s</pre>' % _code_html(r["rendered"]))
-            if r["missing_params"]:
-                body.append('<div class="miss">⚠ 未填参数：%s（命令中保留占位）</div>'
-                            % _esc(", ".join(r["missing_params"])))
-        if str(step.get("expect") or "").strip():
-            body.append('<div class="expect"><span class="lbl">预期回显要点：</span>%s</div>'
-                        % _esc(step.get("expect")))
-        if str(step.get("note") or "").strip():
-            body.append('<div class="note"><span class="lbl">备注：</span>%s</div>'
-                        % _esc(step.get("note")))
-        if r["missing_rollback"]:
-            body.append('<div class="rbmiss">⚠⚠ 变更类步骤缺少回退方案——正常不应出现，'
-                        '请先在命令库补齐 rollback 再执行本操作单。</div>')
-        step_cards.append('<div class="%s">%s</div>' % (cls, "".join(body)))
-    if not step_cards:
-        step_cards.append('<div class="step"><div class="head"><span class="title">'
-                          '（尚无步骤——在 NetToolBox「操作单」Tab 添加）</span></div></div>')
+    # ---- 步骤卡（template=six 时按阶段分组，否则旧式平铺——v1 单导出结果不变）----
+    cards = [(_phase_of(r["step"]), _step_card(r)) for r in resolved]
+    if not cards:
+        step_html = _EMPTY_STEP_CARD
+        phase_note = ""
+    elif template_on:
+        groups = {}
+        for phase, html in cards:
+            groups.setdefault(phase, []).append(html)
+        parts = []
+        for key in ("",) + PHASE_ORDER:      # 未分组置顶：漏标阶段的步骤不能被藏起来
+            if key in groups:
+                parts.append(_phase_heading(key))
+                parts.extend(groups[key])
+        step_html = "\n".join(parts)
+        phase_note = ('<div class="grp-note">六段式分组视图（Pre-check / Change / Validation / '
+                      '回退条件 / Rollback / Post-check）：段名用于组织与交接，'
+                      '执行顺序仍以「第 N 步」序号为准。</div>')
+    else:
+        step_html = "\n".join(html for _p, html in cards)
+        phase_note = ""
+
+    # ---- 回退条件（六段式第 4 段；空则在模板模式下显式提示补齐）----
+    abort_text = str(meta.get("abort_criteria") or "").strip()
+    if abort_text:
+        abort_block = ('<div class="abort"><span class="lbl">回退条件（触发即执行 Rollback）：'
+                       '</span>%s</div>' % _esc(abort_text))
+    elif template_on:
+        abort_block = ('<div class="abort"><span class="lbl">回退条件（触发即执行 Rollback）：'
+                       '</span>（未填写——建议在操作单「回退条件」栏补齐判据，'
+                       '如「回显不符 / 业务探测丢包 &gt; 1%」）</div>')
+    else:
+        abort_block = ""
 
     # ---- 回退汇总页 ----
     rb_cards = []
@@ -461,7 +788,9 @@ def build_html(data, db=None):
             .replace("__GENERATED__", datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
             .replace("__META_TABLE__", meta_table)
             .replace("__ROLLBACK_POINT__", _esc(meta.get("rollback_point") or "（未填写）"))
-            .replace("__STEPS__", "\n".join(step_cards))
+            .replace("__PHASE_NOTE__", phase_note)
+            .replace("__STEPS__", step_html)
+            .replace("__ABORT_BLOCK__", abort_block)
             .replace("__ROLLBACKS__", "\n".join(rb_cards))
             .replace("__CSS_TOKENS__", _css_vars()))
     return html

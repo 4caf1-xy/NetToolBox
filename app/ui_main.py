@@ -995,6 +995,14 @@ class MainWindow(QMainWindow):
             if hasattr(self.tab_diff, "ed_before"):
                 self.tab_diff.ed_before.setFocus()
 
+    def open_runbook_tab(self):
+        """跳转操作单 Tab（P 批：场景包「一键生成操作单」的落点）。
+        Tab 构造失败（_safe_tab 占位页）时静默不动——调用方已先行判定可用性。"""
+        if getattr(self, "_tab_rb_ok", False) and getattr(self, "tab_runbook", None) is not None:
+            self.tabs.setCurrentWidget(self.tab_runbook)
+            if hasattr(self.tab_runbook, "lst_steps"):
+                self.tab_runbook.lst_steps.setFocus()
+
     def _safe_tab(self, tab_title, factory):
         """
         安全构造业务 Tab（★ 交付级容错）。

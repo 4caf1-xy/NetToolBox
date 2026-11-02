@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-smoke_runbook.py —— 操作单生成器（Runbook）冒烟（2026-10-12 新增）
+smoke_runbook.py —— 操作单生成器（Runbook）冒烟
 
-覆盖六案（全部 offscreen + :memory: 种子库，主库零接触）：
+覆盖九案（全部 offscreen + :memory: 种子库，主库零接触）：
     [A] 数据模型：new_runbook 默认 / validate / save→load 回读字段无损 /
         normalize 坏值兜底
     [B] rollback 实时带出（裁决③）：变更类 resolve 出 rollback 文本；
@@ -13,6 +13,12 @@ smoke_runbook.py —— 操作单生成器（Runbook）冒烟（2026-10-12 新�
     [E] 操作单 Tab：构造 / 程序化加步骤 / 预览含回退段 / 缺回退红标可见 /
         split_state 记忆 / 保存重开字段无损
     [F] 变更类缺 rollback 红标（Tab 层 lbl_rbmiss 可见性）
+    [G] 场景包一键生成（P 批）：三包 × 厂商的步数与顺序 / 参数预填 /
+        变更类回退在列 / 非命令引用记账 / 未选厂商与引用失效兜底
+    [H] 六段式阶段模板（P 批）：启发式标注 / 不覆盖人工标注 / HTML 分组 /
+        取消清空 / 旧 v1 文件兼容加载 / 脏值兜底
+    [I] Tab 层分组与一键生成落点：段头行与行映射 / load_from_pack 草稿 /
+        阶段下拉自动开模板 / 关闭分组回平铺
 
 用法：python scripts/smoke_runbook.py   （EXIT=0 全过；需 PyQt5）
 """
@@ -69,12 +75,14 @@ def sample_runbook():
     data["steps"] = [
         {"step_no": 1, "entry_uuid": "rb-query-1", "title_snapshot": "查询条目",
          "vendor_snapshot": "huawei", "params": {}, "expect": "能看到 VLAN 列表",
-         "note": "", "checked": False},
+         "note": "", "checked": False, "phase": ""},
         {"step_no": 2, "entry_uuid": "rb-change-1", "title_snapshot": "变更条目",
          "vendor_snapshot": "huawei", "params": {"vlan_id": "100"},
-         "expect": "display vlan 100 可见", "note": "窗口开始后执行", "checked": False},
+         "expect": "display vlan 100 可见", "note": "窗口开始后执行", "checked": False,
+         "phase": ""},
         {"step_no": 3, "entry_uuid": "rb-dead-1", "title_snapshot": "失效条目",
-         "vendor_snapshot": "huawei", "params": {}, "expect": "", "note": "", "checked": False},
+         "vendor_snapshot": "huawei", "params": {}, "expect": "", "note": "",
+         "checked": False, "phase": ""},
     ]
     return data
 
@@ -136,7 +144,8 @@ def case_b():
     data = sample_runbook()
     data["steps"].append(
         {"step_no": 4, "entry_uuid": "rb-change-norb", "title_snapshot": "变更无回退",
-         "vendor_snapshot": "huawei", "params": {}, "expect": "", "note": "", "checked": False})
+         "vendor_snapshot": "huawei", "params": {}, "expect": "", "note": "",
+         "checked": False, "phase": ""})
     res = R.resolve_steps(data, d)
     by_uuid = {r["step"]["entry_uuid"]: r for r in res}
 
@@ -167,7 +176,8 @@ def case_c():
     data = sample_runbook()
     data["steps"].append(
         {"step_no": 4, "entry_uuid": "rb-change-norb", "title_snapshot": "变更无回退",
-         "vendor_snapshot": "huawei", "params": {}, "expect": "", "note": "", "checked": False})
+         "vendor_snapshot": "huawei", "params": {}, "expect": "", "note": "",
+         "checked": False, "phase": ""})
     html = R.build_html(data, d)
 
     check("C2 零 script 标签", "<script" not in html.lower())
@@ -222,7 +232,8 @@ def case_e():
 
     d = build_test_db()
     tab = RunbookTab(d, None)     # main=None：offscreen 独立构造
-    check("E1 Tab 构造", tab.data["schema"] == 1 and len(tab.data["steps"]) == 0)
+    check("E1 Tab 构造", tab.data["schema"] == 2 and len(tab.data["steps"]) == 0,
+          str(tab.data["schema"]))
     state = tab.split_state()
     check("E2 split_state 记忆 key", "runbook_split" in state, str(state))
 
@@ -235,7 +246,8 @@ def case_e():
         tab.data["steps"].append({"step_no": len(tab.data["steps"]) + 1,
                                   "entry_uuid": uuid, "title_snapshot": title,
                                   "vendor_snapshot": "huawei", "params": params,
-                                  "expect": "预期要点", "note": "", "checked": False})
+                                  "expect": "预期要点", "note": "", "checked": False,
+                                  "phase": ""})
     tab._reload_steps(keep=0)
     tab._show_step(0)
     check("E3 列表条数", tab.lst_steps.count() == 3, str(tab.lst_steps.count()))
@@ -270,11 +282,251 @@ def case_e():
     shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ======================================================================
+# [G] 场景包一键生成（P 批 2026-11-02）
+# ======================================================================
+PACK_CASES = (
+    ("new-device-onboarding", "huawei", 9),
+    ("pre-cutover-check", "huawei", 10),
+    ("emergency-rollback", "cisco", 2),
+)
+
+
+def pack_entry_titles(d, pack, vendor):
+    """独立复算「该厂商视图下应生成的步骤标题」（按 seq 排序，不复用被测函数）"""
+    items = sorted([it for it in (pack.get("items") or []) if it.get("ref_type") == "entry"],
+                   key=lambda it: it.get("seq"))
+    titles = []
+    for it in items:
+        bvm = it.get("by_vendor") or {}
+        uid = bvm.get(vendor) if bvm else it.get("ref_id")
+        entry = d.get_entry(uid) if uid else None
+        if entry:
+            titles.append(entry.get("title"))
+    return titles
+
+
+def case_g():
+    import copy
+    import runbook_export as R
+    d = build_test_db()
+
+    for pid, vendor, expect_n in PACK_CASES:
+        pack = d.get_pack(pid)
+        data, rep = R.build_from_pack(pack, d, vendor)
+        got = [s["title_snapshot"] for s in data["steps"]]
+        want = pack_entry_titles(d, pack, vendor)
+        check("G1 %s/%s 步数与 seq 顺序" % (pid, vendor),
+              rep["added"] == expect_n and got == want,
+              json.dumps({"added": rep["added"], "expect": expect_n,
+                          "顺序一致": got == want}, ensure_ascii=False))
+
+    pack = d.get_pack("new-device-onboarding")
+    data, rep = R.build_from_pack(pack, d, "huawei")
+    p1 = data["steps"][0].get("params") or {}
+    p5 = data["steps"][4].get("params") or {}
+    check("G2 参数按条目默认值预填",
+          p1.get("hostname") == "SW-CORE-01" and p5.get("vlan_id") == "10",
+          json.dumps({"step1": p1, "step5": p5}, ensure_ascii=False))
+    check("G3 无默认值必填项留空（不臆造）",
+          "password" not in p1 and p1.get("username") == "netadmin",
+          json.dumps(p1, ensure_ascii=False))
+
+    res = R.resolve_steps(data, d)
+    change_rows = [r for r in res if r["category"] == "change"]
+    check("G4 变更类 rollback 在列（实时取库）",
+          bool(change_rows) and all(r["rollback"].strip() for r in change_rows),
+          "%d 变更步，缺 %d" % (len(change_rows),
+                                sum(1 for r in change_rows if not r["rollback"].strip())))
+    check("G5 rollback 不落盘（schema 纪律）",
+          all("rollback" not in s for s in data["steps"]))
+
+    pack3 = d.get_pack("emergency-rollback")
+    d3, r3 = R.build_from_pack(pack3, d, "cisco")
+    check("G6 非命令引用记账（树/报错）",
+          len(r3["skipped"]) == 8
+          and all("非命令条目" in s["reason"] for s in r3["skipped"])
+          and r3["missing"] == [],
+          json.dumps({"skipped": len(r3["skipped"]),
+                      "added": r3["added"]}, ensure_ascii=False))
+    check("G7 包内步骤说明进备注",
+          any("第一动作" in (s.get("note") or "") for s in d3["steps"]),
+          json.dumps([(s.get("note") or "")[:10] for s in d3["steps"]], ensure_ascii=False))
+
+    data0, rep0 = R.build_from_pack(pack, d, "")
+    check("G8 未选厂商不臆测",
+          rep0["added"] == 0 and len(rep0["skipped"]) == 9
+          and all("未指定厂商" in s["reason"] for s in rep0["skipped"]),
+          json.dumps({"added": rep0["added"], "skipped": len(rep0["skipped"])}))
+
+    _d4, r4 = R.build_from_pack(d.get_pack("pre-cutover-check"), d, "zte")
+    check("G9 厂商不符跳过", r4["added"] == 0 and len(r4["skipped"]) == 10,
+          json.dumps({"added": r4["added"], "skipped": len(r4["skipped"])}))
+
+    broken = copy.deepcopy(pack)
+    broken["items"][0]["by_vendor"]["huawei"] = "dead-uuid-not-in-db"
+    _d5, r5 = R.build_from_pack(broken, d, "huawei")
+    check("G10 引用失效记账不崩", r5["added"] == 8 and len(r5["missing"]) == 1,
+          json.dumps({"added": r5["added"], "missing": len(r5["missing"])}))
+
+
+# ======================================================================
+# [H] 六段式阶段模板（P 批）
+# ======================================================================
+def case_h():
+    import runbook_export as R
+    d = build_test_db()
+    pack = d.get_pack("pre-cutover-check")
+    data, _rep = R.build_from_pack(pack, d, "huawei")
+
+    n = R.apply_six_template(data, d)
+    phases = [s["phase"] for s in data["steps"]]
+    check("H1 模板开关 + 启发式标注",
+          data["meta"]["template"] == "six" and n == 10
+          and phases[0] == "pre" and "change" in phases and "validation" in phases,
+          json.dumps(phases))
+
+    data["steps"][0]["phase"] = "post"
+    R.apply_six_template(data, d)
+    check("H2 不覆盖人工标注", data["steps"][0]["phase"] == "post",
+          data["steps"][0]["phase"])
+
+    data["meta"]["abort_criteria"] = "变更后 5 分钟内 BGP 邻居未全部 Established 即回退"
+    tmp = tempfile.mkdtemp(prefix="ntbx_smoke_rb_")
+    path = os.path.join(tmp, "six.json")
+    R.save_runbook(data, path)
+    loaded, err = R.load_runbook(path)
+    check("H3 六段式保存重开无损",
+          err == "" and loaded["meta"]["template"] == "six"
+          and loaded["meta"]["abort_criteria"] == data["meta"]["abort_criteria"]
+          and [s["phase"] for s in loaded["steps"]] == [s["phase"] for s in data["steps"]]
+          and loaded["meta"]["source_pack"] == "pre-cutover-check", err)
+
+    html = R.build_html(data, d)
+    six = ("Pre-check", "Change", "Validation", "回退条件", "Rollback", "Post-check")
+    check("H4 HTML 六段俱全", all(x in html for x in six) and '<h3 class="phase">' in html,
+          str([x for x in six if x not in html]))
+    check("H5 回退条件文本进单", "BGP 邻居未全部 Established" in html)
+    check("H6 分组提示且零外链",
+          '<div class="grp-note">' in html and "http://" not in html
+          and "<script" not in html.lower())
+
+    flat = R.build_from_pack(pack, d, "huawei")[0]
+    flat_html = R.build_html(flat, d)
+    check("H7 平铺单无阶段段头（旧口径不变）",
+          '<h3 class="phase">' not in flat_html
+          and '<div class="grp-note">' not in flat_html)
+
+    R.clear_six_template(data)
+    check("H8 取消模板清空阶段",
+          data["meta"]["template"] == "" and all(s["phase"] == "" for s in data["steps"]))
+
+    v1 = {"schema": 1, "meta": {"title": "旧版操作单", "vendor": "huawei"},
+          "steps": [{"step_no": 1, "entry_uuid": "rb-query-1", "title_snapshot": "旧步骤",
+                     "vendor_snapshot": "huawei", "params": {}, "expect": "旧期望",
+                     "note": "", "checked": True}]}
+    v1path = os.path.join(tmp, "v1.json")
+    with open(v1path, "w", encoding="utf-8") as fp:
+        json.dump(v1, fp, ensure_ascii=False)
+    v1data, v1err = R.load_runbook(v1path)
+    check("H9 旧 v1 文件兼容加载（无警告）",
+          v1err == "" and v1data["schema"] == 2
+          and v1data["meta"]["template"] == "" and v1data["meta"]["abort_criteria"] == ""
+          and v1data["steps"][0]["phase"] == "" and v1data["steps"][0]["checked"] is True,
+          repr(v1err))
+    v2path = os.path.join(tmp, "v1_resaved.json")
+    R.save_runbook(v1data, v2path)
+    back, backerr = R.load_runbook(v2path)
+    check("H10 v1 → v2 另存无损",
+          backerr == "" and back["schema"] == 2 and back["steps"] == v1data["steps"],
+          repr(backerr))
+
+    dirty = R.normalize_runbook({"schema": 1, "meta": {"template": "weird"},
+                                 "steps": [{"entry_uuid": "u1", "phase": "not-a-phase"}]})
+    check("H11 脏值兜底（模板/阶段）",
+          dirty["meta"]["template"] == "" and dirty["steps"][0]["phase"] == ""
+          and R.validate_runbook(dirty) == [],
+          json.dumps({"tpl": dirty["meta"]["template"], "ph": dirty["steps"][0]["phase"]}))
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ======================================================================
+# [I] Tab 层：分组列表 + 一键生成落点
+# ======================================================================
+def case_i():
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(sys.argv)
+    _ = app
+    from ui_runbook import RunbookTab
+    import runbook_export as R
+
+    d = build_test_db()
+    tab = RunbookTab(d, None)
+    ok, msg = tab.load_from_pack(d.get_pack("pre-cutover-check"), "huawei")
+    check("I1 一键生成草稿（未保存态）",
+          ok and len(tab.data["steps"]) == 10 and tab.dirty and tab.current_path is None, msg)
+    check("I2 单头带出包信息",
+          tab.data["meta"]["title"] == "割接前检查"
+          and tab.data["meta"]["vendor"] == "huawei"
+          and tab.data["meta"]["source_pack"] == "pre-cutover-check",
+          json.dumps({k: tab.data["meta"][k] for k in ("title", "vendor", "source_pack")},
+                     ensure_ascii=False))
+    check("I3 平铺行映射恒等",
+          tab.lst_steps.count() == 10 and tab._row_map == list(range(10)),
+          json.dumps(tab._row_map))
+
+    tab.btn_six.setChecked(True)
+    headers = sum(1 for x in tab._row_map if x is None)
+    check("I4 分组段头行",
+          headers == 3 and tab.lst_steps.count() == 13,
+          json.dumps({"headers": headers, "rows": tab.lst_steps.count()}))
+
+    hrow = tab._row_map.index(None)
+    before = tab._cur
+    tab.lst_steps.setCurrentRow(hrow)
+    check("I5 段头不可选中（当前步不变）", tab._cur == before,
+          "cur=%r before=%r row=%r" % (tab._cur, before, hrow))
+
+    tab.btn_six.setChecked(False)
+    check("I6 关闭分组回平铺",
+          tab._row_map == list(range(10))
+          and all(s["phase"] == "" for s in tab.data["steps"]),
+          json.dumps(tab._row_map))
+
+    tab.lst_steps.setCurrentRow(2)
+    tab.cmb_phase.setCurrentIndex(tab.cmb_phase.findData("rollback"))
+    check("I7 选阶段自动开分组",
+          tab.data["meta"]["template"] == "six"
+          and tab.data["steps"][2]["phase"] == "rollback"
+          and tab.lst_steps.count() > 10,
+          json.dumps({"tpl": tab.data["meta"]["template"],
+                      "phase": tab.data["steps"][2]["phase"],
+                      "rows": tab.lst_steps.count()}))
+
+    tmp = tempfile.mkdtemp(prefix="ntbx_smoke_rb_")
+    path = os.path.join(tmp, "pack_draft.json")
+    tab.ed_meta["abort_criteria"].setText("丢包 > 1% 即回退")
+    tab._save_to(path)
+    loaded, err = R.load_runbook(path)
+    check("I8 草稿保存重开无损",
+          err == "" and len(loaded["steps"]) == 10
+          and loaded["meta"]["abort_criteria"] == "丢包 > 1% 即回退"
+          and loaded["meta"]["template"] == "six", err)
+    shutil.rmtree(tmp, ignore_errors=True)
+
+    tab2 = RunbookTab(d, None)
+    ok2, _m2 = tab2.load_from_pack(d.get_pack("new-device-onboarding"), "huawei")
+    vals = dict(tab2._form.values()) if getattr(tab2, "_form", None) is not None else {}
+    check("I9 参数预填进表单控件",
+          ok2 and str(vals.get("hostname")) == "SW-CORE-01",
+          json.dumps(vals, ensure_ascii=False))
+
+
 def main():
     print("=" * 68)
     print("smoke_runbook —— 操作单生成器冒烟")
     print("=" * 68)
-    for fn in (case_a, case_b, case_c, case_d, case_e):
+    for fn in (case_a, case_b, case_c, case_d, case_e, case_g, case_h, case_i):
         fn()
     fails = [r for r in RESULTS if not r[1]]
     print("-" * 68)

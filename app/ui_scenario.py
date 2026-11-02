@@ -79,6 +79,13 @@ class ScenarioTab(QWidget):
         self.lbl_count = QLabel("")
         self.lbl_count.setObjectName("Hint")
         bar.addWidget(self.lbl_count)
+        # P 批（2026-11-02）：场景包 → 操作单草稿一键生成（单一事实源 = 场景包）
+        self.btn_runbook = QPushButton("一键生成操作单 →")
+        self.btn_runbook.setToolTip("把当前场景包按 seq 顺序展开成操作单草稿：参数按条目默认值预填，"
+                                    "变更类自动带回退（实时取库），步骤说明带入备注；"
+                                    "多厂商步骤按上方「厂商视图」落到具体厂商")
+        self.btn_runbook.clicked.connect(self.on_generate_runbook)
+        bar.addWidget(self.btn_runbook)
         bar.addStretch(1)
         self.lbl_hint = QLabel("清单式打包复用：条目只引用不复制，单项可跳转回对应库")
         self.lbl_hint.setObjectName("Hint")
@@ -520,6 +527,32 @@ class ScenarioTab(QWidget):
             self._status("主窗不可用，无法跳转。")
             return
         win.jump_to(kind, target_id)
+
+    # ==================================================================
+    # 场景包 → 操作单草稿（P 批一键生成）
+    # ==================================================================
+    def on_generate_runbook(self):
+        """当前包 + 当前厂商视图 → 操作单草稿（切到操作单 Tab 供人工核对后另存）"""
+        pack = self.current_pack()
+        if not pack:
+            self._status("先选中一个场景包。")
+            return
+        vendor = self._sel_vendor()
+        if not vendor:
+            self._status("先在「厂商视图」选定目标厂商——多厂商步骤要落到具体设备才能生成操作单。")
+            self.cmb_vendor.setFocus()
+            return
+        main = self.main if self.main is not None else None
+        tab = getattr(main, "tab_runbook", None) if main is not None else None
+        if main is None or tab is None or not getattr(main, "_tab_rb_ok", False):
+            self._status("操作单 Tab 不可用（只读库/缺表占位页），无法生成操作单。")
+            return
+        ok, msg = tab.load_from_pack(pack, vendor)
+        if not ok:
+            self._status("未生成：" + msg)
+            return
+        main.open_runbook_tab()
+        self._status(msg + "；核对后「另存为」归档")
 
     def _status(self, text):
         win = self.main if self.main is not None else self.window()

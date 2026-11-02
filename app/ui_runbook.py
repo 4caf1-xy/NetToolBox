@@ -6,7 +6,16 @@ ui_runbook.py —— 操作单生成器（Runbook）Tab（2026-10-12 新增）
 可打印的变更窗口操作单：命令序列（params 已填）+ 每步预期回显要点 +
 回退方案（实时取库）+ 复核勾选框。
 
-数据模型 / 导出器：app/runbook_export.py（schema 1；rollback 不落盘、
+二批（P 批 2026-11-02）：
+    · 场景包 → 操作单草稿一键生成（load_from_pack；入口在场景包 Tab，
+      单一事实源 = 场景包，不另造模板库）；
+    · 六段式阶段模板（可选非强制）：Pre-check / Change / Validation /
+      回退条件 / Rollback / Post-check。开 = 左侧列表按阶段插段头行
+      （_row_map 维持「行 → 步骤下标」映射，段头不可选），关 = 旧式平铺；
+      回退条件是 meta 文本段（abort_criteria），Rollback 段既可由步骤显式
+      承担，也由变更类条目回退方案实时汇总（导出回退汇总页）。
+
+数据模型 / 导出器：app/runbook_export.py（schema 2；rollback 不落盘、
 变更类实时判定——唯一执法点 renderer.classify_entry）。
 
 复用件（不另造轮子）：
@@ -20,7 +29,8 @@ ui_runbook.py —— 操作单生成器（Runbook）Tab（2026-10-12 新增）
 UI 纪律（AGENTS.md §6）：
     · QSplitter（水平 1 层，嵌套 ≤2）+ 状态记忆 key=runbook_split（pending 模式，
       Tab 未显示时 QSplitter 未布局，首次 show 应用——同 ui_troubleshoot）；
-    · 样式只走 theme.qss 既有 objectName / theme.py token，无内联色值。
+    · 样式只走 theme.qss 既有 objectName / theme.py token，无内联色值
+      （段头行着色取 theme.ACCENT 常量，非手写十六进制）。
 """
 
 import os
@@ -32,7 +42,7 @@ from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
     QPlainTextEdit, QPushButton, QListWidget, QListWidgetItem, QSplitter,
-    QFileDialog, QMessageBox, QGroupBox, QScrollArea, QCheckBox,
+    QFileDialog, QMessageBox, QGroupBox, QScrollArea, QCheckBox, QComboBox,
 )
 
 import db as dbmod
@@ -45,6 +55,12 @@ from ui_generator import ParamFormWidget, mono_font
 RUNBOOKS_DIRNAME = "runbooks"       # exe 同目录子目录；gitignore / dist 核查口径
 FILE_FILTER = "操作单 (*.json);;所有文件 (*.*)"
 HTML_FILTER = "HTML (*.html);;所有文件 (*.*)"
+
+# 阶段下拉项（"" = 未分组；abort/回退条件是文本段，不是步骤阶段）
+PHASE_CHOICES = [("", "（未分组）")]
+PHASE_CHOICES += [(k, "%s · %s" % (runbook_export.PHASE_LABELS[k][0],
+                                   runbook_export.PHASE_LABELS[k][1]))
+                  for k in runbook_export.STEP_PHASES]
 
 
 def _runbooks_dir():
@@ -79,6 +95,8 @@ class RunbookTab(QWidget):
         self._cur = -1                   # 当前选中步骤下标（data["steps"] 内）
         self._loading = False            # 载入步骤期间抑制回写
         self._pending_split = None
+        self._row_map = []               # 列表行 → 步骤下标（段头行为 None）
+        self.last_pack_report = None     # 最近一次「场景包一键生成」的记账（冒烟/排障用）
         self._build()
         self._sync_toolbar()
         self._show_step(-1)
@@ -116,6 +134,16 @@ class RunbookTab(QWidget):
         self.btn_down = btn("↓", lambda: self.on_move(1), ghost=True, tip="下移该步骤")
         self.btn_del = btn("删除步骤", self.on_delete_step, ghost=True)
         bar.addSpacing(10)
+        # 六段式阶段模板开关（P 批，可选非强制：关 = 旧式平铺视图）
+        self.btn_six = QPushButton("六段式")
+        self.btn_six.setObjectName("Ghost")
+        self.btn_six.setCheckable(True)
+        self.btn_six.setToolTip("套用六段式阶段模板（Pre-check / Change / Validation / "
+                                "回退条件 / Rollback / Post-check）并按启发式预标阶段；"
+                                "再点一次关闭分组（清除步骤阶段标记）")
+        self.btn_six.toggled.connect(self.on_toggle_six)
+        bar.addWidget(self.btn_six)
+        bar.addSpacing(10)
         self.btn_export = btn("导出 HTML…", self.on_export,
                               tip="单文件 A4 打印友好 HTML（含勾选框与回退汇总页）")
         bar.addStretch(1)
@@ -140,6 +168,9 @@ class RunbookTab(QWidget):
                 ("operator", "执行人", ""),
                 ("reviewer", "复核人", ""),
                 ("rollback_point", "回退点", "配置备份位置 / 检查点 / 快照描述"),
+                ("abort_criteria", "回退条件",
+                 "六段式第 4 段：触发回退的判据，如「变更后 5 分钟内 BGP 邻居未全部 "
+                 "Established」或「业务探测丢包 > 1%」——命中即执行 Rollback"),
         ):
             ed = QLineEdit()
             ed.setPlaceholderText(placeholder)
@@ -160,6 +191,8 @@ class RunbookTab(QWidget):
         grid.addLayout(col_l, 1)
         grid.addLayout(col_r, 1)
         form.addRow(grid)
+        # 回退条件独占一行（长文本，六段式模板必填建议项但不强制）
+        form.addRow("回退条件", self.ed_meta["abort_criteria"])
         root.addWidget(meta_box)
 
         # ---- 主体：左步骤列表 | 右步骤编辑（QSplitter 1 层）----
@@ -200,6 +233,20 @@ class RunbookTab(QWidget):
         self.chk_done = QCheckBox("本步已完成（勾选进度随操作单保存）")
         self.chk_done.toggled.connect(self._on_done_toggled)
         rv.addWidget(self.chk_done)
+
+        # 阶段标注（六段式；选中任意阶段即自动开启分组，否则标记在平铺视图里看不见）
+        row_phase = QHBoxLayout()
+        row_phase.addWidget(QLabel("阶段:"))
+        self.cmb_phase = QComboBox()
+        for key, label in PHASE_CHOICES:
+            self.cmb_phase.addItem(label, key)
+        self.cmb_phase.setMinimumWidth(220)
+        self.cmb_phase.currentIndexChanged.connect(self._on_phase_changed)
+        row_phase.addWidget(self.cmb_phase)
+        self.lbl_phase_hint = QLabel("")
+        self.lbl_phase_hint.setObjectName("Hint")
+        row_phase.addWidget(self.lbl_phase_hint, 1)
+        rv.addLayout(row_phase)
 
         self.form_scroll = QScrollArea()
         self.form_scroll.setWidgetResizable(True)
@@ -310,6 +357,17 @@ class RunbookTab(QWidget):
         self.btn_del.setEnabled(has_step)
         self.btn_save.setEnabled(True)
         self.btn_export.setEnabled(bool(self.data["steps"]))
+        self._sync_template_btn()
+
+    def _sync_template_btn(self):
+        """模板开关按钮状态跟随 data（不触发 toggled 副作用）"""
+        on = self.data["meta"].get("template") == runbook_export.TEMPLATE_SIX
+        if self.btn_six.isChecked() != on:
+            self.btn_six.blockSignals(True)
+            try:
+                self.btn_six.setChecked(on)
+            finally:
+                self.btn_six.blockSignals(False)
 
     def _confirm_discard(self):
         """脏单确认：新建/打开前问一句；返回 True = 可以继续（已保存或用户放弃）"""
@@ -393,6 +451,49 @@ class RunbookTab(QWidget):
         return True
 
     # ==================================================================
+    # 场景包 → 操作单草稿（P 批一键生成；单一事实源 = 场景包）
+    # ==================================================================
+    def load_from_pack(self, pack, vendor):
+        """
+        场景包一键生成操作单草稿（场景包 Tab 调用）。返回 (ok, message)。
+
+        · 步骤按包内 seq 顺序预排，参数按条目 params 默认值预填；
+        · 变更类不写 rollback（schema 纪律：回退实时取库，渲染/导出自动附）；
+        · 非命令引用（排查树/报错）与厂商不符项进 last_pack_report 记账并告知，
+          不静默丢弃；
+        · 生成结果 = 未保存草稿（current_path 置空），人工核对后另存。
+        """
+        if not self._confirm_discard():
+            return False, "已取消（当前操作单有未保存的修改）"
+        data, report = runbook_export.build_from_pack(pack, self.db, vendor)
+        self.last_pack_report = report
+        if not data["steps"]:
+            return False, ("「%s」在「%s」视图下没有可用命令条目（跳过 %d 项）"
+                           % (report["title"] or "该场景包",
+                              dbmod.display_vendor(vendor) if vendor else "全部厂商",
+                              len(report["skipped"]) + len(report["missing"])))
+        self.data = data
+        self.current_path = None
+        self.dirty = True
+        self._cur = -1                 # 置空再重建：防旧编辑区内容串写进新单
+        self._load_meta()
+        self._sync_template_btn()
+        self._reload_steps(keep=0)
+        self._show_step(0)
+        self._sync_toolbar()
+        msg = "已生成草稿：%s（%d 步，变更类 %d / 查询类 %d）" % (
+            report["title"], report["added"], report["change"], report["query"])
+        extra = []
+        if report["skipped"]:
+            extra.append("跳过 %d 项非命令/厂商不符引用" % len(report["skipped"]))
+        if report["missing"]:
+            extra.append("%d 项引用失效" % len(report["missing"]))
+        if extra:
+            msg += "；" + "、".join(extra)
+        self._status(msg + "；核对后「另存为」归档")
+        return True, msg
+
+    # ==================================================================
     # 元信息
     # ==================================================================
     def _load_meta(self):
@@ -413,31 +514,93 @@ class RunbookTab(QWidget):
     # ==================================================================
     # 步骤列表
     # ==================================================================
+    def _grouped(self):
+        """六段式分组是否生效（meta.template == six）"""
+        return self.data["meta"].get("template") == runbook_export.TEMPLATE_SIX
+
+    @staticmethod
+    def _phase_of(step):
+        phase = str((step or {}).get("phase") or "")
+        return phase if phase in runbook_export.STEP_PHASES else ""
+
+    def _phase_text(self, key):
+        if key == "":
+            return "未分组 · 未标注阶段的步骤"
+        en, zh = runbook_export.PHASE_LABELS.get(key, (key, ""))
+        return "%s · %s" % (en, zh)
+
+    def _step_at_row(self, row):
+        """行号 → 步骤下标（段头行/越界 → None）"""
+        if isinstance(row, int) and 0 <= row < len(self._row_map):
+            return self._row_map[row]
+        return None
+
+    def _row_of_step(self, index):
+        """步骤下标 → 行号（找不到 → -1）"""
+        try:
+            return self._row_map.index(index)
+        except (ValueError, AttributeError):
+            return -1
+
+    def _step_item(self, index, step):
+        """单步骤列表项（含完成勾、失效/变更类着色）"""
+        entry = self._entry_of(step)
+        if entry is None:
+            tag = "条目失效"
+        else:
+            try:
+                tag = "变更类" if renderer.classify_entry(entry) == "change" else "查询类"
+            except Exception:
+                tag = "变更类"
+        done = "✔ " if step.get("checked") else ""
+        item = QListWidgetItem("%d. %s%s  ［%s］" % (index + 1, done,
+                                                    step.get("title_snapshot") or "(无标题)",
+                                                    tag))
+        if entry is None or tag == "变更类":
+            item.setForeground(QColor(DANGER if entry is None else WARNING))
+        return item
+
     def _reload_steps(self, keep=-1):
-        """从 self.data 重建左侧列表（keep = 选中下标，越界取 -1）"""
+        """从 self.data 重建左侧列表（keep = 选中步骤下标，越界取 -1）
+
+        六段式分组生效时按阶段插「段头行」（不可选、不可拖），
+        _row_map 记录「行 → 步骤下标」；未分组时 _row_map 为恒等映射。
+        """
         self.lst_steps.blockSignals(True)
-        self.lst_steps.clear()
-        for i, step in enumerate(self.data["steps"]):
-            entry = self._entry_of(step)
-            if entry is None:
-                tag = "条目失效"
-            else:
-                try:
-                    tag = "变更类" if renderer.classify_entry(entry) == "change" else "查询类"
-                except Exception:
-                    tag = "变更类"
-            done = "✔ " if step.get("checked") else ""
-            item = QListWidgetItem("%d. %s%s  ［%s］" % (i + 1, done,
-                                                        step.get("title_snapshot") or "(无标题)",
-                                                        tag))
-            if entry is None or tag == "变更类":
-                item.setForeground(QColor(DANGER if entry is None else WARNING))
-            self.lst_steps.addItem(item)
-        self.lst_steps.blockSignals(False)
+        try:
+            self.lst_steps.clear()
+            self._row_map = []
+            grouped = self._grouped()
+            buckets = {}
+            for i, step in enumerate(self.data["steps"]):
+                buckets.setdefault(self._phase_of(step) if grouped else "", []).append(i)
+            order = ([""] + [k for k in runbook_export.PHASE_ORDER
+                             if k != "abort"]) if grouped else [""]
+            for key in order:
+                if key not in buckets:
+                    continue        # 空阶段不显示段头（不占版面）
+                if grouped:
+                    head = QListWidgetItem(self._phase_text(key))
+                    head.setFlags(Qt.ItemIsEnabled)      # 只 Enabled：不可选中
+                    font = head.font()
+                    font.setBold(True)
+                    head.setFont(font)
+                    head.setForeground(QColor(ACCENT))
+                    self.lst_steps.addItem(head)
+                    self._row_map.append(None)
+                for i in buckets[key]:
+                    self.lst_steps.addItem(self._step_item(i, self.data["steps"][i]))
+                    self._row_map.append(i)
+        finally:
+            self.lst_steps.blockSignals(False)
         n = len(self.data["steps"])
-        self.lbl_count.setText("%d 步（变更类自动附回退方案）" % n)
+        if grouped:
+            self.lbl_count.setText("%d 步 · 六段式分组（执行顺序以序号为准）" % n)
+        else:
+            self.lbl_count.setText("%d 步（变更类自动附回退方案）" % n)
         if 0 <= keep < n:
-            self.lst_steps.setCurrentRow(keep)
+            row = self._row_of_step(keep)
+            self.lst_steps.setCurrentRow(row)
         else:
             self.lst_steps.setCurrentRow(-1)
 
@@ -471,6 +634,7 @@ class RunbookTab(QWidget):
             "expect": "",
             "note": "",
             "checked": False,
+            "phase": "",
         }
         self.data["steps"].append(step)
         # 首条带出厂商/OS 到单头（留空才填，不覆盖用户手填）
@@ -518,8 +682,11 @@ class RunbookTab(QWidget):
     def _on_row_changed(self, row):
         if self._loading:
             return
+        index = self._step_at_row(row)
+        if index is None:
+            return                   # 段头行（正常不可选中，兜底防程序化设行）
         self._flush_current_step()
-        self._show_step(row)
+        self._show_step(index)
 
     def _show_step(self, index):
         """切换到指定步骤（-1 = 空态）。切换前须已 flush"""
@@ -530,12 +697,14 @@ class RunbookTab(QWidget):
             self.chk_done.setVisible(has)
             self.btn_copy_step.setVisible(has)
             self.btn_copy_rb.setVisible(has)
+            self.cmb_phase.setEnabled(has)
             if not has:
                 self._cur = -1
                 self.lbl_step_head.setText("<b>未选中步骤</b> —— 点上方「＋ 添加步骤」"
                                            "从命令库挑条目加入操作单。")
                 self.lbl_rbmiss.setVisible(False)
                 self.lbl_step_state.setText("")
+                self._sync_phase_combo(None)
                 self._clear_param_form()
                 self.ed_expect.setPlainText("")
                 self.ed_note.setText("")
@@ -547,6 +716,7 @@ class RunbookTab(QWidget):
             self.chk_done.setChecked(bool(step.get("checked")))
             self.ed_expect.setPlainText(str(step.get("expect") or ""))
             self.ed_note.setText(str(step.get("note") or ""))
+            self._sync_phase_combo(step)
             if entry is None:
                 self.lbl_step_head.setText(
                     "<b>第 %d 步 · %s</b> <span style='color:%s'>［条目失效］</span>"
@@ -584,11 +754,58 @@ class RunbookTab(QWidget):
         finally:
             self._loading = False
 
+    # ---------------- 六段式阶段模板（P 批，可选非强制）----------------
+    def _sync_phase_combo(self, step):
+        """阶段下拉跟随当前步骤（None = 空态）"""
+        phase = self._phase_of(step) if step else ""
+        idx = self.cmb_phase.findData(phase)
+        self.cmb_phase.blockSignals(True)
+        try:
+            self.cmb_phase.setCurrentIndex(idx if idx >= 0 else 0)
+        finally:
+            self.cmb_phase.blockSignals(False)
+        if step is None:
+            self.lbl_phase_hint.setText("")
+        elif self._grouped():
+            self.lbl_phase_hint.setText("六段式分组中：本步落在「%s」段" % self._phase_text(phase))
+        else:
+            self.lbl_phase_hint.setText("六段式未开启——选阶段会自动开启分组")
+
+    def _on_phase_changed(self, _idx):
+        if self._loading or not (0 <= self._cur < len(self.data["steps"])):
+            return
+        phase = str(self.cmb_phase.currentData() or "")
+        step = self.data["steps"][self._cur]
+        if self._phase_of(step) == phase:
+            return
+        step["phase"] = phase
+        if not self._grouped():
+            # 标了阶段却还平铺 → 标记看不见，因此自动开启分组
+            self.data["meta"]["template"] = runbook_export.TEMPLATE_SIX
+        self._mark_dirty()
+        self._reload_steps(keep=self._cur)
+        self._status("第 %d 步阶段 → %s" % (self._cur + 1, self._phase_text(phase)))
+
+    def on_toggle_six(self, checked):
+        """六段式开关：开 = 按启发式预标阶段（只填空白），关 = 清模板与阶段标记"""
+        if self._loading:
+            return
+        if checked:
+            n = runbook_export.apply_six_template(self.data, self.db)
+            msg = ("已开启六段式分组（自动标注 %d 步，可逐步改；回退条件写在单头）"
+                   % n if self.data["steps"] else "六段式已开启（当前无步骤）")
+        else:
+            runbook_export.clear_six_template(self.data)
+            msg = "已关闭六段式分组（步骤阶段标记已清除，回到平铺视图）"
+        self._mark_dirty()
+        self._reload_steps(keep=self._cur)
+        self._sync_toolbar()
+        self._status(msg)
+
     @staticmethod
     def _esc(s):
         return (str(s or "").replace("&", "&amp;").replace("<", "&lt;")
                 .replace(">", "&gt;"))
-
     def _clear_param_form(self):
         while self.form_lay.count():
             item = self.form_lay.takeAt(0)
@@ -637,7 +854,7 @@ class RunbookTab(QWidget):
         self.data["steps"][self._cur]["checked"] = bool(on)
         self._mark_dirty()
         # 列表里的 ✔ 同步（blockSignals 防止 textChanged 链路误触发选中变化）
-        item = self.lst_steps.item(self._cur)
+        item = self.lst_steps.item(self._row_of_step(self._cur))
         if item is not None:
             text = item.text()
             if on and not text.startswith("✔ "):
@@ -678,7 +895,7 @@ class RunbookTab(QWidget):
         text, missing, specs = renderer.render_entry(entry, step.get("params") or {})
         errors = {}
         form = getattr(self, "_form", None)
-        if form is not None and self._cur == self.lst_steps.currentRow():
+        if form is not None and self._cur == self._step_at_row(self.lst_steps.currentRow()):
             try:
                 errors = form.errors()
             except Exception:
