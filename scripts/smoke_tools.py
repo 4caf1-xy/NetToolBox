@@ -271,6 +271,42 @@ def case_c():
         raised, msg = expect_error(tc.build_curl, multi_body, shell)
         check("C/多行体-%s拒绝" % shell, raised and "多行" in msg, msg[:60])
 
+    # 粘贴还原（★ 机械证据）：
+    #   把生成的命令行交给「目标平台真正的参数解析器」反解，argv 必须与构造时一字不差 ——
+    #   POSIX 用 shlex.split（bash 词法），Windows CMD 用 CommandLineToArgvW（CRT 规则，
+    #   即 curl.exe 实际收到的参数）。这条比"肉眼看引号对不对"强得多。
+    import shlex
+    spec2 = {
+        "url": "https://h/p?a=1&b=2", "method": "POST",
+        "headers": "X-A: b c\nAuthorization: Bearer a'b\"c",
+        "data": '{"k":"v"}', "timeout": 5, "retries": 2,
+        "resolve": "h:443:10.0.0.5", "location": True,
+    }
+    posix_out = tc.build_curl(spec2, "posix")
+    check("C/posix-argv还原",
+          shlex.split(posix_out["cmd"]) == ["curl"] + posix_out["argv"],
+          str(shlex.split(posix_out["cmd"])[:6]))
+    if sys.platform == "win32":
+        import ctypes
+        cmd_out = tc.build_curl(spec2, "cmd")
+        argv_w = ctypes.windll.shell32.CommandLineToArgvW
+        argv_w.restype = ctypes.POINTER(ctypes.c_wchar_p)
+        count = ctypes.c_int(0)
+        ptr = argv_w(cmd_out["cmd"], ctypes.byref(count))
+        parsed = [ptr[i] for i in range(count.value)]
+        ctypes.windll.kernel32.LocalFree(ptr)
+        check("C/cmd-argv还原", parsed == ["curl"] + cmd_out["argv"],
+              str(parsed[:6]))
+        # 中文 + 尖括号 + 反斜杠路径风格的额外一档（cmd 下最容易翻车的组合）
+        spec3 = {"url": "https://h/搜索?q=%E4%B8%AD", "method": "GET",
+                 "headers": "X-Ref: a<b>\\c"}
+        cmd3 = tc.build_curl(spec3, "cmd")
+        ptr = argv_w(cmd3["cmd"], ctypes.byref(count))
+        parsed3 = [ptr[i] for i in range(count.value)]
+        ctypes.windll.kernel32.LocalFree(ptr)
+        check("C/cmd-argv还原-中文反斜杠", parsed3 == ["curl"] + cmd3["argv"],
+              str(parsed3))
+
     # 三套一次生成
     allc = tc.build_all(GOLDEN_SPEC)
     check("C/build_all", set(allc) == set(tc.SHELLS)

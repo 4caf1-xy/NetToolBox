@@ -634,7 +634,7 @@ seed-guide「新分类先 Issue」约定由用户点名场景直接授权，后�
 
 ### 验收对账（本批实测）
 
-- `smoke_handbook` **58/58**、`smoke_tools` **104/104**（新增 162 项，主库零接触断言过）；
+- `smoke_handbook` **58/58**、`smoke_tools` **107/107**（新增 165 项，主库零接触断言过）；
 - 全量 19 套件（scripts/smoke_*.py 实数）rc=0；`--validate-handbook` EXIT=0；
   `--validate-seed` EXIT=0（459 + 26 + 106，种子零改动，[W] 仍为存量 zte 骨架 1 处）；
 - `--audit-offline` 通过：20 个运行时文件零网络依赖，噪音清理后无"文件缺失"提示；

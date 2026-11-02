@@ -167,7 +167,7 @@
 |---|---|---|
 | 手册结构 + 端口/状态码自检 | `python app/main.py --validate-handbook` | 7 本 / 56 组 / 520 条，EXIT=0 |
 | 手册冒烟（数据事实 + UI + CLI 反例） | `python scripts/smoke_handbook.py` | 58 项 |
-| 工具箱冒烟（子网边界 / 进制 / curl 转义 / UI） | `python scripts/smoke_tools.py` | 104 项 |
+| 工具箱冒烟（子网边界 / 进制 / curl 转义 / UI） | `python scripts/smoke_tools.py` | 107 项（含 argv 还原机器验证） |
 | 种子库（本批未改动） | `python app/main.py --validate-seed` | 459 / 26 / 106，EXIT=0 |
 | 打包 | `python scripts/build_exe.py` | 检查项已含「handbook 下 ≥7 本」与 `--validate-handbook`，数据经 `--add-data` 进包 |
 
