@@ -521,3 +521,64 @@ seed-guide「新分类先 Issue」约定由用户点名场景直接授权，后�
   `--allow-main-db` 落进主库（库内 notes 仍为旧值，历史累计 201 条与种子不一致）。分发走 CI/`build_exe.py`
   从种子重建净库，故交付物正确；本地主库要同步 notes 只能走界面编辑或回填流程，不做手工 SQL；
 - validate-seed@HEAD EXIT=0；全量冒烟六套全绿；三子批独立提交推送，**不发版不 tag**。
+
+## P 批 Runbook 二批：场景包一键生成 + 六段式模板（2026-11-02，v0.9 功能线第二件）
+
+代码批（种子零改动：459 / 26 / 106 底数不变）。用户已定裁决：不做独立模板库（单一事实源 =
+场景包）、六段式可选非强制、旧 .json 向后兼容、AI 生成与 QPrinter PDF 继续挂起。
+关掉 N 批遗留池「Runbook 二批」两项（模板库/AI 生成其中模板库以场景包形态落地），实施范围见
+`docs/runbook-guide.md` §2.1 / §2.2 / §6。
+
+### 盘点结论（动手前）
+
+- runbook-guide §6 二批四项现状：①模板库=未做；②AI 生成=未做；③PDF=未做；④执行留痕=未做；
+- 操作单数据模型兼容性：schema 1 为 `meta`(9 字段) + `steps`(8 字段)，全部为"缺字段即空串"式读写，
+  **天然支持增补**；隐患是 `validate_runbook` 用 `schema != SCHEMA_VERSION` 精确判等 —— 一旦把
+  版本号提到 2，所有存量 v1 单每次打开都会弹"结构问题（已按兜底值载入）"警告，故必须"载入即升级"；
+- 场景包引用结构：`items[{seq, ref_type(entry/tree/err), ref_id | by_vendor{vendor:uuid}, note}]`，
+  三个预置包分别是 9/10/10 项；entry 条目的 `params` 是结构化 spec 且带 `default`
+  （如 hostname=SW-CORE-01、vlan_id=10），可直接用于预填；`emergency-rollback` 含 4 树 + 4 报错，
+  只能做"跳过记账"不能进步骤（操作单步骤模型 = 命令条目引用）。
+
+### 实施裁决
+
+- **schema 1 → 2 走纯增补**（`abort_criteria` / `template` / `source_pack` / `step.phase`）：
+  `normalize_runbook` 把声明版本 ≤2 的统一升为 2、缺字段补空串 → 旧单**无警告**加载、另存即 v2；
+  声明版本 >2 原样保留并由 validate 明确拒绝（不猜测降级）。反向也安全：旧程序读 v2 忽略未知字段；
+- **生成器不自动套六段式**：模板是另一种组织视图，自动加会让"一键"变成"两件事一起猜"；
+- **未选厂商视图直接拒绝生成**（by_vendor 需落到具体设备），不做"取第一个厂商"式臆测；
+- **回退条件=meta 文本段、Rollback=派生段**：rollback 依旧不落盘（裁决③未变），
+  六段式的 Rollback 段只在人工显式把某步标 `phase=rollback` 时才承载步骤，避免与回退汇总页双写；
+- **分组不重排步骤数组**：段头只是视图分组，执行顺序仍以 `step_no` 为准（阶段交错时组内序号不连号，
+  列表与导出页都写了明示——这是有意保留的"诚实"而非缺陷）。
+
+### ★ 坑（下次改这块必看）
+
+1. **`lst_steps.currentRow() == 步骤下标` 的旧假设被段头行打破**：`_reload_steps` 现在插不可选段头，
+   必须走 `_row_map` + `_step_at_row()` / `_row_of_step()`。任何新代码再写
+   `self.lst_steps.item(self._cur)` / `currentRow()` 直接当步骤下标都会**错位一步**（本次改了
+   `_on_row_changed` / `_on_done_toggled` / `_resolved_current` 三处）；
+2. 段头行只能 `item.setFlags(Qt.ItemIsEnabled)`：一旦带上 `ItemIsSelectable` 就能被选中并触发
+   `currentRowChanged`，`_cur` 会被设成段头行号（I5 用例盯这个）；
+3. **导出断言别用 CSS 选择器名**：样式表恒内嵌在 HTML 里，`class="phase"` 这种写法在平铺单里
+   也可能命中 CSS 文本；H4/H7 改成匹配渲染标签 `<h3 class="phase">` / `<div class="grp-note">`；
+4. 升级 schema 后**存量冒烟断言要同步**：E1 `schema==1`→`2`；`sample_runbook` 的 step dict 必须
+   带 `phase`，否则 A5/E9 的"字典相等"断言会因 normalize 补出的空 phase 而失败；
+5. 六段式启发式在"割接前检查"包上会把包内的保存/备份核对类条目判成 change，得到
+   pre→change→validation→change 的交错结果——这是包数据真混了变更步，**不要为了好看去改判定表**
+   （变更类判定唯一执法点仍是 renderer.classify_entry）；
+6. **冒烟跑法分两组**（跑错会看到假红）：非 AI 套件 `PYTHONPATH=_vendor`；
+   regex_guard / keyvault / send_gate / baseurl_policy / AI 三套需 `PYTHONPATH=app;_vendor`
+   （否则 `_smoke_env.setup()` 里 `import db` 直接 `ModuleNotFoundError`，rc=1 属路径问题不是回归）。
+
+### 验收对账（本批实测）
+
+- smoke_runbook **74/74**（42 → 74：G 10 / H 11 / I 9 新增；主库零接触断言过）；
+- 全量 21 套件 rc=0（含 scenarios 38 / diff 62 / tree_visual 46 / panel_dashboard 62 /
+  AI 86-93-68 / 四套安全件）；
+- `--validate-seed` EXIT=0（459 条 + 26 树 + 106 报错 + 3 场景包 + diff 11 类 48 变体；
+  [W] 1 处存量 zte 骨架提示，无新增）；
+- 三预置包一键生成实测：`new-device-onboarding/huawei` 9 步（参数预填 hostname/vlan_id 等）、
+  `pre-cutover-check/huawei` 10 步（4 变更 6 查询）、`emergency-rollback/cisco` 2 步 + 8 项
+  排查树/报错记账跳过；六段式保存重开无损；v1 旧单加载无警告并另存为 v2；
+- 三提交推送，**不发版不 tag**（版本号仍 v0.8.0，v0.9 收口时统一 bump）。
