@@ -642,3 +642,87 @@ seed-guide「新分类先 Issue」约定由用户点名场景直接授权，后�
   305 已弃用 / 422 Unprocessable Content 等 RFC 9110 更名项均按新名），77 条端口与 IANA 服务名逐条比对，
   514 双协议、未登记端口标注全部到位；
 - 三提交推送，**不发版不 tag**（版本号仍 v0.8.0，v0.9 收口时统一 bump）。
+
+## S 批 v0.9.0 收口发版（2026-11-02）
+
+发版批（微量级），沿用 N 批精简口径：只做版本三处 / CHANGELOG 收口 / CI 门槛 / tag 与 Release /
+出库自核验，不碰种子与功能代码。发布 commit `aeee126`，annotated tag 对象 `311f4b2` → 指向 `aeee126`。
+
+### 1. 版本三处（实测，不靠目测）
+
+- `app/ui_main.py` APP_VERSION `0.8.0 → 0.9.0`（标题栏与「关于」对话框均引用该常量）；
+- 断言脚本 `.workbuddy/release_s/check_versions.py`：AST 取 APP_VERSION、正则取 README「当前版本：**vX**」、
+  正则取 CHANGELOG 首个 `## vX（`，三者相等 + 标题栏/关于框均常量驱动 + 源码无 `"v0.9.0"` 类硬编码 → **PASS**；
+- README 事实段同步：命令 338 → **459**、报错 82 → **106**，并补 45 分类 / 11 类 48 变体 / 手册 7 本 520 条
+  三行；Ctrl+K 快捷键行「三库 → 四库」；快速开始补 `--validate-handbook`；
+- 顺带订正 README 安全模型里「api_key 明文落盘」的过期描述（L 批起已是 DPAPI-v1 密文 + 首启迁移）。
+
+### 2. CHANGELOG 收口
+
+- R / P / Q / O 四个「未发布（…不发版不 tag）」节并入 `## v0.9.0（2026-11-02）`，批次头降为 `###`；
+- 新增节首总览：数据线（O/Q）与功能线（P/R）两段口径 + 发版口径（两套校验 + 19 套冒烟 + CI 双门槛）；
+- 批内「不发版不 tag」表述改为「随 v0.9.0 合并出库」（v0.8.0 及更早的历史表述保留原样）。
+
+### 3. CI 门槛补齐
+
+- `validate-seed.yml` 原只跑 `--validate-seed`，R 批引入的手册质检从未进 CI；
+  本批加 `Run handbook validation` 一步（同 runner、失败即红），发布 commit 上两次运行（main / tag）
+  两个步骤均 success（run 41415903126 / 41415896015）。
+
+### 4. tag 与 Release
+
+- 提交 `aeee126` → `git tag -a v0.9.0` → SSH 推 main + tag（HTTPS 依旧 502，标准路径仍是 SSH）；
+  本次未出现 N 批的「tag 双执行」怪癖，`git ls-remote` 复核 tag 对象与 deref 均一次到位；
+- CI release job（41415903124）11 步全绿：构建 → exe 断言 → staging 净库 → 脱敏扫描 → 白名单 zip →
+  zip 断言 → 挂 draft；随后 API `PATCH` 把 draft 转 publish（标题/正文与 CHANGELOG v0.9.0 节同源），
+  发布时点 `2026-11-02T08:54:13Z`。
+
+### 5. 出库自核验（通道可用 → 升格全量哈希，免 N 批 Range 法）
+
+- 整包下载 42,559,243 B / 18s（2.3MB/s），本地 **sha256 = 7544758…68ec**，与 GitHub asset `digest` 逐字相同；
+- zip 29 条目、白名单零违规（exe / check_db.py / command_lib.db / seed_data/*.json ×26），
+  与本地同口径组装的对照 zip **条目名集合完全一致**；
+- 包内 `command_lib.db`：entries **459** / trouble_trees **26** / err_dict **106** / ai_imports **0** /
+  err_unresolved 0 / categories 45 / user_version 2；`check_db.py` 与本地字节同尺寸（24,957 B）；
+- 包内库 vs 本地净库：三库 id 集合完全相同、entries 正文（剔除状态字段）逐行一致；
+  **byte hash 不同只因 created_at/updated_at 为各自导入时刻**（CI 08:51:37 / 本地 16:53:00），
+  库文件尺寸反倒相同（2,179,072 B）；
+- 手册在包内方式 = 内嵌 exe（`--add-data handbook`），非 zip 顶层：`pyi-archive_viewer -l` 列出
+  `handbook\*.json` **7 条**，其未压缩长度与仓库 `app/handbook/*.json` 逐本**字节数相同**
+  （15997/15037/20569/17656/15167/13087/17124）；
+- exe 尺寸差异说明：CI Python 3.11 产物 **41,944,515 B**，本地 Python 3.13 产物 **45,243,412 B**
+  （zip 42.6MB vs 45.9MB）——版本栈差异，非内容差异；条目数/库内容/脚本三者已逐项对上；
+- 旧版资产核对：v0.4.0 / v0.5.0 / v0.6.0 / v0.6.1 / v0.6.2 / v0.7.0 / v0.8.0 的
+  资产名 / 字节数 / updated_at 与发版前基线快照逐项相同（未动）。
+
+### 6. 冒烟与校验（本批实测）
+
+- `--validate-seed` EXIT=0（459 + 26 + 106，[E]=0，[W] 存量 zte 骨架提示 1 处）；
+  `--validate-handbook` EXIT=0（7 本 / 56 组 / 520 条）；
+- 全量 **19 套** `scripts/smoke_*.py` rc=0；新增两套底数：`smoke_handbook` 58 项、`smoke_tools` 107 项，
+  `smoke_runbook` 74 项、`smoke_panel_dashboard` 62/62、`smoke_scenarios` 38/38、`smoke_diff` 全变体命中。
+
+### ★ 坑（本批新增）
+
+1. **`PYTHONPATH=_vendor` 不够**：7 套安全/UI 套件（ai_chat / ai_stage2 / ai_stage3 / baseurl_policy /
+   keyvault / regex_guard / send_gate）在 `_smoke_env.setup()` 里 `import db`，必须
+   `PYTHONPATH="app;_vendor"`（Windows 分隔符是 `;`，Git Bash 里写 `:` 会整体当一个路径）；
+   症状是 `ModuleNotFoundError: No module named 'db'`，而套件末尾的零接触 atexit 仍照常打印，
+   容易误判成"跑过了没报错"——**看 rc，不看末行**。
+2. **本地无 PyInstaller**：受管 python 3.13 未装，`build_exe.py` 首步即失败；本批用
+   `pip install --target _vendor pyinstaller`（项目既有 _vendor 约定，不入 git）跑通本地对照构建。
+   **CI 与本地 Python 小版本不同 → exe 字节数必然不同**，"与本地构建一字不差"只能落在
+   条目名集合 / 库内容 / 脚本字节 三处，尺寸按版本栈解释。
+3. **draft Release 查不到**：`/releases/tags/v0.9.0` 对 draft 返回 404，必须
+   `/releases?per_page=N` 带凭据列表；publish 之后匿名端点才可见。
+
+### 7. 遗留池盘点（逐项归属，不静默关闭）
+
+| 项 | 来源 | 状态 | 归属 |
+|---|---|---|---|
+| 防火墙 4 家场景包（sangfor/topsec/fortinet/paloalto 场景化包） | N 批遗留池 | 未动 | **v1.0.0** |
+| BSD 最小集（FreeBSD 命令/排查树最小可用集） | N 批遗留池（需代码侧厂商注册） | 未动 | **v1.0.0**（代码+数据批） |
+| 树编辑器二批（编辑体验/批量/校验联动） | N 批遗留池 | 未动 | **v1.0.0** |
+| Runbook 二批剩余项 | P 批已落地主体，剩三项 | 已落 2 项（模板库以场景包形态 / 六段式） | AI 生成操作单 + QPrinter PDF → **按需立项**；执行留痕 → **v1.0.0** |
+| 验证档：真机 27 / 语法核对 61 / 骨架 62 / 其余未验证 309（报错库 106 全部未真机） | 长期真机验证池 | 待真机/模拟器 | **v1.0.0 起的验证会**（按厂商分批，非发版阻塞项） |
+| err_unresolved 13 条 pending（含 4 条无效残留 #12–#15） | E 批 | 未清 | **v1.0.0** 清理批 |
