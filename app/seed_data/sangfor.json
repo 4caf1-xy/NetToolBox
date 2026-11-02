@@ -6,7 +6,7 @@
   "vendor_slug": "sangfor",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-21",
-  "count": 10,
+  "count": 15,
   "entries": [
     {
       "uuid": "7e979831-9ef6-5df8-8df7-f1f4160d3a86",
@@ -845,6 +845,146 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "4b29b409-7b39-50b7-b824-d86aafad73e4",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "设备管理",
+      "title": "设备信息与运行状态核查（Web 控制台）",
+      "description": "在 Web 控制台看版本、序列号、运行时长与资源占用，作为升级与报修底账。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目给出的是【Web 控制台操作路径】，仅作现场对照与变更记录使用，请勿粘贴执行。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】系统 → 系统信息（或设备信息/关于）\n#   软件版本   ：记下完整版本号（如 AF 8.0.35）与补丁号\n#   设备序列号 ：报修必填\n#   运行时长   ：判断是否被重启过\n#   资源占用   ：CPU / 内存 / 会话数（首页仪表盘亦可）\n# 【路径】系统 → 高可用（集群机型）→ 确认主备角色\n# 【验证】首页资源曲线正常、系统信息页版本与变更记录一致",
+      "params": [],
+      "notes": "1) 版本号要连补丁号一起记（AF 8.0.35 + 补丁包），只记主版本升级时会踩兼容坑。\n2) 序列号在系统信息页底部，报修时厂商第一句就问这个。\n3) 集群机型必须在高可用页确认主备角色，重启/升级前先切流。\n4) 本条为只读核查，无配置变更、无回退动作。\n验证方法：系统信息页版本/序列号/运行时长三项齐全；首页仪表盘 CPU、内存、会话数曲线无持续打满",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "2a38cdec-5c70-53b3-9d3f-637e420ac07b",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "设备管理",
+      "title": "备份配置并重启设备（Web 控制台）",
+      "description": "先导出配置备份，再在维护页重启；集群机型先确认主备与业务切换路径。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目为【Web 控制台操作路径】，请勿粘贴执行。\n\n# ===== Web 控制台操作路径 =====\n# 【步骤 1】系统 → 配置备份 → 导出当前配置\n#   文件名：AF-config-20261102.bak（写死日期，回退时好找）\n#   备份文件下载到运维机，不要只留设备内\n# 【步骤 2】系统 → 高可用 → 确认主备角色与心跳正常\n# 【步骤 3】系统 → 维护 → 重启设备（部分版本在系统维护/重启）\n#   重启前确认维护窗口与通知已发出\n# 【验证】重启后登录看运行时长归零；策略/对象数量与重启前一致",
+      "params": [],
+      "notes": "1) AF 重启后管理面恢复约 3-5 分钟，业务面随后恢复，别在恢复前反复刷新登录。\n2) 配置备份一定要下载到设备之外，设备换盘/重装时设备内备份一起丢。\n3) 双机集群重启会触发切换，先确认对端能承载全量流量，否则整体中断。\n4) 若重启后配置缺失，用步骤 1 的备份在配置恢复里回灌。\n验证方法：系统信息页运行时长归零；策略条数、对象数量与重启前一致；高可用页主备角色恢复",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "c1ef4efb-568f-5821-99a7-64940f15517b",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "接口基础",
+      "title": "接口描述与启停（Web 控制台）",
+      "description": "Web 上编辑物理口：写描述、启停接口、按需选速率双工；停用接口等同断链。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目为【Web 控制台操作路径】，请勿粘贴执行。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】网络 → 接口 → 物理接口 → 选中 {{port}} → 编辑\n#   描述     ：{{description}}（写对端设备与用途）\n#   启用     ：勾选/取消（取消即关闭该口，业务立即中断）\n#   速率/双工：自动协商（默认）或按对端强制；两端必须一致\n#   → 保存并应用\n# 【验证】接口列表该口状态为已连接，收发计数正常增长",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "ETH1",
+          "description": "AF 物理口名（ETH1/ETH2…）；在接口列表确认实际名字与当前连接状态，选错口并停用会立即断业务",
+          "example": "ETH1"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "label": "接口描述",
+          "required": false,
+          "default": "TO-CORE-SW1",
+          "description": "接口描述文本，仅界面展示不影响转发；建议写对端设备-对端口-用途",
+          "example": "TO-CORE-SW1"
+        }
+      ],
+      "notes": "1) 停用接口在 Web 上是一次点击，但业务立即中断——操作前确认不是管理口或主链路。\n2) 速率双工默认自动协商，两端强制的场景才需要改；不匹配会表现为丢包与速率下降。\n3) 变更后需点「保存并应用」，只保存不应用不生效。\n4) 本条为 Web 操作路径，无 CLI 回退命令；回退=按原值重新编辑。\n验证方法：接口列表该口状态显示已连接；系统状态页收发计数持续增长；对端设备接口 up",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "03acf815-ff19-53a9-bf4b-58f268a6939c",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "日志",
+      "title": "配置日志外发 syslog 服务器（Web 控制台）",
+      "description": "Web 上开启日志外发、填 syslog 服务器与日志类型，并核对本地日志保留策略。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目为【Web 控制台操作路径】，请勿粘贴执行。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】系统 → 日志设置 → 日志服务器（或日志外发）\n#   启用外发   ：是\n#   服务器地址 ：{{syslog_ip}}\n#   端口       ：{{syslog_port}}（默认 514/UDP）\n#   日志类型   ：系统日志 / 安全日志 / 操作日志 按需勾选\n#   日志级别   ：warning 及以上（全量 information 会显著增加带宽）\n# 【路径】系统 → 日志设置 → 本地日志（确认保留天数与磁盘占用）\n# 【验证】日志服务器上 tcpdump 看到来自 AF 的报文；Web 日志查询页能查到最新事件",
+      "params": [
+        {
+          "name": "syslog_ip",
+          "type": "ip",
+          "label": "syslog 服务器 IP",
+          "required": true,
+          "default": "10.0.0.50",
+          "description": "日志接收服务器地址；填错则外发日志静默丢弃，设备侧不报错",
+          "example": "10.0.0.50",
+          "validate": "ipv4"
+        },
+        {
+          "name": "syslog_port",
+          "type": "int",
+          "label": "端口",
+          "required": true,
+          "default": "514",
+          "description": "syslog 目的端口；标准 514/UDP，需与服务器监听一致",
+          "example": "514",
+          "range": "1-65535",
+          "validate": "int:1-65535"
+        }
+      ],
+      "notes": "1) 深信服日志分系统/安全/操作三类，按需勾选，全选会放大带宽与存储压力。\n2) 本地日志保留天数与磁盘挂钩，保留过久会挤占系统盘。\n3) 配置保存后需确认「已生效」状态，部分版本要单独点应用。\n4) 本条为 Web 路径，回退=关闭外发开关。\n验证方法：日志服务器 tcpdump 收到设备源 IP 的 514 报文；Web 日志查询页最新条目时间与设备时钟一致",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "76ff9891-88cb-5e72-99ed-f1c3ff7d0a3c",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "sangfor",
+      "os_family": "sangfor_af",
+      "models": "AF 全系列",
+      "category": "AAA认证",
+      "title": "对接外部认证服务器做管理员 AAA（Web 控制台）",
+      "description": "Web 上添加 RADIUS/LDAP 认证服务器并把管理员认证方式切到外部，统一账号。",
+      "commands": "# 【重要】深信服 AF 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目为【Web 控制台操作路径】，请勿粘贴执行。\n\n# ===== Web 控制台操作路径 =====\n# 【步骤 1】认证 → 认证服务器 → 新增（RADIUS / LDAP / AD）\n#   服务器地址：{{server_ip}}\n#   端口      ：RADIUS 1812 / LDAP 389（按服务器实际）\n#   共享密钥  ：{{secret}}（与服务器一致）\n#   Base DN / 过滤条件：按目录结构填写\n# 【步骤 2】系统 → 管理员 → 认证方式 → 选择外部认证服务器\n#   ★ 保留一个本地管理员账号兜底\n# 【步骤 3】保存并测试连接\n# 【验证】用外部账号登录管理界面成功，操作日志记录该账号",
+      "params": [
+        {
+          "name": "server_ip",
+          "type": "ip",
+          "label": "认证服务器 IP",
+          "required": true,
+          "default": "10.0.0.30",
+          "description": "RADIUS/LDAP 服务器地址；填错或不可达会导致管理员登录失败（本地账号除外）",
+          "example": "10.0.0.30",
+          "validate": "ipv4"
+        },
+        {
+          "name": "secret",
+          "type": "string",
+          "label": "共享密钥",
+          "required": true,
+          "default": "",
+          "description": "与认证服务器约定的共享密钥（LDAP 为绑定账号口令），等同口令；两端不一致表现为认证超时，现场输入、不落种子默认值"
+        }
+      ],
+      "notes": "1) 切外部认证前必须保留本地管理员兜底，否则认证服务器故障即锁死。\n2) LDAP 的 Base DN 与过滤条件填错会「能连上但查不到用户」，现象是认证失败而非连接失败。\n3) 管理员权限映射在本地角色里配置，外部只负责认证。\n4) 建议先用测试账号验证再切主账号。\n验证方法：认证服务器页显示「连接成功」；用外部账号登录成功且权限符合本地角色；操作日志有该账号记录",
+      "duration": "",
+      "verified": 0
     }
   ]
 }

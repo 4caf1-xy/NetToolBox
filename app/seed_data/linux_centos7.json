@@ -6,7 +6,7 @@
   "vendor_slug": "centos",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 31,
+  "count": 33,
   "entries": [
     {
       "uuid": "887ade2e-5900-5ae2-830f-8fdef988fe9c",
@@ -1355,6 +1355,61 @@
       "duration": "both",
       "verified": 0,
       "rollback": "# 回退：升级类=指回旧内核 + 重启 + 复核（yum 无安全的一键整次回滚）\n# ---- 1. 默认启动项指回旧内核（序号按 grub2 列表确认，勿盲写 1）----\nawk -F'\"' '$1==\"menuentry \" {print NR-1, $2}' /etc/grub2.cfg\ngrub2-set-default <旧内核序号>\nreboot\n# ---- 2. 复核：uname -r 回到旧内核；个别包按 yum history 记录降级 ----\nuname -r"
+    },
+    {
+      "uuid": "65f66a61-f67f-5b97-ae8b-7be0b93fe9a4",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "用户与权限",
+      "title": "创建运维账户并授予 sudo（CentOS 7）",
+      "description": "建运维账号、设初始口令、加入 wheel 组并加口令有效期，最小权限落地。",
+      "commands": "# ===== 用户与 sudo 权限（CentOS 7）=====\n# ---- 0. 先确认账户是否已存在（重复 useradd 报 already exists）----\nid {{username}} || echo \"not exist\"\n# ---- 1. 建账号（-m 建家目录，-s 指定 shell）----\nuseradd -m -s /bin/bash {{username}}\n# ---- 2. 设初始口令（交互输两遍；脚本化用 chpasswd 并清理历史）----\npasswd {{username}}\n# ---- 3. 授予 sudo（CentOS 默认 wheel 组已配 %wheel ALL）----\nusermod -aG wheel {{username}}\n# ---- 4. 口令策略：首次登录强制改密 + 90 天过期 ----\nchage -d 0 -M 90 {{username}}\n# ---- 5. 复核 ----\nid {{username}}\nsudo -l -U {{username}}",
+      "params": [
+        {
+          "name": "username",
+          "type": "string",
+          "label": "账户名",
+          "required": true,
+          "default": "opsadmin",
+          "description": "要创建的运维账户名，小写字母数字；重名会报 already exists，建前先 id 确认，命名建议带用途",
+          "example": "opsadmin"
+        }
+      ],
+      "notes": "1) wheel 组是 CentOS/RHEL 默认的 sudo 组（/etc/sudoers 里 %wheel ALL=(ALL) ALL 已开）。\n2) chage -d 0 强制下次登录改密，交付场景常用；-M 90 设最长使用期。\n3) 口令不要走命令行参数（会进 shell 历史），脚本化用 chpasswd 后清理。\n4) 删账号前先确认该账号没有运行中的业务进程（ps -u）。\n验证方法：id opsadmin 显示 groups 含 wheel；sudo -l -U opsadmin 显示可执行 ALL；su - opsadmin 后 sudo -v 提示输密码并成功；chage -l 显示密码过期策略",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 回退：撤销 sudo 组并删除账户（家目录一并删，先确认无业务数据）\ngpasswd -d {{username}} wheel\nuserdel -r {{username}}\n# 复核：应提示 no such user\nid {{username}}"
+    },
+    {
+      "uuid": "30cf42a3-d8b7-5d7a-91d2-db0ff61108c9",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "centos",
+      "os_family": "centos7",
+      "models": "CentOS 7 / RHEL 7",
+      "category": "配置回滚",
+      "title": "网络配置备份与守卫式回退（CentOS 7）",
+      "description": "改网络前把 ifcfg 与 resolv.conf 备份到固定路径，改坏后按守卫式流程恢复。",
+      "commands": "# ===== 网络配置备份（CentOS 7）=====\n# ---- 1. 备份目录与固定文件名（名字写死日期，回退要引用同一路径）----\nmkdir -p /root/cfg-bak\ncp -a /etc/sysconfig/network-scripts /root/cfg-bak/network-scripts-20261102\ncp -a /etc/resolv.conf /root/cfg-bak/resolv.conf-20261102\n# ---- 2. 校验备份可信（空备份等于没备份）----\nls -l /root/cfg-bak/network-scripts-20261102/ifcfg-* /root/cfg-bak/resolv.conf-20261102\n# ---- 3. 变更（示例：改静态地址；远端操作务必在 screen 里执行）----\n#     直接编辑 ifcfg-{{ifname}} 后重启网络：\n#     systemctl restart network\n# ---- 4. 变更后复核 ----\nip -4 addr show {{ifname}}\nip route",
+      "params": [
+        {
+          "name": "ifname",
+          "type": "string",
+          "label": "网卡名",
+          "required": true,
+          "default": "ens192",
+          "description": "要备份/变更的网卡名（ifcfg-ens192 的后半段）；用 ip link 确认实际名字，填错会导致复核看不到结果",
+          "example": "ens192",
+          "validate": "ifname"
+        }
+      ],
+      "notes": "1) CentOS 7 网络由 network 服务管理（ifcfg-*），不要同时用 NetworkManager 的 nmcli 改，容易两套配置打架。\n2) 远端改 IP 必须在 screen/tmux 里执行，否则重启网络瞬间断连、改错无法自救。\n3) 备份文件名写死日期（不要用 $(date)），rollback 才能引用到同一个路径。\n4) resolv.conf 会被 NetworkManager 重写，长期生效要改 ifcfg 里的 DNS1/DNS2。\n验证方法：ls 能看到 ifcfg-ens192 与 resolv.conf 备份；ip -4 addr show ens192 显示新地址；ip route 默认路由正确；ping 网关与外部地址通",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 守卫：备份不存在则中止，禁止盲恢复\ntest -d /root/cfg-bak/network-scripts-20261102 || { echo \"备份缺失，停止回退，人工核查\"; exit 1; }\n# 恢复配置并重启网络\ncp -af /root/cfg-bak/network-scripts-20261102/. /etc/sysconfig/network-scripts/\ncp -af /root/cfg-bak/resolv.conf-20261102 /etc/resolv.conf\nsystemctl restart network\n# 复核\nip -4 addr show {{ifname}}\nip route"
     }
   ]
 }

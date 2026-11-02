@@ -6,7 +6,7 @@
   "vendor_slug": "cisco",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 23,
+  "count": 28,
   "entries": [
     {
       "uuid": "e3971cfc-1d22-5542-89d5-7b72b2c3ee6a",
@@ -1298,6 +1298,162 @@
       ],
       "notes": "1) 超限动作默认丢包；要联动 shutdown 加 storm-control action shutdown（触发即 err-disable，慎用）。\n2) level 支持 0.00-100.00 小数；ppc/pps 计量按平台支持度用 ? 核对。\n3) 风暴抑制只丢包不上报前没有可见现象，日常用 show storm-control 看有没有触发。\n验证方法：show storm-control 中目标口 Broadcast/Multicast 列显示设定值，无 Filtered 增长",
       "verified": 0
+    },
+    {
+      "uuid": "849cc74f-96db-5e11-899c-2994d4103129",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960 / 3560 / 3750 / 9300",
+      "category": "设备管理",
+      "title": "硬件资产与版本巡检（Cisco IOS）",
+      "description": "一次取全版本、序列号、板卡电源清单与温度风扇状态，作为升级回退与报修的资产底账。",
+      "commands": "# ===== 硬件资产与版本巡检（Cisco IOS）=====\nenable\n# ---- 1. 版本/型号/序列号/启动镜像/上次重启原因 ----\nshow version\n# ---- 2. 机箱与模块清单（PID/VID/SN，报修与台账依据）----\nshow inventory\n# ---- 3. 温度/风扇/电源（部分低端型号无此命令）----\nshow environment all\n# ---- 4. 堆叠/模块化机型看槽位状态 ----\nshow module",
+      "params": [],
+      "notes": "1) show version 的 System returned to ROM by reload 与 uptime 是判断「是不是刚被人重启过」的直接证据；镜像名与 BOOT 变量决定升级回退目标。\n2) show inventory 的 PID/VID/SN 三列拍给厂商报修即可，NAME 列能看出槽位（Switch 1 / Slot 0）。\n3) 2960 等固定口机型没有 show module，报 % Invalid input 属正常，不是故障。\n4) 巡检只读，任何型号都可执行；建议每次变更前后各存一份回显做对比。\n验证方法：show version 首行 Cisco IOS Software, C2960S Software ..., Version 15.2(2)E、末行 Configuration register is 0xF；show inventory 每槽位一段 NAME/DESCR/PID/VID/SN；show environment 出现温度行与 FAN is OK——有 % Invalid input 说明该平台不支持该命令，跳过即可",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "6e28b0f9-72cd-5bdf-88cf-96f7b0ee04a6",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960 / 3560 / 3750 / 9300",
+      "category": "设备管理",
+      "title": "保存配置并定时重启（含取消窗口，Cisco IOS）",
+      "description": "先落盘 running-config，再用 reload in 排一个可取消的定时重启；窗口内反悔可 reload cancel。",
+      "commands": "# ===== 保存并定时重启（Cisco IOS）=====\nenable\n# ---- 1. 前置：配置落盘（不保存则重启后 running-config 全丢）----\ncopy running-config startup-config\n# ---- 2. 定时重启（默认 5 分钟后，留出反悔窗口）----\nreload in {{delay_min}}\n# ---- 3. 复核定时任务已建立 ----\nshow reload",
+      "params": [
+        {
+          "name": "delay_min",
+          "type": "int",
+          "label": "延时（分钟）",
+          "required": true,
+          "default": "5",
+          "description": "排定重启的等待分钟数，控制反悔窗口长度；取值 1-120，现场留 5 分钟以上便于取消；业务中断从重启那刻开始，与等待时长无关",
+          "example": "5",
+          "range": "1-120",
+          "validate": "int:1-120"
+        }
+      ],
+      "notes": "1) reload in 只是定时器，窗口内 reload cancel 可完全取消；但断电、拔电源不会取消定时器。\n2) 直接敲 reload 是立即重启，回车后还有二次确认——误敲时在确认前按 Ctrl+C 可中止。\n3) 重启到业务恢复一般 3-8 分钟（堆叠机型更久），必须在维护窗口执行并确认有带外/现场值守。\n4) 堆叠成员重启会触发主备倒换，期间整机流量闪断，别只算单台恢复时间。\n验证方法：show reload 回显 Reload scheduled in 5 minutes（含 by enable 与时间点）即定时生效，无输出即未排定；重启后 show version 的 uptime 归零、System returned to ROM by reload at ... 是本次动作的证据",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：仅取消尚未触发的定时重启；已重启不可撤销\nreload cancel\n# 复核：应无输出（无定时任务）\nshow reload"
+    },
+    {
+      "uuid": "a98b6202-fe08-5fe1-ba99-3dac3884cb94",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960 / 3560 / 3750 / 9300",
+      "category": "接口基础",
+      "title": "接口描述、开关与速率双工（Cisco IOS）",
+      "description": "把接口描述、管理开关、速率与双工一次配齐——描述决定排障效率，速率双工决定链路是否稳。",
+      "commands": "# ===== 接口基础配置（Cisco IOS）=====\nenable\nconfigure terminal\ninterface {{port}}\n# 描述：写对端设备名+用途，排障时第一眼就靠它（含空格要能一眼看懂）\n description {{description}}\n# 速率/双工：两端必须一致；一端写死、一端 auto 常协商成半双工\n speed {{speed}}\n duplex {{duplex}}\n# 管理开关：no shutdown 才会 up（维护后忘记开会表现为链路 down）\n no shutdown\n exit\nend\nwrite memory\n# ---- 复核 ----\nshow interfaces {{port}} status\nshow interfaces {{port}} | include Description|duplex|speed",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "Gi0/1",
+          "description": "要配置的物理接口，进入该接口视图后所有动作只作用于这一个口；先 show ip interface brief 确认接口存在与当前状态，进错口改速率会造成断链",
+          "example": "Gi0/1",
+          "validate": "port"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "label": "接口描述",
+          "required": false,
+          "default": "TO-CORE-SW1-Gi0/24",
+          "description": "接口的可读标注，仅本机展示、不影响转发；建议写「对端设备-对端口-用途」，现场排障靠它定位链路，留空则清除描述",
+          "example": "TO-CORE-SW1-Gi0/24"
+        },
+        {
+          "name": "speed",
+          "type": "enum",
+          "label": "速率",
+          "required": true,
+          "default": "auto",
+          "description": "链路速率档位；auto 依赖两端自协商，强制 1000 时对端也必须 1000 且双工 full，否则链路起不来；光口一般固定不可改",
+          "example": "1000",
+          "choices": [
+            "auto",
+            "10",
+            "100",
+            "1000"
+          ]
+        },
+        {
+          "name": "duplex",
+          "type": "enum",
+          "label": "双工",
+          "required": true,
+          "default": "auto",
+          "description": "双工模式；全双工两端必须一致，一端 full 一端 auto 会协商成 half 并产生大量冲突，表现为丢包与速率骤降；千兆强制速率时双工必须 full",
+          "example": "full",
+          "choices": [
+            "auto",
+            "full",
+            "half"
+          ]
+        }
+      ],
+      "notes": "1) 千兆口强制 speed 1000 时必须配 duplex full，否则部分平台拒绝或链路不稳。\n2) 光口（SFP）速率/双工一般不可配，敲了报 % Invalid input 属正常。\n3) 改速率/双工瞬间断链 3-10 秒，跑业务的接入口务必在窗口内改。\n4) 描述里的空格 IOS 允许直接写（不需引号），但中文描述在部分终端会乱码，建议英文。\n验证方法：show interfaces Gi0/1 status 回显 Status connected、Vlan 正确、Duplex a-full 或 full、Speed a-1000 或 1000；show interfaces 明细里 Description 为设定值、0 input errors / 0 collisions（半双工不匹配会有 late collisions 增长）",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：描述清空、速率双工回自协商、端口保持开启\nenable\nconfigure terminal\ninterface {{port}}\n no description\n no speed\n no duplex\n no shutdown\n exit\nend\nwrite memory\nshow interfaces {{port}} status"
+    },
+    {
+      "uuid": "b56aab99-b88f-5290-bebf-5c15a449a1c1",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960 / 3560 / 3750 / 9300",
+      "category": "邻居发现",
+      "title": "开启 LLDP 并核查邻居拓扑（Cisco IOS）",
+      "description": "全局开启 LLDP、确认收发方向，用邻居表核对实际物理拓扑（CDP 为思科私有，默认开）。",
+      "commands": "# ===== LLDP 邻居发现（Cisco IOS）=====\nenable\nconfigure terminal\n# 全局开启 LLDP（IOS 15.0(2)SE 起支持；默认关闭，不是自动开）\nlldp run\n# 确认目标口收发均开（全局开后再逐口核对）\ninterface {{port}}\n lldp transmit\n lldp receive\n exit\nend\nwrite memory\n# ---- 复核：本机全局状态 / 邻居表 / 单邻居明细 ----\nshow lldp\nshow lldp neighbors\nshow lldp neighbors detail\n# 思科私有 CDP 默认开启，可与 LLDP 互相对照\nshow cdp neighbors detail",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "Gi0/24",
+          "description": "要确认 LLDP 收发方向的接口；不指定时可省略该段，仅做全局开启，填错口不影响业务但会白改一个无关口",
+          "example": "Gi0/24",
+          "validate": "port"
+        }
+      ],
+      "notes": "1) Cisco 的 CDP 默认开启、LLDP 默认关闭——与华为/H3C 习惯相反，跨厂商对接常因此看不到邻居。\n2) 邻居表出现的是「对端通告的名字+端口」，与实际拓扑核对时以 detail 里的 System Name 与 Port ID 为准。\n3) 部分安全基线要求关闭 CDP/LLDP（防信息泄露），开启前确认合规要求。\n4) show lldp neighbors 只显示每条邻居一行，看不到就查对端是否开启、中间是否跨了透传设备。\n验证方法：show lldp 回显 LLDP is enabled、Tx/Rx interval 30；show lldp neighbors 每个相邻口一行 Device ID / Local Intf / Port ID / Hold-time；detail 里 System Name 与对端 hostname 一致",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：关闭全局 LLDP（逐口收发不必单独关，全局关即不生效）\nenable\nconfigure terminal\nno lldp run\nend\nwrite memory\n# 复核：应显示 disabled\nshow lldp"
+    },
+    {
+      "uuid": "334081e1-7f25-56e5-bcbb-57617ccf992b",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "cisco",
+      "os_family": "ios",
+      "models": "Catalyst 2960 / 3560 / 3750 / 9300",
+      "category": "显示控制",
+      "title": "关闭分页与开启日志实时输出（Cisco IOS）",
+      "description": "terminal length 0 关分页便于整段复制回显，terminal monitor 让 VTY 会话实时收日志。",
+      "commands": "# ===== 显示控制（Cisco IOS）=====\nenable\n# 关闭当前会话分页（只影响本会话，退出即恢复）\nterminal length 0\n# 让当前 VTY 会话实时收到 syslog（排障看断链/协议翻转）\nterminal monitor\n# ---- 复核 ----\nshow terminal | include Length|Monitor",
+      "params": [],
+      "notes": "1) terminal length 0 是会话级设置，不影响其他登录用户，也不写入配置。\n2) terminal monitor 只在 VTY（SSH/Telnet）会话有效，Console 默认就有日志。\n3) 日志刷屏会盖住正在看的回显，排障结束后建议 terminal no monitor 关掉。\n4) 分页关闭后长回显一次刷完，复制粘贴不会丢中间段。\n验证方法：show terminal 回显 Length: 0 lines、Monitor logging: enabled；执行长输出命令（如 show running-config）不再出现 --More-- 提示",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：恢复分页与关闭实时日志\nterminal length 24\nterminal no monitor\n# 复核\nshow terminal | include Length|Monitor"
     }
   ]
 }

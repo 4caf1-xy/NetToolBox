@@ -6,7 +6,7 @@
   "vendor_slug": "fortinet",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 18,
+  "count": 24,
   "entries": [
     {
       "uuid": "2fa0c57a-36a1-5293-adf3-4dc727c13e9b",
@@ -1106,6 +1106,267 @@
       "verified_date": "",
       "favorite": 0,
       "exec_level": "skeleton"
+    },
+    {
+      "uuid": "09a7fe97-dda8-59e3-ae31-ff68bc537b69",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 200F",
+      "category": "设备管理",
+      "title": "硬件资产与版本巡检（FortiOS）",
+      "description": "取 FortiOS 版本、序列号、运行时长与 CPU/内存/会话，用于开局验收与性能基线。",
+      "commands": "# ===== 硬件资产与版本巡检（FortiOS）=====\n# ---- 1. 固件版本/序列号/HA 状态/运行时长 ----\nget system status\n# ---- 2. 硬件健康：CPU/内存/温度 ----\nget hardware status\n# ---- 3. 性能与会话数（排容量问题）----\nget system performance status\n# ---- 4. 磁盘占用：诊断类命令 diagnose hardware deviceinfo disk 不随本条目下发，\n#     有日志盘的型号按需手动执行，或在 Web 的系统 → 存储 里看",
+      "params": [],
+      "notes": "1) get system status 的 Version: FortiGate-100F v7.0.12 与 Serial-Number 是升级与报修必填项。\n2) get hardware status 给出 CPU/内存/温度瞬时值，长期 80% 以上要看会话表与策略命中。\n3) HA 集群会在 get system status 里显示 HA: primary/secondary，重启前必须确认主备关系。\n4) 无日志盘的型号跑 diagnose hardware deviceinfo disk 报错属正常。\n验证方法：get system status 回显含 Version / Serial-Number / HA 三项；get hardware status 有 CPU 与 Memory 百分比；get system performance status 有会话数与每秒新建会话",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "f2d0597a-5ecc-5200-80ad-899f42f20b0e",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 200F",
+      "category": "设备管理",
+      "title": "备份配置并重启设备（FortiOS）",
+      "description": "先把配置备份到本地 flash，再 execute reboot；HA 集群需先确认主备与业务切换路径。",
+      "commands": "# ===== 备份配置并重启（FortiOS）=====\n# ---- 1. 备份配置到本地 flash（文件名写死日期，便于回退引用）----\nexecute backup config flash pre-reboot-20261102.conf\n# ---- 2. 确认 HA 主备关系（集群机型）----\nget system status\n# ---- 3. 重启（★ 立即生效）----\nexecute reboot\n# 注：FortiOS 无定时重启命令，维护窗口内直接执行；\n#     定时需求请用 Web 的计划任务或外部脚本在窗口前触发",
+      "params": [],
+      "notes": "1) 备份文件名写死日期（不用变量），回退时一眼能找到；落 flash 后建议再 scp 一份到运维机。\n2) HA 集群重启会触发主备切换，先确认对端能独立承载全部流量，否则整体中断。\n3) execute reboot 会二次确认 Do you want to continue?，脚本化要处理交互。\n4) 配置已在 flash 不会丢，但会话全部重建，长连接业务要提前通知。\n验证方法：execute backup config 回显 Current config is successfully backed up；重启后 get system status 的 Uptime 归零、Version 不变，HA 恢复 primary/secondary",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：重启不可撤销；配置异常时恢复备份\n# 守卫：先确认备份文件存在再恢复，不存在则停下人工核查\nexecute restore config flash pre-reboot-20261102.conf\n# 恢复后复核\nget system status"
+    },
+    {
+      "uuid": "e7ddd72d-ef4d-5103-a029-fec3aea050d0",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 200F",
+      "category": "接口基础",
+      "title": "接口描述、管理状态与速率（FortiOS）",
+      "description": "在接口编辑里写别名注释、控制 up/down 与速率档位；改状态会直接断业务。",
+      "commands": "# ===== 接口基础配置（FortiOS）=====\nconfig system interface\n    edit \"{{port}}\"\n# 别名/注释：界面上显示的接口名，便于识别人为用途\n        set alias \"{{description}}\"\n# 管理状态：up 启用 / down 关闭（关闭即断业务）\n        set status {{status}}\n# 速率：auto 或 1000full 这类档位；两端须一致\n        set speed {{speed}}\n    next\nend\n# ---- 复核 ----\nget system interface | grep -A 8 \"{{port}}\"",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "port1",
+          "description": "FortiGate 物理口名（port1、wan1、internal 等）；先 get system interface 看实际命名，选错口会把管理口或业务口关掉",
+          "example": "port1"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "label": "接口别名",
+          "required": false,
+          "default": "TO-CORE-SW1",
+          "description": "接口显示名/别名，仅用于识别不影响转发；建议写对端设备与用途",
+          "example": "TO-CORE-SW1"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "label": "管理状态",
+          "required": true,
+          "default": "up",
+          "description": "接口管理开关；down 即关闭该口、业务立即中断，仅在停用链路时使用",
+          "example": "up",
+          "choices": [
+            "up",
+            "down"
+          ]
+        },
+        {
+          "name": "speed",
+          "type": "enum",
+          "label": "速率",
+          "required": true,
+          "default": "auto",
+          "description": "速率档位；auto 自协商，1000full 等为强制档位，对端须一致；光口模块不支持强制速率时命令会被拒绝",
+          "example": "auto",
+          "choices": [
+            "auto",
+            "10half",
+            "10full",
+            "100half",
+            "100full",
+            "1000full"
+          ]
+        }
+      ],
+      "notes": "1) FortiOS 的 set status down 会立即断开该口，远程管理口上操作会把自己踢下线。\n2) 别名（alias）是界面显示名，不等于接口 config 名（port1），两处别混。\n3) 速率强制档位需网卡与模块支持，不支持时提示 command parse error。\n4) 改完不需要 commit，FortiOS 立即生效。\n验证方法：get system interface 中该口 status up、speed 为实际值、alias 为设定文本；Web 网络 → 接口 列表对应口状态为绿色 up",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：别名清空、速率回 auto、接口保持 up\nconfig system interface\n    edit \"{{port}}\"\n        set alias \"\"\n        set status up\n        set speed auto\n    next\nend"
+    },
+    {
+      "uuid": "d62af0c6-09d5-5cce-82ce-76b89df8f05f",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 200F",
+      "category": "显示控制",
+      "title": "关闭分页输出（FortiOS）",
+      "description": "把 console 输出模式改为 standard，避免长回显被 more 分页截断。",
+      "commands": "# ===== 显示控制（FortiOS）=====\nconfig system console\n# standard = 一次性输出（不分页）；more = 分页（默认）\n    set output {{mode}}\nend\n# ---- 复核 ----\nget system console",
+      "params": [
+        {
+          "name": "mode",
+          "type": "enum",
+          "label": "输出模式",
+          "required": true,
+          "default": "standard",
+          "description": "CLI 长输出的分页行为；standard 一次性刷完便于整段复制，more 分页便于逐屏看；该设置会写进配置，影响所有 CLI 会话",
+          "example": "standard",
+          "choices": [
+            "standard",
+            "more"
+          ]
+        }
+      ],
+      "notes": "1) 这是全局设置（写配置），不是单会话；改完所有管理会话都按此行为。\n2) 想只影响当前会话可临时用 | grep 过滤缩小输出。\n3) 分页开回来用 set output more。\n4) 该设置不影响日志落盘与 Web 显示。\n验证方法：get system console 回显 output : standard；执行 get system status 一次输出完、不出现 --More--",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：恢复分页输出\nconfig system console\n    set output more\nend\nget system console"
+    },
+    {
+      "uuid": "9041dd24-9cae-5e09-8711-4534db1c8793",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 200F",
+      "category": "日志",
+      "title": "配置 syslog 服务器上报与日志级别（FortiOS）",
+      "description": "把系统日志外发到 syslog 服务器并设定外发级别，同时保留本地缓冲便于回溯。",
+      "commands": "# ===== 日志服务器上报（FortiOS）=====\n# ---- 1. 配置 syslog 服务器 ----\nconfig log syslogd setting\n    set status enable\n    set server \"{{syslog_ip}}\"\n    set port {{syslog_port}}\n    set facility local7\n# 源地址建议指定为管理口，避免多出口时日志源 IP 漂移\n    set source-ip {{source_ip}}\nend\n# ---- 2. 外发级别（越靠前的级别越严重）----\nconfig log syslogd filter\n    set severity {{severity}}\nend\n# ---- 3. 本地缓冲同步开启（外发失败时可回溯）----\nconfig log memory setting\n    set status enable\nend\n# ---- 4. 复核 ----\nget log syslogd setting\nget log syslogd filter",
+      "params": [
+        {
+          "name": "syslog_ip",
+          "type": "ip",
+          "label": "syslog 服务器 IP",
+          "required": true,
+          "default": "10.0.0.50",
+          "description": "日志接收服务器地址；填错则所有外发日志丢弃（设备侧不报错），排障时表现为服务器端一条都收不到",
+          "example": "10.0.0.50",
+          "validate": "ipv4"
+        },
+        {
+          "name": "syslog_port",
+          "type": "int",
+          "label": "端口",
+          "required": true,
+          "default": "514",
+          "description": "syslog 目的端口；标准为 514/UDP，部分平台用 1514/TCP，端口与服务器监听不一致同样静默丢弃",
+          "example": "514",
+          "range": "1-65535",
+          "validate": "int:1-65535"
+        },
+        {
+          "name": "source_ip",
+          "type": "ip",
+          "label": "源地址",
+          "required": true,
+          "default": "10.255.0.1",
+          "description": "日志包的源 IP，必须是本机已配置接口地址；多出口场景不指定会导致源 IP 随路由变化，服务器侧 ACL 容易漏放",
+          "example": "10.255.0.1",
+          "validate": "ipv4"
+        },
+        {
+          "name": "severity",
+          "type": "enum",
+          "label": "外发级别",
+          "required": true,
+          "default": "information",
+          "description": "外发日志的最低严重级别；information 最全、日志量最大，只关心告警可取 warning 降低带宽与磁盘压力",
+          "example": "information",
+          "choices": [
+            "emergency",
+            "alert",
+            "critical",
+            "error",
+            "warning",
+            "notification",
+            "information",
+            "debug"
+          ]
+        }
+      ],
+      "notes": "1) set status enable 是总开关，服务器地址填了但 status 没开是最常见的「配了没日志」。\n2) 外发级别按业务取舍：全量 information 在高峰期可能占满管理口带宽。\n3) 本地 memory 缓冲建议同时开，外发中断时还能回溯最近事件。\n4) 修改 syslog 配置立即生效，不需要重启。\n验证方法：get log syslogd setting 回显 status: enable、server 与 port 为设定值；在服务器上 tcpdump -i any port 514 -nn 能看到来自设备源 IP 的报文；get log memory 里能看到同期事件",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：关闭外发并清空服务器地址\nconfig log syslogd setting\n    set status disable\n    unset server\nend\n# 复核\nget log syslogd setting"
+    },
+    {
+      "uuid": "7152015a-b750-5183-9593-d1977f7d6513",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 200F",
+      "category": "AAA认证",
+      "title": "对接 RADIUS 做管理员 AAA 认证（FortiOS）",
+      "description": "建 RADIUS 服务器与用户组，再把管理员登录改为远端认证，实现统一账号与审计。",
+      "commands": "# ===== 管理员 RADIUS 认证（FortiOS）=====\n# ---- 1. 建 RADIUS 服务器 ----\nconfig user radius\n    edit \"{{radius_name}}\"\n        set server \"{{radius_ip}}\"\n        set secret {{radius_secret}}\n        set auth-type auto\n        set timeout 5\n    next\nend\n# ---- 2. 建用户组并绑定 RADIUS ----\nconfig user group\n    edit \"{{group_name}}\"\n        set member \"{{radius_name}}\"\n    next\nend\n# ---- 3. 管理员改为远端认证（★ 保留一个本地超级管理员兜底）----\nconfig system admin\n    edit \"{{admin_user}}\"\n        set remote-auth enable\n        set remote-group \"{{group_name}}\"\n        set accprofile super_admin\n    next\nend\n# ---- 4. 复核 ----\nget user radius\nget system admin",
+      "params": [
+        {
+          "name": "radius_name",
+          "type": "string",
+          "label": "RADIUS 配置名",
+          "required": true,
+          "default": "RADIUS-CORP",
+          "description": "本机 RADIUS 服务器配置的标识名，供用户组引用；命名建议带用途，改错名字会导致用户组引用悬空、认证失败",
+          "example": "RADIUS-CORP"
+        },
+        {
+          "name": "radius_ip",
+          "type": "ip",
+          "label": "RADIUS 服务器 IP",
+          "required": true,
+          "default": "10.0.0.30",
+          "description": "认证服务器地址；填错则管理员登录全部失败（本地账号除外），务必先验证网络可达与共享密钥",
+          "example": "10.0.0.30",
+          "validate": "ipv4"
+        },
+        {
+          "name": "radius_secret",
+          "type": "string",
+          "label": "共享密钥",
+          "required": true,
+          "default": "",
+          "description": "与 RADIUS 服务器约定的共享密钥，等同口令；两端不一致表现为认证超时，现场输入、不落种子默认值"
+        },
+        {
+          "name": "group_name",
+          "type": "string",
+          "label": "用户组名",
+          "required": true,
+          "default": "RADIUS-ADMIN",
+          "description": "承载 RADIUS 成员的本地用户组名，管理员通过它做远端认证；组内成员决定谁能登录",
+          "example": "RADIUS-ADMIN"
+        },
+        {
+          "name": "admin_user",
+          "type": "string",
+          "label": "管理员账号",
+          "required": true,
+          "default": "netadmin",
+          "description": "要切换为远端认证的管理员账号；切换前必须保留另一个本地超级管理员，否则 RADIUS 故障时无法登录",
+          "example": "netadmin"
+        }
+      ],
+      "notes": "1) 切换远端认证前务必保留一个本地 super_admin 账号，否则 RADIUS 不可用即锁死设备。\n2) auth-type auto 会先试 PAP 再试 CHAP，服务器只支持其一时可显式指定。\n3) 管理员权限由 accprofile 决定，远端只负责「认证」，授权仍在本地。\n4) 建议先在测试账号上验证登录，再改主账号。\n验证方法：get user radius 显示服务器地址与 auth-type；get system admin 该账号 remote-auth 为 enable；用远端账号 SSH/HTTPS 登录成功且权限符合 accprofile",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：管理员改回本地认证，再删用户组与 RADIUS 配置\nconfig system admin\n    edit \"{{admin_user}}\"\n        set remote-auth disable\n    next\nend\nconfig user group\n    delete \"{{group_name}}\"\nend\nconfig user radius\n    delete \"{{radius_name}}\"\nend\nget system admin"
     }
   ]
 }

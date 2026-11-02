@@ -6,7 +6,7 @@
   "vendor_slug": "openeuler",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 23,
+  "count": 25,
   "entries": [
     {
       "uuid": "54f524f2-7b5d-5c92-899e-a2bd2fb92df5",
@@ -931,6 +931,80 @@
       "duration": "both",
       "verified": 0,
       "rollback": "# 回退：升级类=指回旧内核 + 重启 + 复核（dnf 无安全的一键整次回滚）\n# ---- 1. 默认启动项指回旧内核（序号按列表确认，勿盲写）----\nawk -F'\"' '$1==\"menuentry \" {print NR-1, $2}' /etc/grub2.cfg\ngrub2-set-default <旧内核序号>\nreboot\n# ---- 2. 复核：uname -r 回到旧内核 ----\nuname -r"
+    },
+    {
+      "uuid": "905a31c3-300f-58b4-91af-0fecfb3a208a",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "用户与权限",
+      "title": "创建运维账户并授予 sudo（openEuler 22.03）",
+      "description": "openEuler 建运维账号并加 wheel 组，配置口令有效期与首次改密。",
+      "commands": "# ===== 用户与 sudo 权限（openEuler 22.03）=====\n# ---- 0. 确认账户是否存在 ----\nid {{username}} || echo \"not exist\"\n# ---- 1. 建账号 ----\nuseradd -m -s /bin/bash {{username}}\n# ---- 2. 设初始口令 ----\npasswd {{username}}\n# ---- 3. 加 wheel 组（openEuler 默认 sudo 组为 wheel）----\nusermod -aG wheel {{username}}\n# ---- 4. 口令策略 ----\nchage -d 0 -M 90 {{username}}\n# ---- 5. 复核 ----\nid {{username}}\nsudo -l -U {{username}}",
+      "params": [
+        {
+          "name": "username",
+          "type": "string",
+          "label": "账户名",
+          "required": true,
+          "default": "opsadmin",
+          "description": "要创建的运维账户名，小写字母数字；重名报 already exists，建前先 id 确认",
+          "example": "opsadmin"
+        }
+      ],
+      "notes": "1) openEuler 22.03 的 sudo 组为 wheel（/etc/sudoers 默认放开 %wheel）。\n2) openEuler 默认启用 firewalld 与 SELinux，账号操作本身不受影响，但家目录权限异常时查 SELinux 上下文。\n3) chage -d 0 首次登录强制改密。\n4) 口令不要走命令行参数。\n验证方法：id opsadmin 的 groups 含 wheel；sudo -l -U opsadmin 显示 ALL；su - opsadmin 后 sudo -v 成功；chage -l 显示过期策略",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 回退：移出 wheel 组并删除账户\ngpasswd -d {{username}} wheel\nuserdel -r {{username}}\nid {{username}}"
+    },
+    {
+      "uuid": "f8e4ec11-4e2c-56ca-bec4-c6672649775f",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "openeuler",
+      "os_family": "openeuler2203",
+      "models": "openEuler 22.03 LTS",
+      "category": "配置回滚",
+      "title": "网络配置备份与守卫式回退（openEuler 22.03）",
+      "description": "备份 NetworkManager keyfile 与 hosts/resolv.conf，改坏后守卫式恢复并重载连接。",
+      "commands": "# ===== 网络配置备份（openEuler 22.03）=====\n# ---- 1. 备份连接配置与解析配置 ----\nmkdir -p /root/cfg-bak\ntar -czf /root/cfg-bak/nm-connections-20261102.tar.gz /etc/NetworkManager/system-connections/\ncp -a /etc/resolv.conf /root/cfg-bak/resolv.conf-20261102\n# ---- 2. 校验备份 ----\ntar -tzf /root/cfg-bak/nm-connections-20261102.tar.gz\n# ---- 3. 变更（示例：nmcli 改地址）----\n#     nmcli connection modify \"{{conn}}\" ipv4.addresses {{ip}}/24 ipv4.method manual\n#     nmcli connection up \"{{conn}}\"\n# ---- 4. 复核 ----\nnmcli device status\nip -4 addr show {{ifname}}",
+      "params": [
+        {
+          "name": "conn",
+          "type": "string",
+          "label": "连接名",
+          "required": true,
+          "default": "ens192",
+          "description": "NetworkManager 连接名（nmcli connection show 的 NAME）；名字写错改不到目标连接",
+          "example": "ens192"
+        },
+        {
+          "name": "ifname",
+          "type": "string",
+          "label": "网卡名",
+          "required": true,
+          "default": "ens192",
+          "description": "复核用网卡名，ip link 确认实际名字；填错只影响复核输出",
+          "example": "ens192",
+          "validate": "ifname"
+        },
+        {
+          "name": "ip",
+          "type": "ip",
+          "label": "新地址",
+          "required": true,
+          "default": "10.255.0.10",
+          "description": "变更后的 IPv4 地址；改错会断管理连接，远端操作需 screen 兜底",
+          "example": "10.255.0.10",
+          "validate": "ipv4"
+        }
+      ],
+      "notes": "1) openEuler 默认 NetworkManager 管理网络，keyfile 权限 600。\n2) 改地址远端操作务必在 screen 内；断连后用 console 或带外恢复。\n3) DNS 长期生效要改连接里的 ipv4.dns，而非只改 resolv.conf（会被覆盖）。\n4) 备份放 /root，名字写死日期供 rollback 引用。\n验证方法：tar -tzf 列出 nmconnection；nmcli device status 目标网卡 connected；ip -4 addr show 显示新地址；ping 网关通",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 守卫：备份不存在则中止\ntest -f /root/cfg-bak/nm-connections-20261102.tar.gz || { echo \"备份缺失，停止回退，人工核查\"; exit 1; }\ntar -xpzf /root/cfg-bak/nm-connections-20261102.tar.gz -C /\ncp -af /root/cfg-bak/resolv.conf-20261102 /etc/resolv.conf\nchmod 600 /etc/NetworkManager/system-connections/*.nmconnection\nnmcli connection reload\nsystemctl restart NetworkManager\nip -4 addr show {{ifname}}"
     }
   ]
 }

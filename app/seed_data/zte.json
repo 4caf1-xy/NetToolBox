@@ -6,7 +6,7 @@
   "vendor_slug": "zte",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 27,
+  "count": 32,
   "entries": [
     {
       "uuid": "b2f47889-8b45-55e0-8cb6-625459ca06ef",
@@ -1274,6 +1274,153 @@
       "params": [],
       "notes": "1) show arp 看 IP-MAC-接口-VLAN 四元组；Age 判断新鲜度，恒 0 刷新频繁可能是 ARP 攻击。\n2) 网关 IP 的 MAC 必须落在 VRRP/主控预期侧，漂到异常接口=二层环路或欺骗。\n3) 静态绑定排查用 show arp permanent（等保 IP-MAC 绑定加固项）；未绑定为空属正常。\n验证方法：目标终端 IP 的 MAC 与台账一致、接口正确；无异常动态刷新。",
       "verified": 0
+    },
+    {
+      "uuid": "0a76a227-698d-577c-ba97-cc4205ceb359",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5900E / 6900",
+      "category": "设备管理",
+      "title": "硬件资产与版本巡检（中兴 ZXR10）",
+      "description": "取 ZXR10 版本、单板与电源风扇状态，作为升级与报修底账（部分命令形态待真机核对）。",
+      "commands": "# ===== 硬件资产与版本巡检（ZXR10）=====\n# ⚠ 待真机核对：单板/环境类命令随 ZXR10 平台差异较大，执行前用 ? 核对\n# ---- 1. 版本/型号/运行时长 ----\nshow version\n# ---- 2. 单板与槽位 ----\nshow card\n# ---- 3. 温度/风扇/电源（盒式机型可能无此命令）----\nshow environment",
+      "params": [],
+      "notes": "1) ZXR10 不同平台（5900E / 6900 / M6000）命令树差异明显，show card / show environment 需按实际版本核对。\n2) 只读巡检无副作用；命令不存在时提示 Invalid input，跳过即可。\n3) 版本号（如 ZXR10 5900E V5.00）与补丁号是升级对照基准，记进变更记录。\n验证方法：show version 回显含 ZXR10 与版本串、System uptime；show card 列出槽位与单板类型；以真机回显为准回填（本条目为骨架，待核对）",
+      "duration": "",
+      "verified": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "52a9cb4f-2996-53b7-86a6-837b134f93d6",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5900E / 6900",
+      "category": "设备管理",
+      "title": "保存配置并重启设备（中兴 ZXR10）",
+      "description": "write 落盘后 reload 重启；定时形态随平台差异，先按 ? 核对再执行。",
+      "commands": "# ===== 保存并重启（ZXR10）=====\n# ⚠ 待真机核对：定时重启子命令随平台差异，先 ? 核对\n# ---- 1. 配置落盘 ----\nwrite\n# ---- 2. 重启（确认前可 Ctrl+C 中止）----\nreload\n# ---- 3. 复核：重启后看版本与运行时长 ----\nshow version",
+      "params": [],
+      "notes": "1) ZXR10 的 reload 支持二次确认，误敲时在确认前中止；部分平台提供 reload at hh:mm 定时形态，需 ? 核对。\n2) write 之后用 show running-config 对照，确认落盘不是空配置。\n3) 重启中断全部业务，务必维护窗口 + 现场/带外值守。\n验证方法：重启后 show version 的 uptime 归零且版本号未变，show running-config 与重启前一致（骨架条目，真机核对后回填）",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：重启不可撤销；若平台支持定时形态，窗口内取消\n# 以真机 ? 输出为准（部分平台为 reload cancel）\nshow version",
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "3765e150-6133-5843-9670-71b3423ad94a",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5900E / 6900",
+      "category": "接口基础",
+      "title": "接口描述、开关与速率双工（ZXR10）",
+      "description": "ZXR10 物理口描述、速率双工与开关（接口命名与命令形态待真机核对）。",
+      "commands": "# ===== 接口基础配置（ZXR10）=====\n# ⚠ 待真机核对：ZXR10 各平台接口命名（gei_1/1、gei_1/1/1）与关键字差异较大\nconfigure terminal\ninterface gei_{{port}}\n# 描述：对端设备与用途\n description {{description}}\n# 速率/双工：两端一致\n speed {{speed}}\n duplex {{duplex}}\n# 打开端口\n no shutdown\n exit\nwrite\n# ---- 复核 ----\nshow interface gei_{{port}}",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "1/1",
+          "description": "物理口编号（gei_ 之后部分）；ZXR10 不同平台可能是 1/1 或 1/1/1，先 show interface brief 核对实际命名，选错口会断业务",
+          "example": "1/1"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "label": "接口描述",
+          "required": false,
+          "default": "TO-CORE-SW1",
+          "description": "接口标注文本，仅本机展示；建议写对端设备-对端口-用途",
+          "example": "TO-CORE-SW1"
+        },
+        {
+          "name": "speed",
+          "type": "enum",
+          "label": "速率",
+          "required": true,
+          "default": "auto",
+          "description": "速率档位；auto 自协商，强制时对端须一致；ZXR10 部分平台速率以 negotiation 方式配置，需按 ? 实测确认",
+          "example": "1000",
+          "choices": [
+            "auto",
+            "10",
+            "100",
+            "1000"
+          ]
+        },
+        {
+          "name": "duplex",
+          "type": "enum",
+          "label": "双工",
+          "required": true,
+          "default": "auto",
+          "description": "双工模式；两端须一致，混配会冲突丢包；部分平台只支持 auto",
+          "example": "full",
+          "choices": [
+            "auto",
+            "full",
+            "half"
+          ]
+        }
+      ],
+      "notes": "1) ZXR10 接口命名随平台不同（gei_1/1、gei_1/1/1、xgei_1/1），先用 show interface brief 看实际名字。\n2) 速率双工在部分平台走 negotiation 子命令，speed/duplex 可能不被识别——以 ? 输出为准。\n3) write 落盘；重启前务必确认 running-config 与 startup-config 一致。\n验证方法：show interface gei_1/1 回显 administrative status/line protocol 均为 up、Description 为设定值、Speed/Duplex 为实际协商值（骨架条目，真机核对后回填）",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：清描述、速率双工回 auto、端口打开\nconfigure terminal\ninterface gei_{{port}}\n no description\n no speed\n no duplex\n no shutdown\n exit\nwrite",
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "4c86bdda-b567-5d1b-ae5e-5a6d3818a459",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5900E / 6900",
+      "category": "邻居发现",
+      "title": "开启 LLDP 并核查邻居（ZXR10）",
+      "description": "ZXR10 的 LLDP 开启与邻居查询（命令形态随平台差异，待真机核对）。",
+      "commands": "# ===== LLDP 邻居发现（ZXR10）=====\n# ⚠ 待真机核对：ZXR10 各平台 LLDP 命令树差异较大\nconfigure terminal\n# 全局开启\nlldp enable\n# 接口层\ninterface gei_{{port}}\n lldp enable\n exit\nwrite\n# ---- 复核 ----\nshow lldp neighbor\nshow lldp neighbor detail",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "1/24",
+          "description": "用于开启 LLDP 的接口编号（gei_ 之后部分）；先 show interface brief 核对命名，填错只影响该口邻居发现",
+          "example": "1/24"
+        }
+      ],
+      "notes": "1) ZXR10 的 LLDP 命令随平台（5900E/6900）不同，部分版本用 lldp enable、部分用 lldp run，需 ? 核对。\n2) 邻居查询命令同样有 show lldp neighbor 与 show lldp neighbors 两种形态。\n3) 只影响邻居发现，不影响业务转发。\n验证方法：show lldp neighbor 有相邻口条目；无输出先确认全局与接口两层都开（骨架条目，真机核对后回填）",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：关闭全局 LLDP\nconfigure terminal\nno lldp enable\nwrite",
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "9c21e030-bd21-521e-89c7-bca7cc931853",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "zte",
+      "os_family": "zxr10",
+      "models": "ZXR10 5900E / 6900",
+      "category": "显示控制",
+      "title": "关闭分页（ZXR10）",
+      "description": "ZXR10 关闭当前会话分页（命令形态随平台差异，待真机核对）。",
+      "commands": "# ===== 显示控制（ZXR10）=====\n# ⚠ 待真机核对：分页命令随平台差异，先 ? 核对\n# 关闭本会话分页\nterminal length 0\n# ---- 复核：执行长输出命令确认无分页停顿 ----\nshow running-config",
+      "params": [],
+      "notes": "1) ZXR10 部分平台用 terminal length 0，部分用 screen-length 0，需 ? 核对。\n2) 会话级设置，退出即恢复，不写配置。\n3) 分页关闭后长回显可整段复制。\n验证方法：show running-config 输出无分页停顿（骨架条目，真机核对后回填）",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：恢复默认分页\nterminal length 24",
+      "exec_level": "skeleton"
     }
   ]
 }

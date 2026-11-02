@@ -6,7 +6,7 @@
   "vendor_slug": "kylin",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 24,
+  "count": 26,
   "entries": [
     {
       "uuid": "0026be66-e1db-5eea-a9c0-8393c59ce9ef",
@@ -953,6 +953,83 @@
       "duration": "both",
       "verified": 0,
       "rollback": "# 回退：升级类=指回旧内核 + 重启 + 复核（yum 无安全的一键整次回滚）\n# ---- 1. 默认启动项指回旧内核（序号按列表确认，勿盲写）----\nawk -F'\"' '$1==\"menuentry \" {print NR-1, $2}' /etc/grub2.cfg\ngrub2-set-default <旧内核序号>\nreboot\n# ---- 2. 复核：uname -r 回到旧内核 ----\nuname -r"
+    },
+    {
+      "uuid": "94b0e258-2e6c-576c-a6b7-dd9889c752ca",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10（服务器版）",
+      "category": "用户与权限",
+      "title": "创建运维账户并授予 sudo（麒麟 V10）",
+      "description": "麒麟 V10 建运维账号并加 sudo 组，注意 sudo 组名随版本（wheel/sudo）不同。",
+      "commands": "# ===== 用户与 sudo 权限（麒麟 V10）=====\n# ---- 0. 确认账户是否存在 ----\nid {{username}} || echo \"not exist\"\n# ---- 1. 建账号 ----\nuseradd -m -s /bin/bash {{username}}\n# ---- 2. 设初始口令 ----\npasswd {{username}}\n# ---- 3. 加 sudo 组（麒麟服务器版默认 wheel；桌面/Debian 系为 sudo）----\nusermod -aG {{sudo_group}} {{username}}\n# ---- 4. 口令策略 ----\nchage -d 0 -M 90 {{username}}\n# ---- 5. 复核 ----\nid {{username}}\nsudo -l -U {{username}}",
+      "params": [
+        {
+          "name": "username",
+          "type": "string",
+          "label": "账户名",
+          "required": true,
+          "default": "opsadmin",
+          "description": "要创建的运维账户名，小写字母数字；重名报 already exists，建前先 id 确认",
+          "example": "opsadmin"
+        },
+        {
+          "name": "sudo_group",
+          "type": "enum",
+          "label": "sudo 组",
+          "required": true,
+          "default": "wheel",
+          "description": "承载 sudo 权限的组名；麒麟服务器版默认 wheel、部分桌面/Debian 系为 sudo，以 /etc/sudoers 中 %组名 ALL=(ALL) 那行为准，填错则该账号无提权能力",
+          "example": "wheel",
+          "choices": [
+            "wheel",
+            "sudo"
+          ]
+        }
+      ],
+      "notes": "1) 先 grep -E '^%' /etc/sudoers 确认本机实际用的是 %wheel 还是 %sudo。\n2) 麒麟 V10 部分版本启用三权分立（系统管理员/安全管理员/审计管理员），建账号前确认合规要求。\n3) chage -d 0 首次登录强制改密。\n4) 口令不要走命令行参数。\n验证方法：id opsadmin 的 groups 含所选 sudo 组；sudo -l -U opsadmin 显示 ALL；su - opsadmin 后 sudo -v 成功；chage -l 显示过期策略",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 回退：移出 sudo 组并删除账户\ngpasswd -d {{username}} {{sudo_group}}\nuserdel -r {{username}}\nid {{username}}"
+    },
+    {
+      "uuid": "e9826f5f-6e5b-54b5-baf5-653684fd2e4b",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "kylin",
+      "os_family": "kylinV10",
+      "models": "银河麒麟 V10",
+      "category": "配置回滚",
+      "title": "网络配置备份与守卫式回退（麒麟 V10）",
+      "description": "麒麟 V10 走 NetworkManager keyfile，备份 system-connections 目录后按守卫流程恢复。",
+      "commands": "# ===== 网络配置备份（麒麟 V10）=====\n# ---- 1. 备份 NetworkManager 连接配置（keyfile 目录，含权限信息）----\nmkdir -p /root/cfg-bak\ntar -czf /root/cfg-bak/nm-connections-20261102.tar.gz /etc/NetworkManager/system-connections/\n# ---- 2. 校验备份内容非空 ----\ntar -tzf /root/cfg-bak/nm-connections-20261102.tar.gz\n# ---- 3. 变更（示例：nmcli 改地址；远端操作在 screen 内执行）----\n#     nmcli connection modify \"{{conn}}\" ipv4.method manual ipv4.addresses {{ip}}/24\n#     nmcli connection up \"{{conn}}\"\n# ---- 4. 复核 ----\nnmcli -t -f NAME,DEVICE,STATE connection show --active\nip -4 addr show",
+      "params": [
+        {
+          "name": "conn",
+          "type": "string",
+          "label": "连接名",
+          "required": true,
+          "default": "ens192",
+          "description": "NetworkManager 连接名（nmcli connection show 里的 NAME），通常与网卡同名；名字写错则 modify 不生效或改到别的连接",
+          "example": "ens192"
+        },
+        {
+          "name": "ip",
+          "type": "ip",
+          "label": "新地址",
+          "required": true,
+          "default": "10.255.0.10",
+          "description": "变更后的 IPv4 地址，配合掩码使用；改错会断管理连接，远端操作必须在 screen 内并保留 console 通道",
+          "example": "10.255.0.10",
+          "validate": "ipv4"
+        }
+      ],
+      "notes": "1) keyfile 权限必须是 600，tar 备份保留权限（-p）才对；恢复后若权限变宽 NetworkManager 会拒绝加载。\n2) 麒麟 V10 服务器版默认 NetworkManager 接管网络，不再用 ifcfg-* 的 network 服务。\n3) 远端改地址前先 screen，断连后可重连回来继续。\n4) 备份放 /root（非临时目录），重启不丢。\n验证方法：tar -tzf 能列出 .nmconnection 文件；nmcli connection show --active 状态 activated；ip -4 addr 显示新地址；ping 网关通",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 守卫：备份不存在则中止\ntest -f /root/cfg-bak/nm-connections-20261102.tar.gz || { echo \"备份缺失，停止回退，人工核查\"; exit 1; }\n# 恢复连接配置并重载\ntar -xpzf /root/cfg-bak/nm-connections-20261102.tar.gz -C /\nchmod 600 /etc/NetworkManager/system-connections/*.nmconnection\nnmcli connection reload\nsystemctl restart NetworkManager\n# 复核\nnmcli connection show --active\nip -4 addr show"
     }
   ]
 }

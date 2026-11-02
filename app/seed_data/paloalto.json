@@ -6,7 +6,7 @@
   "vendor_slug": "paloalto",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 18,
+  "count": 24,
   "entries": [
     {
       "uuid": "050e539a-7623-530e-8b25-bb9a7d72796f",
@@ -1125,6 +1125,229 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0,
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "c5081e2e-f5a8-5261-b577-9b6967f6cf96",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-850 / PA-3220",
+      "category": "设备管理",
+      "title": "硬件资产与版本巡检（PAN-OS）",
+      "description": "取 PAN-OS 版本、序列号、运行时长、资源与磁盘占用，作为升级评估与容量基线。",
+      "commands": "# ===== 硬件资产与版本巡检（PAN-OS）=====\n# ---- 1. 系统信息：版本/序列号/运行时长 ----\nshow system info\n# ---- 2. 资源占用：CPU/内存/会话 ----\nshow system resources\n# ---- 3. 磁盘占用（日志盘打满会导致提交失败）----\nshow system disk-space\n# ---- 4. 高可用状态（集群机型）----\nshow high-availability state",
+      "params": [],
+      "notes": "1) show system info 的 sw-version 与 serial 是升级与报修依据，uptime 判断是否刚重启。\n2) 磁盘打满是 PAN-OS 提交失败的常见根因，show system disk-space 看 /opt/pancfg 与 /opt/panlogs 使用率。\n3) 巡检只读，任何时窗可执行；HA 双机建议两台都取。\n验证方法：show system info 回显 sw-version / serial / uptime 三项；show system resources 有 CPU 与 memory 行；show system disk-space 各项 Use% 均低于 80%",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "df4429b9-ac0e-5511-b03a-eac3de87db85",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-850 / PA-3220",
+      "category": "设备管理",
+      "title": "重启设备与重启前检查（PAN-OS）",
+      "description": "重启前导出配置快照、确认 HA 切换路径，再 request restart system；重启本身不可撤销。",
+      "commands": "# ===== 重启前检查与重启（PAN-OS）=====\n# ---- 1. 确认没有未提交的候选配置 ----\nshow config list change\n# ---- 2. 导出配置快照到本地（Web：Device → Setup → Operations → Export）----\n#    存档文件命名 device-config-20261102.xml\n# ---- 3. 确认 HA 状态（active/passive 或 active/active）----\nshow high-availability state\n# ---- 4. 重启（★ 立即生效，管理面与业务同时中断 5-10 分钟）----\nrequest restart system",
+      "params": [],
+      "notes": "1) 未提交的候选配置在重启后仍在 candidate，恢复后容易忘提交——重启前跑 show config list change 清账。\n2) 配置快照必须导出到设备之外（Web 导出），设备内快照在重装/换盘时一起丢。\n3) HA 集群重启会触发切换，先确认对端会话表能扛住全量流量。\n4) 重启包含数据面重建，长连接业务会断，需提前通知业务方。\n验证方法：show system info 的 uptime 归零、sw-version 不变；重启后 show high-availability state 恢复 active/passive；show config list change 为空",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：重启不可撤销；配置异常时用步骤 2 导出的快照恢复\n# 守卫：确认快照文件已导出到本机，未导出不得恢复\n# Web：Device → Setup → Operations → Import 导入 device-config-20261102.xml\n# 导入后逐项核对策略/NAT/路由条数，再 commit"
+    },
+    {
+      "uuid": "77eafc57-c144-594f-aaff-a0548fa4a179",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-850 / PA-3220",
+      "category": "接口基础",
+      "title": "接口描述与管理状态（PAN-OS）",
+      "description": "用 set 命令写接口注释并控制链路状态，commit 后生效；链路关闭会立即断业务。",
+      "commands": "# ===== 接口基础配置（PAN-OS）=====\n# 注释：接口的可读说明，显示在 Web 与 show 输出里\nset network interface ethernet ethernet{{port}} comment \"{{description}}\"\n# 链路状态：up / down（down 即关闭物理口，业务中断）\nset network interface ethernet ethernet{{port}} link-state {{state}}\n# 提交（PAN-OS 必须 commit 才生效）\ncommit\n# ---- 复核 ----\nshow interface ethernet{{port}}",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "1/1",
+          "description": "PAN-OS 接口编号（ethernet1/1 里的 1/1）；先 show interface all 确认口存在与当前状态，选错口会把业务口或管理口关闭",
+          "example": "1/1"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "label": "接口注释",
+          "required": false,
+          "default": "TO-CORE-SW1",
+          "description": "接口注释文本，仅用于识别不影响转发；建议写对端设备与用途",
+          "example": "TO-CORE-SW1"
+        },
+        {
+          "name": "state",
+          "type": "enum",
+          "label": "链路状态",
+          "required": true,
+          "default": "up",
+          "description": "接口链路开关；down 立即关闭该物理口、业务中断，仅在停用链路时使用；部分接口类型不支持该字段，命令报错即跳过",
+          "example": "up",
+          "choices": [
+            "up",
+            "down"
+          ]
+        }
+      ],
+      "notes": "1) link-state 字段在部分接口类型（如 aggregate/vlan）上不可用，报错属正常，跳过即可。\n2) commit 会同时提交所有候选改动——提交前用 show config list change 核对范围。\n3) 远程管理口上把 link-state 设 down 会立即失去连接，需现场恢复。\n4) 速率双工在 PAN-OS 上多为自协商，不提供逐口强制档位。\n验证方法：show interface ethernet1/1 回显 state up、comment 为设定文本；Web 网络 → 接口 中该口状态绿灯（骨架条目：link-state 支持度以真机 ? 为准）",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：清注释并把链路状态恢复 up\ndelete network interface ethernet ethernet{{port}} comment\nset network interface ethernet ethernet{{port}} link-state up\ncommit",
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "f8e3b41e-edeb-5f72-9da5-cd88959361f6",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-850 / PA-3220",
+      "category": "显示控制",
+      "title": "关闭分页输出（PAN-OS）",
+      "description": "关闭 CLI 分页便于整段复制回显（命令形态以真机 ? 为准）。",
+      "commands": "# ===== 显示控制（PAN-OS）=====\n# ⚠ 待真机核对：PAN-OS 各版本 CLI 分页开关名称不同（pager / paging）\nset cli pager off\n# ---- 复核：执行长输出确认无分页提示 ----\nshow system info",
+      "params": [],
+      "notes": "1) PAN-OS 的分页设置是会话级，退出登录恢复默认。\n2) 不同版本命令名可能是 set cli pager off 或 set cli paging off，先 ? 核对。\n3) 也可以用管道缩小输出（如 show system info | match uptime）替代关分页。\n4) 该设置不影响 Web 界面与日志。\n验证方法：执行 show system info 不再出现分页提示（骨架条目，真机核对后回填）",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：恢复默认分页\nset cli pager on",
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "ce416cae-76b6-539c-ac2d-9ea4316bb3c8",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-850 / PA-3220",
+      "category": "日志",
+      "title": "配置 syslog 日志服务器（PAN-OS）",
+      "description": "建 syslog 服务器 profile 并下发，日志类型绑定在 Web 的 Log Settings 里完成。",
+      "commands": "# ===== syslog 服务器 profile（PAN-OS）=====\n# ⚠ 待真机核对：profile 名称与绑定路径随 PAN-OS 版本略有差异，先 ? 核对\n# ---- 1. 建 syslog 服务器 profile（UDP 514 / BSD 格式）----\nset shared log-settings syslog {{profile}} server {{server_name}} transport UDP port {{syslog_port}} format BSD server {{syslog_ip}}\n# ---- 2. 提交 ----\ncommit\n# ---- 3. 复核：profile 是否落库 ----\nshow shared log-settings syslog\n# ---- 4. 绑定日志类型 ----\n# Web：Device → Log Settings → System/Config/Traffic → 选择 {{profile}} → 提交\n# （CLI 绑定路径随版本差异较大，以界面为准最稳）",
+      "params": [
+        {
+          "name": "profile",
+          "type": "string",
+          "label": "profile 名称",
+          "required": true,
+          "default": "SYSLOG-PROF",
+          "description": "syslog 服务器配置集的名称，后续在 Log Settings 里按名字绑定到具体日志类型；仅本机标识，命名建议带用途",
+          "example": "SYSLOG-PROF"
+        },
+        {
+          "name": "server_name",
+          "type": "string",
+          "label": "服务器名",
+          "required": true,
+          "default": "SRV1",
+          "description": "profile 内服务器的标识名，同一 profile 可放多台；仅本机标识不影响转发",
+          "example": "SRV1"
+        },
+        {
+          "name": "syslog_ip",
+          "type": "ip",
+          "label": "syslog 服务器 IP",
+          "required": true,
+          "default": "10.0.0.50",
+          "description": "日志接收服务器地址；填错则日志静默丢弃，设备侧不报错",
+          "example": "10.0.0.50",
+          "validate": "ipv4"
+        },
+        {
+          "name": "syslog_port",
+          "type": "int",
+          "label": "端口",
+          "required": true,
+          "default": "514",
+          "description": "syslog 目的端口；标准 514/UDP，需与服务器监听一致",
+          "example": "514",
+          "range": "1-65535",
+          "validate": "int:1-65535"
+        }
+      ],
+      "notes": "1) 只建 profile 不绑定日志类型等于没配——必须到 Log Settings 里挂到 System/Config/Traffic。\n2) PAN-OS 的一切变更都要 commit，未提交的 profile 不会生效。\n3) 日志外发会占用管理口带宽，量大时考虑独立管理网段。\n4) 绑定关系可在 Web 上直接看，比 CLI 查询更直观。\n验证方法：show shared log-settings syslog 能看到 {{profile}} 与其服务器；Web Log Settings 页对应日志类型已选该 profile；服务器侧收到报文（tcpdump 514）",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：删除 profile 并提交\ndelete shared log-settings syslog {{profile}}\ncommit\n# 复核\nshow shared log-settings syslog",
+      "exec_level": "skeleton"
+    },
+    {
+      "uuid": "83571d91-a034-5ac3-83c4-ecb081ccead5",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-850 / PA-3220",
+      "category": "AAA认证",
+      "title": "对接 RADIUS 做管理员认证（PAN-OS）",
+      "description": "建 RADIUS server profile 与 authentication profile，管理员登录走远端认证。",
+      "commands": "# ===== 管理员 RADIUS 认证（PAN-OS）=====\n# ⚠ 待真机核对：authentication-profile 与管理员绑定路径随版本略有差异\n# ---- 1. RADIUS 服务器 profile ----\nset shared server-profile radius {{radius_profile}} server {{server_name}} ip-address {{radius_ip}} secret {{radius_secret}}\n# ---- 2. 认证 profile（引用上面的 server-profile）----\nset shared authentication-profile {{auth_profile}} method radius server-profile {{radius_profile}}\n# ---- 3. 提交 ----\ncommit\n# ---- 4. 复核 ----\nshow shared server-profile radius\nshow shared authentication-profile\n# ---- 5. 绑定管理员 ----\n# Web：Device → Administrators → 编辑管理员 → Authentication Profile 选 {{auth_profile}}\n# （CLI 绑定与角色映射建议在界面完成，避免版本差异）",
+      "params": [
+        {
+          "name": "radius_profile",
+          "type": "string",
+          "label": "RADIUS profile 名",
+          "required": true,
+          "default": "RADIUS-CORP",
+          "description": "server-profile 的标识名，供 authentication-profile 引用；改名会让认证 profile 引用悬空导致登录失败",
+          "example": "RADIUS-CORP"
+        },
+        {
+          "name": "server_name",
+          "type": "string",
+          "label": "服务器名",
+          "required": true,
+          "default": "SRV1",
+          "description": "profile 内服务器标识，同一 profile 可放多台做冗余；仅本机标识",
+          "example": "SRV1"
+        },
+        {
+          "name": "radius_ip",
+          "type": "ip",
+          "label": "RADIUS 服务器 IP",
+          "required": true,
+          "default": "10.0.0.30",
+          "description": "认证服务器地址；填错则管理员远端登录全部失败，本地管理员仍可登录兜底",
+          "example": "10.0.0.30",
+          "validate": "ipv4"
+        },
+        {
+          "name": "radius_secret",
+          "type": "string",
+          "label": "共享密钥",
+          "required": true,
+          "default": "",
+          "description": "与 RADIUS 服务器约定的共享密钥，等同口令；两端不一致表现为认证无响应，现场输入、不落种子默认值"
+        },
+        {
+          "name": "auth_profile",
+          "type": "string",
+          "label": "认证 profile 名",
+          "required": true,
+          "default": "AUTH-RADIUS",
+          "description": "认证方式配置集的名称，管理员绑定它后走 RADIUS 认证；改错会导致绑定失效、退回本地口令",
+          "example": "AUTH-RADIUS"
+        }
+      ],
+      "notes": "1) 切换远端认证前保留一个本地管理员，避免 RADIUS 故障锁死管理面。\n2) PAN-OS 只做认证（Authentication），授权（角色/权限）仍在本地 Admin Role。\n3) 多台 RADIUS 可都放进同一 profile，按顺序尝试。\n4) 变更后先测一个测试账号，再改主账号。\n验证方法：show shared server-profile radius 有 {{radius_profile}} 与服务器地址；show shared authentication-profile 有 {{auth_profile}}；用远端账号登录 Web 成功且角色正确",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：删除认证 profile 与 server-profile，管理员恢复本地认证\ndelete shared authentication-profile {{auth_profile}}\ndelete shared server-profile radius {{radius_profile}}\ncommit\n# 管理员侧：Web 上把认证 profile 改回 None",
       "exec_level": "skeleton"
     }
   ]

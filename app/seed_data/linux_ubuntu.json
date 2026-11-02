@@ -6,7 +6,7 @@
   "vendor_slug": "ubuntu",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 25,
+  "count": 27,
   "entries": [
     {
       "uuid": "5b094e2d-eb19-5797-8486-e7dcd1b9b4f1",
@@ -1021,6 +1021,61 @@
       "duration": "both",
       "verified": 0,
       "rollback": "# 回退：升级类=指回旧内核 + 重启 + 复核（apt 无安全的一键整次回滚）\n# ---- 重启进旧内核：GRUB 菜单选 Advanced options for Ubuntu → 旧内核 ----\nreboot\n# ---- 复核：uname -r 回到旧内核；个别包按版本号降级（apt-get install <包名>=<旧版本>）----\nuname -r"
+    },
+    {
+      "uuid": "2f4da535-a469-5b70-80db-094d8449419c",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 22.04 LTS",
+      "category": "用户与权限",
+      "title": "创建运维账户并授予 sudo（Ubuntu 22.04）",
+      "description": "Ubuntu 用 adduser 建交互式账号或 useradd 建静默账号，加入 sudo 组并设口令策略。",
+      "commands": "# ===== 用户与 sudo 权限（Ubuntu 22.04）=====\n# ---- 0. 确认账户是否存在 ----\nid {{username}} || echo \"not exist\"\n# ---- 1. 建账号（-m 建家目录，-s 指定 bash；adduser 为交互式替代）----\nuseradd -m -s /bin/bash {{username}}\n# ---- 2. 设初始口令 ----\npasswd {{username}}\n# ---- 3. 加入 sudo 组（Ubuntu 默认 sudo 组）----\nusermod -aG sudo {{username}}\n# ---- 4. 口令策略 ----\nchage -d 0 -M 90 {{username}}\n# ---- 5. 复核 ----\nid {{username}}\nsudo -l -U {{username}}",
+      "params": [
+        {
+          "name": "username",
+          "type": "string",
+          "label": "账户名",
+          "required": true,
+          "default": "opsadmin",
+          "description": "要创建的运维账户名，小写字母数字；重名报 already exists，建前先 id 确认",
+          "example": "opsadmin"
+        }
+      ],
+      "notes": "1) Ubuntu 默认 sudo 组为 sudo（不是 wheel），加错组则无法提权。\n2) adduser 是交互式封装（会提示全名/口令），useradd 是静默创建，脚本化用后者。\n3) Ubuntu 24.04 起默认无 root 口令，务必保留至少一个 sudo 用户。\n4) 口令不要走命令行参数。\n验证方法：id opsadmin 的 groups 含 sudo；sudo -l -U opsadmin 显示 ALL；su - opsadmin 后 sudo -v 成功；chage -l 显示过期策略",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 回退：移出 sudo 组并删除账户\ngpasswd -d {{username}} sudo\nuserdel -r {{username}}\nid {{username}}"
+    },
+    {
+      "uuid": "39ffef71-92a0-5f2b-aa06-9112d4df7b19",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ubuntu",
+      "os_family": "ubuntu2204",
+      "models": "Ubuntu 22.04 LTS",
+      "category": "配置回滚",
+      "title": "netplan 配置备份与守卫式回退（Ubuntu）",
+      "description": "备份 /etc/netplan 后改 YAML；用 netplan try 做 120 秒自动回滚保险。",
+      "commands": "# ===== netplan 备份与变更（Ubuntu 22.04）=====\n# ---- 1. 备份 netplan 目录（文件名写死日期）----\nmkdir -p /root/cfg-bak\ncp -a /etc/netplan /root/cfg-bak/netplan-20261102\n# ---- 2. 校验备份 ----\nls -l /root/cfg-bak/netplan-20261102/\n# ---- 3. 编辑 YAML（缩进必须空格、不能 Tab）----\n#     vim /etc/netplan/01-netcfg.yaml\n# ---- 4. 先 netplan try（120 秒内不确认自动回滚），确认后再 apply ----\nnetplan try\nnetplan apply\n# ---- 5. 复核 ----\nip -4 addr show {{ifname}}\nip route",
+      "params": [
+        {
+          "name": "ifname",
+          "type": "string",
+          "label": "网卡名",
+          "required": true,
+          "default": "ens192",
+          "description": "要复核的网卡名（ip link 确认）；填错只影响复核输出",
+          "example": "ens192",
+          "validate": "ifname"
+        }
+      ],
+      "notes": "1) netplan try 是最重要的保险：120 秒内不按确认自动回滚，远端改网络必用。\n2) YAML 缩进只能用空格，Tab 会报 invalid YAML 并可能导致网络服务起不来。\n3) /etc/netplan 下多个 yaml 会合并，改前确认哪个文件在生效（network: version: 2）。\n4) 备份目录权限含敏感信息（如 wifi 口令），恢复后确认 600。\n验证方法：ls 能看到备份 yaml；netplan try 显示配置合法并在确认后生效；ip -4 addr 显示新地址；ping 网关与 223.5.5.5 通",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 守卫：备份目录不存在则中止\ntest -d /root/cfg-bak/netplan-20261102 || { echo \"备份缺失，停止回退，人工核查\"; exit 1; }\ncp -af /root/cfg-bak/netplan-20261102/. /etc/netplan/\nchmod 600 /etc/netplan/*.yaml\nnetplan apply\n# 复核\nip -4 addr show {{ifname}}\nip route"
     }
   ]
 }

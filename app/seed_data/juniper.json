@@ -6,7 +6,7 @@
   "vendor_slug": "juniper",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 28,
+  "count": 33,
   "entries": [
     {
       "uuid": "2eb086b7-9e35-5a3e-b98b-68a782066662",
@@ -1409,6 +1409,148 @@
       ],
       "notes": "1) show arp no-resolve 免 DNS 反解，批量核查时快得多。\n2) 网关 IP 的 MAC 必须落在 VRRP/主控预期侧，漂到异常接口=二层环路或欺骗。\n3) permanent 表项是静态绑定；排查 ARP 欺骗时对比台账 MAC。\n验证方法：目标终端 IP 的 MAC 与台账一致、接口正确；无异常动态刷新。",
       "verified": 0
+    },
+    {
+      "uuid": "f6975b35-076c-5013-a3c2-b789d66f6052",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2200 / EX3400 / EX4300",
+      "category": "设备管理",
+      "title": "硬件资产与版本巡检（Junos EX）",
+      "description": "取 Junos 版本、机箱硬件清单、路由引擎与环境状态，用于升级评估与报修取证。",
+      "commands": "# ===== 硬件资产与版本巡检（Junos）=====\n# ---- 1. Junos 版本与运行时长 ----\nshow version\n# ---- 2. 机箱硬件清单（型号/序列号/板卡）----\nshow chassis hardware\n# ---- 3. 温度/风扇/电源 ----\nshow chassis environment\n# ---- 4. 主控（RE）状态与内存 ----\nshow chassis routing-engine",
+      "params": [],
+      "notes": "1) show version 的 Junos: 21.4R3-S4.9 与 Model: ex4300-48t 是升级对照基准；双 RE 机型会分别列出。\n2) show chassis hardware 的 Chassis 段 SN 是整机序列号，部件段按 FPC/PIC 分行。\n3) show chassis environment 每项 Status 为 OK/Check——Check 表示越阈值，要立刻查风扇与进风。\n4) 部分单 RE 平台用 show chassis routing-engine status 替代。\n验证方法：show version 回显 Hostname / Model / Junos 三行；show chassis hardware 出现 Chassis 段与 SN；show chassis environment 各项 Status 为 OK",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "684f2ce7-002b-5067-8c62-4527295c5860",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2200 / EX3400 / EX4300",
+      "category": "设备管理",
+      "title": "保存配置并重启设备（rescue 兜底，Junos）",
+      "description": "先存 rescue 救命配置再重启；重启不可撤销，异常时用 rollback rescue 拉回基线。",
+      "commands": "# ===== 重启前准备与重启（Junos）=====\n# ---- 1. 确认本次变更已 commit（未 commit 的重启即丢）----\nshow system commit\n# ---- 2. 存一份 rescue 救命配置（可在下次登录前恢复）----\nrequest system configuration rescue save\n# ---- 3. 重启（★ 立即生效，业务中断 3-8 分钟）----\nrequest system reboot\n# 注：定时重启为 request system reboot at hh:mm，取消为 request system reboot cancel，\n#     子命令随 Junos 版本差异较大，以 ? 实测为准",
+      "params": [],
+      "notes": "1) Junos 配置在 commit 前只在 candidate 里，没 commit 就重启等于白改——show system commit 最后一条应是刚才的提交。\n2) rescue 配置是独立基线，设备起不来或配置混乱时可 rollback rescue 回到它，大变更前必存。\n3) request system reboot 会二次询问 Reboot the system?，脚本化要处理交互。\n4) 定时与取消子命令（at / cancel）随版本支持度不同，现场先 ? 核对，别照文档硬敲。\n验证方法：show system commit 末条为本次提交（含提交人与时间）；show system uptime 的 System booted 为本次重启时刻；重启后 show configuration | compare rollback 0 无差异（配置未漂移）",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：重启不可撤销；若重启后配置不符预期，拉回 rescue 基线\nconfigure\nrollback rescue\n# 确认差异后再提交\nshow | compare\ncommit"
+    },
+    {
+      "uuid": "60824d57-8813-57d3-b00e-8107cd160006",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2200 / EX3400 / EX4300",
+      "category": "接口基础",
+      "title": "接口描述、开关与速率双工（Junos）",
+      "description": "用 set 命令写描述、速率与链路模式，disable/删 disable 控制管理开关，commit 后生效。",
+      "commands": "# ===== 接口基础配置（Junos）=====\nconfigure\n# 描述：对端设备与用途\nset interfaces ge-{{port}} description \"{{description}}\"\n# 速率：10m / 100m / 1g / auto，两端须一致\nset interfaces ge-{{port}} speed {{speed}}\n# 链路模式（双工）：full-duplex / half-duplex / auto\nset interfaces ge-{{port}} link-mode {{duplex}}\n# 管理开关：disable = 关闭，delete ... disable = 打开\ndelete interfaces ge-{{port}} disable\ncommit and-quit\n# ---- 复核 ----\nshow interfaces ge-{{port}} extensive | match \"Description|Speed|Link-mode|Enabled\"",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "0/0/1",
+          "description": "物理接口编号（ge- 之后的部分，如 0/0/1）；先 show interfaces terse 确认口存在，选错口改速率会瞬断业务",
+          "example": "0/0/1"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "label": "接口描述",
+          "required": false,
+          "default": "TO-CORE-SW1-ge-0/0/24",
+          "description": "接口描述文本，写入配置并显示在 show interfaces 中；不影响转发，含空格时命令里已带引号",
+          "example": "TO-CORE-SW1"
+        },
+        {
+          "name": "speed",
+          "type": "enum",
+          "label": "速率",
+          "required": true,
+          "default": "auto",
+          "description": "速率档位；auto 自协商，强制 1g 时对端也须 1g；光口通常只支持 auto，写错会 commit 报错但不影响已有配置",
+          "example": "1g",
+          "choices": [
+            "auto",
+            "10m",
+            "100m",
+            "1g"
+          ]
+        },
+        {
+          "name": "duplex",
+          "type": "enum",
+          "label": "双工",
+          "required": true,
+          "default": "auto",
+          "description": "链路模式；full-duplex 两端必须一致，混配会产生冲突与丢包；千兆强制速率时须 full-duplex",
+          "example": "full-duplex",
+          "choices": [
+            "auto",
+            "full-duplex",
+            "half-duplex"
+          ]
+        }
+      ],
+      "notes": "1) Junos 所有变更在 commit 前只在 candidate，commit 才生效——忘记 commit 是新手最常见错误。\n2) disable 与 delete ... disable 是成对动作：配错方向会把端口关掉，业务即断。\n3) commit 前用 show | compare 看差异，commit confirmed 5 可做「5 分钟不确认自动回滚」的保险。\n4) 强建议改接口参数用 commit confirmed，避免远程操作把自己关在门外。\n验证方法：show interfaces ge-0/0/1 extensive 回显 Description 为设定值、Speed 为实际速率、Link-mode 为全双工、Enabled 为 true；show interfaces terse 该口 up/up",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：删除本次新增的接口参数并保持端口开启，commit 生效\nconfigure\ndelete interfaces ge-{{port}} description\ndelete interfaces ge-{{port}} speed\ndelete interfaces ge-{{port}} link-mode\ndelete interfaces ge-{{port}} disable\nshow | compare\ncommit and-quit"
+    },
+    {
+      "uuid": "eb08f035-8b14-5731-bfb1-67efee98d7dc",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2200 / EX3400 / EX4300",
+      "category": "邻居发现",
+      "title": "开启 LLDP 并核查邻居拓扑（Junos）",
+      "description": "set protocols lldp interface all 打开全局，commit 后用 show lldp neighbors 对拓扑。",
+      "commands": "# ===== LLDP 邻居发现（Junos）=====\nconfigure\n# 所有接口启用 LLDP（也可 --interface ge-0/0/1 精确到口）\nset protocols lldp interface all\n# 通告周期与保持倍数（默认 30s / 4 倍，跨厂商对接一般保持默认）\nset protocols lldp advertisement-interval 30\nset protocols lldp transmit-delay 120\ncommit and-quit\n# ---- 复核 ----\nshow lldp\nshow lldp neighbors\nshow lldp neighbors interface ge-{{port}}",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "0/0/24",
+          "description": "用于查看单口邻居的接口编号；不填不影响全局开启，填错只看不到该口邻居，无业务影响",
+          "example": "0/0/24"
+        }
+      ],
+      "notes": "1) Junos 的 LLDP 必须 commit 才生效，candidate 里写完不 commit 等于没开。\n2) interface all 会把所有物理口纳入，若某口不想发可在该口 disable（set protocols lldp interface ge-0/0/1 disable）。\n3) advertisement-interval 与 transmit-delay 需满足 transmit-delay ≥ 4×interval 的约束，配错 commit 会报错。\n4) show lldp neighbors 输出本地口/对端口/对端系统名，是核对物理连线的直接证据。\n验证方法：show lldp 回显 LLDP enabled、Advertisement interval 30；show lldp neighbors 每个相邻口一行；show lldp statistics 的 Tx/Rx 计数持续增长",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：删除 LLDP 协议配置并 commit\nconfigure\ndelete protocols lldp\ncommit and-quit\n# 复核：应显示 LLDP disabled\nshow lldp"
+    },
+    {
+      "uuid": "e98a486f-3a61-5232-8d23-7435723d7379",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "juniper",
+      "os_family": "junos",
+      "models": "EX2200 / EX3400 / EX4300",
+      "category": "显示控制",
+      "title": "关闭分页与调整屏宽（Junos）",
+      "description": "set cli screen-length 0 关分页、screen-width 加宽避免折行，均为会话级设置。",
+      "commands": "# ===== 显示控制（Junos）=====\n# 关闭分页（0 = 不分页，仅本会话）\nset cli screen-length 0\n# 加宽显示避免长行折行（可选，按终端宽度调）\nset cli screen-width 200\n# ---- 复核 ----\nshow cli",
+      "params": [],
+      "notes": "1) set cli 系列是会话级设置，退出登录即恢复默认（24 行 / 80 列）。\n2) 部分平台 screen-width 上限受终端能力限制，设过大会被截断。\n3) 想要持久化需改登录类配置（login class），现场排障一般不需要。\n4) 关分页后可整段复制 show configuration 输出。\n验证方法：show cli 回显 Screen length 0、Screen width 200；执行 show configuration 不再出现 ---(more)--- 提示",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：恢复默认分页与屏宽\nset cli screen-length 24\nset cli screen-width 80\nshow cli"
     }
   ]
 }

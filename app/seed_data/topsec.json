@@ -6,7 +6,7 @@
   "vendor_slug": "topsec",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-21",
-  "count": 10,
+  "count": 15,
   "entries": [
     {
       "uuid": "d6b8a812-f4ab-589c-a736-8dfff070b4d9",
@@ -855,6 +855,146 @@
       "verified_model": "",
       "verified_date": "",
       "favorite": 0
+    },
+    {
+      "uuid": "1cf046fb-d564-58bc-9d11-0d1f0e2edd54",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "NGFW 系列",
+      "category": "设备管理",
+      "title": "设备信息与运行状态核查（Web 控制台）",
+      "description": "在 Web 控制台取系统版本、序列号、运行时长与资源占用，作为升级与报修底账。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目为【Web 控制台操作路径】，仅作对照与变更记录使用，请勿粘贴执行。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】系统管理 → 系统信息（或设备信息）\n#   系统版本   ：TopOS 版本号 + 补丁号\n#   设备序列号 ：报修必填\n#   运行时长   ：判断是否被重启\n#   资源状态   ：CPU / 内存 / 会话数\n# 【路径】系统管理 → 高可用（集群机型）→ 主备角色\n# 【验证】系统信息页版本与变更记录一致，资源曲线无持续打满",
+      "params": [],
+      "notes": "1) 版本号需连补丁号一起记录，只记主版本会在升级兼容性上踩坑。\n2) 序列号在系统信息页底部或关于页，报修第一句就要。\n3) 集群机型先在高可用页确认主备，重启/升级前确认切换路径。\n4) 只读核查，无变更动作。\n验证方法：系统信息页版本/序列号/运行时长齐全；资源页 CPU、内存、会话数无持续打满",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "6a9184d9-6d32-5142-93f6-b32ec72ebd71",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "NGFW 系列",
+      "category": "设备管理",
+      "title": "备份配置并重启设备（Web 控制台）",
+      "description": "先导出配置文件备份，再在维护页重启；双机先确认主备切换路径。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目为【Web 控制台操作路径】，请勿粘贴执行。\n\n# ===== Web 控制台操作路径 =====\n# 【步骤 1】系统管理 → 配置管理 → 配置备份/导出\n#   文件名：TopOS-config-20261102.bak（写死日期）\n#   备份文件下载到运维机保存\n# 【步骤 2】系统管理 → 高可用 → 确认主备角色与心跳\n# 【步骤 3】系统管理 → 设备维护 → 重启设备\n# 【验证】重启后运行时长归零，策略/对象数量与重启前一致",
+      "params": [],
+      "notes": "1) 重启后管理面恢复需 3-5 分钟，业务面随后恢复；恢复前不要重复点重启。\n2) 配置备份要落到设备之外，设备内备份随盘走。\n3) 双机重启触发切换，先确认对端承载能力。\n4) 配置丢失时用步骤 1 的备份在配置恢复里回灌。\n验证方法：运行时长归零；策略条数与对象数量核对一致；高可用页主备角色恢复",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "601310d9-d181-5302-b25b-70dca826f879",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "NGFW 系列",
+      "category": "接口基础",
+      "title": "接口描述与启停（Web 控制台）",
+      "description": "Web 上编辑物理接口的描述、启用状态与速率双工；停用即断链。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目为【Web 控制台操作路径】，请勿粘贴执行。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】网络管理 → 接口 → 物理接口 → {{port}} → 编辑\n#   描述     ：{{description}}\n#   启用     ：勾选/取消（取消即关闭，业务中断）\n#   速率/双工：自动协商或按对端强制\n#   → 保存并下发\n# 【验证】接口列表状态为 up，收发计数正常",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "eth1",
+          "description": "TopOS 物理口名（eth1/eth2…）；先在接口列表确认名字与连接状态，选错口停用会断业务",
+          "example": "eth1"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "label": "接口描述",
+          "required": false,
+          "default": "TO-CORE-SW1",
+          "description": "接口描述文本，仅界面展示不影响转发；建议写对端设备-对端口-用途",
+          "example": "TO-CORE-SW1"
+        }
+      ],
+      "notes": "1) 停用接口立即断业务，操作前确认不是管理口/主链路。\n2) 速率双工默认自协商，两端强制才需改；不匹配表现为丢包与速率下降。\n3) 变更后需保存下发，仅编辑不保存不生效。\n4) 本条为 Web 路径，回退=按原值重新编辑保存。\n验证方法：接口列表状态 up、收发计数增长；对端设备接口 up",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "c1e80048-c9fe-56bd-b3d8-2861f8191364",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "NGFW 系列",
+      "category": "日志",
+      "title": "配置日志服务器上报（Web 控制台）",
+      "description": "Web 上配置日志服务器地址、上报类型与本地保留，打通外发链路。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目为【Web 控制台操作路径】，请勿粘贴执行。\n\n# ===== Web 控制台操作路径 =====\n# 【路径】系统管理 → 日志管理 → 日志服务器\n#   启用     ：勾选\n#   服务器 IP：{{syslog_ip}}\n#   端口     ：{{syslog_port}}（默认 514/UDP）\n#   日志类型 ：系统日志 / 安全日志 / 审计日志\n# 【路径】系统管理 → 日志管理 → 本地日志（保留天数与容量）\n# 【验证】服务器侧收到报文；Web 日志查询最新条目正常",
+      "params": [
+        {
+          "name": "syslog_ip",
+          "type": "ip",
+          "label": "syslog 服务器 IP",
+          "required": true,
+          "default": "10.0.0.50",
+          "description": "日志接收服务器地址；填错则日志静默丢弃，设备侧不报错",
+          "example": "10.0.0.50",
+          "validate": "ipv4"
+        },
+        {
+          "name": "syslog_port",
+          "type": "int",
+          "label": "端口",
+          "required": true,
+          "default": "514",
+          "description": "syslog 目的端口；标准 514/UDP，需与服务器监听一致",
+          "example": "514",
+          "range": "1-65535",
+          "validate": "int:1-65535"
+        }
+      ],
+      "notes": "1) 天融信日志类型分系统/安全/审计，按合规要求选择。\n2) 本地保留天数过高会占满日志分区，导致新日志覆盖或写入失败。\n3) 配置后需保存下发，仅编辑不生效。\n4) 本条为 Web 路径，回退=取消启用并保存。\n验证方法：服务器 tcpdump 收到设备 514 报文；Web 日志查询页时间戳与设备时钟一致",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "271af5cd-da4d-5529-9c7b-d7aa00a3bcb9",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "topsec",
+      "os_family": "topos",
+      "models": "NGFW 系列",
+      "category": "AAA认证",
+      "title": "对接 RADIUS/TACACS+ 做管理员认证（Web 控制台）",
+      "description": "Web 上配置认证服务器并把管理员登录切到外部认证，保留本地兜底账号。",
+      "commands": "# 【重要】天融信 TopOS 的策略类配置以 Web 控制台为主，命令行仅开放少量系统级命令。\n# 本条目为【Web 控制台操作路径】，请勿粘贴执行。\n\n# ===== Web 控制台操作路径 =====\n# 【步骤 1】系统管理 → 认证管理 → 认证服务器 → 新增（RADIUS / TACACS+）\n#   服务器地址：{{server_ip}}\n#   端口      ：RADIUS 1812 / TACACS+ 49\n#   共享密钥  ：{{secret}}\n# 【步骤 2】系统管理 → 管理员 → 认证方式 → 选择外部认证\n#   ★ 保留一个本地管理员账号兜底\n# 【步骤 3】保存并测试\n# 【验证】外部账号登录成功，审计日志记录登录来源",
+      "params": [
+        {
+          "name": "server_ip",
+          "type": "ip",
+          "label": "认证服务器 IP",
+          "required": true,
+          "default": "10.0.0.30",
+          "description": "RADIUS/TACACS+ 服务器地址；填错或不可达会导致管理员登录失败（本地账号除外）",
+          "example": "10.0.0.30",
+          "validate": "ipv4"
+        },
+        {
+          "name": "secret",
+          "type": "string",
+          "label": "共享密钥",
+          "required": true,
+          "default": "",
+          "description": "与认证服务器约定的共享密钥，等同口令；两端不一致表现为认证超时，现场输入、不落种子默认值"
+        }
+      ],
+      "notes": "1) 切外部认证前保留本地管理员兜底，避免认证服务器故障锁死。\n2) TACACS+ 支持命令级授权，RADIUS 一般只做认证，按管理粒度选型。\n3) 管理员角色仍在本地配置。\n4) 建议先测测试账号再切主账号。\n验证方法：认证服务器页连接测试成功；外部账号登录成功；审计日志有登录记录",
+      "duration": "",
+      "verified": 0
     }
   ]
 }

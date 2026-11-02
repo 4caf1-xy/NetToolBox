@@ -6,7 +6,7 @@
   "vendor_slug": "huawei",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 23,
+  "count": 28,
   "entries": [
     {
       "uuid": "fc982ad5-2758-5749-9f78-a5b2b52e41db",
@@ -1214,6 +1214,161 @@
       ],
       "notes": "1) VRP 支持 pps 计量：broadcast-suppression pps 200（按报文数抑制），按需选用。\n2) 组播/未知单播抑制分别用 multicast-suppression / unicast-suppression。\n3) 抑制只在超限时丢包，正常流量不受影响；display this 确认接口视图下配置。\n验证方法：display this 中 broadcast-suppression 值正确；风暴模拟时口丢弃计数增长。",
       "verified": 0
+    },
+    {
+      "uuid": "2202db1c-855f-5220-a472-79855a5257bf",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720 / S6720",
+      "category": "设备管理",
+      "title": "硬件资产与版本巡检（华为 VRP5）",
+      "description": "取版本/补丁、单板状态、电子标签（型号序列号）与环境量，作为开局验收与报修依据。",
+      "commands": "# ===== 硬件资产与版本巡检（华为 VRP5）=====\n# ---- 1. 版本/补丁/启动文件 ----\ndisplay version\n# ---- 2. 单板与槽位状态（主控/业务板/电源/风扇）----\ndisplay device\n# ---- 3. 电子标签：型号、序列号、生产日期（报修用）----\ndisplay elabel\n# ---- 4. 温度/风扇/电源（部分盒式机型无此命令）----\ndisplay environment",
+      "params": [],
+      "notes": "1) display version 里的 VRP (R) software, Version 5.170 与补丁号（SPHxxx）是升级对照基准；uptime 在倒数第二段。\n2) display device 的 Board Type / Status 能看出槽位是否 Abnormal——板卡离线先查这里再看日志。\n3) display elabel 按槽位分段输出，BarCode 即序列号。\n4) 温度/风扇在 display environment 的 Temperature 与 Fan 段，超阈值会伴随 ENTEXCEEDALARM 日志。\n验证方法：display version 回显含 Huawei Versatile Routing Platform Software 与 uptime is ...；display device 每个槽位一块 Board Type / Status : Normal；display elabel 有 BarCode 行即读到序列号",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "94827764-06e3-5769-a748-20050f709711",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720 / S6720",
+      "category": "设备管理",
+      "title": "保存配置并定时重启（含取消，华为 VRP5）",
+      "description": "save 落盘后用 schedule reboot 排定时重启；窗口内 undo schedule reboot 取消。",
+      "commands": "# ===== 保存并定时重启（华为 VRP5）=====\n# ---- 1. 保存配置（不 save 则重启丢配置）----\nsave\n# ---- 2. 定时重启：格式 hh:mm，00:05 表示 5 分钟后 ----\nschedule reboot delay {{delay}}\n# ---- 3. 复核 ----\ndisplay schedule reboot",
+      "params": [
+        {
+          "name": "delay",
+          "type": "string",
+          "label": "延时（时:分）",
+          "required": true,
+          "default": "00:05",
+          "description": "排定重启的等待时长，格式 hh:mm（最长 24 小时）；00:05 即 5 分钟后，现场留 5 分钟以上便于取消；业务中断从重启时刻开始",
+          "example": "00:05",
+          "validate": "regex:^\\d{1,2}:\\d{2}$"
+        }
+      ],
+      "notes": "1) 华为定时重启是 schedule reboot delay（相对时长），固定时刻用 schedule reboot at hh:mm——两者互斥，后配的覆盖前者。\n2) save 会询问 The current configuration will be written to the device. Are you sure?，需回 y；脚本化执行要处理这个交互，避免卡住。\n3) 重启会中断全部业务，堆叠/集群机型要按主备顺序评估恢复时间。\n4) 配置了双主控的机型重启时间更长，别在业务高峰排。\n验证方法：display schedule reboot 回显 Reboot scheduled at ... 或 Reboot delay ...；重启后 display version 的 uptime 归零，且 display saved-configuration 与当前配置一致（确认 save 生效）",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：取消尚未触发的定时重启\nundo schedule reboot\n# 复核：应提示无定时重启任务\ndisplay schedule reboot"
+    },
+    {
+      "uuid": "7b49fa1c-388f-5d00-8e40-e05d3385bf6e",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720 / S6720",
+      "category": "接口基础",
+      "title": "接口描述、开关与速率双工（华为 VRP5）",
+      "description": "在物理口上写描述、设速率双工并确保 undo shutdown——业务不通先查这三项。",
+      "commands": "# ===== 接口基础配置（华为 VRP5）=====\nsystem-view\ninterface GigabitEthernet{{port}}\n# 描述：对端设备与用途，display interface 第一屏就能看到\n description {{description}}\n# 速率/双工：两端必须一致，否则协商成半双工丢包\n speed {{speed}}\n duplex {{duplex}}\n# 打开端口（默认即打开，维护后需确认未被 shutdown）\n undo shutdown\n quit\nsave\n# ---- 复核 ----\ndisplay interface GigabitEthernet{{port}}\ndisplay interface brief | include GigabitEthernet{{port}}",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "0/0/1",
+          "description": "要配置的物理接口编号（不含 GigabitEthernet 前缀）；先 display interface brief 确认口存在，选错口改速率会瞬断业务",
+          "example": "0/0/1",
+          "validate": "port"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "label": "接口描述",
+          "required": false,
+          "default": "TO-CORE-SW1-Gi0/24",
+          "description": "接口标注文本，仅本机展示不影响转发；建议写对端设备-对端口-用途，VRP 描述支持中文但终端编码可能乱码，现场多用英文",
+          "example": "TO-CORE-SW1-Gi0/24"
+        },
+        {
+          "name": "speed",
+          "type": "enum",
+          "label": "速率",
+          "required": true,
+          "default": "auto",
+          "description": "接口速率档位；auto 为自协商，强制 1000 时对端也须 1000，两端不一致链路起不来或反复 up/down",
+          "example": "1000",
+          "choices": [
+            "auto",
+            "10",
+            "100",
+            "1000"
+          ]
+        },
+        {
+          "name": "duplex",
+          "type": "enum",
+          "label": "双工",
+          "required": true,
+          "default": "auto",
+          "description": "双工模式；全双工两端须一致，full/auto 混配会产生冲突计数并显著丢包，千兆强制速率时须 full",
+          "example": "full",
+          "choices": [
+            "auto",
+            "full",
+            "half"
+          ]
+        }
+      ],
+      "notes": "1) VRP5 里 speed 可写 auto/10/100/1000，部分光口只支持 auto，写了会提示不支持。\n2) undo shutdown 是打开端口；shutdown 是关闭——这两条对生产口是断链动作，务必确认口号。\n3) save 前配置只在 running，重启丢失；save 时会有交互确认。\n4) 改速率/双工链路瞬断，接入口请在窗口内操作。\n验证方法：display interface GigabitEthernet0/0/1 首屏 current state : UP、Line protocol current state : UP、Description 为设定值、Speed 与 Duplex 显示实际协商值；display interface brief 该口 PHY 列 Up",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：清描述、速率双工回 auto、端口保持开启\nsystem-view\ninterface GigabitEthernet{{port}}\n undo description\n undo speed\n undo duplex\n undo shutdown\n quit\nsave"
+    },
+    {
+      "uuid": "ffec9ca0-43a5-5ab0-9bc9-759e744b2b5a",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720 / S6720",
+      "category": "邻居发现",
+      "title": "开启 LLDP 并核查邻居拓扑（华为 VRP5）",
+      "description": "全局与接口双层开启 LLDP，用 neighbor brief 快速对拓扑、detail 看对端描述。",
+      "commands": "# ===== LLDP 邻居发现（华为 VRP5）=====\nsystem-view\n# 全局开启（VRP 默认关闭）\nlldp enable\n# 接口层确认开启（全局开 + 接口开才发）\ninterface GigabitEthernet{{port}}\n lldp enable\n quit\nsave\n# ---- 复核 ----\ndisplay lldp local\ndisplay lldp neighbor brief\ndisplay lldp neighbor interface GigabitEthernet{{port}}",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "0/0/24",
+          "description": "要确认 LLDP 开启状态的接口编号；全局已开时接口层一般默认继承，填错只影响核对范围，不影响业务",
+          "example": "0/0/24",
+          "validate": "port"
+        }
+      ],
+      "notes": "1) 华为 LLDP 需要「全局 lldp enable + 接口 lldp enable」两层都开，只开全局部分版本仍不发包。\n2) display lldp neighbor brief 一行一条，含 Local Intf / Neighbor Dev / Neighbor Intf / TTL，对拓扑最快。\n3) 对端若是思科设备，需确认对方 lldp run 已开（思科默认关）。\n4) 安全合规场景可能要求关闭 LLDP，开启前确认基线。\n验证方法：display lldp local 显示本机 Chassis ID/System name/管理地址；display lldp neighbor brief 每相邻口一行且 Neighbor Dev 为对端主机名；detail 有 Neighbor description 与能力位",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：关闭全局 LLDP（接口层保持默认）\nsystem-view\nundo lldp enable\nsave\n# 复核：应显示 LLDP disabled\ndisplay lldp local"
+    },
+    {
+      "uuid": "aa687613-1961-522b-bda7-9eedf55da8f9",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "huawei",
+      "os_family": "vrp5",
+      "models": "S5700 / S5720 / S6720",
+      "category": "显示控制",
+      "title": "关闭分页与开启日志实时输出（华为 VRP5）",
+      "description": "screen-length 0 temporary 只对本会话关分页，terminal monitor 开日志实时输出。",
+      "commands": "# ===== 显示控制（华为 VRP5）=====\n# 关闭当前会话分页（temporary = 不写配置、仅本会话）\nscreen-length 0 temporary\n# 开启当前会话的日志实时输出\nterminal monitor\n# ---- 复核 ----\ndisplay terminal",
+      "params": [],
+      "notes": "1) 必须带 temporary，否则会写进用户界面配置，影响后续所有登录会话。\n2) terminal monitor 是会话级，退出即失效；日志仍按 info-center 规则落缓冲。\n3) 关日志用 undo terminal monitor，别用 undo terminal（会连带关掉其他终端特性）。\n4) 分页关闭后大段 display 输出可整块复制，不会卡在 ---- More ----。\n验证方法：display terminal 显示 Screen length 0、Monitoring 为 enable；执行 display current-configuration 不再出现 ---- More ---- 停顿",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：恢复分页与关闭实时日志\nscreen-length 24 temporary\nundo terminal monitor\n# 复核\ndisplay terminal"
     }
   ]
 }

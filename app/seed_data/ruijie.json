@@ -6,7 +6,7 @@
   "vendor_slug": "ruijie",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 21,
+  "count": 26,
   "entries": [
     {
       "uuid": "1c128aa6-de9b-53c7-90de-802fa9aa2e13",
@@ -1186,6 +1186,162 @@
       ],
       "notes": "1) 也可按 pps 抑制：storm-control broadcast pps 200（官方推荐未知单播/广播 100-300 pps）。\n2) show storm-control 逐口显示三类阈值与动作（none=只丢包不上报）。\n3) 上联口不要配风暴抑制——正常广播也会被截断。\n验证方法：show storm-control 中目标口三类控制显示设定百分比、Action none。",
       "verified": 0
+    },
+    {
+      "uuid": "f41f39ad-9b87-5f24-be97-10849eed7b5a",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / S6220",
+      "category": "设备管理",
+      "title": "硬件资产与版本巡检（锐捷 RGOS）",
+      "description": "取 RGOS 版本、设备/槽位信息与运行时长，作为开局验收与升级前底账。",
+      "commands": "# ===== 硬件资产与版本巡检（锐捷 RGOS）=====\n# ---- 1. 版本/型号/序列号/运行时长 ----\nshow version\n# ---- 2. 设备与槽位信息（盒式机型只有一行）----\nshow version devices\n# ---- 3. 温度/风扇（部分型号支持，报错则跳过）----\nshow environment",
+      "params": [],
+      "notes": "1) show version 首段含 RGOS 11.4(1)B74 与 System uptime，型号在 Device 行。\n2) show version devices 输出槽位/单板类型，堆叠机型按成员逐段列出（1/1、1/2）。\n3) show environment 在部分接入机型上不存在，报 Invalid input 属正常，不代表设备异常。\n4) 只读巡检，任何时窗可执行；建议变更前后各留一份回显。\n验证方法：show version 回显含 RGOS 版本号与 System uptime；show version devices 有 Device/Slot 段；无 % Invalid input 即平台支持 show environment",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "280f219c-1a45-5abb-b2b7-c6e7ab0c8b04",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / S6220",
+      "category": "设备管理",
+      "title": "保存配置并定时重启（含取消，锐捷 RGOS）",
+      "description": "write 落盘后 reload in 排定时重启；reload cancel 在窗口内取消。",
+      "commands": "# ===== 保存配置并定时重启（锐捷 RGOS）=====\nenable\n# ---- 1. 配置落盘（不 write 则重启丢配置）----\nwrite\n# ---- 2. 定时重启（默认 5 分钟后，留取消窗口）----\nreload in {{delay_min}}\n# ---- 3. 复核 ----\nshow reload",
+      "params": [
+        {
+          "name": "delay_min",
+          "type": "int",
+          "label": "延时（分钟）",
+          "required": true,
+          "default": "5",
+          "description": "排定重启的等待分钟数，控制取消窗口；取值 1-120，现场建议 5 分钟以上；业务中断从重启那刻开始",
+          "example": "5",
+          "range": "1-120",
+          "validate": "int:1-120"
+        }
+      ],
+      "notes": "1) 锐捷沿用 IOS 风格的 reload in / reload cancel，窗口内可完全取消；断电不取消定时器。\n2) write 之后建议 show startup-config | include hostname 复核落盘内容不是空配置。\n3) 部分 RGOS 版本的查询命令名为 show reload-info，报错时用 ? 找实际名称。\n4) VSU 堆叠机型重启会整机倒换，按维护窗口执行。\n验证方法：show reload 回显 Reload scheduled in 5 minutes；重启后 show version 的 uptime 归零，配置与 write 前一致",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：取消尚未触发的定时重启\nreload cancel\n# 复核：应无输出\nshow reload"
+    },
+    {
+      "uuid": "783b71bc-1eff-5f04-8ebf-4b9a07116331",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / S6220",
+      "category": "接口基础",
+      "title": "接口描述、开关与速率双工（锐捷 RGOS）",
+      "description": "IOS 风格接口配置：描述、速率、双工与 no shutdown，write 落盘。",
+      "commands": "# ===== 接口基础配置（锐捷 RGOS）=====\nenable\nconfigure terminal\ninterface GigabitEthernet {{port}}\n# 描述：对端设备与用途\n description {{description}}\n# 速率/双工：两端一致\n speed {{speed}}\n duplex {{duplex}}\n# 打开端口\n no shutdown\n exit\nend\nwrite\n# ---- 复核 ----\nshow interfaces {{port}} status\nshow interfaces {{port}} | include Description|duplex|speed",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "Gi0/1",
+          "description": "要配置的物理口，写 Gi0/1 或 GigabitEthernet0/1 均可；先 show ip interface brief 确认口存在，选错口改速率会断链",
+          "example": "Gi0/1",
+          "validate": "port"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "label": "接口描述",
+          "required": false,
+          "default": "TO-CORE-SW1-Gi0/24",
+          "description": "接口标注文本，仅本机展示不影响转发；建议写对端设备-对端口-用途",
+          "example": "TO-CORE-SW1-Gi0/24"
+        },
+        {
+          "name": "speed",
+          "type": "enum",
+          "label": "速率",
+          "required": true,
+          "default": "auto",
+          "description": "速率档位；auto 自协商，强制 1000 时对端须同为 1000；光口一般不可改",
+          "example": "1000",
+          "choices": [
+            "auto",
+            "10",
+            "100",
+            "1000"
+          ]
+        },
+        {
+          "name": "duplex",
+          "type": "enum",
+          "label": "双工",
+          "required": true,
+          "default": "auto",
+          "description": "双工模式；全双工两端须一致，混配会冲突丢包；千兆强制速率时须 full",
+          "example": "full",
+          "choices": [
+            "auto",
+            "full",
+            "half"
+          ]
+        }
+      ],
+      "notes": "1) 锐捷沿用 IOS 语法，write 落盘（等价 copy run start）。\n2) 部分 RGOS 版本的 show interfaces status 输出列名不同（Status/Vlan/Speed/Duplex），判读口径一致。\n3) 改速率双工链路瞬断，接入口请在窗口内操作。\n4) 描述支持中文但终端编码可能乱码，现场建议英文。\n验证方法：show interfaces Gi0/1 status 回显 connected、Speed/Duplex 为实际值；明细里 Description 为设定值、0 input errors、0 late collisions",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：清描述、速率双工回 auto、端口打开\nenable\nconfigure terminal\ninterface GigabitEthernet {{port}}\n no description\n no speed\n no duplex\n no shutdown\n exit\nend\nwrite"
+    },
+    {
+      "uuid": "007d94c4-c62b-5f92-98bd-a6c4a12edc3c",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / S6220",
+      "category": "邻居发现",
+      "title": "开启 LLDP 并核查邻居拓扑（锐捷 RGOS）",
+      "description": "全局 lldp enable 打开，用 show lldp neighbors 对拓扑；锐捷同样默认关闭。",
+      "commands": "# ===== LLDP 邻居发现（锐捷 RGOS）=====\nenable\nconfigure terminal\n# 全局开启 LLDP\nlldp enable\n# 接口层开启（部分版本全局开即继承，逐口写更稳）\ninterface GigabitEthernet {{port}}\n lldp enable\n exit\nend\nwrite\n# ---- 复核 ----\nshow lldp\nshow lldp neighbors\nshow lldp neighbors detail",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "Gi0/24",
+          "description": "要确认 LLDP 的接口；全局已开时一般默认继承该配置，填错只影响核对范围，无业务影响",
+          "example": "Gi0/24",
+          "validate": "port"
+        }
+      ],
+      "notes": "1) 锐捷 LLDP 默认关闭，全局 lldp enable 后才发包。\n2) show lldp neighbors 一行一条；detail 里有对端系统名、端口描述与能力位。\n3) 跨厂商对接时先确认对端是否开启（思科要 lldp run，华为要 lldp enable）。\n4) 关闭全局后邻居表在一个 TTL 周期内清空。\n验证方法：show lldp 显示 LLDP enabled；show lldp neighbors 相邻口各一行，含 Local Interface / Neighbor Device ID / Neighbor Port ID / Hold Time",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：关闭全局 LLDP\nenable\nconfigure terminal\nno lldp enable\nend\nwrite\nshow lldp"
+    },
+    {
+      "uuid": "a039f97b-73fa-5c08-9b9c-1fb96c13a89d",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "ruijie",
+      "os_family": "rgos",
+      "models": "RG-S2910 / S5750 / S6220",
+      "category": "显示控制",
+      "title": "关闭分页与开启日志实时输出（锐捷 RGOS）",
+      "description": "terminal length 0 关分页，terminal monitor 开日志实时输出，均为会话级。",
+      "commands": "# ===== 显示控制（锐捷 RGOS）=====\nenable\n# 关闭本会话分页\nterminal length 0\n# 开启本会话日志实时输出\nterminal monitor\n# ---- 复核 ----\nshow terminal",
+      "params": [],
+      "notes": "1) 两条都是会话级设置，退出登录即恢复，不写配置。\n2) 关日志用 terminal no monitor。\n3) 分页关闭后 show running-config 可整段复制。\n4) 部分 RGOS 版本 show terminal 输出字段名不同，判读口径一致。\n验证方法：show terminal 显示 Length 0、Monitor enabled；长输出无 --More-- 停顿",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：恢复分页并关闭实时日志\nterminal length 24\nterminal no monitor\nshow terminal"
     }
   ]
 }

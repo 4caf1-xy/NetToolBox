@@ -6,7 +6,7 @@
   "vendor_slug": "ops",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 12,
+  "count": 14,
   "entries": [
     {
       "uuid": "33907be8-0f9a-53c7-86ef-c79d5b95db4e",
@@ -491,6 +491,87 @@
       "duration": "temp",
       "verified": 0,
       "rollback": "# 本条全为只读诊断组合，无持久化变更对象；时钟矫正等变更按时间同步配置条目的 rollback 回退。"
+    },
+    {
+      "uuid": "79f9255d-1e14-574a-aeb0-0f694412e950",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "RHEL/Debian 系通用",
+      "category": "邻居发现",
+      "title": "LLDP 邻居发现（lldpd 安装与 lldpcli 查询，Linux 通用）",
+      "description": "给 Linux 服务器装 lldpd 收邻居，用 lldpcli 查本机与对端端口——确认服务器接在哪个交换机口。",
+      "commands": "# ===== LLDP 邻居发现（Linux 通用）=====\n# ---- 1. 安装（按发行版选一行；CentOS 7 用 yum）----\n# dnf install -y lldpd\n# apt-get install -y lldpd\n# ---- 2. 启动并设置开机自启 ----\nsystemctl enable --now lldpd\n# ---- 3. 查邻居：一行一条，含本机口与对端设备/端口 ----\nlldpcli show neighbors\n# ---- 4. 查单口明细（对端系统描述、管理地址）----\nlldpcli show neighbors ports {{ifname}} details\n# ---- 5. 查本机通告内容（确认自己在发）----\nlldpcli show interfaces",
+      "params": [
+        {
+          "name": "ifname",
+          "type": "string",
+          "label": "网卡名",
+          "required": true,
+          "default": "eth0",
+          "description": "要查邻居明细的网卡名（eth0/ens192/bond0 等）；用 ip link 确认实际名字，填错只查不到明细，无业务影响",
+          "example": "eth0",
+          "validate": "ifname"
+        }
+      ],
+      "notes": "1) lldpd 默认同时收 LLDP 与 CDP/EDP/FDP 等厂商协议，对思科设备也能看到邻居。\n2) 与交换机对接时，交换机侧必须开启 LLDP（思科默认关，需 lldp run）。\n3) lldpcli show neighbors 无输出先看 systemctl status lldpd 与 ip link 是否 up。\n4) 装 lldpd 会在管理网多发少量组播帧（01:80:c2:00:00:0e），安全基线严格的环境需先报备。\n验证方法：lldpcli show neighbors 输出 SysName（对端交换机名）、PortID（对端口）、MgmtIP 与 TTL；lldpcli show statistics 的 tx/rx 计数随周期增长",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 回退：停用并卸装 lldpd\nsystemctl disable --now lldpd\n# 按发行版卸装：dnf remove -y lldpd / apt-get purge -y lldpd"
+    },
+    {
+      "uuid": "270b4827-70cf-57ab-b286-8134d22b1403",
+      "platform": "linux",
+      "device_type": "服务器",
+      "vendor": "ops",
+      "os_family": "linux",
+      "models": "RHEL/Debian 系通用",
+      "category": "SNMP",
+      "title": "snmpd 安装与 v2c 只读配置（Linux 通用）",
+      "description": "装 net-snmp 并写最小可用 snmpd.conf：只读团体字 + 限定来源 + 系统信息，供网管采集。",
+      "commands": "# ===== snmpd 安装与 v2c 配置（Linux 通用）=====\n# ---- 1. 安装（按发行版选一行；CentOS 7 用 yum）----\n# dnf install -y net-snmp net-snmp-utils\n# apt-get install -y snmpd snmp\n# ---- 2. 备份原配置（回退要引用同一路径）----\ncp -a /etc/snmp/snmpd.conf /etc/snmp/snmpd.conf.bak-20261102\n# ---- 3. 写最小可用配置：只读团体字 + 限定来源网段 + 系统信息视图 ----\ncat > /etc/snmp/snmpd.conf <<'EOF'\nagentAddress udp:161\nrocommunity {{ro_community}} {{allowed_net}}\nsysLocation {{sys_location}}\nsysContact {{sys_contact}}\nEOF\n# ---- 4. 启动并开机自启（RHEL 系服务名 snmpd，Debian 系同）----\nsystemctl enable --now snmpd\n# ---- 5. 复核：本机自测 ----\nsnmpwalk -v2c -c {{ro_community}} 127.0.0.1 sysDescr",
+      "params": [
+        {
+          "name": "ro_community",
+          "type": "string",
+          "label": "只读团体字",
+          "required": true,
+          "default": "",
+          "description": "SNMP 只读团体字，等同口令——网管凭它采集；禁用 public 等弱值、并配合来源网段限制；现场输入、不落种子默认值"
+        },
+        {
+          "name": "allowed_net",
+          "type": "string",
+          "label": "允许来源网段",
+          "required": true,
+          "default": "10.255.0.0/24",
+          "description": "允许查询的网段（CIDR 或 IP）；不限定等于对全网开放，填错则网管采集不到（表现为 timeout）",
+          "example": "10.255.0.0/24"
+        },
+        {
+          "name": "sys_location",
+          "type": "string",
+          "label": "设备位置",
+          "required": false,
+          "default": "IDC-A-Rack12",
+          "description": "sysLocation 值，网管拓扑与资产视图用；仅描述信息，不影响采集",
+          "example": "IDC-A-Rack12"
+        },
+        {
+          "name": "sys_contact",
+          "type": "string",
+          "label": "联系人",
+          "required": false,
+          "default": "ops@example.com",
+          "description": "sysContact 值，告警通知时人工追溯用；仅描述信息",
+          "example": "ops@example.com"
+        }
+      ],
+      "notes": "1) 只配 rocommunity（只读），不要开 rwcommunity——写权限等于可远程改设备。\n2) 来源网段必须限定，否则等于把设备状态暴露给全网。\n3) 改了 /etc/snmp/snmpd.conf 必须 systemctl restart snmpd 才生效。\n4) firewalld/ufw 需放行 161/udp，否则本机自测通、远端采集 timeout。\n验证方法：snmpwalk -v2c -c 团体字 127.0.0.1 sysDescr 返回系统描述；systemctl status snmpd 为 active (running)；从网管侧 snmpget 能取到值",
+      "duration": "perm",
+      "verified": 0,
+      "rollback": "# 守卫：备份不存在则停止（禁止把配置写成空文件）\ntest -f /etc/snmp/snmpd.conf.bak-20261102 || { echo \"备份缺失，停止回退，人工核查\"; exit 1; }\ncp -af /etc/snmp/snmpd.conf.bak-20261102 /etc/snmp/snmpd.conf\nsystemctl restart snmpd\n# 复核\nsystemctl status snmpd --no-pager"
     }
   ]
 }

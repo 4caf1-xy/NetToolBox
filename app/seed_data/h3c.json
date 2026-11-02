@@ -6,7 +6,7 @@
   "vendor_slug": "h3c",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 22,
+  "count": 27,
   "entries": [
     {
       "uuid": "ed4efc39-7d65-5f6b-84fd-db4df71f2a63",
@@ -1159,6 +1159,161 @@
       ],
       "notes": "1) Comware 支持 pps/kbps 计量：broadcast-suppression pps 200，按需选用。\n2) 组播/未知单播抑制分别用 multicast-suppression / unicast-suppression。\n3) 抑制只在超限时丢包，正常流量不受影响。\n验证方法：display this 中 broadcast-suppression 值正确；风暴模拟时口丢弃计数增长。",
       "verified": 0
+    },
+    {
+      "uuid": "551296a1-ca9d-562c-ba4c-c37cf127c082",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / S6520",
+      "category": "设备管理",
+      "title": "硬件资产与版本巡检（H3C Comware7）",
+      "description": "取软件版本/补丁、单板状态、制造信息与环境量，用于开局验收与资产台账。",
+      "commands": "# ===== 硬件资产与版本巡检（H3C Comware7）=====\n# ---- 1. 版本/补丁/启动文件 ----\ndisplay version\n# ---- 2. 单板与槽位状态 ----\ndisplay device\n# ---- 3. 制造信息：型号/序列号/生产日期 ----\ndisplay device manuinfo\n# ---- 4. 温度/风扇/电源 ----\ndisplay environment",
+      "params": [],
+      "notes": "1) display version 首段含 H3C Comware Software, Version 7.1.070，补丁在 Bootrom Version 之后，升级前先记下这对版本号。\n2) display device 的 Status 列 Normal/Abnormal 是板卡健康第一判据；Abnormal 时接着看 display diagnostic-information。\n3) display device manuinfo 的 DEVICE_SERIAL_NUMBER 即序列号，报修必填。\n4) 盒式机型（如 S5130）无槽位概念，display device 只输出一行，属正常。\n验证方法：display version 回显含 H3C Comware Software 与 uptime is ...；display device 每槽位 Status : Normal；display device manuinfo 有 DEVICE_SERIAL_NUMBER 行",
+      "duration": "",
+      "verified": 0
+    },
+    {
+      "uuid": "f2fddd42-ace3-51ac-84c5-a79785af24b5",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / S6520",
+      "category": "设备管理",
+      "title": "保存配置并定时重启（含取消，H3C Comware7）",
+      "description": "save force 免交互落盘，再用 scheduler reboot 排定时重启；undo scheduler reboot 取消。",
+      "commands": "# ===== 保存配置并定时重启（H3C Comware7）=====\n# ---- 1. 免交互保存（force 跳过确认，适合脚本）----\nsave force\n# ---- 2. 定时重启：hh:mm 相对时长，00:05 = 5 分钟后 ----\nscheduler reboot delay {{delay}}\n# ---- 3. 复核 ----\ndisplay scheduler reboot",
+      "params": [
+        {
+          "name": "delay",
+          "type": "string",
+          "label": "延时（时:分）",
+          "required": true,
+          "default": "00:05",
+          "description": "排定重启的等待时长，格式 hh:mm；00:05 即 5 分钟后，留出取消窗口；重启那刻起业务中断，与等待时长无关",
+          "example": "00:05",
+          "validate": "regex:^\\d{1,2}:\\d{2}$"
+        }
+      ],
+      "notes": "1) Comware7 的 save 不加 force 会逐项询问，脚本里务必用 save force；老版本无 force 参数，用 save 后回车确认。\n2) scheduler reboot 依赖设备时钟，先确认 NTP 已同步（display clock），否则定时点会算错。\n3) 定时重启与 schedule job 共用调度器，重启前先 display scheduler job 看有没有别的定时任务。\n4) IRF 堆叠机型重启会触发成员倒换，整机流量闪断，按维护窗口执行。\n验证方法：display scheduler reboot 回显 Reboot at ... 或 Reboot delay ...；重启后 display version 的 uptime 归零，display current-configuration 与保存前一致",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：取消已排定的定时重启\nundo scheduler reboot\n# 复核：应提示无定时重启\ndisplay scheduler reboot"
+    },
+    {
+      "uuid": "bab3edf9-8bc9-59a3-884d-7390f7ad94eb",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / S6520",
+      "category": "接口基础",
+      "title": "接口描述、开关与速率双工（H3C Comware7）",
+      "description": "物理口描述、速率双工与开关一次配齐；两端参数不一致是链路不稳的头号原因。",
+      "commands": "# ===== 接口基础配置（H3C Comware7）=====\nsystem-view\ninterface GigabitEthernet{{port}}\n# 描述：对端设备与用途\n description {{description}}\n# 速率/双工：两端必须一致\n speed {{speed}}\n duplex {{duplex}}\n# 打开端口\n undo shutdown\n quit\nsave force\n# ---- 复核 ----\ndisplay interface GigabitEthernet{{port}}\ndisplay interface brief | include GE{{port}}",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "1/0/1",
+          "description": "物理接口编号（不含 GigabitEthernet 前缀）；先 display interface brief 确认口存在，进错口改速率会瞬断业务",
+          "example": "1/0/1",
+          "validate": "port"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "label": "接口描述",
+          "required": false,
+          "default": "TO-CORE-SW1-GE1/0/24",
+          "description": "接口标注文本，仅本机展示不影响转发；建议写对端设备-对端口-用途，改错只影响可读性，不影响业务",
+          "example": "TO-CORE-SW1-GE1/0/24"
+        },
+        {
+          "name": "speed",
+          "type": "enum",
+          "label": "速率",
+          "required": true,
+          "default": "auto",
+          "description": "速率档位；auto 自协商，强制 1000 时对端也须 1000，否则链路起不来；光口一般只支持 auto",
+          "example": "1000",
+          "choices": [
+            "auto",
+            "10",
+            "100",
+            "1000"
+          ]
+        },
+        {
+          "name": "duplex",
+          "type": "enum",
+          "label": "双工",
+          "required": true,
+          "default": "auto",
+          "description": "双工模式；全双工两端须一致，full/auto 混配会产生冲突并丢包；千兆强制速率时须配 full",
+          "example": "full",
+          "choices": [
+            "auto",
+            "full",
+            "half"
+          ]
+        }
+      ],
+      "notes": "1) Comware7 的 save 用 force 免交互，脚本化必带；不带 force 会逐项询问。\n2) display interface 首屏 Link speed type 与 Duplex 是实际生效值，不是配置值——以它为准判断协商结果。\n3) 红外/光口 speed 配置可能被忽略，属硬件限制。\n4) 改速率双工链路瞬断，接入口请在窗口内操作。\n验证方法：display interface GigabitEthernet1/0/1 首屏 current state: UP、Line protocol state: UP、Description 与 Speed/Duplex 显示实际值；display interface brief 该口 Link 为 UP",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：清描述、速率双工回 auto、端口打开\nsystem-view\ninterface GigabitEthernet{{port}}\n undo description\n undo speed\n undo duplex\n undo shutdown\n quit\nsave force"
+    },
+    {
+      "uuid": "450dd80b-749b-538e-83fa-fde0bee588e6",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / S6520",
+      "category": "邻居发现",
+      "title": "开启 LLDP 并核查邻居拓扑（H3C Comware7）",
+      "description": "lldp global enable 打开全局，接口层按需开，用 neighbor-information 表核对拓扑。",
+      "commands": "# ===== LLDP 邻居发现（H3C Comware7）=====\nsystem-view\n# 全局开启（Comware7 关键字带 global）\nlldp global enable\n# 接口层开启\ninterface GigabitEthernet{{port}}\n lldp enable\n quit\nsave force\n# ---- 复核 ----\ndisplay lldp local-information\ndisplay lldp neighbor-information list\ndisplay lldp neighbor-information interface GigabitEthernet{{port}} verbose",
+      "params": [
+        {
+          "name": "port",
+          "type": "string",
+          "label": "接口",
+          "required": true,
+          "default": "1/0/24",
+          "description": "要确认 LLDP 的接口编号；全局已开时接口默认继承，填错只影响核对范围，不影响业务",
+          "example": "1/0/24",
+          "validate": "port"
+        }
+      ],
+      "notes": "1) Comware7 全局命令是 lldp global enable，老 Comware5 是 lldp enable——敲错会报 Unrecognized command。\n2) display lldp neighbor-information list 一行一条；verbose 版含对端系统描述与能力位。\n3) 对端思科设备需先 lldp run，否则本端邻居表为空。\n4) 关掉全局后邻居表立即清空（有 TTL 缓存，最多残留一个 TTL 周期）。\n验证方法：display lldp local-information 有 Chassis ID/System name；display lldp neighbor-information list 每相邻口一行；verbose 显示 Neighbor system description",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：关闭全局 LLDP\nsystem-view\nundo lldp global enable\nsave force\n# 复核：邻居表应清空\ndisplay lldp neighbor-information list"
+    },
+    {
+      "uuid": "8ade3bec-d9b5-5260-ba7d-e15536ab1809",
+      "platform": "network",
+      "device_type": "交换机",
+      "vendor": "h3c",
+      "os_family": "comware7",
+      "models": "S5130 / S5560 / S6520",
+      "category": "显示控制",
+      "title": "关闭分页与开启日志实时输出（H3C Comware7）",
+      "description": "screen-length disable 关本会话分页，terminal monitor 开日志实时输出。",
+      "commands": "# ===== 显示控制（H3C Comware7）=====\n# 关闭当前会话分页\nscreen-length disable\n# 开启当前会话日志实时输出\nterminal monitor\n# ---- 复核 ----\ndisplay current-configuration | include screen-length\ndisplay logbuffer | tail 20",
+      "params": [],
+      "notes": "1) Comware7 的关分页命令是 screen-length disable（不是 0）；恢复用 screen-length enable。\n2) terminal monitor 仅本会话有效，退出即失效。\n3) 关日志用 undo terminal monitor。\n4) 分页关闭后 display 长输出可整段复制，便于贴进工单。\n验证方法：screen-length disable 后再执行 display current-configuration 不再出现 ---- More ----；terminal monitor 后触发一条日志（如插拔网线）能在会话里实时看到",
+      "duration": "",
+      "verified": 0,
+      "rollback": "# 回退：恢复分页并关闭实时日志\nscreen-length enable\nundo terminal monitor\n# 复核\nterminal monitor"
     }
   ]
 }
