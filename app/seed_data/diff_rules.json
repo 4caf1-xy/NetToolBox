@@ -333,6 +333,118 @@
           "line": "(?P<item>[0-9a-f]{2}(?::[0-9a-f]{2}){5})"
         }
       ]
+    },
+    {
+      "rule_id": "dev_version",
+      "label": "设备版本/型号",
+      "semantics": "kv",
+      "match": "(show\\s+version\\b|display\\s+version\\b|get\\s+system\\s+status\\b|show\\s+system\\s+info\\b)",
+      "noise": [],
+      "variants": [
+        {
+          "vendor": "cisco",
+          "os_family": "ios",
+          "note": "show version 首行：Cisco IOS Software, C2960S Software (...), Version 15.2(2)E4——取逗号前版本串",
+          "line": "^\\s*(?P<key>Cisco IOS Software)\\b.*?Version\\s+(?P<value>[^,\\s]+)"
+        },
+        {
+          "vendor": "huawei",
+          "os_family": "vrp5/vrp8",
+          "note": "display version 的 VRP (R) software, Version 行（值含括号内产品码，换版本或换产品码都会报出）",
+          "line": "^\\s*(?P<key>VRP \\(R\\) software, Version)\\s+(?P<value>.+)$"
+        },
+        {
+          "vendor": "h3c",
+          "os_family": "comware7",
+          "note": "display version 的 H3C Comware Software, Version 行（值含 Release 号，补丁升级也能报出）",
+          "line": "^\\s*(?P<key>H3C Comware Software, Version)\\s+(?P<value>.+)$"
+        },
+        {
+          "vendor": "juniper",
+          "os_family": "junos",
+          "note": "show version 的 Junos: 与 Model: 两行（key 组二选一，升级或换型都能报出）",
+          "line": "^\\s*(?P<key>Junos|Model):\\s+(?P<value>\\S+)"
+        },
+        {
+          "vendor": "fortinet",
+          "os_family": "fortios",
+          "note": "get system status 的 Version: FortiGate-100F v7.0.12,build...——跳过型号取版本串",
+          "line": "^\\s*(?P<key>Version:)\\s+\\S+\\s+(?P<value>[^,]+)"
+        },
+        {
+          "vendor": "paloalto",
+          "os_family": "panos",
+          "note": "show system info 的 sw-version: 行",
+          "line": "^\\s*(?P<key>sw-version:)\\s+(?P<value>\\S+)"
+        }
+      ]
+    },
+    {
+      "rule_id": "ntp_status",
+      "label": "NTP 同步状态",
+      "semantics": "kv",
+      "match": "(show\\s+ntp\\s+status\\b|display\\s+ntp\\s+status\\b|display\\s+ntp-service\\s+status\\b|chronyc\\s+tracking\\b)",
+      "noise": [],
+      "variants": [
+        {
+          "vendor": "cisco",
+          "os_family": "ios",
+          "note": "show ntp status 首行 Clock is synchronized/unsynchronized（stratum 与 reference 同行，不单独取值）",
+          "line": "^\\s*(?P<key>Clock is)\\s+(?P<value>\\w+)"
+        },
+        {
+          "vendor": "huawei",
+          "os_family": "vrp5/vrp8|comware7",
+          "note": "华为 display ntp status 与 H3C display ntp-service status 仅大小写差异，IGNORECASE 编译下同一正则两者通吃（故不单列 h3c 变体）",
+          "line": "^\\s*(?P<key>clock status|clock stratum)\\s*:\\s*(?P<value>\\S+)"
+        },
+        {
+          "vendor": "ruijie",
+          "os_family": "rgos",
+          "note": "RGOS show ntp status 与 IOS 输出同构，line 与 cisco 变体逐字相同（冒烟按等价组断言）",
+          "line": "^\\s*(?P<key>Clock is)\\s+(?P<value>\\w+)"
+        },
+        {
+          "vendor": "linux",
+          "os_family": "linux",
+          "note": "chronyc tracking 只看 Stratum 与 Leap status；System time 每次跑都变，故意排除",
+          "line": "^\\s*(?P<key>Stratum|Leap status)\\s*:\\s*(?P<value>.+)$"
+        }
+      ]
+    },
+    {
+      "rule_id": "lldp_neighbor",
+      "label": "LLDP 邻居表",
+      "semantics": "set",
+      "match": "(show\\s+lldp\\s+neighbors?\\b|display\\s+lldp\\s+neighbor)",
+      "noise": [],
+      "variants": [
+        {
+          "vendor": "cisco",
+          "os_family": "ios",
+          "note": "show lldp neighbors：每行 Device ID + Local Intf 起头，item 取「对端名 本端口」；表头 Device ID 因第二个词不匹配接口前缀而不命中",
+          "line": "^\\s*(?P<item>[A-Za-z0-9._-]+\\s+(?:Gi|Fa|Te|Twe|Eth|Fo|Po)\\S+)"
+        },
+        {
+          "vendor": "ruijie",
+          "os_family": "rgos",
+          "note": "show lldp neighbors 输出形态与 IOS 同构，复用同一行级正则",
+          "line": "^\\s*(?P<item>[A-Za-z0-9._-]+\\s+(?:Gi|Fa|Te|Twe|Eth|Fo|Po)\\S+)"
+        },
+        {
+          "vendor": "huawei",
+          "os_family": "vrp5/vrp8",
+          "note": "display lldp neighbor brief：Local Intf + Neighbor Dev 起头，item 取这两列",
+          "line": "^\\s*(?P<item>(?:GE|XGE|MultiGE|Eth|MEth)\\S+\\s+\\S+)"
+        },
+        {
+          "vendor": "h3c",
+          "os_family": "comware7",
+          "note": "display lldp neighbor-information list：System Name + Local Interface 起头，item 取这两列（表头第二列 Local 不匹配接口前缀）",
+          "line": "^\\s*(?P<item>[A-Za-z0-9._-]+\\s+(?:GE|XGE|BAGG|RAGG)\\S+)"
+        }
+      ]
     }
-  ]
+  ],
+  "count": 0
 }

@@ -3,11 +3,11 @@
 smoke_diff.py —— Before/After 变更对比（H 批）冒烟（2026-10-14 新增）
 
 覆盖八案（全部 offscreen + 本地样本，主库零接触、零联网）：
-    [A] 规则随种子：load_rules 8 类 / 34 变体；validate_rules 零 [E]/[W]
+    [A] 规则随种子：load_rules 11 类 / 48 变体；validate_rules 零 [E]/[W]
     [B] 华为接口真实格式 diff：四态齐全；uptime/时间戳/计数器行不产生假变化
     [C] 思科接口 + VLAN 集合增删 + OSPF（华为/思科 brief）+ 路由（华为/思科/Linux）
         —— 下一跳变更必须报 ⚠
-    [D] 变体抽验 ≥30 命中（沿用 E 批纪律，实际 34 变体逐个跑样本）
+    [D] 变体抽验 ≥30 命中（沿用 E 批纪律，实际 48 变体逐个跑样本）
     [E] 坏提取规则被 validate [E] 硬拦截（临时 seed 目录同名文件优先级注入，
         端到端跑 main.validate_seed）；恢复后 validate 复位 EXIT=0
     [F] 降级行级 diff：无规则命中/空输入/规则命中零提取 均不崩；
@@ -207,11 +207,12 @@ def case_a():
     check("A1 规则文件载入无文件级问题", problems == [], "; ".join(problems))
     rules = data.get("diff_rules") or []
     ids = [r.get("rule_id") for r in rules]
-    check("A2 八类规则（接口/VLAN/OSPF/路由/STP/聚合/VRRP/MAC）",
-          sorted(ids) == ["if_status", "lag_member", "mac_table", "ospf_peer",
-                          "route_table", "stp_state", "vlan_table", "vrrp_state"], str(ids))
+    check("A2 十一类规则（接口/VLAN/OSPF/路由/STP/聚合/VRRP/MAC/版本/NTP/LLDP）",
+          sorted(ids) == ["dev_version", "if_status", "lag_member", "lldp_neighbor",
+                          "mac_table", "ntp_status", "ospf_peer", "route_table",
+                          "stp_state", "vlan_table", "vrrp_state"], str(ids))
     n_var = sum(len(r.get("variants") or []) for r in rules)
-    check("A3 厂商变体 34 个", n_var == 34, str(n_var))
+    check("A3 厂商变体 48 个", n_var == 48, str(n_var))
     errs, warns = diff_tool.validate_rules(data)
     check("A4 validate_rules 零 [E]", errs == [], "; ".join(errs[:3]))
     check("A5 validate_rules 零 [W]", warns == [], "; ".join(warns[:3]))
@@ -324,7 +325,7 @@ def case_c():
 
 
 # ======================================================================
-# [D] 变体抽验 ≥30（沿用 E 批纪律；34 变体逐个过样本）
+# [D] 变体抽验 ≥30（沿用 E 批纪律；48 变体逐个过样本）
 # ======================================================================
 VARIANT_SAMPLES = [
     # (rule_id, vendor, sample_before, sample_after)
@@ -398,7 +399,50 @@ VARIANT_SAMPLES = [
      "Vlan    Mac Address       Type        Ports\n   10    0011.2233.4458    DYNAMIC     Gi0/1"),
     ("mac_table", "juniper",
      "root> show ethernet-switching table\n   OA_BIZ                    *          00:11:22:33:44:55   Learn   0  ge-0/0/1.0\n   OA_BIZ                    *          00:11:22:33:44:56   Learn   0  ge-0/0/2.0",
-     "OA_BIZ                    *          00:11:22:33:44:55   Learn   0  ge-0/0/1.0\n   OA_BIZ                    *          00:11:22:33:44:57   Learn   0  ge-0/0/3.0"),
+     "   OA_BIZ                    *          00:11:22:33:44:55   Learn   0  ge-0/0/1.0\n   OA_BIZ                    *          00:11:22:33:44:57   Learn   0  ge-0/0/3.0"),
+    # ---- Q 批子批 3 新增：设备版本 / NTP 状态 / LLDP 邻居 ----
+    ("dev_version", "cisco",
+     "sw1#show version\nCisco IOS Software, C2960S Software (C2960S-UNIVERSALK9-M), Version 15.2(2)E4, RELEASE SOFTWARE (fc1)",
+     "Cisco IOS Software, C2960S Software (C2960S-UNIVERSALK9-M), Version 15.2(7)E5, RELEASE SOFTWARE (fc2)"),
+    ("dev_version", "huawei",
+     "<HUAWEI>display version\nHuawei Versatile Routing Platform Software\nVRP (R) software, Version 5.170 (S5720 V200R019C10SPC500)",
+     "VRP (R) software, Version 5.170 (S5720 V200R019C10SPC600)"),
+    ("dev_version", "h3c",
+     "<H3C>display version\nH3C Comware Software, Version 7.1.070, Release 6126P01",
+     "H3C Comware Software, Version 7.1.070, Release 6126P02"),
+    ("dev_version", "juniper",
+     "root> show version\nJunos: 21.4R3-S4.9\nModel: ex4300-48t",
+     "Junos: 21.4R3-S4.10\nModel: ex4300-48t"),
+    ("dev_version", "fortinet",
+     "get system status\nVersion: FortiGate-100F v7.0.12,build0638,230726 (GA)",
+     "Version: FortiGate-100F v7.0.13,build0701,231102 (GA)"),
+    ("dev_version", "paloalto",
+     "show system info\nsw-version: 10.2.4\nserial: 0123456789",
+     "sw-version: 10.2.5\nserial: 0123456789"),
+    ("ntp_status", "cisco",
+     "sw1#show ntp status\nClock is synchronized, stratum 3, reference is 10.255.0.1",
+     "Clock is unsynchronized, stratum 16, reference is 0.0.0.0"),
+    ("ntp_status", "huawei",
+     "<HUAWEI>display ntp status\n clock status: synchronized\n clock stratum: 3",
+     " clock status: unsynchronized\n clock stratum: 16"),
+    ("ntp_status", "ruijie",
+     "Ruijie#show ntp status\nClock is synchronized, stratum 3, reference is 10.255.0.1",
+     "Clock is unsynchronized, stratum 16, reference is 0.0.0.0"),
+    ("ntp_status", "linux",
+     "chronyc tracking\nReference ID    : 0AFF0001 (10.255.0.1)\nStratum         : 3\nLeap status     : Normal",
+     "Stratum         : 16\nLeap status     : Not synchronised"),
+    ("lldp_neighbor", "cisco",
+     "sw1#show lldp neighbors\nDevice ID           Local Intf     Hold-time  Capability      Port ID\nSW-CORE-01          Gi0/24         120        B,R             Gi0/1",
+     "Device ID           Local Intf     Hold-time  Capability      Port ID\nSW-CORE-02          Gi0/24         120        B,R             Gi0/1"),
+    ("lldp_neighbor", "ruijie",
+     "Ruijie#show lldp neighbors\nDevice ID           Local Intf     Hold-time  Capability      Port ID\nSW-CORE-01          Gi0/24         120        B               Gi0/1",
+     "Device ID           Local Intf     Hold-time  Capability      Port ID\nSW-CORE-03          Gi0/24         120        B               Gi0/1"),
+    ("lldp_neighbor", "huawei",
+     "<HUAWEI>display lldp neighbor brief\nLocal Intf          Neighbor Dev             Neighbor Intf             Exptime\nGE0/0/1             SW-CORE-01               GE0/0/24                  120",
+     "GE0/0/1             SW-CORE-02               GE0/0/24                  120"),
+    ("lldp_neighbor", "h3c",
+     "<H3C>display lldp neighbor-information list\nSystem Name          Local Interface Chassis ID      Port ID\nSW-CORE-01           GE1/0/1         0011-2233-4455  GE1/0/24",
+     "System Name          Local Interface Chassis ID      Port ID\nSW-CORE-02           GE1/0/1         0011-2233-4455  GE1/0/24"),
 ]
 
 
@@ -427,7 +471,7 @@ def case_d():
             misses.append("%s/%s(提取 %d, 命中变体 %s)" % (rule_id, vendor, len(items), used_vendor))
     check("D1 变体抽验 ≥30 命中", hits >= 30,
           "hits=%d misses=%s" % (hits, misses))
-    check("D2 全 34 变体命中（E 批纪律从优）", hits == 34 and not misses, str(misses))
+    check("D2 全 48 变体命中（E 批纪律从优）", hits == 48 and not misses, str(misses))
 
 
 # ======================================================================
@@ -492,8 +536,8 @@ def case_e():
     with contextlib.redirect_stdout(buf):
         rc_ok = mainmod.validate_seed()
     check("E9 移除坏文件后 validate 复位 EXIT=0", rc_ok == 0, "rc=%s" % rc_ok)
-    check("E10 底数不变（397/26/100 口径）",
-          "397 条条目 + 26 棵排查树 + 100 条报错字典" in buf.getvalue(), "")
+    check("E10 底数不变（459/26/106 口径）",
+          "459 条条目 + 26 棵排查树 + 106 条报错字典" in buf.getvalue(), "")
 
 
 # ======================================================================

@@ -5,7 +5,7 @@ smoke_regex_guard.py —— 安全加固批 4：导入与 regex 防护回归断�
 覆盖：
     [1] pattern_lint（嵌套量词 [E]：正例/负例；超长 [W]；字符类/转义/有限量词不误报；
         alternation 重叠 [W]：组内含 | 且组外无界，正例/负例，[E] 集合零回归）
-    [2] 存量 100 条报错字典对账（预期零命中，有命中如实报告）
+    [2] 存量 106 条报错字典对账（预期零命中，有命中如实报告）
     [3] validate-seed 实跑 EXIT=0（lint 接入后的真机对账）
     [4] import_nlb 大小上限（超限拒读 / 正常导入不受影响）
     [5] 诊断输入截断助手（200KB / 1 万行双条件）
@@ -118,8 +118,8 @@ def main():
     out = proc.stdout or ""
     check("validate EXIT=0", proc.returncode == 0,
           "rc=%s\n%s" % (proc.returncode, (proc.stderr or out)[-300:]))
-    check("质检通过行存在（397/26/100 口径）",
-          "397 条条目 + 26 棵排查树 + 100 条报错字典" in out,
+    check("质检通过行存在（459/26/106 口径）",
+          "459 条条目 + 26 棵排查树 + 106 条报错字典" in out,
           out[-200:])
     check("[E] 报错字典零问题", "报错字典发现" not in out)
 

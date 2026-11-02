@@ -462,3 +462,62 @@ seed-guide「新分类先 Issue」约定由用户点名场景直接授权，后�
 - 四档分布（主库）：未验证 283（含 skeleton 53）/ 语法核对 61 / 绿 27（web-only 0 档无条目）；
 - CI validate-seed@HEAD（a70bc38）绿；全量冒烟六套件复跑全过（scenarios 38 / diff 62 /
   tree_visual 46 / schema_rollback 9 / panel_dashboard 62 / regex_guard / keyvault）。
+
+## Q 批 基础/管理面命令扩容（2026-11-02，bd17b8f / 4a96d3f / 本批子批3，v0.9 功能线第二数据批）
+
+用户点名「完善补充基础相关命令」：按「配置保存/备份/恢复、设备管理（版本/硬件/重启）、时间与时钟/NTP、
+系统日志、用户与 AAA/权限、SSH/Telnet 管理访问、SNMP、LLDP/CDP 邻居发现、接口基础（描述/开关/速率双工）、
+显示控制（分页/terminal monitor）」十场景 × 厂商矩阵盘点后补格。纯数据批零代码改动，E/O 同款三子批，
+不发版不 tag。规模 397→459 条 / 26 树 / 100→106 报错 / diff 规则 8 类 34 → 11 类 48。
+
+### 盘点结论（十场景 × 16 厂商，Q 批前基线）
+- **已满格**：时间同步（10 网络 + 4 Linux + ops）、SSH管理（10 网络）、SNMP（10 网络）、保存配置（10 网络）、
+  配置回滚（10 网络 + ops）、版本（10 网络，在「版本升级」类）；
+- **低洼/空档**：设备管理（硬件清单与重启仅散落在「版本升级」）、接口基础（只有诊断类 show，无描述/开关/速率双工）、
+  邻居发现（LLDP/CDP 全 0，仅 BGP 邻居）、显示控制（仅 net_diag 日志条目里顺带 terminal monitor）、
+  日志（fortinet/paloalto/sangfor/topsec 四家 0）、AAA（同上四家 0）、Linux 用户与权限 0、Linux 配置备份/回滚 0、
+  Linux SNMP 0；
+- **本批不填**：防火墙四家 LLDP（非典型二层场景，不造命令）、sangfor/topsec 显示控制（Web 控制台无 CLI 分页）。
+
+### 子批 1（+62 条，bd17b8f）要点与坑
+- 新分类五个：设备管理 / 接口基础 / 邻居发现 / 显示控制 / 用户与权限（Linux）；Linux 配置备份复用「配置回滚」类；
+- ★ 坑 1：**`diagnose ...` 一类诊断命令不在 QUERY_WHITELIST**，混进纯查询条目会让整条被判「变更类」并要求
+  rollback（B23 闭环 ERROR）。fortinet 硬件巡检首版带 `diagnose hardware deviceinfo disk` 即被拦——
+  处理：该行降为注释（按需手动执行），查询条目保持零 rollback；
+- ★ 坑 2：**Web 控制台路径条目（全注释 commands）判查询类**，属刻意设计，不写 rollback 键；把这些条目当变更类
+  补 rollback 反而会渲染无意义的回退 Tab（与 O 批 D1 同一语义）；
+- 重启类条目的 rollback 语义写「取消未触发的定时重启」（cisco reload cancel / huawei undo schedule reboot /
+  h3c undo scheduler reboot / ruijie reload cancel），并注明「已重启不可撤销」——不臆造 undo reload；
+- 速率双工条目统一提示「千兆强制速率须配 full duplex，两端一致」，光口不可配属正常报错；
+- 骨架 9 条（zte×4 / paloalto×4 / 交叉 1）：ZXR10 接口命名（gei_1/1 vs gei_1/1/1）与 LLDP/分页命令形态未核实，
+  PAN-OS 的 link-state / syslog profile / authentication-profile 绑定路径随版本差异，一律 skeleton 待真机。
+
+### 子批 2（notes +39 / err +6，4a96d3f）要点
+- notes 只追加「验证方法：命令 + 应看到的字段/取值」，**命令文本零改动**（故不触发 sanitize/export 重跑义务，
+  smoke_export_site 仍跑一遍做回归）；种子内不落现场真实回显（红线），公开格式回显样本只进 diff_rules 冒烟语料；
+- ★ 坑 3：**libvalidate 要求「examples 必须被自身 pattern 命中」**——报错条目 6 条首版有 4 条样例与 pattern 不匹配
+  （paloalto 写了 `Commit failed` 但 pattern 是 `Validation Error`；cisco 写了 `% Authentication failed` 但 pattern 是
+  `% Authorization failed`；sudo 写了 tty 报错但 pattern 是 sudoers 文案）。修法：样例必须是**同一 pattern 的不同形态**，
+  不能放"相关但不同"的报错；
+- 报错 vendor 口径：跨发行版 Linux 报错写 `vendor=linux`（与存量 30 条一致），ops 只用于跨域工具类。
+
+### 子批 3（diff 3 类 14 变体 + 主库同步）要点与坑
+- 新增 dev_version（6 变体，含 PAN-OS sw-version）、ntp_status（4 变体）、lldp_neighbor（4 变体，set 语义）；
+- ★ 坑 4：**正则统一 IGNORECASE 编译** → 华为 `display ntp status`（小写 clock status）与 H3C
+  `display ntp-service status`（大写 Clock status）无法用大小写区分，首版两条变体互相抢命中（D2 报 h3c 样本命中 huawei）。
+  处理：合并为一条 huawei 变体（note 写明同时覆盖 Comware），空出的槽位给 ruijie（与 cisco 变体逐字等价，走等价组断言）；
+- ★ 坑 5：H3C `display lldp neighbor-information list` 的首列是 System Name（不是接口名），行级正则首 token 不能限定
+  接口前缀——改成「任意名 + 接口前缀」两段式，表头 `System Name  Local Interface` 因第二列不匹配接口前缀而天然豁免；
+- 版本类正则的 value 取值口径：能一次带走"版本 + Release/产品码"的用 `.+$`（h3c/huawei），只取版本串的用 `[^,\s]+`
+  （cisco）；fortinet 用「跳过型号取版本」（`\S+\s+(?P<value>[^,]+)`），避免型号与版本混在一个值里；
+- 冒烟口径五处同步（459/26/106）；smoke_diff 62/62、其余五套全过。
+
+### 收尾对账
+- 主库：备份 `backup/command_lib-20261102-145635.db`（4984 KB，保留 10 份）→ `--db dist_package/command_lib.db
+  --validate-seed --allow-main-db`；条目 459 / 树 26 / 报错 106 / err_unresolved 13 不变；
+- 矩阵：16 厂商 × 45 分类，实填 338 格，与种子逐格对账 **mismatch=0**；
+- 四档（主库）：命令 绿27 / 语法核对61 / 挂起87 / 未验证284（含 skeleton 62）；报错 挂起15 / 未验证91；
+- ★ 已知滞后：`notes` 属 SESSION_FIELDS（导入护栏只保留库值），子批 2 的 39 条 notes 增强**不会**随
+  `--allow-main-db` 落进主库（库内 notes 仍为旧值，历史累计 201 条与种子不一致）。分发走 CI/`build_exe.py`
+  从种子重建净库，故交付物正确；本地主库要同步 notes 只能走界面编辑或回填流程，不做手工 SQL；
+- validate-seed@HEAD EXIT=0；全量冒烟六套全绿；三子批独立提交推送，**不发版不 tag**。

@@ -5,6 +5,47 @@
 **补充口径（2026-10-12）**：发布后短窗内完成的 MVP 追加批次收口走 **patch**（0.6.x）；
 独立排期的功能批走 **minor**（下一个功能批从 0.7.0 起算）。
 
+## 未发布（Q 批——种子库基础命令扩容，2026-11-02，不发版不 tag）
+
+> 用户点名批：完善补充基础/管理面命令（配置保存备份恢复、设备管理、时间/NTP、系统日志、用户与 AAA、
+> SSH/Telnet、SNMP、LLDP/CDP、接口基础、显示控制）。纯数据批、零应用代码改动，E/O 同款三子批打法。
+> 规模 397→**459 条** / 26 树 / 100→**106 报错** / 变更对比规则 8 类 34 变体→**11 类 48 变体**；
+> 分类 40→**45**；仪表盘矩阵 16 厂商 × 45 分类（实填 **338 格**，mismatch=0）。
+
+#### Q 批子批 1：基础/管理面低洼格补缺 +62 条（bd17b8f）
+- **五类新分类**（用户点名场景）：`设备管理`×20（10 厂商各「硬件资产与版本巡检」+「保存并重启/定时取消」两条）、
+  `接口基础`×10（描述 / 开关 / 速率双工）、`邻居发现`×7（LLDP/CDP：cisco/huawei/h3c/juniper/ruijie/zte + Linux lldpd）、
+  `显示控制`×8（分页关闭 + terminal monitor：六交换厂商 + fortinet/paloalto）、`用户与权限`×4（Linux 四发行版建账号 + sudo 组 + 口令有效期）；
+- **既有分类低洼补齐**：`日志`+4 与 `AAA认证`+4（fortinet/paloalto CLI + sangfor/topsec Web 路径，四家防火墙此前该两格为 0）、
+  `配置回滚`+4（Linux 四发行版：CentOS ifcfg / 麒麟 + openEuler NetworkManager keyfile / Ubuntu netplan）、
+  `SNMP`+1（Linux net-snmp 只读 v2c 通用条目，覆盖四发行版包名差异）；
+- 写法纪律：结构化 params + 变更类 rollback 全覆盖（备份步「固定日期副本名 + 回退前守卫 test -f || exit 1」）、
+  notes 含验证方法与回显判读；查询类与 Web 控制台路径条目**不写 rollback 键**（O 批口径，不渲染回退 Tab）；
+- 骨架 9 条（zte 设备管理/接口基础/邻居发现/显示控制、paloalto 接口/日志/AAA/显示控制）：命令形态未经真机核对，
+  `exec_level=skeleton` + notes 注明「待真机核对」；
+- **诚实缺口**（不造命令）：防火墙四家不做 LLDP 二层邻居发现（非典型场景）；sangfor/topsec 无 CLI 分页故不入「显示控制」；
+- validate-seed EXIT=0（459/26/100，[E]=0，[W] 1 处存量 zte 骨架场景包提示无新增）。
+
+#### Q 批子批 2：既有基础类 notes 补齐 + 报错库（4a96d3f）
+- **notes 补齐 39 条**（命令文本零改动，仅追加「验证方法：复核命令 + 回显判读」）：fortinet/paloalto 四件套
+  （SSH管理/密码/SNMP/保存配置）16 条、sangfor/topsec Web 路径 + CLI 骨架 16 条、Linux 侧 7 条
+  （journalctl 过滤×4、sshd 加固/连接排查、口令策略/锁定、时间同步核查、配置回滚守卫）；
+- **报错库 100→106**（每条 solution_steps 带 `ref_entry_uuid` 关联条目）：linux sudoers 未授权（权限）、
+  sshd 22 端口占用（服务）、NTP 无可用时间源（服务）、cisco `% Authorization failed`（管理认证）、
+  paloalto `Validation Error`（保存系统）、fortinet `Command fail. Return code`（语法）；
+- 套件：smoke_export_site 8/8（脱敏反例拦截、主库零接触）；validate 样例自测 100% 命中（4 条样例按 pattern 回放修正后全过）。
+
+#### Q 批子批 3：diff_rules 基础类规则 + 主库同步
+- **新增 3 类 14 变体**（总量 11 类 / 48 变体，复用 H 批 schema）：设备版本/型号（cisco/huawei/h3c/juniper/fortinet/paloalto，kv）、
+  NTP 同步状态（cisco/huawei/ruijie/linux chrony，kv）、LLDP 邻居表（cisco/ruijie/huawei/h3c，set 语义）；
+  华为与 H3C 的 NTP 回显仅大小写差异（IGNORECASE 下同一正则通吃，故不单列 h3c 变体）、ruijie 与 cisco 变体逐字相同按等价组断言；
+- smoke_diff：A2 十一类 / A3 48 变体 / D2 全 48 变体逐个过样本，62/62 全过；五套件硬编码底数同步 459/26/106
+  （diff / regex_guard / scenarios / schema_rollback / tree_visual）；
+- 主库经 `--allow-main-db` 同步（备份 `backup/command_lib-20261102-145635.db`），矩阵 338 格 **mismatch=0**；
+  四档分布：命令 绿27 / 语法核对61 / 挂起87 / 未验证284（含 skeleton 62），报错 挂起15 / 未验证91；
+- 全量冒烟：scenarios 38/38、diff 62/62、tree_visual 46/46、schema_rollback 9/9、panel_dashboard 62/62、regex_guard 全过；
+- 三子批独立提交、每批 validate + 推送，**不发版不 tag**。
+
 ## 未发布（O 批——交换机命令特化扩容，2026-10-29，不发版不 tag）
 
 > v0.9 功能线开局批：用户点名专注种子库交换机命令，对相关命令特化增加。纯数据为主、

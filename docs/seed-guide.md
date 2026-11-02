@@ -183,6 +183,12 @@ rollback: "# 守卫：备份不存在则中止，禁止盲恢复\nls /etc/syscon
 预览里照常渲染。禁止省略守卫直接 `cp -a 备份 原文件`——备份不存在时该命令
 报错与否因 shell 而异，且覆盖性恢复一旦落在残缺备份上即二次破坏。
 
+**⑤ 重启/重载型**（Q 批 2026-11-02 约定）：回退语义 = **取消尚未触发的定时重启**
+（cisco/ruijie `reload cancel`、huawei `undo schedule reboot`、h3c `undo scheduler reboot`），
+并在 rollback 首行注明"已重启不可撤销"；**禁止臆造 `undo reload` 一类不存在的命令**
+（同升级类反例）。重启前丢配置的风险靠 commands 里的 save/备份步兜住，不靠回退命令。
+Web 控制台路径条目（全注释 commands）判查询类、天然无回退对象，不写 rollback 键。
+
 > 兼容备注：Wave 2 既定约定不变——Linux 条目缺 `duration` 仍为 ERROR；
 > 排查树 `by_vendor` uuid 硬引用约定见第五节。rollback 校验当前为 WARNING
 > 宽容期（变更类缺口 ~264 条属迁移软着陆），任务6 升 ERROR 后缺填即拦截。
@@ -297,7 +303,18 @@ Before/After 变更对比的**状态提取规则**随种子走：`seed_data/diff
 新增交换机四类：STP 状态（huawei/h3c/cisco/ruijie，kv）、链路聚合成员
 （cisco/huawei/zte，kv——cisco 成员口多口同行受单 search 引擎限制，仅提取聚合口
 标志，variant note 写明）、VRRP 状态（六厂商，kv）、MAC 地址表（huawei/cisco/
-ruijie/juniper，set）。新增变体前先看
+ruijie/juniper，set）。**Q 批（2026-11-02）扩至 11 类 × 48 变体**，新增基础/管理面三类：
+设备版本/型号（cisco/huawei/h3c/juniper/fortinet/paloalto，kv——value 口径按"能带走
+Release/产品码就用 `.+$`"处理）、NTP 同步状态（cisco/huawei/ruijie/linux chrony，kv）、
+LLDP 邻居表（cisco/ruijie/huawei/h3c，set）。Q 批两条口径要记住：
+
+- **正则统一 IGNORECASE**：华为 `clock status` 与 H3C `Clock status` 无法用大小写区分，
+  同构输出只留一条变体（note 写明同时覆盖的厂商），别硬造两条互相抢命中；
+- **列序先看首列语义**：H3C `display lldp neighbor-information list` 首列是 System Name，
+  行级正则首 token 不能限定接口前缀，改「任意名 + 接口前缀」两段式；表头靠第二列不匹配
+  接口前缀天然豁免。
+
+新增变体前先看
 `app/seed_data/diff_rules.json` 现有 rule_id；样本语料优先复用 E 批验证会沉淀的
 真实回显（伴生仓 docs/verify）；D 节冒烟纪律：**每个变体必须在 smoke_diff
 VARIANT_SAMPLES 里逐个过样本**（D2 全变体命中断言）。
@@ -318,7 +335,11 @@ Linux 侧 `centos7` / `ubuntu2204` / `kylinV10` / `openeuler2203`，通用 Linux
 **category**：网络侧沿用十类骨架 `VLAN` / `Trunk` / `静态路由` / `OSPF` / `ACL` / `NAT` /
 `SSH管理` / `密码` / `SNMP` / `保存配置`，扩展类 `接口诊断` / `BGP` / `DNS域名解析` /
 `时间同步` / `版本升级` / `HA/双机` / `地址分配` / `配置回滚` / `AAA认证` / `防火墙诊断` /
-`环路检测` / `日志` / `传输工具`；Linux 侧 `网络配置` / `排查命令` / `本地源` / `防火墙` / `服务管理` /
+`环路检测` / `日志` / `传输工具` / `链路聚合` / `堆叠` / `VRRP` / `端口安全` / `POE` /
+`风暴抑制` / `MAC地址表` / `ARP`；Q 批（2026-11-02）基础/管理面新增 `设备管理`（版本/硬件/重启）/
+`接口基础`（描述/开关/速率双工）/ `邻居发现`（LLDP/CDP）/ `显示控制`（分页/terminal monitor），
+Linux 侧新增 `用户与权限`（建账号 + sudo + 口令策略），Linux 配置备份恢复复用 `配置回滚` 类。
+Linux 侧 `网络配置` / `排查命令` / `本地源` / `防火墙` / `服务管理` /
 `日志` / `磁盘` / `系统资源` / `进程管理` / `审计日志`。新分类先在 Issue 提出再入库。
 
 **duration（Linux 侧条目必填）**：`temp`（排查/诊断类临时命令）/ `perm`（常备配置）/ `both`；
