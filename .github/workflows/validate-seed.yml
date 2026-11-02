@@ -18,3 +18,8 @@ jobs:
 
       - name: Run seed validation
         run: python app/main.py --validate-seed
+
+      # 速查手册（R 批起）：七本 JSON 的结构与分册自检，同一台 runner 上过第二道硬门槛。
+      # 手册数据独立于命令库种子（不进 db），故与 seed 校验分步，任一失败即红。
+      - name: Run handbook validation
+        run: python app/main.py --validate-handbook
