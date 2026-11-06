@@ -101,14 +101,33 @@ QUERY_WHITELIST = (
     "yum list", "yum info", "dnf list", "dnf info",
     "apt list", "apt show", "apt-cache policy", "apt-cache show",
     "crontab -l", "lsscsi", "fdisk -l", "sfdisk -l",
-    # ---- FortiOS HA 只读诊断（精确前缀；diagnose 族整体有副作用命令，不整族入名单）----
+    # ---- FortiOS diagnose 只读子命令（W 批 2026-11-06 逐词入名单，仍不整族放行）----
+    #   入名单口径：读会话表/统计、读 flash 清单、读策略与 VIP 的安装结果、读聚合成员
+    #   状态，以及**会话过滤条件**（只作用于 diagnose 输出，不改配置、不影响转发）。
+    #   ★ 刻意不收：diagnose debug flow filter / diagnose debug flow trace start ——
+    #     启动逐包追踪属 debug 语义（与 CHANGE_FORCE_PREFIXES 里的 debug 同口径），
+    #     需 diagnose debug disable 收尾，留着变更类才带得出回退；只收收尾/复位两个动作。
+    "diagnose sys session list",        # f0ac2dda / 6091c66c 会话表
+    "diagnose sys session stat",        # f0ac2dda 会话统计复核
+    "diagnose sys session filter",      # f0ac2dda / 6091c66c filter clear|dst（诊断态）
+    "diagnose sys flash list",          # 7a5916ae 备份落盘核对
+    "diagnose firewall iprope list",    # 1f331c90 策略安装位置与命中
+    "diagnose firewall vip list",       # 9c922bf5 VIP 映射表
+    "diagnose netlink aggregate name",  # 9fd6c2cf 聚合成员链路状态
     "diagnose sys ha checksum cluster", "diagnose sys ha heartbeat",
     "diagnose sys ha status", "diagnose sys ha history",
+    #   debug 收尾动作（停追踪/复位计数）本身无副作用，但启动侧不收 → 族不完整，
+    #   此处只保证"清理态"不被误判为变更；启动侧见上方 ★
+    "diagnose debug reset", "diagnose debug disable",
 )
 
 # 强制变更组（词前缀匹配，命中即变更类，优先级高于白名单）：
 #   这些动词有即时/持久化副作用，混在查询序列里也必须按变更对待。
+#   ★ 2026-11-06（W 批）补 3 个"伪查询"：裸 enable 是会话级进特权（白名单收录），
+#     但 enable secret / enable password / enable algorithm-type 是**写特权口令**，
+#     同前缀会被裸 enable 顺带放行——单行条目（或翻译器行级判定）会漏判成查询类。
 CHANGE_FORCE_PREFIXES = (
+    "enable secret", "enable password", "enable algorithm-type",
     "clear", "undebug", "no debug", "debug", "reload", "erase", "undo",
     "reset", "restart", "write", "save", "commit", "delete", "format",
     "restore", "shutdown", "reboot", "poweroff", "halt", "kill", "pkill",

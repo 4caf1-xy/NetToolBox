@@ -1170,8 +1170,17 @@ def _is_comment(line):
 
 
 def _is_query(line):
+    """行级"查询类"判定（用于把渲染结果拆成 配置体 / 复核区）。
+
+    ★ W 批（2026-11-06）修正：此前只查 QUERY_WHITELIST，是**盲信白名单**——
+      `enable secret <pw>` 这类"白名单动词 + 变更子命令"的行会被判成查询，
+      渲染后从配置体里被拎出去（口令行静默丢失）。现在与 renderer.classify_entry
+      同口径：命中 CHANGE_FORCE_PREFIXES 一律不算查询（强制变更优先）。
+    """
     s = _norm(line)
     if not s:
+        return False
+    if renderer._prefix_hit(s, renderer.CHANGE_FORCE_PREFIXES):
         return False
     return renderer._prefix_hit(s, renderer.QUERY_WHITELIST)
 

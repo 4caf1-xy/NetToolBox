@@ -622,12 +622,75 @@ def case_j():
 
 
 # ======================================================================
+# [K] W 批：行级分类不再盲信白名单 + 口令行不再被拎出配置体 + 六厂商误伤复扫
+# ======================================================================
+def case_k():
+    import renderer as _rd
+    translate_tool, rules, _p = _rules()
+    db = _seeded_db()
+
+    # K1 行级口径：强制变更组优先于白名单（此前 _is_query 只查白名单）
+    check("K1 enable secret 不再判查询行",
+          not translate_tool._is_query("enable secret 5 $1$abc")
+          and not translate_tool._is_query("enable password P@ss"))
+    check("K1 裸 enable 仍是查询行（会话级）", translate_tool._is_query("enable"))
+    check("K1 diagnose 只读行判查询 / debug flow 启动行不判查询",
+          translate_tool._is_query("diagnose sys session list")
+          and not translate_tool._is_query("diagnose debug flow trace start 10"))
+
+    # K2 回归：条目标题行的分区——强制变更行必须留在配置体（此前被当查询行拎去复核区）
+    #    注：整机翻译里 `enable secret <明文>` 属源侧凭据行，按 V 批口径落 d 档不外译，
+    #    与本条断言无关；这里测的是**渲染结果分区**这一层（split_entry_lines）。
+    pre, body, post, verify = translate_tool.split_entry_lines(
+        ["enable", "configure terminal", "line console 0", " password C0ns0le!23",
+         " login", "enable secret En4ble!23", "end", "write"])
+    check("K2 分区：enable secret 留配置体、不进复核区",
+          "enable secret En4ble!23" in body and not verify,
+          json.dumps({"body": body, "verify": verify}, ensure_ascii=False))
+    check("K2 分区：查询行仍进复核区（口径未反转）",
+          translate_tool.split_entry_lines(
+              ["line vty 0 4", " login local", "show running-config", "end"])[3]
+          == ["show running-config"])
+
+    # K3 六厂商复扫：查询类行不得被 secret_patterns / private_hints 吞掉
+    import re
+    hints = {v: [(re.compile(h["re"], re.I), h.get("note") or "")
+                 for h in (hs or [])]
+             for v, hs in (rules.get("private_hints") or {}).items()}
+    sec = [re.compile(p, re.I) for p in (rules.get("secret_patterns") or [])]
+    hits = []
+    for v in sorted(rules.get("vendors") or {}):
+        for e in db.search(vendor=v):
+            for ln in _rd.split_command_lines(e.get("commands") or "", skip_comments=True):
+                s = ln.strip()
+                if not s or not translate_tool._is_query(s):
+                    continue
+                if any(rx.search(s) for rx in sec):
+                    hits.append((v, "secret", _rd._norm_cmd_line(s)))
+                for rx, note in hints.get(v) or []:
+                    if rx.search(s):
+                        hits.append((v, "private:" + note, _rd._norm_cmd_line(s)))
+    check("K3 六厂商：查询行零误伤（secret/private 不吞查询类）", not hits,
+          json.dumps(hits[:3], ensure_ascii=False))
+
+    # K4 反向自洽：强制变更行一律不被判查询（防新增 force 词漏配）
+    bad = []
+    for e in db.all_entries():
+        for ln in _rd.split_command_lines(e.get("commands") or "", skip_comments=True):
+            n = _rd._norm_cmd_line(ln)
+            if n and _rd._prefix_hit(n, _rd.CHANGE_FORCE_PREFIXES) \
+                    and translate_tool._is_query(ln):
+                bad.append(n)
+    check("K4 强制变更行零误判为查询", not bad, json.dumps(bad[:3], ensure_ascii=False))
+
+
+# ======================================================================
 def main():
     print("=" * 68)
     print("smoke_translate —— 配置翻译器冒烟（U 批 + V 批扩族）")
     print("=" * 68)
     for fn in (case_a, case_b, case_c, case_d, case_e, case_f, case_g, case_h,
-               case_i, case_j):
+               case_i, case_j, case_k):
         try:
             fn()
         except Exception as exc:

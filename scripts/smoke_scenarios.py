@@ -16,6 +16,8 @@ smoke_scenarios.py —— 场景包（跨三库清单式捆绑）冒烟（2026-1
     [F] 防火墙四包（T 批）：build_from_pack 步数 / 包级 abort_criteria 与
         template=six / item.phase 与 params 覆盖落地 / 变更类回退 100% /
         UI 一键生成落点 / tree+err 与厂商不符跳过记账
+    [G] W 批：diagnose 逐词判定（入名单/刻意留变更各逐词断言）+ 四包
+        变更/查询数与回退缺口锁定 + 查询类复制不弹回退确认（弹窗即失败）
 
 用法：python scripts/smoke_scenarios.py   （EXIT=0 全过；需 PyQt5）
 """
@@ -516,10 +518,99 @@ def case_f():
           json.dumps({"added": r_vendor["added"], "skipped": len(r_vendor["skipped"])}))
 
 
+# ======================================================================
+# [G] W 批：diagnose 逐词判定 + 四包回退数锁 + 查询类复制不弹回退确认
+# ======================================================================
+def case_g():
+    import renderer as _rd
+    db = seeded_db()
+
+    # ---- G1 逐词：入名单的只读子命令一律 query（每词独立断言，防"整族放行"回潮）----
+    READ_WORDS = {
+        "diagnose sys session filter clear": "会话过滤条件复位（仅影响 diagnose 输出）",
+        "diagnose sys session filter dst 10.20.10.80": "按目的地址过滤会话表",
+        "diagnose sys session list": "读会话表",
+        "diagnose sys session stat": "读会话统计",
+        "diagnose sys flash list": "读 flash 文件清单",
+        "diagnose firewall iprope list 100": "读策略安装位置/命中",
+        "diagnose firewall vip list": "读 VIP 映射表",
+        "diagnose netlink aggregate name agg1": "读聚合成员链路状态",
+        "diagnose debug reset": "复位 debug 计数",
+        "diagnose debug disable": "停 debug 输出",
+        "diagnose sys ha checksum cluster": "HA 校验和（既有词）",
+    }
+    bad = [w for w in READ_WORDS if _rd.classify_entry({"commands": w}) != "query"]
+    check("G1 diagnose 只读子命令逐词判查询", not bad, json.dumps(bad, ensure_ascii=False))
+
+    # ---- G2 逐词反面：debug flow 启动侧刻意留变更类（带得回退）----
+    KEEP_CHANGE = [
+        "diagnose debug flow trace start 10",
+        "diagnose debug flow filter addr 10.20.10.80",
+        "diagnose sys session kill 12345",
+    ]
+    bad = [w for w in KEEP_CHANGE if _rd.classify_entry({"commands": w}) != "change"]
+    check("G2 debug flow 启动侧仍判变更类", not bad, json.dumps(bad, ensure_ascii=False))
+
+    # ---- G3 裸 enable 是会话级（查询），enable secret/password 是写口令（变更）----
+    check("G3 enable 家族分词判定",
+          _rd.classify_entry({"commands": "enable"}) == "query"
+          and _rd.classify_entry({"commands": "enable secret 5 $1$abc"}) == "change"
+          and _rd.classify_entry({"commands": "enable password P@ss"}) == "change"
+          and _rd.classify_entry({"commands": "enable algorithm-type scrypt secret X"})
+          == "change")
+
+    # ---- G4 库内条目归位：NAT 会话诊断转查询类；含 debug flow 的仍变更类 ----
+    nat = db.get_entry("6091c66c-b763-5bdc-9df0-f37c3e2f7ea3")
+    sess = db.get_entry("f0ac2dda-5a37-5070-a367-0026fe7be5a1")
+    check("G4 归位：NAT 会话诊断=查询类",
+          nat and _rd.classify_entry(nat) == "query", _rd.classify_entry(nat) if nat else "missing")
+    check("G4 保留：会话+debug flow 诊断=变更类",
+          sess and _rd.classify_entry(sess) == "change",
+          _rd.classify_entry(sess) if sess else "missing")
+
+    # ---- G5 四包引擎判定重跑：变更/查询数与回退覆盖锁定（W 批实测口径）----
+    import runbook_export as R
+    expect = {"fw-edge-policy-fortinet": (8, 2), "fw-edge-policy-paloalto": (7, 3),
+              "fw-edge-policy-sangfor": (5, 5), "fw-edge-policy-topsec": (5, 5)}
+    vendors = {"fw-edge-policy-fortinet": "fortinet", "fw-edge-policy-paloalto": "paloalto",
+               "fw-edge-policy-sangfor": "sangfor", "fw-edge-policy-topsec": "topsec"}
+    for pid, (n_ch, n_q) in expect.items():
+        data, _rep = R.build_from_pack(db.get_pack(pid), db, vendors[pid])
+        res = R.resolve_steps(data, db)
+        got = (sum(1 for r in res if r["category"] == "change"),
+               sum(1 for r in res if r["category"] == "query"))
+        check("G5/%s 变更/查询 %d/%d" % (pid, n_ch, n_q), got == (n_ch, n_q), str(got))
+        miss = [r for r in res if r["category"] == "change"
+                and not (r["rollback"] or "").strip()]
+        check("G5/%s 变更类回退无缺口" % pid, not miss, "%d 缺" % len(miss))
+
+    # ---- G6 复制守卫口径：查询类不弹回退确认、不降级（拦到弹窗即失败）----
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(sys.argv)
+    _ = app
+    import ui_main
+
+    class _Boom:
+        def __init__(self, *a, **k):
+            raise RuntimeError("查询类不该弹窗")
+
+    orig = ui_main.QMessageBox
+    ui_main.QMessageBox = _Boom
+    try:
+        ok_q = ui_main.guard_rollback_confirm(None, nat)
+        ok_s = ui_main.guard_rollback_confirm(None, sess)   # 无主窗状态 → 放行不弹
+    except RuntimeError:
+        ok_q = "modal"
+        ok_s = "modal"
+    finally:
+        ui_main.QMessageBox = orig
+    check("G6 查询类不弹回退确认", ok_q is True, str(ok_q))
+    check("G6 无主窗状态度不弹（独立调用放行）", ok_s is True, str(ok_s))
+
 def main():
     import traceback
     cases = [("A", case_a), ("B", case_b), ("C", case_c), ("D", case_d),
-             ("E", case_e), ("F", case_f)]
+             ("E", case_e), ("F", case_f), ("G", case_g)]
     for tag, fn in cases:
         try:
             fn()
