@@ -904,7 +904,7 @@ Web 控制台为主，凭空补 CLI 条目等于编造关键字——按用户�
 - 输出头部固定四行声明：**语法核对档，未经真机** / 接口编号沿用源写法（不做机框槽位换算）/
   库内条目为完整配方（可能含源配置没有的配套行：缺省路由、端口开启、保存）/ 覆盖率数字；
 - 变更类条目自带 `rollback` → 单独「回退命令（库内条自带）」区，并再声明一次未真机核对；
-- 口令/密钥行（username secret、local-user、snmp community、root-authentication…）**一律 d 档不外译**；
+- 口令/密钥行（username secret、local-user、snmp community、root 口令…）**一律 d 档不外译**；
 - 模板占位填不满 → 该实例所有源行整体降级 c，绝不输出 `{{x}}`，也不用字面量凑数。
 
 ### 验收实测
@@ -959,3 +959,193 @@ Web 控制台为主，凭空补 CLI 条目等于编造关键字——按用户�
 - 接口编号/槽位换算（`1/0/1` ↔ `0/0/1` ↔ `ge-0/0/1`）：一律沿用源写法 + 输出头声明；
 - 层级式 Junos 配置（非 `set` 形式）：落 c 档；
 - 跨设备整网翻译（多台设备间引用关系）：本批单机口径。
+
+## V 批 配置翻译器扩族 19 族（2026-11-06，v1.0.0 攒批①，不发版不 tag）
+
+U 批点名「把这些做完再发版」的 20 个六厂商分类，本批逐类落地。结论先给：
+**20 类里 19 类建成族（含 6 个查询对照族），1 类（版本升级）如实不建族**；
+映射 48 → **147 条**、族 8 → **27 族**；种子条目 459 / 26 / 106 **一条不动**。
+
+### 一、只读盘点（先出数，再动手）
+
+「28 个六厂商齐全分类」的旧口径有两处高估，本批按库内实况重新点数：
+
+| 分类 | 六厂商条目 | 结构化 params | 结论 |
+|---|---|---|---|
+| ACL | 6（华为 2 条：基本/高级） | 全结构化 | 落地，scope 4（见下「编号体系」） |
+| NAT | 6（华为 2 条） | 全结构化，**含接口 IP 参数** | 落地，scope 5；华为取 AR Easy IP 条 |
+| VRRP | 6 | 全结构化（最完整的一族） | 落地，scope 5 |
+| POE | 6，**中兴为骨架（无 params、全注释）** | 5 家结构化 | 落地，scope 5 |
+| 风暴抑制 | 6，**中兴为骨架** | 5 家结构化 | 落地，scope 5 |
+| BGP | 6 | 全部为**查询/诊断**条目 | 查询对照族，scope 6 |
+| 堆叠 | **中兴无条目**；思科条含成员优先级写入 | 查询为主 | 查询对照族，scope 4（思科仅作源） |
+| 环路检测 | 6，**中兴为骨架** | 全部为查询条目 | 查询对照族，scope 5 |
+| 显示控制 | 6 | 无 params | 落地（单实例族），scope 6 |
+| HA/双机 | **仅思科/华为**（其余为防火墙厂商，不在六厂商网络口径） | 查询条目 | 查询对照族，scope **2** |
+| 保存配置 | 6 | backup_tag 可选；Junos 用 backup_name | 落地，scope 6 |
+| AAA 认证 | 6，**中兴为骨架** | 全结构化，**6 个参数里 5 个是凭据** | 落地，scope 5（凭据行走 d 档） |
+| DNS | 6 | dns_server_ip + test_domain | 落地，scope 6 |
+| SSH 管理 | 6 | hostname/domain/timeout 可桥；账号口令全在 d 档 | 落地，scope 6（结构可译，账号人工重设） |
+| 密码 | 6 | 凭据类；Junos 为 root 口令交互式模型 | 落地，scope 5 |
+| 设备管理 | 6（每家 2 条：巡检 + 定时重启） | 巡检条无 params；重启条 delay 需 min↔hh:mm 变换 | 取巡检条做查询对照族，scope 6 |
+| SNMP | 6 | community 属凭据；location/contact/nms_ip 可桥 | 落地，scope 6 |
+| 版本升级 | 6 | **启动镜像文件名不可迁移** + 3 家用 `<新版本.ipe>` 角度占位 + 交互式 copy | **不建族**（见下「本批不落的唯一一族」） |
+| 配置回滚 | 6 | Junos 用 `rollback N` 编号模型 | 落地，scope 5 |
+| 日志 | 6 | 全部为查询条目 | 查询对照族，scope 6 |
+
+### 二、本批不落的唯一一族：版本升级（如实说明，不凑映射）
+
+三条硬理由，任一条都足以否掉跨厂商映射：
+
+1. **启动镜像文件名不可迁移**：`boot system flash:c2960-lanbasek9-mz.150-2.SE11.bin` 搬到华为就是错的，
+   文件名必须由现场按实际包名替换——把源文件名塞进目标模板等于输出伪命令；
+2. **三家条目是角度占位骨架**：华为/H3C/Junos 的条目正文写 `<新版本.cc>` / `<新版本.ipe>` /
+   `<新版本.tgz>`，渲染出来的「命令」需要人工填文件名，标成「已译」会误导；
+3. **Cisco/锐捷是交互式 copy**：`copy tftp: flash:` 需要现场输地址与文件名，源配置里根本没有可桥接的字段。
+
+故本族**不建映射**：相关行按族外落 c（`no_family`），原因写明「库内为流程条目，启动镜像不可跨厂商搬运」。
+若后续要做，须先给该族补「文件名占位显式化为参数」的数据改造，属独立批。
+
+### 三、机制最小增量（4 处，均已进 smoke 覆盖）
+
+「翻译机制零改动」在数据实况下无法成立——19 族里有 6 族是查询对照族、2 族目标缺格、
+1 族整族无分组键，旧引擎会把这些行一律判成 `key_missing` 或强求六厂商齐备。改动仅限
+「让映射表能表达真实数据」，四档语义、渲染路径、安全默认**一行未动**：
+
+| # | 位置 | 改动 | 为什么必须 |
+|---|---|---|---|
+| 1 | `validate_rules` | 族级 `scope` 声明可译目标厂商；校验只对 scope 内厂商要求「有条目 + 占位可填」 | 堆叠缺中兴、HA 只有两家——旧规则逼着凑映射，与「缺格不塞空」红线冲突 |
+| 2 | `translate` | scope 外的目标厂商：命中族但判 `c/no_family`，note 写明该族可译目标 | 与「族外命令」区分开，账本才说得清是「族没覆盖这家」还是「这行没族」 |
+| 3 | `_merge_keyless` | 无声明键的族 = 单实例族，不参与「键未取到」降级 | 查询对照族/显示控制整族无键，旧逻辑会把整族打成 c |
+| 4 | `_container_owner` + `_render_instance` | 容器行可按键参数（vlan_id）认领；实例分组键不算「待译字段」；容器行随属主实例同进退（属主失败则一并降级） | ①VLAN 三层接口块要认领到 VRRP 实例；②`acl_id` 这类键不是输出字段，不该触发 unbound；③避免「a 档却指向未产出命令的条目」 |
+
+配套两处**数据口径**修正（不是机制）：
+
+- `private_hints` 的 `spanning-tree` / `stp ` 收紧为配置态正则（`^\s*spanning-tree\s` / `^\s*stp\s+\S`），
+  否则 `show spanning-tree summary` 会被私有特性吞掉，环路检测族永远打不着；已建族的风暴抑制提示撤除；
+- `secret_patterns` 补 4 条：`radius-server shared-key` / `radius-server host … key` /
+  `key authentication|cipher` / `set system radius-server … secret`——RADIUS 共享密钥此前会以
+  普通行身份进账本，属口令类漏网。
+
+### 四、19 族清单（scope / 类型 / 正例）
+
+| 族 id | 分类 | 类型 | scope（可译目标） | 正例（源→目标） |
+|---|---|---|---|---|
+| `acl` | ACL | config | cisco / ruijie / huawei / h3c | cisco→ruijie（命名体系）、huawei→h3c（3000 段） |
+| `nat` | NAT | config | cisco / ruijie / huawei / h3c / zte | cisco→huawei（`nat outbound 2000`） |
+| `vrrp` | VRRP | config | cisco / ruijie / huawei / h3c / zte | cisco→huawei（virtual-ip / priority / 掩码↔前缀） |
+| `poe` | POE | config | cisco / huawei / h3c / ruijie / juniper | cisco→huawei（`poe enable`） |
+| `storm` | 风暴抑制 | config | cisco / huawei / h3c / ruijie / juniper | cisco→huawei（`broadcast-suppression 5`） |
+| `bgp` | BGP | **query** | 六家 | cisco→huawei（`display bgp peer`） |
+| `stack` | 堆叠 | **query** | huawei / h3c / ruijie / juniper | cisco→huawei（`display stack`） |
+| `loop` | 环路检测 | **query** | cisco / huawei / h3c / ruijie / juniper | cisco→huawei（`display stp`） |
+| `display_ctl` | 显示控制 | config（单实例） | 六家 | cisco→huawei（`screen-length 0 temporary`） |
+| `ha` | HA/双机 | **query** | cisco / huawei | cisco→huawei（`display vrrp brief`） |
+| `save` | 保存配置 | config | 六家 | cisco→huawei（`copy flash:/vrpcfg.zip …`） |
+| `aaa` | AAA 认证 | config | cisco / huawei / h3c / ruijie / juniper | cisco→huawei（`radius-server authentication …`） |
+| `dns` | DNS | config | 六家 | cisco→huawei（`dns server`） |
+| `ssh` | SSH 管理 | config | 六家 | cisco→huawei（`sysname` / vty / stelnet） |
+| `password` | 密码 | config | cisco / huawei / h3c / ruijie / zte | cisco→huawei（`user-interface console 0`） |
+| `devmgmt` | 设备管理 | **query** | 六家 | cisco→huawei（`display version`） |
+| `snmp` | SNMP | config | 六家 | cisco→huawei（`snmp-agent sys-info location …`） |
+| `rollback` | 配置回滚 | config | cisco / huawei / h3c / ruijie / zte | cisco→huawei（`startup saved-configuration …`） |
+| `log` | 日志 | **query** | 六家 | cisco→huawei（`display logbuffer`） |
+
+**查询对照族**（6 个：BGP / 堆叠 / 环路检测 / HA / 设备管理巡检 / 日志）：库内这些分类只有诊断/巡检条目，源行就是 `show`/`display` 命令，
+目标产物按引擎既有规则自动进「复核命令（只读）」区，不进配置正文——smoke J3 专门守这条线。
+
+### 五、scope 为什么这么切（每条都有库内依据）
+
+- **ACL 编号体系跨厂商不可换算**：Cisco/锐捷用命名 ACL，华为/H3C 用 3000–3999，中兴 `acl extend number`
+  是独立段。名↔号写了就是伪命令，故只覆盖**同体系**两对（命名对 + 编号对），中兴/Junos 不落族：
+  cisco→huawei 判 `param_missing`（写明「acl_number 无法推导」），这是真实限制而非缺陷；
+- **NAT 的 Junos 目标条目自相矛盾**：`d0ae3c17` 里 `inside_port` 同时声明为「接口名（string）」和
+  「服务端口（int）」，模板渲染必然一值两用 → 目标条目不可用，本批不落，**留作数据修复项**；
+  另 NAT 的接口 IP 属接口块共有行，行级引擎无法判定「哪个 ip address 属于 inside/outside」，
+  故 `inside_ip/outside_ip` 走 optional 剔除并在账本逐条注明；
+- **VRRP 的 Junos 目标需要 `ifname` + `unit`**：Junos 是「ge-0/0/1.0 vrrp-group」，源侧 VLAN 号推不出
+  Junos 接口名，无变换可走 → scope 5；
+- **堆叠的思科条目带写入**：`switch {{member}} priority {{priority}}` 必填且源侧无值，
+  取默认值等于凭空改优先级 → 思科只作源不作目标；
+- **凭据类族（AAA/SSH/密码/SNMP）结构可译、口令不外译**：账号/口令/团体字命中 `secret_patterns` 走 d 档，
+  目标条目里引用它们的行整行剔除并在账本写明「已省略，需人工重设」——这与 U 批安全默认一脉相承。
+
+### 六、六样例扩样与完成度对账
+
+六份小样各扩 20 余行（新增族样例 + 「运维查询行」段），命令行 190 → **437**。四象限对账：
+
+| 组合 | 命令行 | 已译 a | b | c | d | 完成度 |
+|---|---|---|---|---|---|---|
+| A 旧样例 + 旧映射（U 批基线） | 190 | 161 | 6 | 13 | 16 | 84.7% |
+| B 旧样例 + **新映射** | 190 | **167** | 6 | **7** | 16 | **87.9%** |
+| C **新样例** + 旧映射 | 437 | 188 | 24 | 217 | 32 | 43.0% |
+| D 新样例 + 新映射（本批终态） | 437 | **370** | 24 | 33 | 34 | **84.7%** |
+
+读法：B 行证明新族在**旧语料**上也能接住原本判 c 的杂项行（hostname/sysname 归入 ssh 族，+6 行，c 13→7）；
+C 行证明新增 247 行命令行里旧映射只接得住 27 行；D 行是扩族把新语料从 43.0% 拉回 84.7% 的结果。
+
+逐样例（本批终态）：
+
+| 样例 | 目标 | 命令行 | 已译 | b | c | d | 完成度 |
+|---|---|---|---|---|---|---|---|
+| cisco | huawei | 80 | 67 | 4 | 11 | 2 | 83.8% |
+| huawei | cisco | 90 | 68 | 4 | 8 | 14 | 75.6% |
+| h3c | cisco | 85 | 64 | 4 | 6 | 15 | 75.3% |
+| ruijie | huawei | 74 | 68 | 4 | 5 | 1 | 91.9% |
+| zte | cisco | 61 | 60 | 4 | 0 | 1 | 98.4% |
+| juniper | huawei | 47 | 43 | 4 | 3 | 1 | 91.5% |
+| **合计** | — | **437** | **370** | 24 | 33 | 34 | **84.7%** |
+
+同体系厂商对的补充实测（样例不变，只换目标）：cisco→ruijie 90.0%（ACL 4/4）、ruijie→cisco 97.3%、
+huawei→h3c 80.0%（ACL 4/4）、h3c→huawei 82.4%（0 行需人工）——**ACL 族只在同体系方向判已译**，
+跨体系方向如实落 c，这是设计意图不是漏判。
+
+### 七、c 档原因码分布（U → V）
+
+| 原因码 | U 批（190 行语料） | V 批（437 行语料） | 说明 |
+|---|---|---|---|
+| `private` | 3 | 3 | 私有特性（STP 增强/DHCP Snooping 等）保持不译 |
+| `no_family` | 4 | 4 | 族外杂项（`version 15.2`、`ip routing`）+ 堆叠目标缺格（思科） |
+| `param_missing` | 6 | 19 | ACL 名↔号 17 行（真实限制）+ Junos OSPF 2 行（U 批遗留） |
+| `uncovered_view` | 0 | **3** | **仅剩 `ip address`**：地址分配类库内只有思科/华为/H3C 三家，不构成六厂商族 → 仍是族外 |
+| `unbound` | 0 | 4 | NAT 接口标记（目标条目无 outside_if 参数）、huawei→cisco `user privilege level` |
+| **合计 c** | **13** | **33** | c 占比 13/190=6.8% → 33/437=7.6% |
+
+`uncovered_view` 逐样例：cisco 2（0/6、0/7 两个 NAT 接口块的 `ip address`）、huawei 1（0/0/6），
+其余四份为 0——smoke **J1** 断言该码只对白名单内的族外命令（当前只有 `ip address`）触发，
+族内出现即判失败。
+
+### 八、验收实测
+
+- `smoke_translate` **217 项**（U 批 157 → 新增 [C17/C18] 19 族正例 ×2、[D8] 4 条反例、
+  [J1–J5] 族覆盖面/查询对照分区/scope 越界/正例汇总；[A6/A7] 改为 scope 自洽校验）；
+- 全量 **20 套**冒烟 rc=0（Tab 数未变，panel/handbook/scenarios 无需同步）；
+- `--validate-seed` **EXIT=0**，统计行「配置翻译映射：**27 族 ｜ 147 条厂商映射**」，
+  [E] 清单新增「scope 非法 / scope 含未声明厂商」，[W] 新增「同族实例键不一致（部分厂商有键部分没有）」；
+- 种子库 **459 / 26 / 106 / 7 包** 不动（映射表不新增条目，`entry` 全指既有 uuid）。
+
+### 九、★ 坑（本批新增）
+
+1. **私有特性提示会吃掉族行**：`private_hints` 在族匹配**之前**执行，`storm-control`、`spanning-tree`
+   这类宽前缀会把刚建好的族行判成 private——建族必须同步收紧/撤除对应 hint，否则族「看着有、打不着」；
+2. **无键族会被判「键未取到」**：旧 `_merge_keyless` 对 `key='*'` 一律降级，查询对照族/显示控制全中招，
+   必须先改引擎再写数据，否则整族 c；
+3. **接口 IP 无法按行归属**：`ip address` 与 `ip nat inside/outside` 分属不同行，行级匹配拿不到
+   「这块接口是 inside 还是 outside」，只能把 IP 参数置 optional 剔除（并在账本注明），
+   硬塞会造出「inside 的 IP 写进 outside」的错配置；
+4. **同名参数在不同条目里类型不同**：Junos NAT 的 `inside_port` 既是接口名又是服务端口，
+   渲染按名取值必然串味——**入库校验应加「同条目参数名唯一」**（本批记入待办，未改 schema）；
+5. **ACL 名→编号不能靠 `default_ok` 蒙混**：编号是身份类参数，取默认值会指向别的 ACL；
+   本批只做同体系映射，跨体系如实 `param_missing`（NAT 族的 `acl_number` 例外：编号区间本就不同，
+   取库内默认值并在账本逐条注明「acl_number=2000」，由现场按规划统一分配）；
+6. **容器行要随属主走**：接口头行原先固定判 a，属主实例渲染失败时会留下「a 档却无产物」的假已译行，
+   现改为容器行并入属主 lines，属主失败即一并降级。
+
+### 十、不做清单（本批边界）
+
+- **版本升级族**：不建（理由见第二节）；
+- **Junos 侧**：ACL（前缀↔通配符无变换）、NAT（目标条目参数重名）、VRRP（VLAN 接口模型差异）、
+  口令（root 口令交互式模型）一律不进族，落 c；
+- **地址分配族**：库内只有三家，不构成六厂商族 → `ip address` 行继续属族外；
+- **AI 猜测式补翻**：仍不做（U 批口径不变）；
+- **条目数据修复**（Junos NAT 参数重名、中兴 POE/风暴/AAA/环路骨架转正）：属数据批，不在本批范围。
