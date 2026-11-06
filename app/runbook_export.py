@@ -259,21 +259,49 @@ def _ordered_items(pack):
     return [it for _i, it in sorted(enumerate(raw), key=key)]
 
 
+def _item_param_overrides(item):
+    """包内条目级参数覆盖（item.params，schema v2）：只收 name→值 的平坦映射。
+
+    值统一转字符串（操作单 params 是文本表单字段）；空值表示"留空由现场填"，
+    仍然写入覆盖表——0 与空串语义不同，这里不替作者猜。
+    """
+    raw = (item or {}).get("params")
+    if not isinstance(raw, dict):
+        return {}
+    out = {}
+    for k, v in raw.items():
+        name = str(k or "").strip()
+        if not name:
+            continue
+        out[name] = str(v if v is not None else "")
+    return out
+
+
+def _item_phase(item):
+    """包内条目级阶段（item.phase，schema v2）：非法值一律回落到未分组"""
+    phase = str((item or {}).get("phase") or "").strip()
+    return phase if phase in STEP_PHASES else ""
+
+
 def build_from_pack(pack, db=None, vendor=""):
     """
     场景包 → 操作单草稿。返回 (data, report)，data 已 normalize。
 
     report = {
         "pack_id", "title", "vendor", "added", "change", "query",
+        "abort_criteria", "template",                   # schema v2 包级字段落地值
         "skipped": [{seq, ref_type, title, reason}],   # 非命令条目 / 厂商不符
         "missing": [{seq, ref_id, reason}],            # 引用失效（uuid 不在库）
         "os_family": "vrp5"|"" ,
     }
     步骤顺序 = 包内 seq 顺序；变更类不写 rollback（schema 纪律：回退实时取库）。
+    参数 = 条目 params.default 预填，再叠包内 item.params 覆盖（T 批 schema v2）；
+    阶段 = 包内 item.phase（仅 template=six 的包会带）。
     """
     data = new_runbook()
     report = {"pack_id": "", "title": "", "vendor": str(vendor or ""), "added": 0,
-              "change": 0, "query": 0, "skipped": [], "missing": [], "os_family": ""}
+              "change": 0, "query": 0, "abort_criteria": "", "template": "",
+              "skipped": [], "missing": [], "os_family": ""}
     if not isinstance(pack, dict):
         return data, report
 
@@ -282,6 +310,12 @@ def build_from_pack(pack, db=None, vendor=""):
     data["meta"]["title"] = report["title"]
     data["meta"]["vendor"] = report["vendor"]
     data["meta"]["source_pack"] = report["pack_id"]
+    # schema v2 包级字段：回退条件文本 + 六段式开关（脏值回落平铺，不猜）
+    report["abort_criteria"] = str(pack.get("abort_criteria") or "").strip()
+    tpl = str(pack.get("template") or "").strip()
+    report["template"] = TEMPLATE_SIX if tpl == TEMPLATE_SIX else ""
+    data["meta"]["abort_criteria"] = report["abort_criteria"]
+    data["meta"]["template"] = report["template"]
 
     os_seen = []
     for it in _ordered_items(pack):
@@ -318,22 +352,32 @@ def build_from_pack(pack, db=None, vendor=""):
             report["missing"].append({"seq": seq, "ref_id": str(uid or ""),
                                       "reason": "引用失效：条目不在当前命令库"})
             continue
+        # 单值引用（ref_id）也要守厂商视图：操作单是给一台设备用的，
+        # 把别家厂商的命令塞进单里比"少一步"危险得多（T 批 2026-11-06 补）
+        _ev = str(entry.get("vendor") or "")
+        if report["vendor"] and _ev and _ev != report["vendor"]:
+            report["skipped"].append({
+                "seq": seq, "ref_type": rtype,
+                "reason": "该厂商（%s）在本包内无对应条目" % report["vendor"]})
+            continue
         cat = "change"
         try:
             cat = renderer.classify_entry(entry)
         except Exception:
             cat = "change"          # fail-safe：分不清当变更类（引入回退要求，不是漏要求）
         report["change" if cat == "change" else "query"] += 1
+        params = prefill_params(entry)
+        params.update(_item_param_overrides(it))
         data["steps"].append({
             "step_no": len(data["steps"]) + 1,
             "entry_uuid": entry.get("uuid") or str(uid or ""),
             "title_snapshot": entry.get("title") or "(无标题)",
             "vendor_snapshot": entry.get("vendor") or "",
-            "params": prefill_params(entry),
+            "params": params,
             "expect": "",
             "note": str(it.get("note") or ""),
             "checked": False,
-            "phase": "",
+            "phase": _item_phase(it),
         })
         osf = str(entry.get("os_family") or "")
         if osf and osf not in os_seen:

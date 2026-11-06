@@ -30,7 +30,8 @@ import dedupe
 # ---------------------------------------------------------------------------
 
 DB_FILENAME = "command_lib.db"      # 库文件名（永远在 exe 同目录）
-SCHEMA_VERSION = 2                  # 表结构版本号（v2：新增 platform/duration、history 泛化）
+SCHEMA_VERSION = 3                  # 表结构版本号（v2：platform/duration、history 泛化；
+                                    # v3：场景包 schema v2 的 abort_criteria/template 两列）
 NLB_FORMAT = "netcmdl - command library"  # .nlb 文件标识（JSON 内 format 字段）
 # 导入文件大小上限（安全加固批 4）：.nlb/JSON 是不可信输入（恶意导入文件威胁面），
 # json.load 无上限整文件解析可被超大文件打爆内存。正常种子库 ~2.8MB、导出库
@@ -284,7 +285,11 @@ TREE_CATEGORIES = ["连通性", "端口", "性能", "路由协议", "管理面",
 # items 只引用不复制（单一事实源）：ref_type=entry/tree/err，坏引用由
 # --validate-seed [E] 硬拦截 + UI 跳转前 get_* 复核兜底。
 SCENARIO_REF_TYPES = ("entry", "tree", "err")
+# 场景包 schema v2（T 批 2026-11-06，纯增补）：
+#   abort_criteria / template 为包级字段（六段式回退条件与模板开关），
+#   条目级扩展（item.phase / item.params）直接存在 items JSON 内，不加列。
 SCENARIO_PACK_FIELDS = ["pack_id", "title", "description", "tags", "items",
+                        "abort_criteria", "template",
                         "verified", "verified_by", "verified_date",
                         "created_at", "updated_at"]
 
@@ -776,7 +781,9 @@ class Database(object):
                 title        TEXT NOT NULL,
                 description  TEXT,
                 tags         TEXT,          -- JSON 数组（检索用）
-                items        TEXT,          -- JSON 数组 [{seq, ref_type, ref_id?, by_vendor?, note}]
+                items        TEXT,          -- JSON 数组 [{seq, ref_type, ref_id?, by_vendor?, note, phase?, params?}]
+                abort_criteria TEXT DEFAULT '',  -- schema v2：六段式回退条件（文本段）
+                template     TEXT DEFAULT '',    -- schema v2："" / "six"（六段式分组）
                 verified     INTEGER DEFAULT 0,
                 verified_by  TEXT,
                 verified_date TEXT,
@@ -834,6 +841,18 @@ class Database(object):
                         self.conn.execute("PRAGMA table_info(err_dict)").fetchall())
             if ecols and "exec_level" not in ecols:
                 self.conn.execute("ALTER TABLE err_dict ADD COLUMN exec_level TEXT DEFAULT ''")
+
+            # v3（T 批 2026-11-06）：场景包 schema v2 —— 包级六段式字段
+            #   abort_criteria（回退条件文本）/ template（"" / "six"）自动补列；
+            #   老库补列后默认空串 = 旧式平铺，行为不变。
+            pcols = set(r["name"] for r in
+                        self.conn.execute("PRAGMA table_info(scenario_packs)").fetchall())
+            if pcols and "abort_criteria" not in pcols:
+                self.conn.execute(
+                    "ALTER TABLE scenario_packs ADD COLUMN abort_criteria TEXT DEFAULT ''")
+            if pcols and "template" not in pcols:
+                self.conn.execute(
+                    "ALTER TABLE scenario_packs ADD COLUMN template TEXT DEFAULT ''")
 
             hcols = set(r["name"] for r in
                         self.conn.execute("PRAGMA table_info(history)").fetchall())
@@ -1868,6 +1887,9 @@ class Database(object):
         for f in SCENARIO_PACK_FIELDS:
             data[f] = raw.get(f, "")
         data["pack_id"] = str(data["pack_id"] or new_uuid())
+        # schema v2：包级字段统一成字符串（脏值不在这里兜底，交给 validate 明确报错）
+        data["abort_criteria"] = str(data.get("abort_criteria") or "")
+        data["template"] = str(data.get("template") or "")
         tags = raw.get("tags") or []
         if not isinstance(tags, list):
             tags = self._load_json(tags)

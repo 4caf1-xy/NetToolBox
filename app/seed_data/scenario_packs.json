@@ -2,7 +2,7 @@
   "format": "netcmdl - command library",
   "schema": 2,
   "vendor_file": "scenario_packs.json",
-  "count": 3,
+  "count": 7,
   "scenario_packs": [
     {
       "pack_id": "new-device-onboarding",
@@ -183,6 +183,86 @@
         {"seq": 8, "ref_type": "err", "ref_id": "3ddb3399-52b7-5b3f-9a6e-4f3839d0fc2e", "note": "华为保存配置失败——同上，先解决持久化再谈回退。"},
         {"seq": 9, "ref_type": "err", "ref_id": "b5692876-d9a9-5761-82fc-f05b554cd6ed", "note": "Junos commit 失败——配置根本没生效，先查 commit 拒因。"},
         {"seq": 10, "ref_type": "err", "ref_id": "4a2da5c6-1d96-5ee3-94ff-99b88bbab53e", "note": "PAN-OS commit 失败——候选配置未生效，应急回退前先确认实际运行版本。"}
+      ]
+    },
+    {
+      "pack_id": "fw-edge-policy-fortinet",
+      "title": "Fortinet 边界策略开通",
+      "description": "FortiOS 边界防火墙策略开通标准链（10 步）：巡检 → WAN 接口 → 办公 VLAN 子接口 → 地址对象/出向策略 → SNAT + VIP 发布 → ISP 路由 → syslog 外发 → 会话与策略命中诊断 → 配置备份 → HA 状态复核。★ 库内暂缺（不塞）：独立安全区域配置、第二条（入向）放行策略、服务对象、策略排序/禁用、会话强制清除、HA 配置与主备倒换、IPsec/SSL VPN、IPS/AV 配置文件。★ 语法核对档：四家均未做真机验证，命令沿用库内档位（AI 生成档），真机执行前先 show/? 核对；本包不承诺验证等级，也不改验证字段。 变更类回退全部取自库内 rollback；本包不做交换机类行为（Trunk/堆叠等不塞）。",
+      "tags": ["防火墙", "边界", "策略", "NAT", "Fortinet"],
+      "abort_criteria": "出现以下任一即停止推进并回退（首选 execute restore config flash <变更前备份>；无备份则按各步 rollback 逆序删本次策略/NAT/路由）：① 管理面失联——wan1 或 VLAN10-OFFICE 的 SSH/HTTPS 连续 60s 不可达且 Console 无法登录；② 策略 100 命中计数为 0 且 10.20.10.80:443 探测丢包 100%；③ NAT 会话无转换记录、内网服务器访问中断；④ 接口 down 超过 3 分钟或 HA 主备状态翻转。",
+      "template": "six",
+      "items": [
+        {"seq": 1, "ref_type": "entry", "ref_id": "09a7fe97-dda8-59e3-ae31-ff68bc537b69", "phase": "pre", "note": "变更基线：记录当前版本/序列号/HA 状态与默认路由；本步只读。"},
+        {"seq": 2, "ref_type": "entry", "ref_id": "e7ddd72d-ef4d-5103-a029-fec3aea050d0", "phase": "pre", "params": {"port": "wan1", "description": "TO-ISP", "status": "up", "speed": "auto"}, "note": "WAN 口描述写清运营商与带宽；速率/双工与光模块一致。回退取库内 rollback（改回原描述/状态）。"},
+        {"seq": 3, "ref_type": "entry", "ref_id": "2fa0c57a-36a1-5293-adf3-4dc727c13e9b", "phase": "change", "params": {"vlan_name": "VLAN10-OFFICE", "parent_port": "port2", "vlan_id": "10", "vlan_ip": "10.20.10.1", "vlan_mask": "255.255.255.0", "vlan_desc": "办公网段"}, "note": "★ 管理面风险点：条目会给子接口放行 https/ssh/ping，父口选错即丢管理通道——先确认 port2 是内网口。FortiOS 以接口（组）承担 zone 语义，独立 zone 条目库内暂缺。"},
+        {"seq": 4, "ref_type": "entry", "ref_id": "1f331c90-7694-5387-a322-91e70a2e2fd8", "phase": "change", "params": {"src_obj": "OBJ-OFFICE", "src_net": "10.20.10.0", "src_mask": "255.255.255.0", "src_comment": "办公网段", "policy_id": "100", "policy_name": "EDGE-OFFICE-TO-INET", "src_intf": "VLAN10-OFFICE", "dst_intf": "wan1", "service": "ALL"}, "note": "本条目只建一条【出向】策略；DNAT 的入向放行需同法另建反向策略（库内无第二条策略条目，见包说明）。策略自上而下匹配，先确认没有更靠前的 deny/更严的 any 策略抢匹配。"},
+        {"seq": 5, "ref_type": "entry", "ref_id": "9c922bf5-6fc8-58f6-9bc5-6db2b916fafe", "phase": "change", "params": {"policy_id": "100", "vip_name": "VIP-WEB-443", "public_ip": "200.1.1.30", "out_interface": "wan1", "inside_ip": "10.20.10.80", "public_port": "443", "inside_port": "443"}, "note": "SNAT 复用策略 100（policy NAT）+ DNAT 用 VIP 映射到 10.20.10.80:443；★ 公网 IP 必须是 wan1 上真实可用的地址，写错会中断整段出网。"},
+        {"seq": 6, "ref_type": "entry", "ref_id": "ab1f0f93-02cb-59cf-93b0-c22bfa0a1459", "phase": "change", "params": {"seq": "10", "dest_net": "200.1.1.0", "dest_mask": "255.255.255.0", "gateway": "200.1.1.1", "out_interface": "wan1", "distance": "10", "comment": "to-ISP", "default_seq": "1", "default_distance": "5"}, "note": "条目一次下发 ISP 网段路由 + 默认路由，两条共用同一网关/出接口（库内条目结构如此）；★ 默认路由编号 1 若已存在会被覆盖，先 show router static 核对。"},
+        {"seq": 7, "ref_type": "entry", "ref_id": "9041dd24-9cae-5e09-8711-4534db1c8793", "phase": "change", "params": {"syslog_ip": "10.20.99.10", "syslog_port": "514", "source_ip": "10.20.10.1", "severity": "information"}, "note": "source-ip 指定内网/管理口，避免多出口时日志源地址漂移导致日志平台认不出；同时保留 memory 缓冲，外发失败可回溯。"},
+        {"seq": 8, "ref_type": "entry", "ref_id": "f0ac2dda-5a37-5070-a367-0026fe7be5a1", "phase": "validation", "params": {"target_ip": "10.20.10.80"}, "note": "只读诊断：会话过滤 + debug flow 定位 deny。★ 引擎按 diagnose 前缀把本条目判为变更类（查询白名单未含 diagnose），回退=清理诊断态，不改业务配置。"},
+        {"seq": 9, "ref_type": "entry", "ref_id": "7a5916ae-41d2-5e90-b128-cfd5b24d8bf4", "phase": "post", "params": {"backup_name": "FW-EDGE-01-20261106.conf"}, "note": "变更后立刻备份到 flash 并导出到本地；restore config 会覆盖配置并重启，非回退场景不要执行。"},
+        {"seq": 10, "ref_type": "entry", "ref_id": "43dc2e55-abbd-5a04-abd0-d6c55093bdaf", "phase": "post", "note": "双机必做：确认主备与同步状态。库内只有状态检查，HA 配置/倒换条目暂缺。"}
+      ]
+    },
+    {
+      "pack_id": "fw-edge-policy-paloalto",
+      "title": "Palo Alto 边界策略开通",
+      "description": "PAN-OS 边界防火墙策略开通标准链（10 步）：巡检 → WAN 接口 → VLAN 子接口/区域归属 → 地址对象与安全策略 → SNAT + DNAT → ISP 路由 → syslog → 会话与策略命中诊断 → 提交/导出 → HA 状态复核。★ 库内暂缺（不塞）：独立安全区域配置、第二条（入向）放行策略、服务对象、策略排序/禁用、会话强制清除、HA 配置与主备倒换、IPsec/SSL VPN、IPS/AV 配置文件。★ 语法核对档：四家均未做真机验证，命令沿用库内档位（AI 生成档），真机执行前先 show/? 核对；本包不承诺验证等级，也不改验证字段。 区域语义在本包由子接口 zone_name 与策略 from/to 承担；变更类回退取自库内 rollback。",
+      "tags": ["防火墙", "边界", "策略", "NAT", "Palo Alto"],
+      "abort_criteria": "出现以下任一即停止推进并回退（首选 load config version <变更前快照> + commit；无快照则按各步 rollback 逆序删本次策略/NAT/路由）：① 管理面 HTTPS/SSH 不可达且 Console 无法登录；② commit 成功但策略命中为 0、10.20.10.80:443 探测 100% 丢包；③ NAT 会话无转换记录；④ HA 双主或主备状态异常、业务口 down 超过 3 分钟。",
+      "template": "six",
+      "items": [
+        {"seq": 1, "ref_type": "entry", "ref_id": "c5081e2e-f5a8-5261-b577-9b6967f6cf96", "phase": "pre", "note": "变更基线：版本/序列号/HA 状态/当前候选配置状态；本步只读。"},
+        {"seq": 2, "ref_type": "entry", "ref_id": "77eafc57-c144-594f-aaff-a0548fa4a179", "phase": "pre", "params": {"port": "ethernet1/1", "description": "TO-ISP", "state": "up"}, "note": "★ 骨架条目（skeleton）：CLI 关键字待真机 ? 核对；描述与状态改动属变更，回退取库内 rollback。"},
+        {"seq": 3, "ref_type": "entry", "ref_id": "050e539a-7623-530e-8b25-bb9a7d72796f", "phase": "change", "params": {"parent_port": "ethernet1/2", "sub_if": "ethernet1/2.10", "vlan_id": "10", "vlan_ip": "10.20.10.1", "prefix_len": "24", "zone_name": "trust", "vlan_desc": "办公网段"}, "note": "区域在本步落地：子接口直接划入 trust。★ zone 选错 = 策略整体不匹配（比丢管理更隐蔽），改前先在 Network→Zones 确认目标 zone 存在；独立 zone 对象/三层口归区库内暂缺。"},
+        {"seq": 4, "ref_type": "entry", "ref_id": "79235f77-4cc9-5b5a-a4db-92fe85549eb0", "phase": "change", "params": {"src_obj": "OBJ-OFFICE", "src_net": "10.20.10.0", "src_prefix": "24", "dst_obj": "OBJ-ANY", "dst_net": "0.0.0.0", "dst_prefix": "0", "svc_obj": "SVC-HTTPS", "dst_port": "443", "rule_name": "EDGE-OFFICE-TO-INET", "src_zone": "trust", "dst_zone": "untrust", "application": "ssl"}, "note": "本条目只建一条【出向】策略（trust→untrust）；入向发布策略需同法另建（库内无第二条）。条目内含 commit，提交前先 show config diff 核对候选配置。"},
+        {"seq": 5, "ref_type": "entry", "ref_id": "b516d80d-67b1-5549-b7e9-4cf3dc2a471c", "phase": "change", "params": {"snat_name": "SNAT-EDGE", "src_zone": "trust", "dst_zone": "untrust", "src_net": "10.20.10.0", "src_prefix": "24", "out_interface": "ethernet1/1", "dnat_name": "DNAT-WEB-443", "untrust_zone": "untrust", "trust_zone": "trust", "public_ip": "200.1.1.30", "svc_name": "SVC-HTTPS", "inside_ip": "10.20.10.80", "inside_port": "443"}, "note": "SNAT 出网 + DNAT 发布同条目下发；★ DNAT 只改目的地址，仍要入向策略放行才通（本包策略步只建出向，入向按缺格位单独补）。"},
+        {"seq": 6, "ref_type": "entry", "ref_id": "4e21bace-fb13-5c98-a7fe-f74ec449f43a", "phase": "change", "params": {"route_name": "TO-ISP", "dest_net": "200.1.1.0", "prefix_len": "24", "next_hop": "200.1.1.1", "out_interface": "ethernet1/1", "metric": "10", "default_route_name": "DEFAULT-TO-ISP", "probe_ip": "200.1.1.1"}, "note": "probe_ip 用于默认路由可达性探测，填运营商网关真实地址；改默认路由前先确认现网无同优先级路由。"},
+        {"seq": 7, "ref_type": "entry", "ref_id": "ce416cae-76b6-539c-ac2d-9ea4316bb3c8", "phase": "change", "params": {"profile": "SYSLOG-PROF", "server_name": "EDGE-SRV", "syslog_ip": "10.20.99.10", "syslog_port": "514"}, "note": "★ 骨架条目（skeleton）：CLI 关键字待真机 ? 核对，Web 路径同条目内已给；日志配置文件要挂到策略上才生效（策略 log-end 已开）。"},
+        {"seq": 8, "ref_type": "entry", "ref_id": "24feb9c8-bdf3-54e9-8291-cf5462701e46", "phase": "validation", "params": {"target_ip": "10.20.10.80"}, "note": "只读：show session / 命中计数复核；无会话时先确认源是否真的发起，而不是先改策略。"},
+        {"seq": 9, "ref_type": "entry", "ref_id": "2156ab5b-7fbc-5a1d-9565-b943fd139c1d", "phase": "post", "params": {"backup_name": "FW-EDGE-01-20261106.xml"}, "note": "commit 后导出运行配置归档；命名版本快照在 Web 上另存一份，回退优先用版本快照。"},
+        {"seq": 10, "ref_type": "entry", "ref_id": "5a4697f0-f788-5cfb-a9a8-21f1ab27d909", "phase": "post", "note": "确认 HA 主备与同步；库内只有状态检查，HA 配置/倒换条目暂缺。"}
+      ]
+    },
+    {
+      "pack_id": "fw-edge-policy-sangfor",
+      "title": "深信服 AF 边界策略开通",
+      "description": "深信服 AF 边界防火墙策略开通标准链（10 步）：设备状态 → 接口 → VLAN 子接口/区域 → 访问控制策略 → SNAT + DNAT → 静态路由 → 日志外发 → 会话与策略命中 → 配置备份 → HA 复核。AF 策略类以 Web 控制台为主、CLI 为骨架 + Web 对照。★ 库内暂缺（不塞）：独立安全区域配置、第二条（入向）放行策略、服务对象、策略排序/禁用、会话强制清除、HA 配置与主备倒换、IPsec/SSL VPN、IPS/AV 配置文件。★ 语法核对档：四家均未做真机验证，命令沿用库内档位（AI 生成档），真机执行前先 show/? 核对；本包不承诺验证等级，也不改验证字段。 接口/日志两条为 Web 控制台条目（库内无 rollback），回退来源逐条写在步骤备注。",
+      "tags": ["防火墙", "边界", "策略", "NAT", "深信服"],
+      "abort_criteria": "出现以下任一即停止推进并回退（首选 Web 系统→配置备份，恢复变更前备份；无备份则按各步 rollback 逆序删本次策略/NAT/路由）：① Web 控制台不可达（策略误封管理面）——改用 Console 登录并恢复配置；② 策略命中为 0 且 10.20.10.80:443 业务中断；③ NAT 转换不生效、内网服务器访问中断；④ 接口 down 或区域改错导致业务不通超过 3 分钟。",
+      "template": "six",
+      "items": [
+        {"seq": 1, "ref_type": "entry", "ref_id": "4b29b409-7b39-50b7-b824-d86aafad73e4", "phase": "pre", "note": "变更基线：设备版本/序列号/HA 状态/当前策略总数；本步只读（Web 控制台）。"},
+        {"seq": 2, "ref_type": "entry", "ref_id": "c1ef4efb-568f-5821-99a7-64940f15517b", "phase": "pre", "params": {"port": "eth1", "description": "TO-CORE-SW1"}, "note": "Web 控制台条目（命令全为注释，引擎判为查询类），实为变更：改描述/启停会立即影响业务。★ 库内无 rollback → 回退来源：网络→接口→编辑，把描述改回原值并恢复启用（操作前截图记录原值）。"},
+        {"seq": 3, "ref_type": "entry", "ref_id": "fd9c5add-d84f-5923-8fee-c430aca0b146", "phase": "change", "params": {"parent_port_no": "2", "vlan_id": "10", "vlan_ip": "10.20.10.1", "vlan_mask": "255.255.255.0", "vlan_desc": "VLAN10-OFFICE", "zone_name": "内网区域"}, "note": "CLI 骨架 + Web 对照：关键字待真机 ? 核对，Web 路径同条目下半部分可直接照做。区域在本步归属；★ 区域名必须与策略里引用的完全一致（含空格）。"},
+        {"seq": 4, "ref_type": "entry", "ref_id": "dc32258c-f7d3-559b-b682-d6ffb5367fba", "phase": "change", "params": {"src_obj": "OBJ-OFFICE", "src_net": "10.20.10.0", "src_mask": "255.255.255.0", "policy_name": "EDGE-OFFICE-TO-INET", "src_zone": "内网区域", "dst_zone": "外网区域", "service": "HTTPS"}, "note": "只建一条【出向】策略；入向发布策略需同法另建（库内无第二条策略条目）。★ 骨架语法未真机核对：先用 ? 看视图命令，不通就走 Web 路径。"},
+        {"seq": 5, "ref_type": "entry", "ref_id": "a5cf9c48-dc8f-529f-b612-d12c200902b0", "phase": "change", "params": {"src_net": "10.20.10.0", "src_mask": "255.255.255.0", "out_no": "1", "public_ip": "200.1.1.30", "public_port": "443", "inside_ip": "10.20.10.80", "inside_port": "443"}, "note": "SNAT 走出接口 PAT + DNAT 发布 443；★ 公网 IP 必须是出接口上真实地址，且之后必须在访问控制策略里放行对应流量才生效。"},
+        {"seq": 6, "ref_type": "entry", "ref_id": "3a88643e-d412-50a7-a7a2-1427f1d523f2", "phase": "change", "params": {"dest_net": "200.1.1.0", "dest_mask": "255.255.255.0", "next_hop": "200.1.1.1", "out_no": "1"}, "note": "去 ISP 网段的路由；默认路由若已存在，改前先用 show/Web 路由表核对，避免双默认。"},
+        {"seq": 7, "ref_type": "entry", "ref_id": "03acf815-ff19-53a9-bf4b-58f268a6939c", "phase": "change", "params": {"syslog_ip": "10.20.99.10", "syslog_port": "514"}, "note": "Web 控制台条目（引擎判查询类），实为变更。★ 库内无 rollback → 回退来源：日志→外发服务器，删除本条目或改回原地址（操作前截图记录原配置）。"},
+        {"seq": 8, "ref_type": "entry", "ref_id": "b263ec23-b9b5-52d1-a9bc-86afe438219b", "phase": "validation", "params": {"target_ip": "10.20.10.80"}, "note": "只读：会话/策略命中计数 + 会话日志确认转换前后地址。骨架条目，Web 路径同条目内。"},
+        {"seq": 9, "ref_type": "entry", "ref_id": "0d183a0c-3ab1-5232-bb68-c713aa54c555", "phase": "post", "params": {"backup_tag": "FW-EDGE-01-20261106"}, "note": "保存并打标签备份；恢复会覆盖当前配置，非回退场景不要执行。"},
+        {"seq": 10, "ref_type": "entry", "ref_id": "318680d4-6762-5dfc-98cb-1755a48f5936", "phase": "post", "note": "确认 HA 主备与同步状态；库内只有状态检查，HA 配置/倒换条目暂缺。"}
+      ]
+    },
+    {
+      "pack_id": "fw-edge-policy-topsec",
+      "title": "天融信 TopOS 边界策略开通",
+      "description": "天融信 TopOS 边界防火墙策略开通标准链（10 步）：设备状态 → 接口 → VLAN 子接口/安全域 → 访问控制策略 → SNAT + DNAT → 静态路由 → 日志上报 → 会话与策略命中 → 配置备份 → HA 复核。TopOS 策略类以 Web 控制台为主、CLI 为骨架 + Web 对照。★ 库内暂缺（不塞）：独立安全区域配置、第二条（入向）放行策略、服务对象、策略排序/禁用、会话强制清除、HA 配置与主备倒换、IPsec/SSL VPN、IPS/AV 配置文件。★ 语法核对档：四家均未做真机验证，命令沿用库内档位（AI 生成档），真机执行前先 show/? 核对；本包不承诺验证等级，也不改验证字段。 接口/日志两条为 Web 控制台条目（库内无 rollback），回退来源逐条写在步骤备注。",
+      "tags": ["防火墙", "边界", "策略", "NAT", "天融信"],
+      "abort_criteria": "出现以下任一即停止推进并回退（首选 Web 系统→配置备份，恢复变更前备份；无备份则按各步 rollback 逆序删本次策略/NAT/路由）：① Web 控制台不可达（策略误封管理面）——改用 Console 登录并恢复配置；② 策略命中为 0 且 10.20.10.80:443 业务中断；③ NAT 转换不生效；④ 接口 down 或安全域改错导致业务不通超过 3 分钟。",
+      "template": "six",
+      "items": [
+        {"seq": 1, "ref_type": "entry", "ref_id": "1cf046fb-d564-58bc-9d11-0d1f0e2edd54", "phase": "pre", "note": "变更基线：版本/序列号/HA 状态/当前策略总数；本步只读（Web 控制台）。"},
+        {"seq": 2, "ref_type": "entry", "ref_id": "601310d9-d181-5302-b25b-70dca826f879", "phase": "pre", "params": {"port": "eth1", "description": "TO-CORE-SW1"}, "note": "Web 控制台条目（命令全为注释，引擎判为查询类），实为变更：改描述/启停会立即影响业务。★ 库内无 rollback → 回退来源：网络管理→接口→编辑，改回原描述/恢复启用（操作前截图记录原值）。"},
+        {"seq": 3, "ref_type": "entry", "ref_id": "0656f8d5-c5fd-5a35-b604-66e850645f22", "phase": "change", "params": {"parent_port_no": "2", "vlan_id": "10", "vlan_ip": "10.20.10.1", "vlan_mask": "255.255.255.0", "zone_name": "内网域"}, "note": "CLI 骨架 + Web 对照：关键字待真机 ? 核对，Web 路径同条目下半部分可直接照做。安全域在本步归属；★ 域名称要与策略里引用完全一致（含空格，如 \"DMZ 域\"）。"},
+        {"seq": 4, "ref_type": "entry", "ref_id": "9d49d824-1232-5470-ab56-1d6f772656f5", "phase": "change", "params": {"src_obj": "OBJ-OFFICE", "src_net": "10.20.10.0", "src_mask": "255.255.255.0", "policy_name": "EDGE-OFFICE-TO-INET", "src_zone": "内网域", "dst_zone": "外网域", "service": "HTTPS"}, "note": "只建一条【出向】策略；入向发布策略需同法另建（库内无第二条策略条目）。★ 骨架语法未真机核对：先 ? 看视图命令，不通就走 Web 路径。"},
+        {"seq": 5, "ref_type": "entry", "ref_id": "5241afe3-3a15-5e17-ba2d-6f6f2fd62de3", "phase": "change", "params": {"src_net": "10.20.10.0", "src_mask": "255.255.255.0", "out_no": "1", "public_ip": "200.1.1.30", "public_port": "443", "inside_ip": "10.20.10.80", "inside_port": "443"}, "note": "SNAT 接口地址转换（PAT）+ DNAT 端口映射；★ 之后必须放行 外网域→内网域 的对应服务。"},
+        {"seq": 6, "ref_type": "entry", "ref_id": "1de3c965-5d2d-5381-ba53-0530d84eec15", "phase": "change", "params": {"dest_net": "200.1.1.0", "dest_mask": "255.255.255.0", "next_hop": "200.1.1.1", "out_no": "1", "priority": "10"}, "note": "去 ISP 网段的路由；默认路由若已存在，改前先核对路由表，避免双默认/优先级冲突。"},
+        {"seq": 7, "ref_type": "entry", "ref_id": "c1e80048-c9fe-56bd-b3d8-2861f8191364", "phase": "change", "params": {"syslog_ip": "10.20.99.10", "syslog_port": "514"}, "note": "Web 控制台条目（引擎判查询类），实为变更。★ 库内无 rollback → 回退来源：日志→日志服务器，删除本条目或改回原地址（操作前截图记录原配置）。"},
+        {"seq": 8, "ref_type": "entry", "ref_id": "b6b66a97-c09f-55af-bdc1-2fc5fbfff6ce", "phase": "validation", "params": {"target_ip": "10.20.10.80"}, "note": "只读：会话/策略命中计数 + 会话日志确认转换前后地址。骨架条目，Web 路径同条目内。"},
+        {"seq": 9, "ref_type": "entry", "ref_id": "6b0f410f-e5ac-5b40-8ff5-913adce1babf", "phase": "post", "params": {"backup_tag": "FW-EDGE-01-20261106"}, "note": "保存并打标签备份；恢复会覆盖当前配置，非回退场景不要执行。"},
+        {"seq": 10, "ref_type": "entry", "ref_id": "a7ab91d3-d1d3-5150-987c-de7f91f57ccb", "phase": "post", "note": "确认 HA 主备与同步状态；库内只有状态检查，HA 配置/倒换条目暂缺。"}
       ]
     }
   ]

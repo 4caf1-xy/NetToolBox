@@ -598,10 +598,30 @@ def validate_seed(db_path=None):
                                     % (e.get("cause", eid)[:30], ref[:8]))
 
     # ---- 场景包校验（2026-10-12：跨三库清单式捆绑，坏引用 [E] 硬拦截）----
+    import runbook_export as _rbx          # STEP_PHASES / TEMPLATE_SIX 唯一事实源
     packs = database.all_packs()
     pack_problems = []
     pack_warnings = []
     seen_pack = set()
+
+    def _check_param_overrides(label, entry, overrides):
+        """包内 item.params 覆盖名必须是条目已声明的参数（错字静默失效 → [W] 提示）"""
+        if not isinstance(overrides, dict) or not overrides or not entry:
+            return
+        specs = entry.get("params")
+        if isinstance(specs, str):
+            try:
+                specs = json.loads(specs)
+            except (TypeError, ValueError):
+                specs = []
+        declared = set(str(s.get("name")) for s in (specs or [])
+                       if isinstance(s, dict) and s.get("name"))
+        unknown = sorted(str(k) for k in overrides if str(k) not in declared)
+        if unknown:
+            pack_warnings.append(
+                "%s：params 覆盖了条目未声明的参数（%s）——按错字核实"
+                % (label, "、".join(unknown)))
+
     for p in packs:
         pid = p.get("pack_id") or new_uuid()
         head = "%s(%s)" % (p.get("title") or "(无标题)", pid[:8] if pid else "?")
@@ -612,10 +632,20 @@ def validate_seed(db_path=None):
             pack_problems.append("%s：title 为空" % head)
         if not (p.get("description") or "").strip():
             pack_problems.append("%s：description 为空" % head)
+        # schema v2（T 批 2026-11-06）：包级六段式字段
+        _tpl = str(p.get("template") or "").strip()
+        _abort = str(p.get("abort_criteria") or "").strip()
+        if _tpl not in ("", _rbx.TEMPLATE_SIX):
+            pack_problems.append("%s：template 取值非法（%r），只允许空串或 %r"
+                                 % (head, _tpl, _rbx.TEMPLATE_SIX))
+        if _tpl == _rbx.TEMPLATE_SIX and not _abort:
+            pack_problems.append("%s：template=six 但 abort_criteria 为空"
+                                 "（回退条件是六段式必填段）" % head)
         items = p.get("items") or []
         if not items:
             pack_problems.append("%s：没有任何清单条目" % head)
         seen_ref = set()
+
         for i, it in enumerate(items):
             label = "%s 第 %d 项" % (head, i + 1)
             if not isinstance(it, dict):
@@ -626,6 +656,22 @@ def validate_seed(db_path=None):
                 pack_problems.append("%s：ref_type 非法（%r），只允许 %s"
                                      % (label, rtype, "/".join(dbmod.SCENARIO_REF_TYPES)))
                 continue
+            # schema v2 条目级：阶段键 + 参数覆盖（结构问题 [E]，错字 [W]）
+            _phase = str(it.get("phase") or "").strip()
+            if _phase and _phase not in _rbx.STEP_PHASES:
+                pack_problems.append("%s：phase 非法（%r），只允许 %s"
+                                     % (label, _phase, "/".join(_rbx.STEP_PHASES)))
+            _iparams = it.get("params")
+            if _iparams is not None and not isinstance(_iparams, dict):
+                pack_problems.append("%s：params 必须是对象（参数名 → 值）" % label)
+                _iparams = None
+            elif isinstance(_iparams, dict):
+                for _pk, _pv in _iparams.items():
+                    if not str(_pk or "").strip():
+                        pack_problems.append("%s：params 存在空参数名" % label)
+                    elif isinstance(_pv, (dict, list)):
+                        pack_problems.append("%s：params[%s] 值必须是标量"
+                                             % (label, _pk))
             # seq 必须从 1 起严格连续（清单顺序是包的核心语义）
             if int(it.get("seq") or 0) != i + 1:
                 pack_problems.append("%s：seq 不连续（应为 %d，实际 %r）"
@@ -651,6 +697,7 @@ def validate_seed(db_path=None):
                         pack_warnings.append(
                             "%s：引用的条目是 skeleton 骨架（%s）——真机执行前须验证"
                             % (label, (e.get("title") or "")[:30]))
+                    _check_param_overrides(label, e, _iparams)
                     key = ("entry", rid)
                     if key in seen_ref:
                         pack_warnings.append("%s：与包内更早项重复引用同一 entry（%s）"
@@ -701,6 +748,7 @@ def validate_seed(db_path=None):
                             pack_warnings.append(
                                 "%s：by_vendor[%s] 引用的条目是 skeleton 骨架（%s）"
                                 % (label, v, (e.get("title") or "")[:30]))
+                        _check_param_overrides(label, e, _iparams)
 
     # ---- 变更对比规则校验（H 批 2026-10-14：坏提取规则 [E] 硬拦截）----
     # 规则随种子走（seed_data/diff_rules.json，不新增条目）：

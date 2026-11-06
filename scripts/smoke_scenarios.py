@@ -2,17 +2,20 @@
 """
 smoke_scenarios.py —— 场景包（跨三库清单式捆绑）冒烟（2026-10-12 新增）
 
-覆盖五案（全部 offscreen + mock，不依赖真实网络/设备）：
-    [A] 种子正例：seed_data/scenario_packs.json 导入 3 包；--validate-seed
-        同口径 in-process 跑通（rc=0）；统计行出现「场景包：3 个」
+覆盖六案（全部 offscreen + mock，不依赖真实网络/设备）：
+    [A] 种子正例：seed_data/scenario_packs.json 导入 7 包；--validate-seed
+        同口径 in-process 跑通（rc=0）；统计行出现「场景包：7 个」
     [B] 引用校验反例：故意写错 uuid / seq 断号 / ref_type 非法 /
         ref_id+by_vendor 同现 → validate 一律 [E] 拦截（rc=1）
-    [C] UI 加载：MainWindow 六 Tab；3 包可打开；卡片数=items 数；
+    [C] UI 加载：MainWindow 九 Tab；7 包可打开；步骤卡数=items 数；
         by_vendor 厂商视图切换（展开命令 / skip 置灰 / multi 提示）
     [D] 跳转定位：entry→命令库选中 / tree→排查向导载入 / err→字典管理器
         （FakeDictMgr mock，offscreen 不真开模态）
     [E] 复制守卫：必填占位拦截（剪贴板不变）+ 正常复制（骨架/回退守卫
         会话抑制后放行）+ splitter 状态记忆往返
+    [F] 防火墙四包（T 批）：build_from_pack 步数 / 包级 abort_criteria 与
+        template=six / item.phase 与 params 覆盖落地 / 变更类回退 100% /
+        UI 一键生成落点 / tree+err 与厂商不符跳过记账
 
 用法：python scripts/smoke_scenarios.py   （EXIT=0 全过；需 PyQt5）
 """
@@ -75,12 +78,15 @@ def make_seed_copy():
 # ======================================================================
 def case_a():
     db = seeded_db()
-    check("A/导入-3包", db.count_packs() == 3, str(db.count_packs()))
+    check("A/导入-7包", db.count_packs() == 7, str(db.count_packs()))
     check("A/三库规模", db.count() == 459 and db.count_trees() == 26
           and db.count_errs() == 106,
           "%d/%d/%d" % (db.count(), db.count_trees(), db.count_errs()))
     titles = sorted(p["title"] for p in db.all_packs())
-    check("A/预置包名", titles == ["割接前检查", "故障应急回退", "新设备上架"],
+    check("A/预置包名",
+          titles == ["Fortinet 边界策略开通", "Palo Alto 边界策略开通", "割接前检查",
+                     "天融信 TopOS 边界策略开通", "故障应急回退",
+                     "新设备上架", "深信服 AF 边界策略开通"],
           str(titles))
     # 顺序语义：每个包 seq 必须 1..N
     ok_seq = all(int(it.get("seq")) == i + 1
@@ -90,7 +96,7 @@ def case_a():
     rc, out = run_validate_with_patched_seed(
         os.path.join(APP_DIR, "app", "seed_data"))
     check("A/validate-EXIT0", rc == 0, "rc=%d" % rc)
-    check("A/validate-统计行", "场景包：3 个" in out, "")
+    check("A/validate-统计行", "场景包：7 个" in out, "")
 
 
 # ======================================================================
@@ -155,7 +161,17 @@ def case_c():
     # 2026-11-02（R 批）：速查手册（命令库后）+ 工具箱（AI 诊断前）→ 7 → 9
     check("C/九Tab", w.tabs.count() == 9, str(w.tabs.count()))
     sc = w.tab_scenario
-    check("C/包列表3项", sc.lst_packs.count() == 3, "")
+    check("C/包列表7项", sc.lst_packs.count() == 7, "")
+
+    def _step_cards():
+        """步骤卡（排除 T 批包级「场景纪律」卡 PackMeta）"""
+        out = []
+        for i in range(sc.cards_lay.count() - 1):
+            wd = sc.cards_lay.itemAt(i).widget()
+            if wd is not None and wd.objectName() != "PackMeta":
+                out.append(wd)
+        return out
+
     check("C/split状态", sc.split_state().get("scenario_split"), "")
 
     # 包 1：新设备上架，9 项 × by_vendor 6 厂商
@@ -163,14 +179,14 @@ def case_c():
         sc.lst_packs.setCurrentRow(row)
         pid = sc.lst_packs.item(row).data(Qt.UserRole)
         pack = db.get_pack(pid)
-        n_cards = sc.cards_lay.count() - 1          # 末尾 stretch
+        n_cards = len(_step_cards())                # 步骤卡（PackMeta 不计）
         check("C/卡片数-%s" % pack["title"], n_cards == len(pack["items"]),
               "%d vs %d" % (n_cards, len(pack["items"])))
         if pid == "new-device-onboarding":
             check("C/厂商下拉7项", sc.cmb_vendor.count() == 7,
                   str(sc.cmb_vendor.count()))
             # 全部厂商视图：by_vendor 步骤显示 multi 提示
-            first = sc.cards_lay.itemAt(0).widget()
+            first = _step_cards()[0]
             texts = []
             for i in range(first.layout().count()):
                 wd = first.layout().itemAt(i).widget()
@@ -181,7 +197,7 @@ def case_c():
             # 切到 cisco：第 1 步应展开命令预览（CodeBlock 非空）
             idx = sc.cmb_vendor.findData("cisco")
             sc.cmb_vendor.setCurrentIndex(idx)
-            first = sc.cards_lay.itemAt(0).widget()
+            first = _step_cards()[0]
             code = first.findChild(QPlainTextEdit)
             check("C/cisco展开命令", code is not None
                   and "ssh" in (code.toPlainText() or "").lower(),
@@ -189,7 +205,7 @@ def case_c():
             # 切到 huawei：也应有命令
             idx = sc.cmb_vendor.findData("huawei")
             sc.cmb_vendor.setCurrentIndex(idx)
-            first = sc.cards_lay.itemAt(0).widget()
+            first = _step_cards()[0]
             code2 = first.findChild(QPlainTextEdit)
             check("C/huawei展开命令", code2 is not None
                   and bool(code2.toPlainText().strip()),
@@ -341,9 +357,169 @@ def case_e():
     w2.deleteLater()
 
 
+# ======================================================================
+# [F] 防火墙四包（T 批 2026-11-06）：schema v2 包字段 + 一键生成落点
+# ======================================================================
+# (pack_id, 厂商视图, 期望步数, {步骤下标: {参数名: 期望值}}) —— 覆盖包内 item.params
+FW_PACKS = (
+    ("fw-edge-policy-fortinet", "fortinet", 10, {
+        2: {"vlan_ip": "10.20.10.1"},
+        3: {"policy_name": "EDGE-OFFICE-TO-INET"},
+        4: {"public_ip": "200.1.1.30"},
+        7: {"target_ip": "10.20.10.80"},
+    }),
+    ("fw-edge-policy-paloalto", "paloalto", 10, {
+        2: {"zone_name": "trust"},
+        3: {"rule_name": "EDGE-OFFICE-TO-INET"},
+        4: {"public_ip": "200.1.1.30"},
+    }),
+    ("fw-edge-policy-sangfor", "sangfor", 10, {
+        2: {"zone_name": "内网区域"},
+        3: {"policy_name": "EDGE-OFFICE-TO-INET"},
+        6: {"syslog_ip": "10.20.99.10"},
+    }),
+    ("fw-edge-policy-topsec", "topsec", 10, {
+        2: {"zone_name": "内网域"},
+        3: {"policy_name": "EDGE-OFFICE-TO-INET"},
+        6: {"syslog_ip": "10.20.99.10"},
+    }),
+)
+
+
+def case_f():
+    import runbook_export as R
+    db = seeded_db()
+
+    for pid, vendor, expect_n, probes in FW_PACKS:
+        pack = db.get_pack(pid)
+        if not pack:
+            check("F/%s 包存在" % pid, False)
+            continue
+        desc = pack.get("description") or ""
+        check("F/%s 结构（%d 步/six/回退条件/未真机口径/缺格位）" % (pid, expect_n),
+              len(pack.get("items") or []) == expect_n
+              and pack.get("template") == "six"
+              and bool((pack.get("abort_criteria") or "").strip())
+              and "语法核对档" in desc and "未做真机验证" in desc
+              and "库内暂缺" in desc,
+              json.dumps({"items": len(pack.get("items") or []),
+                          "tpl": pack.get("template"),
+                          "abort": bool(pack.get("abort_criteria"))},
+                         ensure_ascii=False))
+        check("F/%s 只收命令条目（不塞树/报错）" % pid,
+              all(it.get("ref_type") == "entry" for it in pack["items"]))
+
+        data, rep = R.build_from_pack(pack, db, vendor)
+        check("F/%s build 步数/零跳过零失效" % pid,
+              rep["added"] == expect_n and rep["skipped"] == [] and rep["missing"] == [],
+              json.dumps({"added": rep["added"], "skipped": len(rep["skipped"]),
+                          "missing": len(rep["missing"])}, ensure_ascii=False))
+        check("F/%s abort_criteria 落地" % pid,
+              data["meta"]["abort_criteria"] == pack["abort_criteria"]
+              and rep["abort_criteria"] == pack["abort_criteria"]
+              and data["meta"]["template"] == "six" and rep["template"] == "six")
+        check("F/%s item.phase 落地" % pid,
+              [s["phase"] for s in data["steps"]] == [it["phase"] for it in pack["items"]]
+              and data["steps"][-1]["phase"] == "post",
+              json.dumps([s["phase"] for s in data["steps"]]))
+
+        bad = []
+        for idx, want in probes.items():
+            got = data["steps"][idx].get("params") or {}
+            for k, v in want.items():
+                if got.get(k) != v:
+                    bad.append({"step": idx + 1, "key": k, "got": got.get(k), "want": v})
+        check("F/%s params 预填+覆盖落地" % pid, not bad, json.dumps(bad, ensure_ascii=False))
+
+        res = R.resolve_steps(data, db)
+        change_rows = [r for r in res if r["category"] == "change"]
+        check("F/%s 变更类回退 100%%（库内 rollback）" % pid,
+              bool(change_rows) and all(r["rollback"].strip() for r in change_rows),
+              "%d 变更步，缺 %d" % (len(change_rows),
+                                    sum(1 for r in change_rows if not r["rollback"].strip())))
+
+    # Web 控制台条目（库内无 rollback）必须逐条写明回退来源
+    for pid, idxs in (("fw-edge-policy-sangfor", (1, 6)),
+                      ("fw-edge-policy-topsec", (1, 6))):
+        pack = db.get_pack(pid)
+        notes = [pack["items"][i].get("note") or "" for i in idxs]
+        check("F/%s Web 条目回退来源在备注" % pid,
+              all("回退来源" in n for n in notes), json.dumps(notes, ensure_ascii=False))
+
+    # 单厂商包：错选别家厂商必须整包跳过（不把别家命令塞进单里）
+    _d3, r_mis = R.build_from_pack(db.get_pack("fw-edge-policy-fortinet"), db, "huawei")
+    check("F/单厂商包厂商不符整包跳过",
+          r_mis["added"] == 0 and len(r_mis["skipped"]) == 10
+          and all("无对应条目" in s["reason"] for s in r_mis["skipped"]),
+          json.dumps({"added": r_mis["added"], "skipped": len(r_mis["skipped"])}))
+
+    # ---- UI：包入口（厂商视图）+ 包级纪律卡 + 一键生成落点 ----
+    from PyQt5.QtWidgets import QApplication, QLabel
+    from PyQt5.QtCore import Qt
+    app = QApplication.instance() or QApplication(sys.argv)
+    _ = app
+    import ui_main
+    w = ui_main.MainWindow(db)
+    sc = w.tab_scenario
+    rb = w.tab_runbook
+    for pid, vendor, expect_n, _p in FW_PACKS:
+        pack = db.get_pack(pid)
+        row = None
+        for r in range(sc.lst_packs.count()):
+            if sc.lst_packs.item(r).data(Qt.UserRole) == pid:
+                row = r
+                break
+        sc.lst_packs.setCurrentRow(row)
+        check("F/%s 包入口可选" % pid, row is not None and sc.current_pack_id() == pid)
+        check("F/%s 单厂商包默认选中该厂商视图" % pid,
+              sc.cmb_vendor.currentData() == vendor,
+              str(sc.cmb_vendor.currentData()))
+        idx = sc.cmb_vendor.findData(vendor)
+        check("F/%s 厂商视图已注册" % pid, idx > 0,
+              str([sc.cmb_vendor.itemData(i) for i in range(sc.cmb_vendor.count())]))
+        sc.cmb_vendor.setCurrentIndex(max(idx, 0))
+        # 包级纪律卡（回退条件可见）
+        meta_box = None
+        for i in range(sc.cards_lay.count()):
+            wd = sc.cards_lay.itemAt(i).widget()
+            if wd is not None and wd.objectName() == "PackMeta":
+                meta_box = wd
+                break
+        texts = [lb.text() for lb in (meta_box.findChildren(QLabel) if meta_box else [])]
+        check("F/%s 回退条件卡可见" % pid,
+              meta_box is not None
+              and any("回退条件" in t for t in texts)
+              and any(pack["abort_criteria"][:12] in t for t in texts),
+              str(texts)[:120])
+        # 一键生成（避免上一包草稿的未保存确认弹窗）
+        rb.dirty = False
+        rb.current_path = None
+        sc.on_generate_runbook()
+        check("F/%s 一键生成草稿" % pid,
+              rb.data is not None and len(rb.data["steps"]) == expect_n
+              and rb.data["meta"]["abort_criteria"] == pack["abort_criteria"]
+              and rb.data["meta"]["template"] == "six"
+              and rb.data["meta"]["source_pack"] == pid,
+              json.dumps({"steps": len((rb.data or {}).get("steps") or []),
+                          "src": (rb.data or {}).get("meta", {}).get("source_pack")},
+                         ensure_ascii=False))
+    w.deleteLater()
+
+    # ---- 树/报错引用与厂商不符的跳过记账（四包之外，保证入口行为不变）----
+    _d, r_tree = R.build_from_pack(db.get_pack("emergency-rollback"), db, "fortinet")
+    check("F/树报错记账", r_tree["added"] == 2 and len(r_tree["skipped"]) == 8
+          and all("非命令条目" in s["reason"] for s in r_tree["skipped"]),
+          json.dumps({"added": r_tree["added"], "skipped": len(r_tree["skipped"])}))
+    _d2, r_vendor = R.build_from_pack(db.get_pack("pre-cutover-check"), db, "fortinet")
+    check("F/厂商不符跳过", r_vendor["added"] == 0 and len(r_vendor["skipped"]) == 10
+          and all("无对应条目" in s["reason"] for s in r_vendor["skipped"]),
+          json.dumps({"added": r_vendor["added"], "skipped": len(r_vendor["skipped"])}))
+
+
 def main():
     import traceback
-    cases = [("A", case_a), ("B", case_b), ("C", case_c), ("D", case_d), ("E", case_e)]
+    cases = [("A", case_a), ("B", case_b), ("C", case_c), ("D", case_d),
+             ("E", case_e), ("F", case_f)]
     for tag, fn in cases:
         try:
             fn()

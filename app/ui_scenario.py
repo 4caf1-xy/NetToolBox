@@ -220,17 +220,22 @@ class ScenarioTab(QWidget):
 
     def _rebuild_vendor_combo(self, pack):
         keep = str(self.cmb_vendor.currentData() or "")
+        vendors = self._pack_vendors(pack) if pack else []
         self.cmb_vendor.blockSignals(True)
         try:
             self.cmb_vendor.clear()
             self.cmb_vendor.addItem("全部厂商", "")
             if pack:
-                for v in self._pack_vendors(pack):
+                for v in vendors:
                     self.cmb_vendor.addItem(dbmod.display_vendor(v), v)
             # 保留切换前的厂商视图（重建不重置——否则切厂商会被弹回"全部"）
             idx = self.cmb_vendor.findData(keep)
             if idx > 0:
                 self.cmb_vendor.setCurrentIndex(idx)
+            elif len(vendors) == 1:
+                # 单厂商包（T 批防火墙四包）：默认落到该厂商，别让用户对着
+                # 10 张"当前厂商视图无此步骤"的灰卡再猜一次
+                self.cmb_vendor.setCurrentIndex(1)
         finally:
             self.cmb_vendor.blockSignals(False)
 
@@ -320,9 +325,39 @@ class ScenarioTab(QWidget):
             self.cards_lay.addWidget(empty)
             self.cards_lay.addStretch(1)
             return
+        meta_box = self._build_pack_meta(pack)
+        if meta_box is not None:
+            self.cards_lay.addWidget(meta_box)
         for it in pack.get("items") or []:
             self.cards_lay.addWidget(self._build_card(pack, it))
         self.cards_lay.addStretch(1)
+
+    def _build_pack_meta(self, pack):
+        """包级纪律卡（T 批 schema v2）：六段式开关 + 回退条件文本；都没有则不占位"""
+        tpl = str(pack.get("template") or "")
+        abort = str(pack.get("abort_criteria") or "").strip()
+        if tpl != "six" and not abort:
+            return None
+        box = QGroupBox("场景纪律")
+        box.setObjectName("PackMeta")       # 非步骤卡（冒烟按此过滤，步数断言只数步骤卡）
+        lay = QVBoxLayout(box)
+        lay.setSpacing(4)
+        if tpl == "six":
+            hint = QLabel("六段式：Pre-check → Change → Validation → 回退条件 → "
+                          "Rollback → Post-check（阶段只做分组，执行顺序以步序为准）")
+            hint.setObjectName("Hint")
+            hint.setWordWrap(True)
+            lay.addWidget(hint)
+        if abort:
+            head = QLabel("<span style='color:%s;font-weight:bold'>回退条件</span>"
+                          "（命中任一条即停止推进并执行 Rollback）" % WARNING)
+            head.setTextFormat(Qt.RichText)
+            head.setWordWrap(True)
+            lay.addWidget(head)
+            body = QLabel(self._esc(abort))
+            body.setWordWrap(True)
+            lay.addWidget(body)
+        return box
 
     @staticmethod
     def _esc(s):
