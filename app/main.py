@@ -773,6 +773,27 @@ def validate_seed(db_path=None):
         diff_problems.append("变更对比规则模块加载失败：%s" % exc)
         diff_rule_count = diff_variant_count = 0
 
+    # ---- 配置翻译映射表校验（U 批 2026-11-06：坏规则/坏绑定 [E] 硬拦截）----
+    tr_problems, tr_warnings = [], []
+    tr_family_count = tr_vendor_rules = 0
+    try:
+        import translate_tool as _tt
+        tr_data, tr_file_problems = _tt.load_rules()
+        tr_problems.extend(tr_file_problems)
+        tr_fams = tr_data.get("families") or []
+        tr_family_count = len(tr_fams)
+        tr_vendor_rules = sum(len((f.get("vendors") or {})) for f in tr_fams)
+        if not tr_file_problems and not tr_fams:
+            tr_problems.append("translate_rules.json：families 为空或缺失")
+        elif tr_fams:
+            _t_errs, _t_warns = _tt.validate_rules(
+                tr_data, entry_getter=database.get_entry,
+                vendor_slugs=list(dbmod.VENDOR_SLUGS.keys()))
+            tr_problems.extend(_t_errs)
+            tr_warnings.extend(_t_warns)
+    except Exception as exc:
+        tr_problems.append("配置翻译映射模块加载失败：%s" % exc)
+
     # ---- 输出分析器规则校验（模块 04 第 7 轮）----
     analyzer_problems = []
     try:
@@ -818,6 +839,8 @@ def validate_seed(db_path=None):
                                 len(p.get("items") or [])) for p in packs)))
     print("变更对比规则：%d 类 ｜ %d 厂商变体（H 批 Before/After 提取规则）"
           % (diff_rule_count, diff_variant_count))
+    print("配置翻译映射：%d 族 ｜ %d 条厂商映射（U 批，输出全部由库内条目渲染）"
+          % (tr_family_count, tr_vendor_rules))
     if duration_count:
         print("生效方式：" + "｜".join("%s %d 条" % (dbmod.DURATIONS.get(k, k), v)
                                     for k, v in sorted(duration_count.items())))
@@ -884,6 +907,16 @@ def validate_seed(db_path=None):
             print("   - " + item)
         if len(diff_warnings) > 10:
             print("   … 其余 %d 处" % (len(diff_warnings) - 10))
+    if tr_problems:
+        print("[X] 配置翻译映射发现 %d 个问题（坏族/坏绑定/占位无来源按 [E] 硬拦截）："
+              % len(tr_problems))
+        for item in tr_problems[:40]:
+            print("   - " + item)
+        return 1
+    if tr_warnings:
+        print("[W] 配置翻译映射提示 %d 处（拼写/未用绑定等，不阻塞打包）：" % len(tr_warnings))
+        for item in tr_warnings[:10]:
+            print("   - " + item)
     if pack_problems:
         print("[X] 场景包发现 %d 个问题（坏引用按 [E] 硬拦截）：" % len(pack_problems))
         for item in pack_problems[:40]:

@@ -1,0 +1,40 @@
+!
+! 接入交换机 SW-ACC-01（Cisco IOS 15.2）—— 整机配置小样
+!
+version 15.2
+hostname SW-ACC-01
+!
+username admin secret 5 $1$mERr$Q2xhc3NpYyRleGFtcGxl
+!
+vlan 10
+ name OFFICE
+!
+vlan 20
+ name FINANCE
+!
+interface GigabitEthernet0/1
+ description TO-PC-AREA-A
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ spanning-tree portfast
+!
+interface GigabitEthernet0/2
+ description TO-PC-AREA-B
+ switchport mode access
+ switchport access vlan 20
+!
+interface GigabitEthernet0/24
+ description TO-CORE-SW1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20
+ switchport trunk native vlan 1
+!
+ip routing
+ip route 192.168.20.0 255.255.255.0 10.0.0.2
+!
+ntp server 10.1.1.10
+!
+end

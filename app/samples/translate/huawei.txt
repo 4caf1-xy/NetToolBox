@@ -1,0 +1,52 @@
+#
+# 接入交换机 SW-ACC-02（华为 VRP5）—— 整机配置小样
+#
+sysname SW-ACC-02
+#
+vlan 10
+ description OFFICE
+#
+vlan 20
+ description FINANCE
+#
+interface GigabitEthernet0/0/1
+ description TO-PC-AREA-A
+ port link-type access
+ port default vlan 10
+ port-security enable
+ port-security max-mac-count 2
+ port-security protect-action restrict
+ stp edged-port enable
+#
+interface GigabitEthernet0/0/2
+ description TO-PC-AREA-B
+ port link-type access
+ port default vlan 20
+#
+interface GigabitEthernet0/0/24
+ description TO-CORE-SW1
+ port link-type trunk
+ port trunk allow-pass vlan 10 20
+ port trunk pvid vlan 1
+#
+interface Eth-Trunk 1
+ mode lacp-static
+ port link-type trunk
+ port trunk allow-pass vlan 10 20
+ trunkport GigabitEthernet 0/0/2 to GigabitEthernet 0/0/3
+ quit
+#
+ospf 1 router-id 2.2.2.2
+ area 0
+  network 10.10.10.0 0.0.0.255
+  quit
+ silent-interface GigabitEthernet0/0/24
+ quit
+#
+ip route-static 192.168.20.0 255.255.255.0 10.0.0.2
+#
+ntp-service unicast-server 10.1.1.10
+#
+local-user admin password irreversible-cipher %^%#Xk3pQ9dLmZ7v
+#
+return

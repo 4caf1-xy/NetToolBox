@@ -1,0 +1,1919 @@
+{
+  "format": "netcmdl config-translate map",
+  "schema": 1,
+  "generated_at": "2026-11-06",
+  "notes": "整机配置翻译映射表（U 批）。不新增条目：本文件的条目引用以 uuid 指向既有种子条目，翻译输出完全由条目 commands 模板渲染而来，故条数/树数/报错数一律不变。设计红线：任何目标命令行必须能追溯到一条库内条目（uuid），宁可账本长，不猜一行。字段说明见 docs/dev-notes.md（U 批）。",
+  "tiers": {
+    "a": "已译：命中族规则，输出由库内条目渲染，附源行号→目标条目 uuid 追溯",
+    "b": "逐行映射：注释/说明行非命令，按目标厂商注释符重写，语义不变",
+    "c": "需人工：私有特性或库内无对应族，逐条列原因，不输出任何命令",
+    "d": "跳过：空行/会话包装行/口令密钥行，列明理由，不做替换"
+  },
+  "vendors": {
+    "cisco": {
+      "label": "思科",
+      "style": "indent",
+      "if_prefix": "GigabitEthernet",
+      "comment": "!",
+      "mode_decl": "^\\s*switchport\\s+mode\\s+(?P<mode>access|trunk)\\s*$"
+    },
+    "ruijie": {
+      "label": "锐捷",
+      "style": "indent",
+      "if_prefix": "GigabitEthernet",
+      "comment": "!",
+      "mode_decl": "^\\s*switchport\\s+mode\\s+(?P<mode>access|trunk)\\s*$"
+    },
+    "zte": {
+      "label": "中兴",
+      "style": "indent",
+      "if_prefix": "gei_",
+      "comment": "!",
+      "mode_decl": "^\\s*switchport\\s+mode\\s+(?P<mode>access|trunk)\\s*$"
+    },
+    "huawei": {
+      "label": "华为",
+      "style": "indent",
+      "if_prefix": "GigabitEthernet",
+      "comment": "#",
+      "mode_decl": "^\\s*port\\s+link-type\\s+(?P<mode>access|trunk)\\s*$"
+    },
+    "h3c": {
+      "label": "H3C",
+      "style": "indent",
+      "if_prefix": "GigabitEthernet",
+      "comment": "#",
+      "mode_decl": "^\\s*port\\s+link-type\\s+(?P<mode>access|trunk)\\s*$"
+    },
+    "juniper": {
+      "label": "瞻博",
+      "style": "flat",
+      "if_prefix": "ge-",
+      "comment": "#",
+      "mode_decl": "^set\\s+interfaces\\s+(?P<ifname>\\S+)\\s+unit\\s+\\d+\\s+family\\s+ethernet-switching\\s+interface-mode\\s+(?P<mode>access|trunk)\\s*$"
+    }
+  },
+  "secret_patterns": [
+    "^\\s*username\\s+\\S+.*\\b(secret|password)\\b",
+    "^\\s*enable\\s+(secret|password)\\b",
+    "^\\s*local-user\\s+\\S+.*",
+    "^\\s*user-interface.*authentication-mode\\s+password",
+    "^\\s*set\\s+system\\s+root-authentication\\b",
+    "^\\s*snmp-server\\s+community\\b",
+    "^\\s*snmp-agent\\s+community\\b",
+    "^\\s*set\\s+snmp\\s+community\\b",
+    "^\\s*password\\b"
+  ],
+  "private_hints": {
+    "cisco": [
+      {
+        "re": "spanning-tree",
+        "note": "STP 增强特性（portfast/bpduguard）"
+      },
+      {
+        "re": "switchport\\s+voice\\s+vlan",
+        "note": "语音 VLAN 特性"
+      },
+      {
+        "re": "ip\\s+dhcp\\s+snooping",
+        "note": "DHCP Snooping"
+      },
+      {
+        "re": "storm-control",
+        "note": "风暴抑制（Cisco 语法）"
+      },
+      {
+        "re": "errdisable",
+        "note": "errdisable 自恢复"
+      },
+      {
+        "re": "ip\\s+helper-address",
+        "note": "DHCP 中继"
+      }
+    ],
+    "ruijie": [
+      {
+        "re": "spanning-tree",
+        "note": "STP 增强特性"
+      },
+      {
+        "re": "storm-control",
+        "note": "风暴抑制"
+      },
+      {
+        "re": "ip\\s+helper-address",
+        "note": "DHCP 中继"
+      }
+    ],
+    "zte": [
+      {
+        "re": "spanning-tree",
+        "note": "STP 增强特性"
+      },
+      {
+        "re": "storm-control",
+        "note": "风暴抑制"
+      },
+      {
+        "re": "dhcp",
+        "note": "DHCP 相关特性"
+      }
+    ],
+    "huawei": [
+      {
+        "re": "stp\\s+",
+        "note": "STP 增强特性（edged-port/bpdu-protection）"
+      },
+      {
+        "re": "dhcp\\s+snooping",
+        "note": "DHCP Snooping"
+      },
+      {
+        "re": "dhcp\\s+select",
+        "note": "DHCP 中继"
+      },
+      {
+        "re": "voice-vlan",
+        "note": "语音 VLAN 特性"
+      },
+      {
+        "re": "storm-suppression",
+        "note": "风暴抑制"
+      }
+    ],
+    "h3c": [
+      {
+        "re": "stp\\s+",
+        "note": "STP 增强特性"
+      },
+      {
+        "re": "dhcp\\s+snooping",
+        "note": "DHCP Snooping"
+      },
+      {
+        "re": "dhcp\\s+relay",
+        "note": "DHCP 中继"
+      },
+      {
+        "re": "voice-vlan",
+        "note": "语音 VLAN 特性"
+      }
+    ],
+    "juniper": [
+      {
+        "re": "protocols\\s+(rstp|mstp|vstp)",
+        "note": "STP 增强特性"
+      },
+      {
+        "re": "ethernet-switching-options",
+        "note": "二层安全选项（storm-control 等）"
+      },
+      {
+        "re": "dhcp-relay|forwarding-options",
+        "note": "DHCP 中继"
+      }
+    ]
+  },
+  "families": [
+    {
+      "id": "port_security",
+      "name": "端口安全（MAC 数量限制）",
+      "category": "端口安全",
+      "bind": {
+        "ifname": {
+          "*": {
+            "param": "ifname",
+            "transform": "if_full"
+          },
+          "huawei": {
+            "param": "port",
+            "transform": "if_last"
+          },
+          "h3c": {
+            "param": "port",
+            "transform": "if_last"
+          },
+          "juniper": {
+            "param": "port",
+            "transform": "if_full"
+          }
+        },
+        "max_mac": {
+          "*": {
+            "param": "max_mac",
+            "transform": "id"
+          }
+        },
+        "action": {
+          "*": {
+            "param": "action",
+            "transform": "id"
+          }
+        }
+      },
+      "vendors": {
+        "cisco": {
+          "entry": "bbc970b6-0942-5279-9d9c-1da1ad991cbf",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*switchport\\s+port-security\\s+maximum\\s+(?P<max_mac>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+port-security\\s+violation\\s+(?P<action>\\w+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+port-security\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "5999bca7-0627-5b9f-9ac1-9ea47f1eae0a",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*switchport\\s+port-security\\s+maximum\\s+(?P<max_mac>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+port-security\\s+violation\\s+(?P<action>\\w+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+port-security\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ]
+        },
+        "zte": {
+          "entry": "6e043c7d-6f35-5152-9d8d-f5e07602cdfb",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*switchport\\s+port-security\\s+maximum\\s+(?P<max_mac>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+port-security\\s+violation\\s+(?P<action>\\w+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+port-security\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "28c3edf7-56c7-5d37-a85b-8458bb5ed4b4",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*port-security\\s+max-mac-count\\s+(?P<max_mac>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*port-security\\s+protect-action\\s+(?P<action>\\w+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*port-security\\s+enable\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "600237fb-4ddd-59ff-b731-c9a70fa03ebf",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*port-security\\s+max-mac-count\\s+(?P<max_mac>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*port-security\\s+enable\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "7c3037cc-cc5f-50b6-af54-64439e06072d",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^set\\s+interfaces\\s+(?P<ifname>\\S+)\\s+unit\\s+\\d+\\s+family\\s+ethernet-switching\\s+interface-mac-limit\\s+(?P<max_mac>\\d+)\\s+packet-action\\s+drop\\s*$"
+            }
+          ]
+        }
+      },
+      "optional": [
+        "action"
+      ]
+    },
+    {
+      "id": "link_agg",
+      "name": "链路聚合（LACP）",
+      "category": "链路聚合",
+      "bind": {
+        "agg_id": {
+          "*": {
+            "param": "agg_id",
+            "transform": "id"
+          },
+          "cisco": {
+            "param": "po_id",
+            "transform": "id"
+          },
+          "huawei": {
+            "param": "trunk_id",
+            "transform": "id"
+          }
+        },
+        "vlan_list": {
+          "*": {
+            "param": "vlans",
+            "transform": "id"
+          }
+        },
+        "members": {
+          "*": {
+            "param": "port_range",
+            "transform": [
+              "members0",
+              "range_expr"
+            ]
+          },
+          "huawei": {
+            "param": "member_ports",
+            "transform": [
+              "members0"
+            ]
+          },
+          "juniper": {
+            "param": "port_a",
+            "transform": [
+              "members0",
+              "if_full"
+            ]
+          },
+          "zte": {
+            "param": "port_a",
+            "transform": [
+              "members0",
+              "if_full"
+            ]
+          },
+          "cisco": {
+            "param": "port_range",
+            "transform": [
+              "members0",
+              "range_full"
+            ]
+          }
+        },
+        "members@2": {
+          "*": null,
+          "juniper": {
+            "param": "port_b",
+            "transform": [
+              "members1",
+              "if_full"
+            ]
+          },
+          "zte": {
+            "param": "port_b",
+            "transform": [
+              "members1",
+              "if_full"
+            ]
+          }
+        }
+      },
+      "vendors": {
+        "cisco": {
+          "entry": "8e83b6d4-f82c-5991-9313-11fcc5d01354",
+          "key": [
+            "agg_id"
+          ],
+          "lines": [
+            {
+              "re": "^interface\\s+[Pp]ort-channel\\s*(?P<agg_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "if"
+            },
+            {
+              "re": "^\\s*switchport\\s+mode\\s+trunk\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "port-channel"
+              ]
+            },
+            {
+              "re": "^\\s*switchport\\s+trunk\\s+allowed\\s+vlan\\s+(?P<vlan_list>.+?)\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "port-channel"
+              ]
+            },
+            {
+              "re": "^\\s*channel-group\\s+(?P<agg_id>\\d+)\\s+mode\\s+\\w+\\s*$",
+              "view": "if",
+              "collect": {
+                "members": "port"
+              }
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "898f54fa-dced-5ff8-adb7-7c19c9904562",
+          "key": [
+            "agg_id"
+          ],
+          "lines": [
+            {
+              "re": "^interface\\s+aggregateport\\s*(?P<agg_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "if"
+            },
+            {
+              "re": "^\\s*switchport\\s+mode\\s+trunk\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "aggregateport"
+              ]
+            },
+            {
+              "re": "^\\s*port-group\\s+(?P<agg_id>\\d+)\\s+mode\\s+\\w+\\s*$",
+              "view": "if",
+              "collect": {
+                "members": "port"
+              }
+            }
+          ]
+        },
+        "zte": {
+          "entry": "a5ccfe70-5374-502b-aad3-fae25c1729d1",
+          "key": [
+            "agg_id"
+          ],
+          "lines": [
+            {
+              "re": "^interface\\s+smartgroup\\s*(?P<agg_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "if"
+            },
+            {
+              "re": "^\\s*smartgroup\\s+mode\\s+802\\.3ad\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "smartgroup"
+              ]
+            },
+            {
+              "re": "^\\s*switchport\\s+mode\\s+trunk\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "smartgroup"
+              ]
+            },
+            {
+              "re": "^\\s*switchport\\s+trunk\\s+vlan\\s+(?P<vlan_list>.+?)\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "smartgroup"
+              ]
+            },
+            {
+              "re": "^\\s*smartgroup\\s+(?P<agg_id>\\d+)\\s+mode\\s+\\w+\\s*$",
+              "view": "if",
+              "collect": {
+                "members": "port"
+              }
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "044ded2e-c286-54e5-85e5-dd0e3d803833",
+          "key": [
+            "agg_id"
+          ],
+          "lines": [
+            {
+              "re": "^interface\\s+Eth-Trunk\\s*(?P<agg_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "if"
+            },
+            {
+              "re": "^\\s*mode\\s+lacp-static\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "eth-trunk"
+              ]
+            },
+            {
+              "re": "^\\s*port\\s+link-type\\s+trunk\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "eth-trunk"
+              ]
+            },
+            {
+              "re": "^\\s*port\\s+trunk\\s+allow-pass\\s+vlan\\s+(?P<vlan_list>.+?)\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "eth-trunk"
+              ]
+            },
+            {
+              "re": "^\\s*trunkport\\s+(?:GigabitEthernet\\s+)?(?P<members>.+?)\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "eth-trunk"
+              ]
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "11e85041-04b6-58a9-8469-27c1c2e971e7",
+          "key": [
+            "agg_id"
+          ],
+          "lines": [
+            {
+              "re": "^interface\\s+Bridge-Aggregation\\s*(?P<agg_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "if"
+            },
+            {
+              "re": "^\\s*link-aggregation\\s+mode\\s+dynamic\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "bridge-aggregation"
+              ]
+            },
+            {
+              "re": "^\\s*port\\s+link-type\\s+trunk\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "bridge-aggregation"
+              ]
+            },
+            {
+              "re": "^\\s*port\\s+trunk\\s+permit\\s+vlan\\s+(?P<vlan_list>.+?)\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "bridge-aggregation"
+              ]
+            },
+            {
+              "re": "^\\s*port\\s+link-aggregation\\s+group\\s+(?P<agg_id>\\d+)\\s*$",
+              "view": "if",
+              "collect": {
+                "members": "port"
+              }
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "949f1e25-8c26-5332-831e-cfb66a80ed24",
+          "key": [
+            "agg_id"
+          ],
+          "lines": [
+            {
+              "re": "^set\\s+chassis\\s+aggregated-devices\\s+ethernet\\s+device-count\\s+\\d+\\s*$"
+            },
+            {
+              "re": "^set\\s+interfaces\\s+ae(?P<agg_id>\\d+)\\s+aggregated-ether-options\\s+lacp\\s+active\\s*$"
+            },
+            {
+              "re": "^set\\s+interfaces\\s+ae(?P<agg_id>\\d+)\\s+unit\\s+\\d+\\s+family\\s+ethernet-switching\\s+interface-mode\\s+trunk\\s*$"
+            },
+            {
+              "re": "^set\\s+interfaces\\s+ae(?P<agg_id>\\d+)\\s+unit\\s+\\d+\\s+family\\s+ethernet-switching\\s+vlan\\s+members\\s+(?P<vlan_list>.+?)\\s*$"
+            },
+            {
+              "re": "^set\\s+interfaces\\s+(?P<members>\\S+)\\s+ether-options\\s+802\\.3ad\\s+ae(?P<agg_id>\\d+)\\s*$"
+            }
+          ]
+        }
+      },
+      "optional": [
+        "vlan_list",
+        "vlans"
+      ],
+      "default_ok": [
+        "device_count"
+      ]
+    },
+    {
+      "id": "trunk",
+      "name": "Trunk 口放通 VLAN",
+      "category": "Trunk",
+      "bind": {
+        "ifname": {
+          "*": {
+            "param": "port",
+            "transform": "if_short"
+          },
+          "cisco": {
+            "param": "port",
+            "transform": "if_full"
+          },
+          "zte": {
+            "param": "port",
+            "transform": "if_full"
+          },
+          "juniper": {
+            "param": "port",
+            "transform": "if_full"
+          }
+        },
+        "vlan_list": {
+          "*": {
+            "param": "vlan_list",
+            "transform": "id"
+          }
+        },
+        "pvid": {
+          "*": {
+            "param": "pvid",
+            "transform": "id"
+          },
+          "cisco": {
+            "param": "native_vlan",
+            "transform": "id"
+          },
+          "juniper": {
+            "param": "native_vlan",
+            "transform": "id"
+          }
+        }
+      },
+      "vendors": {
+        "cisco": {
+          "entry": "b765a2c0-303b-57ed-a232-61e19288b059",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*switchport\\s+mode\\s+trunk\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+trunk\\s+allowed\\s+vlan\\s+(?P<vlan_list>.+?)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "trunk"
+            },
+            {
+              "re": "^\\s*switchport\\s+trunk\\s+native\\s+vlan\\s+(?P<pvid>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "trunk"
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "b664366d-7fb6-5ed7-a4e2-452a87d051f2",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*switchport\\s+mode\\s+trunk\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+trunk\\s+allowed\\s+vlan(?:\\s+add)?\\s+(?P<vlan_list>.+?)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "trunk"
+            },
+            {
+              "re": "^\\s*switchport\\s+trunk\\s+native\\s+vlan\\s+(?P<pvid>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "trunk"
+            }
+          ]
+        },
+        "zte": {
+          "entry": "b8d71d5a-6eaa-538a-b057-788469b38701",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*switchport\\s+mode\\s+trunk\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+trunk\\s+allowed\\s+vlan\\s+(?P<vlan_list>.+?)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "trunk"
+            },
+            {
+              "re": "^\\s*switchport\\s+trunk\\s+native\\s+vlan\\s+(?P<pvid>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "trunk"
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "79728290-89d3-56ba-abdb-c5707aead754",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*port\\s+link-type\\s+trunk\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*port\\s+trunk\\s+allow-pass\\s+vlan\\s+(?P<vlan_list>.+?)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "trunk"
+            },
+            {
+              "re": "^\\s*port\\s+trunk\\s+pvid\\s+vlan\\s+(?P<pvid>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "trunk"
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "e95c9d0a-855c-5e6f-8d3d-3460f2b15107",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*port\\s+link-type\\s+trunk\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*port\\s+trunk\\s+permit\\s+vlan\\s+(?P<vlan_list>.+?)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "trunk"
+            },
+            {
+              "re": "^\\s*port\\s+trunk\\s+pvid\\s+vlan\\s+(?P<pvid>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "trunk"
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "4b1d8884-23ae-52d6-b6f5-64e17784d73c",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^set\\s+interfaces\\s+(?P<ifname>\\S+)\\s+unit\\s+\\d+\\s+family\\s+ethernet-switching\\s+interface-mode\\s+trunk\\s*$"
+            },
+            {
+              "re": "^set\\s+interfaces\\s+(?P<ifname>\\S+)\\s+unit\\s+\\d+\\s+family\\s+ethernet-switching\\s+vlan\\s+members\\s+(?P<vlan_list>.+?)\\s*$",
+              "mode": "trunk"
+            },
+            {
+              "re": "^set\\s+interfaces\\s+(?P<ifname>\\S+)\\s+unit\\s+\\d+\\s+family\\s+ethernet-switching\\s+native-vlan-id\\s+(?P<pvid>\\d+)\\s*$",
+              "mode": "trunk"
+            }
+          ]
+        }
+      },
+      "optional": [
+        "pvid",
+        "native_vlan",
+        "port_desc",
+        "vlan_list"
+      ]
+    },
+    {
+      "id": "vlan",
+      "name": "VLAN 创建与 Access 口划分",
+      "category": "VLAN",
+      "bind": {
+        "vlan_id": {
+          "*": {
+            "param": "vlan_id",
+            "transform": "id"
+          }
+        },
+        "vlan_name": {
+          "*": {
+            "param": "vlan_name",
+            "transform": "id"
+          }
+        },
+        "ifname": {
+          "*": {
+            "param": "port_range",
+            "transform": [
+              "range_expr"
+            ]
+          },
+          "h3c": {
+            "param": "port_start",
+            "transform": [
+              "range_start"
+            ]
+          },
+          "huawei": {
+            "param": "port_start",
+            "transform": [
+              "range_start"
+            ]
+          },
+          "juniper": {
+            "param": "port",
+            "transform": [
+              "first_port",
+              "if_full"
+            ],
+            "narrow": true
+          },
+          "zte": {
+            "param": "port",
+            "transform": [
+              "first_port",
+              "if_full"
+            ],
+            "narrow": true
+          },
+          "cisco": {
+            "param": "port_range",
+            "transform": [
+              "range_full"
+            ]
+          }
+        },
+        "ifname@end": {
+          "*": {
+            "param": "port_end",
+            "transform": [
+              "range_end"
+            ]
+          },
+          "cisco": null,
+          "ruijie": null,
+          "juniper": null,
+          "zte": null
+        }
+      },
+      "vendors": {
+        "cisco": {
+          "entry": "e3971cfc-1d22-5542-89d5-7b72b2c3ee6a",
+          "key": [
+            "vlan_id"
+          ],
+          "lines": [
+            {
+              "re": "^vlan\\s+(?P<vlan_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "vlan"
+            },
+            {
+              "re": "^\\s*name\\s+(?P<vlan_name>\\S+)\\s*$",
+              "view": "vlan",
+              "inherit": {
+                "vlan_id": "vlan_id"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+mode\\s+access\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "access"
+            },
+            {
+              "re": "^\\s*switchport\\s+access\\s+vlan\\s+(?P<vlan_id>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "access"
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "1c128aa6-de9b-53c7-90de-802fa9aa2e13",
+          "key": [
+            "vlan_id"
+          ],
+          "lines": [
+            {
+              "re": "^vlan\\s+(?P<vlan_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "vlan"
+            },
+            {
+              "re": "^\\s*name\\s+(?P<vlan_name>\\S+)\\s*$",
+              "view": "vlan",
+              "inherit": {
+                "vlan_id": "vlan_id"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+mode\\s+access\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "access"
+            },
+            {
+              "re": "^\\s*switchport\\s+access\\s+vlan\\s+(?P<vlan_id>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "access"
+            }
+          ]
+        },
+        "zte": {
+          "entry": "b2f47889-8b45-55e0-8cb6-625459ca06ef",
+          "key": [
+            "vlan_id"
+          ],
+          "lines": [
+            {
+              "re": "^vlan\\s+(?P<vlan_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "vlan"
+            },
+            {
+              "re": "^\\s*name\\s+(?P<vlan_name>\\S+)\\s*$",
+              "view": "vlan",
+              "inherit": {
+                "vlan_id": "vlan_id"
+              }
+            },
+            {
+              "re": "^\\s*switchport\\s+mode\\s+access\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "access"
+            },
+            {
+              "re": "^\\s*switchport\\s+access\\s+vlan\\s+(?P<vlan_id>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "access"
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "fc982ad5-2758-5749-9f78-a5b2b52e41db",
+          "key": [
+            "vlan_id"
+          ],
+          "lines": [
+            {
+              "re": "^vlan\\s+(?P<vlan_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "vlan"
+            },
+            {
+              "re": "^\\s*description\\s+(?P<vlan_name>.+?)\\s*$",
+              "view": "vlan",
+              "inherit": {
+                "vlan_id": "vlan_id"
+              }
+            },
+            {
+              "re": "^\\s*port\\s+link-type\\s+access\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "access"
+            },
+            {
+              "re": "^\\s*port\\s+default\\s+vlan\\s+(?P<vlan_id>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "access"
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "ed4efc39-7d65-5f6b-84fd-db4df71f2a63",
+          "key": [
+            "vlan_id"
+          ],
+          "lines": [
+            {
+              "re": "^vlan\\s+(?P<vlan_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "vlan"
+            },
+            {
+              "re": "^\\s*name\\s+(?P<vlan_name>\\S+)\\s*$",
+              "view": "vlan",
+              "inherit": {
+                "vlan_id": "vlan_id"
+              }
+            },
+            {
+              "re": "^\\s*port\\s+link-type\\s+access\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "access"
+            },
+            {
+              "re": "^\\s*port\\s+access\\s+vlan\\s+(?P<vlan_id>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              },
+              "mode": "access"
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "2eb086b7-9e35-5a3e-b98b-68a782066662",
+          "key": [
+            "vlan_id"
+          ],
+          "lines": [
+            {
+              "re": "^set\\s+vlans\\s+(?P<vlan_name>\\S+)\\s+vlan-id\\s+(?P<vlan_id>\\d+)\\s*$"
+            },
+            {
+              "re": "^set\\s+interfaces\\s+(?P<ifname>\\S+)\\s+unit\\s+\\d+\\s+family\\s+ethernet-switching\\s+interface-mode\\s+access\\s*$",
+              "mode": "access"
+            },
+            {
+              "re": "^set\\s+interfaces\\s+(?P<ifname>\\S+)\\s+unit\\s+\\d+\\s+family\\s+ethernet-switching\\s+vlan\\s+members\\s+(?P<vlan_name>\\S+)\\s*$",
+              "mode": "access",
+              "resolve": {
+                "vlan_name": "vlan_id"
+              }
+            }
+          ]
+        }
+      },
+      "default_ok": [
+        "group_name"
+      ],
+      "optional": [
+        "port_desc",
+        "description"
+      ]
+    },
+    {
+      "id": "ospf",
+      "name": "OSPF 基本组网",
+      "category": "OSPF",
+      "bind": {
+        "process_id": {
+          "*": {
+            "param": "process_id",
+            "transform": "id"
+          }
+        },
+        "router_id": {
+          "*": {
+            "param": "router_id",
+            "transform": "id"
+          }
+        },
+        "network": {
+          "*": {
+            "param": "network",
+            "transform": "id"
+          }
+        },
+        "wildcard": {
+          "*": {
+            "param": "wildcard",
+            "transform": "id"
+          }
+        },
+        "area_id": {
+          "*": {
+            "param": "area_id",
+            "transform": "id"
+          }
+        },
+        "silent": {
+          "*": {
+            "param": "silent_port",
+            "transform": "if_short"
+          },
+          "ruijie": {
+            "param": "passive_port",
+            "transform": "if_short"
+          },
+          "zte": {
+            "param": "passive_port",
+            "transform": "if_short"
+          },
+          "cisco": null,
+          "juniper": null
+        },
+        "uplink": {
+          "*": {
+            "param": "silent_port",
+            "transform": "if_short"
+          },
+          "cisco": {
+            "param": "uplink_port",
+            "transform": "if_short"
+          },
+          "ruijie": {
+            "param": "passive_port",
+            "transform": "if_short"
+          },
+          "zte": {
+            "param": "passive_port",
+            "transform": "if_short"
+          },
+          "juniper": {
+            "param": "uplink_port",
+            "transform": [
+              "strip_unit",
+              "if_short"
+            ]
+          }
+        }
+      },
+      "vendors": {
+        "cisco": {
+          "entry": "28250c48-48c3-50ee-b4d7-3b12495327e8",
+          "key": [
+            "process_id"
+          ],
+          "lines": [
+            {
+              "re": "^router\\s+ospf\\s+(?P<process_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "ospf"
+            },
+            {
+              "re": "^\\s*router-id\\s+(?P<router_id>[\\d.]+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            },
+            {
+              "re": "^\\s*network\\s+(?P<network>[\\d.]+)\\s+(?P<wildcard>[\\d.]+)\\s+area\\s+(?P<area_id>\\S+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            },
+            {
+              "re": "^\\s*no\\s+passive-interface\\s+(?P<uplink>\\S+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "51ce7f24-f3b5-5056-b442-e2f713666fae",
+          "key": [
+            "process_id"
+          ],
+          "lines": [
+            {
+              "re": "^router\\s+ospf\\s+(?P<process_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "ospf"
+            },
+            {
+              "re": "^\\s*router-id\\s+(?P<router_id>[\\d.]+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            },
+            {
+              "re": "^\\s*network\\s+(?P<network>[\\d.]+)\\s+(?P<wildcard>[\\d.]+)\\s+area\\s+(?P<area_id>\\S+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            },
+            {
+              "re": "^\\s*passive-interface\\s+(?P<silent>\\S+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            }
+          ]
+        },
+        "zte": {
+          "entry": "e79c87d3-4388-54ad-a7bb-d68e89bc5647",
+          "key": [
+            "process_id"
+          ],
+          "lines": [
+            {
+              "re": "^router\\s+ospf\\s+(?P<process_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "ospf"
+            },
+            {
+              "re": "^\\s*router-id\\s+(?P<router_id>[\\d.]+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            },
+            {
+              "re": "^\\s*network\\s+(?P<network>[\\d.]+)\\s+(?P<wildcard>[\\d.]+)\\s+area\\s+(?P<area_id>\\S+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            },
+            {
+              "re": "^\\s*passive-interface\\s+(?P<silent>\\S+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "cbeb3037-d375-599b-bace-3571fd3afee2",
+          "key": [
+            "process_id"
+          ],
+          "lines": [
+            {
+              "re": "^ospf\\s+(?P<process_id>\\d+)\\s+router-id\\s+(?P<router_id>[\\d.]+)\\s*$",
+              "scope": "header",
+              "view": "ospf"
+            },
+            {
+              "re": "^\\s*area\\s+(?P<area_id>[\\d.]+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            },
+            {
+              "re": "^\\s*network\\s+(?P<network>[\\d.]+)\\s+(?P<wildcard>[\\d.]+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            },
+            {
+              "re": "^\\s*silent-interface\\s+(?P<silent>\\S+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "51c3dd16-1788-50d8-8c03-6156bd3c832d",
+          "key": [
+            "process_id"
+          ],
+          "lines": [
+            {
+              "re": "^ospf\\s+(?P<process_id>\\d+)\\s+router-id\\s+(?P<router_id>[\\d.]+)\\s*$",
+              "scope": "header",
+              "view": "ospf"
+            },
+            {
+              "re": "^\\s*area\\s+(?P<area_id>[\\d.]+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            },
+            {
+              "re": "^\\s*network\\s+(?P<network>[\\d.]+)\\s+(?P<wildcard>[\\d.]+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            },
+            {
+              "re": "^\\s*silent-interface\\s+(?P<silent>\\S+)\\s*$",
+              "view": "ospf",
+              "inherit": {
+                "process_id": "process_id"
+              }
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "8fe8f10d-ee6a-5b19-bbe3-51096df96a7b",
+          "key": [
+            "area_id"
+          ],
+          "lines": [
+            {
+              "re": "^set\\s+routing-options\\s+router-id\\s+(?P<router_id>[\\d.]+)\\s*$"
+            },
+            {
+              "re": "^set\\s+protocols\\s+ospf\\s+area\\s+(?P<area_id>\\S+)\\s+interface\\s+(?P<uplink>\\S+?)(?:\\s+passive)?\\s*$"
+            }
+          ]
+        }
+      },
+      "default_ok": [
+        "area_id"
+      ],
+      "optional": [
+        "port",
+        "uplink_port"
+      ]
+    },
+    {
+      "id": "ifbase",
+      "name": "接口描述 / 速率 / 双工",
+      "category": "接口基础",
+      "bind": {
+        "ifname": {
+          "*": {
+            "param": "port",
+            "transform": "if_short"
+          },
+          "cisco": {
+            "param": "port",
+            "transform": "if_full"
+          },
+          "ruijie": {
+            "param": "port",
+            "transform": "if_short"
+          },
+          "zte": {
+            "param": "port",
+            "transform": "if_short"
+          }
+        },
+        "description": {
+          "*": {
+            "param": "description",
+            "transform": "id"
+          }
+        },
+        "speed": {
+          "*": {
+            "param": "speed",
+            "transform": "speed"
+          }
+        },
+        "duplex": {
+          "*": {
+            "param": "duplex",
+            "transform": "duplex"
+          }
+        }
+      },
+      "optional": [
+        "description",
+        "speed",
+        "duplex"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "a98b6202-fe08-5fe1-ba99-3dac3884cb94",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*description\\s+(?P<description>.+?)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*speed\\s+(?P<speed>\\S+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*duplex\\s+(?P<duplex>\\S+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*no\\s+shutdown\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "783b71bc-1eff-5f04-8ebf-4b9a07116331",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*description\\s+(?P<description>.+?)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*speed\\s+(?P<speed>\\S+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*duplex\\s+(?P<duplex>\\S+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*no\\s+shutdown\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ]
+        },
+        "zte": {
+          "entry": "3765e150-6133-5843-9670-71b3423ad94a",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*description\\s+(?P<description>.+?)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*speed\\s+(?P<speed>\\S+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*duplex\\s+(?P<duplex>\\S+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*no\\s+shutdown\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "7b49fa1c-388f-5d00-8e40-e05d3385bf6e",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*description\\s+(?P<description>.+?)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*speed\\s+(?P<speed>\\S+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*duplex\\s+(?P<duplex>\\S+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*undo\\s+shutdown\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "bab3edf9-8bc9-59a3-884d-7390f7ad94eb",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^\\s*description\\s+(?P<description>.+?)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*speed\\s+(?P<speed>\\S+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*duplex\\s+(?P<duplex>\\S+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*undo\\s+shutdown\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "60824d57-8813-57d3-b00e-8107cd160006",
+          "key": [
+            "ifname"
+          ],
+          "lines": [
+            {
+              "re": "^set\\s+interfaces\\s+(?P<ifname>\\S+)\\s+description\\s+\"(?P<description>[^\"]*)\"\\s*$"
+            },
+            {
+              "re": "^set\\s+interfaces\\s+(?P<ifname>\\S+)\\s+speed\\s+(?P<speed>\\S+)\\s*$"
+            },
+            {
+              "re": "^set\\s+interfaces\\s+(?P<ifname>\\S+)\\s+link-mode\\s+(?P<duplex>\\S+)\\s*$"
+            },
+            {
+              "re": "^delete\\s+interfaces\\s+(?P<ifname>\\S+)\\s+disable\\s*$"
+            }
+          ]
+        }
+      },
+      "default_ok": []
+    },
+    {
+      "id": "ntp",
+      "name": "NTP 服务器",
+      "category": "时间同步",
+      "bind": {
+        "ntp_server_ip": {
+          "*": {
+            "param": "ntp_server_ip",
+            "transform": "id"
+          }
+        }
+      },
+      "vendors": {
+        "cisco": {
+          "entry": "f6e8ea28-8fe6-5a95-93c5-162e3aac0cf6",
+          "key": [
+            "ntp_server_ip"
+          ],
+          "lines": [
+            {
+              "re": "^ntp\\s+server\\s+(?P<ntp_server_ip>[\\d.]+)\\s*$"
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "10f38c42-b923-50d5-bf00-5e689aa0f2a6",
+          "key": [
+            "ntp_server_ip"
+          ],
+          "lines": [
+            {
+              "re": "^ntp\\s+server\\s+(?P<ntp_server_ip>[\\d.]+)\\s*$"
+            }
+          ]
+        },
+        "zte": {
+          "entry": "94c6b710-35f9-5c30-88b7-89f0fe63d2b1",
+          "key": [
+            "ntp_server_ip"
+          ],
+          "lines": [
+            {
+              "re": "^ntp\\s+server\\s+(?P<ntp_server_ip>[\\d.]+)\\s*$"
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "16851b17-1676-5d52-be5c-a4d30d7eb1a0",
+          "key": [
+            "ntp_server_ip"
+          ],
+          "lines": [
+            {
+              "re": "^ntp-service\\s+unicast-server\\s+(?P<ntp_server_ip>[\\d.]+)\\s*$"
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "57b08fae-acdc-5707-8500-6acf03a65885",
+          "key": [
+            "ntp_server_ip"
+          ],
+          "lines": [
+            {
+              "re": "^ntp-service\\s+unicast-server\\s+(?P<ntp_server_ip>[\\d.]+)\\s*$"
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "e713b1cb-7de3-56d3-8f56-dd6dd323b998",
+          "key": [
+            "ntp_server_ip"
+          ],
+          "lines": [
+            {
+              "re": "^set\\s+system\\s+ntp\\s+server\\s+(?P<ntp_server_ip>[\\d.]+)\\s*$"
+            }
+          ]
+        }
+      },
+      "default_ok": []
+    },
+    {
+      "id": "static_route",
+      "name": "静态路由 / 缺省路由",
+      "category": "静态路由",
+      "bind": {
+        "dest_net": {
+          "*": {
+            "param": "dest_net",
+            "transform": "id"
+          }
+        },
+        "mask": {
+          "*": {
+            "param": "mask",
+            "transform": "to_mask"
+          },
+          "h3c": {
+            "param": "masklen",
+            "transform": "to_masklen"
+          },
+          "juniper": {
+            "param": "prefix_len",
+            "transform": "to_masklen"
+          }
+        },
+        "next_hop": {
+          "*": {
+            "param": "next_hop",
+            "transform": "id"
+          }
+        },
+        "backup_hop": {
+          "*": {
+            "param": "backup_hop",
+            "transform": "id"
+          }
+        },
+        "distance": {
+          "*": {
+            "param": "distance",
+            "transform": "id"
+          },
+          "h3c": {
+            "param": "preference",
+            "transform": "id"
+          },
+          "huawei": {
+            "param": "preference",
+            "transform": "id"
+          },
+          "juniper": {
+            "param": "preference",
+            "transform": "id"
+          }
+        }
+      },
+      "vendors": {
+        "cisco": {
+          "entry": "eac547bb-4688-5afa-82cc-cd39cc580518",
+          "key": [
+            "dest_net",
+            "mask"
+          ],
+          "lines": [
+            {
+              "re": "^ip\\s+route\\s+(?P<dest_net>[\\d.]+)\\s+(?P<mask>[\\d.]+|\\d+)\\s+(?P<next_hop>[\\d.]+)(?:\\s+(?P<distance>\\d+))?\\s*$"
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "2e17b383-ad10-533f-9e0f-ab2e4922a845",
+          "key": [
+            "dest_net",
+            "mask"
+          ],
+          "lines": [
+            {
+              "re": "^ip\\s+route\\s+(?P<dest_net>[\\d.]+)\\s+(?P<mask>[\\d.]+|\\d+)\\s+(?P<next_hop>[\\d.]+)(?:\\s+(?P<distance>\\d+))?\\s*$"
+            }
+          ]
+        },
+        "zte": {
+          "entry": "576c2de4-e491-5985-a776-010da8b274d5",
+          "key": [
+            "dest_net",
+            "mask"
+          ],
+          "lines": [
+            {
+              "re": "^ip\\s+route\\s+(?P<dest_net>[\\d.]+)\\s+(?P<mask>[\\d.]+|\\d+)\\s+(?P<next_hop>[\\d.]+)(?:\\s+(?P<distance>\\d+))?\\s*$"
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "9f24e321-8633-58e5-9059-a2023a9bee9b",
+          "key": [
+            "dest_net",
+            "mask"
+          ],
+          "lines": [
+            {
+              "re": "^ip\\s+route-static\\s+(?P<dest_net>[\\d.]+)\\s+(?P<mask>[\\d.]+|\\d+)\\s+(?P<next_hop>[\\d.]+)(?:\\s+preference\\s+(?P<distance>\\d+))?\\s*$"
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "0291a9b4-a1d7-5588-a902-7a0f1ff24c6a",
+          "key": [
+            "dest_net",
+            "mask"
+          ],
+          "lines": [
+            {
+              "re": "^ip\\s+route-static\\s+(?P<dest_net>[\\d.]+)\\s+(?P<mask>[\\d.]+|\\d+)\\s+(?P<next_hop>[\\d.]+)(?:\\s+preference\\s+(?P<distance>\\d+))?\\s*$"
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "c7a88531-3888-5a30-8fa2-851f6c7b540d",
+          "key": [
+            "dest_net",
+            "mask"
+          ],
+          "lines": [
+            {
+              "re": "^set\\s+routing-options\\s+static\\s+route\\s+(?P<dest_net>[\\d.]+)/(?P<mask>\\d+)\\s+next-hop\\s+(?P<next_hop>[\\d.]+)\\s*$"
+            }
+          ]
+        }
+      },
+      "optional": [
+        "backup_hop",
+        "distance",
+        "preference",
+        "main_preference"
+      ],
+      "default_ok": []
+    }
+  ]
+}

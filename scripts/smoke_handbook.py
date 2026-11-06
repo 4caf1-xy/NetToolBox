@@ -300,7 +300,7 @@ def case_e():
     db.import_seed_dir()
     w = ui_main.MainWindow(db)
 
-    check("E/九Tab", w.tabs.count() == 9, str(w.tabs.count()))
+    check("E/十Tab（U 批配置翻译）", w.tabs.count() == 10, str(w.tabs.count()))
     hb_tab = w.tab_handbook
     check("E/手册树7册", hb_tab.tree.topLevelItemCount() == 7,
           str(hb_tab.tree.topLevelItemCount()))

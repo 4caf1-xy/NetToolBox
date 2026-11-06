@@ -373,13 +373,15 @@ def case_e():
         # 2026-10-12：操作单 Tab（裁决②）+ 场景包 Tab（排查向导后）→ 5 → 6；
         # 2026-10-14（H 批）：变更对比 Tab（操作单后）→ 6 → 7；
         # 2026-11-02（R 批）：速查手册（命令库后）+ 工具箱（AI 诊断前）→ 7 → 9
-        check("E/Tab-九个（手册+工具箱加入）", w.tabs.count() == 9
+        # 2026-11-06（U 批）：配置翻译（变更对比后、工具箱前）→ 9 → 10
+        check("E/Tab-十个（增配置翻译）", w.tabs.count() == 10
               and titles == ["命令库", "速查手册", "排查向导", "场景包", "报错诊断",
-                             "操作单", "变更对比", "工具箱", "AI 诊断"],
+                             "操作单", "变更对比", "配置翻译", "工具箱", "AI 诊断"],
               str(titles))
         check("E/操作单Tab-可恢复分栏", hasattr(w.tab_runbook, "restore_split_state"), "")
         check("E/场景包Tab-可恢复分栏", hasattr(w.tab_scenario, "restore_split_state"), "")
         check("E/变更对比Tab-可恢复分栏", hasattr(w.tab_diff, "restore_split_state"), "")
+        check("E/配置翻译Tab-可恢复分栏", hasattr(w.tab_translate, "restore_split_state"), "")
         # 仪表盘卡片在命令库 Tab（父链可达 main_split）
         p, in_tab = w.dashboard, False
         while p is not None:

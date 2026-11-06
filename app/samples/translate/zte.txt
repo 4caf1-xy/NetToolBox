@@ -1,0 +1,42 @@
+!
+! 接入交换机 SW-ACC-05（中兴 ZXR10）—— 整机配置小样
+!
+hostname SW-ACC-05
+!
+vlan 10
+ name OFFICE
+!
+vlan 20
+ name FINANCE
+!
+interface gei_0/1
+ description TO-PC-AREA-A
+ switchport mode access
+ switchport access vlan 10
+!
+interface gei_0/2
+ description TO-PC-AREA-B
+ switchport mode access
+ switchport access vlan 20
+!
+interface smartgroup1
+ smartgroup mode 802.3ad
+ switchport mode trunk
+ switchport trunk vlan 10,20
+!
+interface gei_0/3
+ smartgroup 1 mode active
+!
+interface gei_0/4
+ smartgroup 1 mode active
+!
+router ospf 1
+ router-id 7.7.7.7
+ network 10.0.0.0 0.0.0.255 area 0
+ passive-interface gei_0/1
+!
+ip route 192.168.20.0 255.255.255.0 10.0.0.2
+!
+ntp server 10.1.1.10
+!
+end

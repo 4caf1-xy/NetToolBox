@@ -1,0 +1,28 @@
+# 接入交换机 SW-ACC-06（Junos EX，set 形式）—— 整机配置小样
+set system host-name SW-ACC-06
+set system root-authentication encrypted-password "$6$rounds=10000$abcdefgh"
+set vlans VLAN10-OFFICE vlan-id 10
+set vlans VLAN20-FINANCE vlan-id 20
+set interfaces ge-0/0/1 description "TO-PC-AREA-A"
+set interfaces ge-0/0/1 unit 0 family ethernet-switching interface-mode access
+set interfaces ge-0/0/1 unit 0 family ethernet-switching vlan members VLAN10-OFFICE
+set interfaces ge-0/0/1 unit 0 family ethernet-switching interface-mac-limit 2 packet-action drop
+set interfaces ge-0/0/2 description "TO-PC-AREA-B"
+set interfaces ge-0/0/2 unit 0 family ethernet-switching interface-mode access
+set interfaces ge-0/0/2 unit 0 family ethernet-switching vlan members VLAN20-FINANCE
+set interfaces ge-0/0/24 description "TO-CORE-SW1"
+set interfaces ge-0/0/24 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ge-0/0/24 unit 0 family ethernet-switching vlan members VLAN10-OFFICE
+set interfaces ge-0/0/24 unit 0 family ethernet-switching vlan members VLAN20-FINANCE
+set interfaces ge-0/0/24 unit 0 family ethernet-switching native-vlan-id 1
+set chassis aggregated-devices ethernet device-count 2
+set interfaces ae0 aggregated-ether-options lacp active
+set interfaces ae0 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae0 unit 0 family ethernet-switching vlan members VLAN10-OFFICE
+set interfaces ge-0/0/3 ether-options 802.3ad ae0
+set interfaces ge-0/0/4 ether-options 802.3ad ae0
+set routing-options router-id 6.6.6.6
+set protocols ospf area 0.0.0.0 interface ge-0/0/24.0
+set routing-options static route 192.168.20.0/24 next-hop 10.0.0.2
+set system ntp server 10.1.1.10
+set protocols rstp interface all

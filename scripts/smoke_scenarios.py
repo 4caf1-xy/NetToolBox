@@ -159,7 +159,7 @@ def case_c():
 
     # 2026-10-14（H 批）：变更对比 Tab 加入 → 6 → 7
     # 2026-11-02（R 批）：速查手册（命令库后）+ 工具箱（AI 诊断前）→ 7 → 9
-    check("C/九Tab", w.tabs.count() == 9, str(w.tabs.count()))
+    check("C/十Tab（U 批配置翻译）", w.tabs.count() == 10, str(w.tabs.count()))
     sc = w.tab_scenario
     check("C/包列表7项", sc.lst_packs.count() == 7, "")
 

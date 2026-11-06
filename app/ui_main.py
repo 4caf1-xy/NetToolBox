@@ -613,6 +613,13 @@ class MainWindow(QMainWindow):
         act_handbook.setToolTip("HTTP 状态码 / 常用端口 / Git / Linux / Vim / SSH / 网络命令")
         act_handbook.triggered.connect(self.open_handbook_tab)
         m_view.addAction(act_handbook)
+        act_translate = QAction("配置翻译（整机 running-config 跨厂商）", self)
+        act_translate.setShortcut(QKeySequence("Ctrl+Shift+Y"))
+        act_translate.setToolTip("粘贴整份/片段配置 → 库内族自动翻译，其余逐条交代（四档账本）")
+        act_translate.triggered.connect(
+            lambda: self.tabs.setCurrentWidget(self.tab_translate)
+            if getattr(self, "_tab_tr_ok", False) else None)
+        m_view.addAction(act_translate)
         act_tools = QAction("工具箱（子网计算 / 进制转换 / curl 生成）", self)
         act_tools.setShortcut(QKeySequence("Ctrl+Shift+T"))
         act_tools.setToolTip("纯本地计算与命令生成：零联网、不执行任何命令")
@@ -840,6 +847,11 @@ class MainWindow(QMainWindow):
         from ui_diff import DiffTab
         self.tab_diff, self._tab_diff_ok = self._safe_tab(
             "变更对比", lambda: DiffTab(self.db))
+        # 配置翻译 Tab（U 批 2026-11-06：整机 running-config 跨厂商翻译 + 四档账本）
+        # 位置：变更对比之后、工具箱之前 —— 「改前翻译 → 执行 → 对比回显」作业顺序
+        from ui_translate import TranslateTab
+        self.tab_translate, self._tab_tr_ok = self._safe_tab(
+            "配置翻译", lambda: TranslateTab(self.db, self))
         # 工具箱 Tab（R 批 2026-11-02：子网计算器 / 进制转换 / curl 生成器，
         # 纯本地计算与字符串生成，零网络零执行）
         from ui_tools import ToolsTab
@@ -859,6 +871,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.tab_errorfix, "报错诊断")
         self.tabs.addTab(self.tab_runbook, "操作单")     # 位置：报错诊断之后（2026-10-12 裁决②）
         self.tabs.addTab(self.tab_diff, "变更对比")      # 位置：操作单之后（H 批 2026-10-14）
+        self.tabs.addTab(self.tab_translate, "配置翻译")  # 位置：变更对比之后（U 批 2026-11-06）
         self.tabs.addTab(self.tab_tools, "工具箱")       # R 批：倒数第二
         self.tabs.addTab(self.tab_ai, "AI 诊断")        # 位置：末位
         self.setCentralWidget(self.tabs)
@@ -980,7 +993,7 @@ class MainWindow(QMainWindow):
         # 速查手册 / 工具箱，任务2-3）：各 Tab 自校验
         for tab in (self.tab_ai, self.tab_errorfix, self.tab_troubleshoot,
                     self.tab_scenario, self.tab_runbook, self.tab_handbook,
-                    self.tab_tools):
+                    self.tab_diff, self.tab_translate, self.tab_tools):
             if tab is not None and hasattr(tab, "restore_split_state"):
                 try:
                     tab.restore_split_state(state)
@@ -992,7 +1005,7 @@ class MainWindow(QMainWindow):
         payload = {}
         for tab in (self.tab_ai, self.tab_errorfix, self.tab_troubleshoot,
                     self.tab_scenario, self.tab_runbook, self.tab_handbook,
-                    self.tab_tools):
+                    self.tab_diff, self.tab_translate, self.tab_tools):
             if tab is not None and hasattr(tab, "split_state"):
                 try:
                     payload.update(tab.split_state())

@@ -1,0 +1,52 @@
+#
+# 接入交换机 SW-ACC-03（H3C Comware7）—— 整机配置小样
+#
+sysname SW-ACC-03
+#
+vlan 10
+ name OFFICE
+#
+vlan 20
+ name FINANCE
+#
+interface GigabitEthernet1/0/1
+ port link-type access
+ port access vlan 10
+ port-security enable
+ port-security max-mac-count 2
+#
+interface GigabitEthernet1/0/24
+ description TO-CORE-SW1
+ port link-type trunk
+ port trunk permit vlan 10 20
+ port trunk pvid vlan 1
+#
+interface Bridge-Aggregation 1
+ link-aggregation mode dynamic
+ port link-type trunk
+ port trunk permit vlan 10 20
+ quit
+#
+interface GigabitEthernet1/0/3
+ port link-type access
+ port access vlan 20
+#
+interface GigabitEthernet1/0/2
+ port link-type trunk
+ port link-aggregation group 1
+ quit
+#
+ospf 1 router-id 3.3.3.3
+ area 0
+  network 10.1.1.0 0.0.0.255
+  quit
+ silent-interface GigabitEthernet1/0/24
+ quit
+#
+ip route-static 192.168.20.0 24 10.0.0.2
+#
+ntp-service unicast-server 10.1.1.10
+#
+local-user admin password irreversible-cipher $h$1$abcdefgh
+#
+return

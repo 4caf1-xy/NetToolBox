@@ -1,0 +1,44 @@
+# 接入交换机 SW-ACC-04（锐捷 RGOS）—— 整机配置小样
+hostname SW-ACC-04
+!
+vlan 10
+ name OFFICE
+!
+vlan 20
+ name FINANCE
+!
+interface GigabitEthernet0/1
+ description TO-PC-AREA-A
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security
+ switchport port-security maximum 2
+ switchport port-security violation protect
+!
+interface GigabitEthernet0/2
+ description TO-PC-AREA-B
+ switchport mode access
+ switchport access vlan 20
+!
+interface GigabitEthernet0/24
+ description TO-CORE-SW1
+ switchport mode trunk
+ switchport trunk allowed vlan add 10,20
+ switchport trunk native vlan 1
+!
+interface aggregateport 1
+ switchport mode trunk
+!
+interface range GigabitEthernet0/2-3
+ port-group 1 mode active
+!
+router ospf 1
+ router-id 4.4.4.4
+ network 10.0.0.0 0.0.0.255 area 0
+ passive-interface GigabitEthernet0/24
+!
+ip route 192.168.20.0 255.255.255.0 10.0.0.2
+!
+ntp server 10.1.1.10
+!
+end
