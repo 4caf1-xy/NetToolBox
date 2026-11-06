@@ -839,7 +839,7 @@ def validate_seed(db_path=None):
                                 len(p.get("items") or [])) for p in packs)))
     print("变更对比规则：%d 类 ｜ %d 厂商变体（H 批 Before/After 提取规则）"
           % (diff_rule_count, diff_variant_count))
-    print("配置翻译映射：%d 族 ｜ %d 条厂商映射（U 批，输出全部由库内条目渲染）"
+    print("配置翻译映射：%d 族 ｜ %d 条厂商映射（U/V 批，输出全部由库内条目渲染）"
           % (tr_family_count, tr_vendor_rules))
     if duration_count:
         print("生效方式：" + "｜".join("%s %d 条" % (dbmod.DURATIONS.get(k, k), v)

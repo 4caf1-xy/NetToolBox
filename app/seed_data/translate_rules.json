@@ -2,7 +2,7 @@
   "format": "netcmdl config-translate map",
   "schema": 1,
   "generated_at": "2026-11-06",
-  "notes": "整机配置翻译映射表（U 批）。不新增条目：本文件的条目引用以 uuid 指向既有种子条目，翻译输出完全由条目 commands 模板渲染而来，故条数/树数/报错数一律不变。设计红线：任何目标命令行必须能追溯到一条库内条目（uuid），宁可账本长，不猜一行。字段说明见 docs/dev-notes.md（U 批）。",
+  "notes": "整机配置翻译映射表（U 批）。不新增条目：本文件的条目引用以 uuid 指向既有种子条目，翻译输出完全由条目 commands 模板渲染而来，故条数/树数/报错数一律不变。V 批（2026-11-06）扩至 27 族：族级 scope 声明可译目标厂商（库内确缺格的族如实标缺，不强求六厂商齐备）；凭据类族的账号/口令/团体字仍按 d 档不外译，目标条目对应行整行剔除并在账本注明。设计红线：任何目标命令行必须能追溯到一条库内条目（uuid），宁可账本长，不猜一行。字段说明见 docs/dev-notes.md（U 批建表 / V 批扩族）。",
   "tiers": {
     "a": "已译：命中族规则，输出由库内条目渲染，附源行号→目标条目 uuid 追溯",
     "b": "逐行映射：注释/说明行非命令，按目标厂商注释符重写，语义不变",
@@ -62,12 +62,16 @@
     "^\\s*snmp-server\\s+community\\b",
     "^\\s*snmp-agent\\s+community\\b",
     "^\\s*set\\s+snmp\\s+community\\b",
-    "^\\s*password\\b"
+    "^\\s*password\\b",
+    "^\\s*radius-server\\s+shared-key\\b",
+    "^\\s*radius-server\\s+host\\s+\\S+.*\\bkey\\b",
+    "^\\s*key\\s+(?:authentication\\s+)?(?:cipher|simple)\\b",
+    "^\\s*set\\s+system\\s+radius-server\\s+\\S+\\s+secret\\b"
   ],
   "private_hints": {
     "cisco": [
       {
-        "re": "spanning-tree",
+        "re": "^\\s*spanning-tree\\s",
         "note": "STP 增强特性（portfast/bpduguard）"
       },
       {
@@ -77,10 +81,6 @@
       {
         "re": "ip\\s+dhcp\\s+snooping",
         "note": "DHCP Snooping"
-      },
-      {
-        "re": "storm-control",
-        "note": "风暴抑制（Cisco 语法）"
       },
       {
         "re": "errdisable",
@@ -93,12 +93,8 @@
     ],
     "ruijie": [
       {
-        "re": "spanning-tree",
+        "re": "^\\s*spanning-tree\\s",
         "note": "STP 增强特性"
-      },
-      {
-        "re": "storm-control",
-        "note": "风暴抑制"
       },
       {
         "re": "ip\\s+helper-address",
@@ -111,17 +107,13 @@
         "note": "STP 增强特性"
       },
       {
-        "re": "storm-control",
-        "note": "风暴抑制"
-      },
-      {
         "re": "dhcp",
         "note": "DHCP 相关特性"
       }
     ],
     "huawei": [
       {
-        "re": "stp\\s+",
+        "re": "^\\s*stp\\s+\\S",
         "note": "STP 增强特性（edged-port/bpdu-protection）"
       },
       {
@@ -135,15 +127,11 @@
       {
         "re": "voice-vlan",
         "note": "语音 VLAN 特性"
-      },
-      {
-        "re": "storm-suppression",
-        "note": "风暴抑制"
       }
     ],
     "h3c": [
       {
-        "re": "stp\\s+",
+        "re": "^\\s*stp\\s+\\S",
         "note": "STP 增强特性"
       },
       {
@@ -1914,6 +1902,2322 @@
         "main_preference"
       ],
       "default_ok": []
+    },
+    {
+      "id": "acl",
+      "name": "ACL 访问控制与接口下发",
+      "category": "ACL",
+      "scope": [
+        "cisco",
+        "ruijie",
+        "huawei",
+        "h3c"
+      ],
+      "bind": {
+        "acl_name": {
+          "*": {
+            "param": "acl_name"
+          },
+          "huawei": null,
+          "h3c": null
+        },
+        "acl_number": {
+          "*": null,
+          "huawei": {
+            "param": "acl_number"
+          },
+          "h3c": {
+            "param": "acl_number"
+          }
+        },
+        "src_net": {
+          "*": {
+            "param": "src_net"
+          }
+        },
+        "src_wild": {
+          "*": {
+            "param": "src_wild"
+          }
+        },
+        "dst_net": {
+          "*": {
+            "param": "dst_net"
+          }
+        },
+        "dst_wild": {
+          "*": {
+            "param": "dst_wild"
+          }
+        },
+        "port": {
+          "*": {
+            "param": "port",
+            "transform": "if_short"
+          },
+          "cisco": {
+            "param": "port",
+            "transform": "if_full"
+          }
+        }
+      },
+      "optional": [
+        "port"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "4302cef5-db24-5403-8143-72038ad1fb23",
+          "lines": [
+            {
+              "re": "^ip\\s+access-list\\s+extended\\s+(?P<acl_name>\\S+)\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*permit\\s+ip\\s+(?P<src_net>[\\d.]+)\\s+(?P<src_wild>\\S+)\\s+(?P<dst_net>[\\d.]+)\\s+(?P<dst_wild>\\S+).*$"
+            },
+            {
+              "re": "^\\s*deny\\s+ip\\s+any\\s+any.*$"
+            },
+            {
+              "re": "^\\s*ip\\s+access-group\\s+(?P<acl_name>\\S+)\\s+in\\s*$",
+              "view": "if",
+              "inherit": {
+                "port": "port"
+              }
+            }
+          ],
+          "key": [
+            "acl_name"
+          ]
+        },
+        "ruijie": {
+          "entry": "f83d46d7-f563-5849-8c0c-8d374ee95ed0",
+          "lines": [
+            {
+              "re": "^ip\\s+access-list\\s+extended\\s+(?P<acl_name>\\S+)\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*permit\\s+ip\\s+(?P<src_net>[\\d.]+)\\s+(?P<src_wild>\\S+)\\s+(?P<dst_net>[\\d.]+)\\s+(?P<dst_wild>\\S+).*$"
+            },
+            {
+              "re": "^\\s*deny\\s+ip\\s+any\\s+any.*$"
+            },
+            {
+              "re": "^\\s*ip\\s+access-group\\s+(?P<acl_name>\\S+)\\s+in\\s*$",
+              "view": "if",
+              "inherit": {
+                "port": "port"
+              }
+            }
+          ],
+          "key": [
+            "acl_name"
+          ]
+        },
+        "huawei": {
+          "entry": "ea1fe386-ed49-5dd8-bbb4-00b33b0cf500",
+          "lines": [
+            {
+              "re": "^acl\\s+number\\s+(?P<acl_number>3\\d{3})\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*rule\\s+\\d+\\s+permit\\s+ip\\s+source\\s+(?P<src_net>[\\d.]+)\\s+(?P<src_wild>\\S+)\\s+destination\\s+(?P<dst_net>[\\d.]+)\\s+(?P<dst_wild>\\S+).*$"
+            },
+            {
+              "re": "^\\s*rule\\s+\\d+\\s+deny\\s+ip.*$"
+            },
+            {
+              "re": "^\\s*traffic-filter\\s+inbound\\s+acl\\s+(?P<acl_number>\\d+).*$",
+              "view": "if",
+              "inherit": {
+                "port": "port"
+              }
+            }
+          ],
+          "key": [
+            "acl_number"
+          ]
+        },
+        "h3c": {
+          "entry": "1f0a05fb-4b66-50cc-b2ef-106387f3eb68",
+          "lines": [
+            {
+              "re": "^acl\\s+advanced\\s+(?P<acl_number>3\\d{3})\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*rule\\s+\\d+\\s+permit\\s+ip\\s+source\\s+(?P<src_net>[\\d.]+)\\s+(?P<src_wild>\\S+)\\s+destination\\s+(?P<dst_net>[\\d.]+)\\s+(?P<dst_wild>\\S+).*$"
+            },
+            {
+              "re": "^\\s*rule\\s+\\d+\\s+deny\\s+ip.*$"
+            },
+            {
+              "re": "^\\s*packet-filter\\s+(?P<acl_number>\\d+)\\s+inbound.*$",
+              "view": "if",
+              "inherit": {
+                "port": "port"
+              }
+            }
+          ],
+          "key": [
+            "acl_number"
+          ]
+        }
+      }
+    },
+    {
+      "id": "nat",
+      "name": "NAT 地址转换（PAT / 静态映射）",
+      "category": "NAT",
+      "scope": [
+        "cisco",
+        "ruijie",
+        "huawei",
+        "h3c",
+        "zte"
+      ],
+      "bind": {
+        "acl_id": {
+          "*": null
+        },
+        "src_net": {
+          "*": {
+            "param": "src_net"
+          }
+        },
+        "src_wild": {
+          "*": {
+            "param": "src_wild"
+          }
+        },
+        "inside_if": {
+          "*": {
+            "param": "inside_port",
+            "transform": "if_full"
+          },
+          "huawei": null,
+          "h3c": null,
+          "ruijie": {
+            "param": "inside_port",
+            "transform": "if_short"
+          }
+        },
+        "outside_if": {
+          "*": {
+            "param": "outside_port",
+            "transform": "if_full"
+          },
+          "huawei": null,
+          "h3c": {
+            "param": "outside_port",
+            "transform": "if_short"
+          },
+          "ruijie": {
+            "param": "outside_port",
+            "transform": "if_short"
+          }
+        },
+        "inside_server": {
+          "*": {
+            "param": "inside_server"
+          }
+        },
+        "public_ip": {
+          "*": {
+            "param": "public_ip"
+          }
+        }
+      },
+      "default_ok": [
+        "acl_number"
+      ],
+      "optional": [
+        "inside_ip",
+        "inside_mask",
+        "outside_ip",
+        "outside_mask",
+        "inside_server",
+        "public_ip",
+        "outside_port",
+        "inside_port",
+        "group_id",
+        "section_start",
+        "section_end",
+        "public_port",
+        "pool_start",
+        "pool_end"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "97e11a82-836e-5dd8-91da-db7f5bead11c",
+          "lines": [
+            {
+              "re": "^\\s*ip\\s+nat\\s+inside\\s*$",
+              "view": "if",
+              "inherit": {
+                "inside_if": "port"
+              }
+            },
+            {
+              "re": "^\\s*ip\\s+nat\\s+outside\\s*$",
+              "view": "if",
+              "inherit": {
+                "outside_if": "port"
+              }
+            },
+            {
+              "re": "^access-list\\s+\\d+\\s+permit\\s+(?P<src_net>[\\d.]+)\\s+(?P<src_wild>\\S+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+nat\\s+inside\\s+source\\s+list\\s+(?P<acl_id>\\d+)\\s+interface\\s+\\S+\\s+overload\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+nat\\s+inside\\s+source\\s+static\\s+(?P<inside_server>[\\d.]+)\\s+(?P<public_ip>[\\d.]+)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "acl_id"
+          ]
+        },
+        "ruijie": {
+          "entry": "f3509a0e-7e27-55cb-bc65-94e7c5d38bb0",
+          "lines": [
+            {
+              "re": "^\\s*ip\\s+nat\\s+inside\\s*$",
+              "view": "if",
+              "inherit": {
+                "inside_if": "port"
+              }
+            },
+            {
+              "re": "^\\s*ip\\s+nat\\s+outside\\s*$",
+              "view": "if",
+              "inherit": {
+                "outside_if": "port"
+              }
+            },
+            {
+              "re": "^access-list\\s+\\d+\\s+permit\\s+(?P<src_net>[\\d.]+)\\s+(?P<src_wild>\\S+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+nat\\s+inside\\s+source\\s+list\\s+(?P<acl_id>\\d+)\\s+interface\\s+\\S+\\s+overload\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+nat\\s+inside\\s+source\\s+static\\s+(?P<inside_server>[\\d.]+)\\s+(?P<public_ip>[\\d.]+)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "acl_id"
+          ]
+        },
+        "zte": {
+          "entry": "b51500b7-c1bf-5d04-af3b-0bca78a23562",
+          "lines": [
+            {
+              "re": "^\\s*ip\\s+nat\\s+inside\\s*$",
+              "view": "if",
+              "inherit": {
+                "inside_if": "port"
+              }
+            },
+            {
+              "re": "^\\s*ip\\s+nat\\s+outside\\s*$",
+              "view": "if",
+              "inherit": {
+                "outside_if": "port"
+              }
+            },
+            {
+              "re": "^acl\\s+standard\\s+number\\s+(?P<acl_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*rule\\s+\\d+\\s+permit\\s+(?P<src_net>[\\d.]+)\\s+(?P<src_wild>\\S+)\\s*$"
+            },
+            {
+              "re": "^ip\\s+nat\\s+inside\\s+source\\s+list\\s+(?P<acl_id>\\d+)\\s+interface\\s+\\S+\\s+overload\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+nat\\s+inside\\s+source\\s+static\\s+(?P<inside_server>[\\d.]+)\\s+(?P<public_ip>[\\d.]+)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "acl_id"
+          ]
+        },
+        "huawei": {
+          "entry": "5e4c16e2-7840-5c40-88d9-eb5a6b179169",
+          "lines": [
+            {
+              "re": "^acl\\s+number\\s+(?P<acl_number>\\d+)\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*rule\\s+\\d+\\s+permit\\s+source\\s+(?P<src_net>[\\d.]+)\\s+(?P<src_wild>\\S+)\\s*$"
+            },
+            {
+              "re": "^\\s*nat\\s+outbound\\s+(?P<acl_id>\\d+)\\s*$"
+            }
+          ],
+          "key": [
+            "acl_id"
+          ]
+        },
+        "h3c": {
+          "entry": "fd36e60b-fa43-599d-866a-0d31fcbecc95",
+          "lines": [
+            {
+              "re": "^acl\\s+basic\\s+(?P<acl_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*rule\\s+\\d+\\s+permit\\s+source\\s+(?P<src_net>[\\d.]+)\\s+(?P<src_wild>\\S+)\\s*$"
+            },
+            {
+              "re": "^\\s*nat\\s+outbound\\s+(?P<acl_id>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "outside_if": "port"
+              }
+            }
+          ],
+          "key": [
+            "acl_id"
+          ]
+        }
+      }
+    },
+    {
+      "id": "vrrp",
+      "name": "VRRP 网关冗余",
+      "category": "VRRP",
+      "scope": [
+        "cisco",
+        "ruijie",
+        "huawei",
+        "h3c",
+        "zte"
+      ],
+      "bind": {
+        "vlan_id": {
+          "*": {
+            "param": "vlan_id"
+          }
+        },
+        "local_ip": {
+          "*": {
+            "param": "local_ip"
+          }
+        },
+        "mask": {
+          "*": {
+            "param": "mask",
+            "transform": "to_mask"
+          },
+          "huawei": {
+            "param": "masklen",
+            "transform": "to_masklen"
+          },
+          "h3c": {
+            "param": "masklen",
+            "transform": "to_masklen"
+          }
+        },
+        "vrid": {
+          "*": {
+            "param": "vrid"
+          }
+        },
+        "vip": {
+          "*": {
+            "param": "vip"
+          }
+        },
+        "priority": {
+          "*": {
+            "param": "priority"
+          }
+        }
+      },
+      "default_ok": [
+        "delay"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "a2a566da-a5db-50c5-bd3d-185eea4b5224",
+          "lines": [
+            {
+              "re": "^interface\\s+(?:Vlan-interface|Vlanif|Vlan)\\s*\\d+\\S*\\s*$",
+              "scope": "header",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*ip\\s+address\\s+(?P<local_ip>[\\d.]+)\\s+(?P<mask>[\\d.]+)\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "vlan"
+              ],
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+(?P<vrid>\\d+)\\s+ip\\s+(?P<vip>[\\d.]+).*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+(?P<vrid>\\d+)\\s+priority\\s+(?P<priority>\\d+).*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+(?P<vrid>\\d+)\\s+preempt\\s*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            }
+          ],
+          "key": [
+            "vlan_id"
+          ]
+        },
+        "ruijie": {
+          "entry": "dccbaa7b-af77-51a4-aaad-a91c21769d49",
+          "lines": [
+            {
+              "re": "^interface\\s+(?:Vlan-interface|Vlanif|Vlan)\\s*\\d+\\S*\\s*$",
+              "scope": "header",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*ip\\s+address\\s+(?P<local_ip>[\\d.]+)\\s+(?P<mask>[\\d.]+)\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "vlan"
+              ],
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+(?P<vrid>\\d+)\\s+ip\\s+(?P<vip>[\\d.]+).*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+(?P<vrid>\\d+)\\s+priority\\s+(?P<priority>\\d+).*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+(?P<vrid>\\d+)\\s+preempt\\s*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            }
+          ],
+          "key": [
+            "vlan_id"
+          ]
+        },
+        "zte": {
+          "entry": "84e1651c-7b7c-5806-83bc-553660d591b8",
+          "lines": [
+            {
+              "re": "^interface\\s+(?:Vlan-interface|Vlanif|Vlan)\\s*\\d+\\S*\\s*$",
+              "scope": "header",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*ip\\s+address\\s+(?P<local_ip>[\\d.]+)\\s+(?P<mask>[\\d.]+)\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "vlan"
+              ],
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+(?P<vrid>\\d+)\\s+ip\\s+(?P<vip>[\\d.]+).*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+(?P<vrid>\\d+)\\s+priority\\s+(?P<priority>\\d+).*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+(?P<vrid>\\d+)\\s+preempt\\s*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            }
+          ],
+          "key": [
+            "vlan_id"
+          ]
+        },
+        "huawei": {
+          "entry": "8e68b73c-058e-5b6f-b224-fdf9fce42d8e",
+          "lines": [
+            {
+              "re": "^interface\\s+(?:Vlan-interface|Vlanif|Vlan)\\s*\\d+\\S*\\s*$",
+              "scope": "header",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*ip\\s+address\\s+(?P<local_ip>[\\d.]+)\\s+(?P<mask>\\d+)\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "vlan"
+              ],
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+vrid\\s+(?P<vrid>\\d+)\\s+virtual-ip\\s+(?P<vip>[\\d.]+).*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+vrid\\s+(?P<vrid>\\d+)\\s+priority\\s+(?P<priority>\\d+).*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+vrid\\s+(?P<vrid>\\d+)\\s+preempt-mode.*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            }
+          ],
+          "key": [
+            "vlan_id"
+          ]
+        },
+        "h3c": {
+          "entry": "d82326ef-cc89-5eaf-961b-2da34fc720d6",
+          "lines": [
+            {
+              "re": "^interface\\s+(?:Vlan-interface|Vlanif|Vlan)\\s*\\d+\\S*\\s*$",
+              "scope": "header",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*ip\\s+address\\s+(?P<local_ip>[\\d.]+)\\s+(?P<mask>\\d+)\\s*$",
+              "view": "if",
+              "port_prefix": [
+                "vlan"
+              ],
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+vrid\\s+(?P<vrid>\\d+)\\s+virtual-ip\\s+(?P<vip>[\\d.]+).*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+vrid\\s+(?P<vrid>\\d+)\\s+priority\\s+(?P<priority>\\d+).*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            },
+            {
+              "re": "^\\s*vrrp\\s+vrid\\s+(?P<vrid>\\d+)\\s+preempt-mode.*$",
+              "view": "if",
+              "inherit": {
+                "vlan_id": "port"
+              }
+            }
+          ],
+          "key": [
+            "vlan_id"
+          ]
+        }
+      }
+    },
+    {
+      "id": "poe",
+      "name": "PoE 供电与口级开关",
+      "category": "POE",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "juniper"
+      ],
+      "bind": {
+        "ifname": {
+          "*": {
+            "param": "ifname",
+            "transform": "if_full"
+          },
+          "huawei": {
+            "param": "port",
+            "transform": "if_last"
+          },
+          "h3c": {
+            "param": "port",
+            "transform": "if_last"
+          },
+          "juniper": {
+            "param": "port",
+            "transform": "if_full"
+          }
+        },
+        "mode": {
+          "*": null,
+          "cisco": {
+            "param": "mode"
+          }
+        }
+      },
+      "default_ok": [
+        "mode"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "0c8fb7d5-c5b3-567a-930c-5c6a7d68df37",
+          "lines": [
+            {
+              "re": "^\\s*power\\s+inline\\s+(?P<mode>auto|static|never)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ],
+          "key": [
+            "ifname"
+          ]
+        },
+        "huawei": {
+          "entry": "6300570a-f1cf-5d8c-ab10-a986efbe5f74",
+          "lines": [
+            {
+              "re": "^\\s*poe\\s+enable\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ],
+          "key": [
+            "ifname"
+          ]
+        },
+        "h3c": {
+          "entry": "cc06e156-6e9b-517e-b447-76cbe6530642",
+          "lines": [
+            {
+              "re": "^\\s*poe\\s+enable\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ],
+          "key": [
+            "ifname"
+          ]
+        },
+        "ruijie": {
+          "entry": "3a2051d0-3541-53b8-a354-d71330e58ffc",
+          "lines": [
+            {
+              "re": "^\\s*poe\\s+enable\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ],
+          "key": [
+            "ifname"
+          ]
+        },
+        "juniper": {
+          "entry": "9404d4d0-5df3-5e29-b67a-5e011615bd3e",
+          "lines": [
+            {
+              "re": "^set\\s+poe\\s+interface\\s+(?P<ifname>\\S+)\\s*$"
+            }
+          ],
+          "key": [
+            "ifname"
+          ]
+        }
+      }
+    },
+    {
+      "id": "storm",
+      "name": "广播/组播风暴抑制",
+      "category": "风暴抑制",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "juniper"
+      ],
+      "bind": {
+        "ifname": {
+          "*": {
+            "param": "ifname",
+            "transform": "if_full"
+          },
+          "huawei": {
+            "param": "port",
+            "transform": "if_last"
+          },
+          "h3c": {
+            "param": "port",
+            "transform": "if_last"
+          },
+          "ruijie": {
+            "param": "port_range",
+            "transform": "range_full"
+          },
+          "juniper": {
+            "param": "port",
+            "transform": "if_full"
+          }
+        },
+        "pct": {
+          "*": {
+            "param": "pct"
+          }
+        }
+      },
+      "default_ok": [
+        "profile"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "b07f735d-57cf-5ea0-8405-79972a1c2df9",
+          "lines": [
+            {
+              "re": "^\\s*storm-control\\s+broadcast\\s+level\\s+(?P<pct>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*storm-control\\s+multicast\\s+level\\s+(?P<pct>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ],
+          "key": [
+            "ifname"
+          ]
+        },
+        "huawei": {
+          "entry": "c9a42279-f681-598f-8916-d30034b86ef0",
+          "lines": [
+            {
+              "re": "^\\s*broadcast-suppression\\s+(?P<pct>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ],
+          "key": [
+            "ifname"
+          ]
+        },
+        "h3c": {
+          "entry": "b5f6a980-fbb8-5d8a-a127-494227acf964",
+          "lines": [
+            {
+              "re": "^\\s*broadcast-suppression\\s+(?P<pct>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ],
+          "key": [
+            "ifname"
+          ]
+        },
+        "ruijie": {
+          "entry": "d1998a2c-3529-56ab-ba3f-f7161a143a6f",
+          "lines": [
+            {
+              "re": "^\\s*storm-control\\s+broadcast\\s+level\\s+(?P<pct>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            },
+            {
+              "re": "^\\s*storm-control\\s+multicast\\s+level\\s+(?P<pct>\\d+)\\s*$",
+              "view": "if",
+              "inherit": {
+                "ifname": "port"
+              }
+            }
+          ],
+          "key": [
+            "ifname"
+          ]
+        },
+        "juniper": {
+          "entry": "3d4b1139-a14c-59f9-b6d4-61e874563cf0",
+          "lines": [
+            {
+              "re": "^set\\s+interfaces\\s+(?P<ifname>\\S+)\\s+unit\\s+\\d+\\s+family\\s+ethernet-switching\\s+storm-control\\s+(?P<profile>\\S+)\\s*$"
+            },
+            {
+              "re": "^set\\s+storm-control-profiles\\s+(?P<profile>\\S+)\\s+all\\s+bandwidth-percentage\\s+(?P<pct>\\d+)\\s*$"
+            }
+          ],
+          "key": [
+            "ifname"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bgp",
+      "name": "查询对照：BGP 邻居状态",
+      "category": "BGP",
+      "kind": "query",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "bind": {
+        "peer_ip": {
+          "*": {
+            "param": "peer_ip"
+          },
+          "zte": {
+            "param": "neighbor_ip"
+          },
+          "juniper": {
+            "param": "neighbor_ip"
+          }
+        }
+      },
+      "optional": [
+        "peer_ip",
+        "neighbor_ip"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "7d6820f7-2739-5e11-9dbc-6b9b3f3a504a",
+          "lines": [
+            {
+              "re": "^show\\s+ip\\s+bgp\\s+summary\\s*$"
+            },
+            {
+              "re": "^show\\s+ip\\s+bgp\\s+neighbors(?:\\s+(?P<peer_ip>[\\d.]+))?\\s*$"
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "fc4207cb-76c4-537e-8d59-e909be3f3074",
+          "lines": [
+            {
+              "re": "^display\\s+bgp\\s+peer(?:\\s+(?P<peer_ip>[\\d.]+)\\s+verbose)?\\s*$"
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "b94b0298-b6ce-50e1-802c-6fce84f7d958",
+          "lines": [
+            {
+              "re": "^display\\s+bgp\\s+peer\\s+ipv4(?:\\s+(?P<peer_ip>[\\d.]+)\\s+verbose)?\\s*$"
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "dcfef69e-0633-564d-8d8d-a8e3062911af",
+          "lines": [
+            {
+              "re": "^show\\s+ip\\s+bgp\\s+summary\\s*$"
+            },
+            {
+              "re": "^show\\s+ip\\s+bgp\\s+neighbors\\s*$"
+            }
+          ]
+        },
+        "zte": {
+          "entry": "3e5b3287-107b-50e1-b608-a0ac3fe2a823",
+          "lines": [
+            {
+              "re": "^show\\s+ip\\s+bgp\\s+summary\\s*$"
+            },
+            {
+              "re": "^show\\s+ip\\s+bgp\\s+neighbor\\s+(?P<peer_ip>[\\d.]+)\\s*$"
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "824dbfe2-32a9-5e82-b704-3f2e5726b709",
+          "lines": [
+            {
+              "re": "^show\\s+bgp\\s+summary\\s*$"
+            },
+            {
+              "re": "^show\\s+bgp\\s+neighbor\\s+(?P<peer_ip>[\\d.]+)\\s*$"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "stack",
+      "name": "查询对照：堆叠/集群成员状态",
+      "category": "堆叠",
+      "kind": "query",
+      "scope": [
+        "huawei",
+        "h3c",
+        "ruijie",
+        "juniper"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "7360013d-d04e-590c-b255-833fa499bf7c",
+          "lines": [
+            {
+              "re": "^show\\s+switch(?:\\s+detail|\\s+stack-ports)?\\s*$"
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "050c4581-ed89-534e-a199-b82cd090e7a6",
+          "lines": [
+            {
+              "re": "^display\\s+stack(?:\\s+configuration)?\\s*$"
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "bf1c3f10-c919-5a4e-b7e8-4f6e34c53858",
+          "lines": [
+            {
+              "re": "^display\\s+irf(?:\\s+configuration|\\s+topology)?\\s*$"
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "ff8b6451-5822-5d29-9614-00052636bc5d",
+          "lines": [
+            {
+              "re": "^show\\s+switch\\s+virtual(?:\\s+role|\\s+link|\\s+dual-active\\s+summary)?\\s*$"
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "cdfa6949-a81d-5db4-96f2-12275fae47b2",
+          "lines": [
+            {
+              "re": "^show\\s+virtual-chassis(?:\\s+status|\\s+vc-ports)?\\s*$"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "loop",
+      "name": "查询对照：环路检测与 STP 状态",
+      "category": "环路检测",
+      "kind": "query",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "juniper"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "725c7069-a4b9-5a3e-9bd8-05064642c3cb",
+          "lines": [
+            {
+              "re": "^show\\s+spanning-tree(?:\\s+summary|\\s+root)?\\s*$"
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "60ae5147-49d8-5c02-b3e5-244f52837ebd",
+          "lines": [
+            {
+              "re": "^display\\s+stp(?:\\s+brief)?\\s*$"
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "2c6c69c8-9d0d-5b3b-a9d8-1c593ebe6833",
+          "lines": [
+            {
+              "re": "^display\\s+stp(?:\\s+brief|\\s+abnormal-port)?\\s*$"
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "01f92be6-5a1d-5b05-897f-9db6f9aff78c",
+          "lines": [
+            {
+              "re": "^show\\s+spanning-tree(?:\\s+summary|\\s+root)?\\s*$"
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "59a1ea1e-7871-5d55-9a88-935f6d78895f",
+          "lines": [
+            {
+              "re": "^show\\s+spanning-tree(?:\\s+bridge|\\s+interface|\\s+statistics)?\\s*$"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "display_ctl",
+      "name": "会话显示控制（分页/实时日志）",
+      "category": "显示控制",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "334081e1-7f25-56e5-bcbb-57617ccf992b",
+          "lines": [
+            {
+              "re": "^terminal\\s+length\\s+0\\s*$"
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "a039f97b-73fa-5c08-9b9c-1fb96c13a89d",
+          "lines": [
+            {
+              "re": "^terminal\\s+length\\s+0\\s*$"
+            }
+          ]
+        },
+        "zte": {
+          "entry": "9c21e030-bd21-521e-89c7-bca7cc931853",
+          "lines": [
+            {
+              "re": "^terminal\\s+length\\s+0\\s*$"
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "aa687613-1961-522b-bda7-9eedf55da8f9",
+          "lines": [
+            {
+              "re": "^screen-length\\s+0\\s+temporary\\s*$"
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "8ade3bec-d9b5-5260-ba7d-e15536ab1809",
+          "lines": [
+            {
+              "re": "^screen-length\\s+disable\\s*$"
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "e98a486f-3a61-5232-8d23-7435723d7379",
+          "lines": [
+            {
+              "re": "^set\\s+cli\\s+screen-length\\s+0\\s*$"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ha",
+      "name": "查询对照：网关冗余（HSRP/VRRP）状态",
+      "category": "HA/双机",
+      "kind": "query",
+      "scope": [
+        "cisco",
+        "huawei"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "de5759f9-5656-55b4-8361-ba0e3d9b5f8e",
+          "lines": [
+            {
+              "re": "^show\\s+standby(?:\\s+brief|\\s+statistics)?\\s*$"
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "b5448c53-ddc3-54cd-bb83-2a97b9e8ddf1",
+          "lines": [
+            {
+              "re": "^display\\s+vrrp(?:\\s+brief|\\s+statistics)?\\s*$"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "save",
+      "name": "保存配置与本地备份",
+      "category": "保存配置",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "bind": {
+        "backup_tag": {
+          "*": {
+            "param": "backup_tag"
+          },
+          "juniper": {
+            "param": "backup_name"
+          }
+        }
+      },
+      "optional": [
+        "backup_tag",
+        "commit_comment"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "70a2b9cc-3149-5a63-a48f-b07aea7946db",
+          "lines": [
+            {
+              "re": "^copy\\s+running-config\\s+flash:backup-(?P<backup_tag>[^.\\s]+)\\.cfg\\s*$"
+            }
+          ],
+          "key": [
+            "backup_tag"
+          ]
+        },
+        "ruijie": {
+          "entry": "8e954d9d-a0de-52d3-986a-ce93474207ef",
+          "lines": [
+            {
+              "re": "^copy\\s+running-config\\s+flash:backup-(?P<backup_tag>[^.\\s]+)\\.cfg\\s*$"
+            }
+          ],
+          "key": [
+            "backup_tag"
+          ]
+        },
+        "zte": {
+          "entry": "58cfa0cd-0bed-523f-b5f3-22ae605b8843",
+          "lines": [
+            {
+              "re": "^copy\\s+running-config\\s+flash:backup-(?P<backup_tag>[^.\\s]+)\\.cfg\\s*$"
+            }
+          ],
+          "key": [
+            "backup_tag"
+          ]
+        },
+        "huawei": {
+          "entry": "66071ff1-752e-55a0-9a7b-fa0caaaa1c96",
+          "lines": [
+            {
+              "re": "^copy\\s+flash:/vrpcfg\\.zip\\s+flash:/vrpcfg-(?P<backup_tag>[^.\\s]+)\\.zip\\s*$"
+            }
+          ],
+          "key": [
+            "backup_tag"
+          ]
+        },
+        "h3c": {
+          "entry": "abbb4612-7dac-58fb-8f3e-b02b5c3afb21",
+          "lines": [
+            {
+              "re": "^copy\\s+startup\\.cfg\\s+startup-(?P<backup_tag>[^.\\s]+)\\.cfg\\s*$"
+            }
+          ],
+          "key": [
+            "backup_tag"
+          ]
+        },
+        "juniper": {
+          "entry": "541581dd-1d5f-59cf-a605-27646f408650",
+          "lines": [
+            {
+              "re": "^save\\s+/var/tmp/(?P<backup_tag>[^.\\s]+)"
+            },
+            {
+              "re": "^request\\s+system\\s+configuration\\s+rescue\\s+save\\s*$"
+            }
+          ],
+          "key": [
+            "backup_tag"
+          ]
+        }
+      }
+    },
+    {
+      "id": "aaa",
+      "name": "AAA 认证与本地兜底",
+      "category": "AAA认证",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "juniper"
+      ],
+      "bind": {
+        "aaa_server_ip": {
+          "*": {
+            "param": "aaa_server_ip"
+          }
+        }
+      },
+      "optional": [
+        "aaa_shared_key",
+        "test_user",
+        "test_password",
+        "local_user",
+        "local_password"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "9c901a97-f2b6-54aa-bdd0-5187f3aa42eb",
+          "lines": [
+            {
+              "re": "^aaa\\s+new-model\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^tacacs\\s+server\\s+\\S+\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*address\\s+ipv4\\s+(?P<aaa_server_ip>[\\d.]+)\\s*$"
+            },
+            {
+              "re": "^aaa\\s+authentication\\s+login\\s+default\\s+.*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "aaa_server_ip"
+          ]
+        },
+        "ruijie": {
+          "entry": "ef722cfe-dd1c-5ff1-9d23-bd057a43e0ad",
+          "lines": [
+            {
+              "re": "^radius-server\\s+host\\s+(?P<aaa_server_ip>[\\d.]+).*$",
+              "view": "root"
+            },
+            {
+              "re": "^aaa\\s+authentication\\s+login\\s+default\\s+.*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "aaa_server_ip"
+          ]
+        },
+        "huawei": {
+          "entry": "c3ddd6bb-ba13-5ff4-a613-fbd819b891ef",
+          "lines": [
+            {
+              "re": "^radius-server\\s+template\\s+\\S+\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*radius-server\\s+authentication\\s+(?P<aaa_server_ip>[\\d.]+).*$"
+            },
+            {
+              "re": "^\\s*authentication-mode\\s+radius\\s+local\\s*$"
+            }
+          ],
+          "key": [
+            "aaa_server_ip"
+          ]
+        },
+        "h3c": {
+          "entry": "d032d4e5-5468-5897-b459-60ca37796f0a",
+          "lines": [
+            {
+              "re": "^radius\\s+scheme\\s+\\S+\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*primary\\s+authentication\\s+(?P<aaa_server_ip>[\\d.]+).*$"
+            },
+            {
+              "re": "^\\s*authentication\\s+login\\s+radius-scheme\\s+\\S+\\s+local\\s*$"
+            }
+          ],
+          "key": [
+            "aaa_server_ip"
+          ]
+        },
+        "juniper": {
+          "entry": "327b344d-3a05-5af0-82dc-8328dcc625aa",
+          "lines": [
+            {
+              "re": "^set\\s+system\\s+radius-server\\s+(?P<aaa_server_ip>[\\d.]+).*$"
+            },
+            {
+              "re": "^set\\s+system\\s+authentication-order\\s+\\S+\\s*$"
+            }
+          ],
+          "key": [
+            "aaa_server_ip"
+          ]
+        }
+      }
+    },
+    {
+      "id": "dns",
+      "name": "DNS 服务器与域名解析",
+      "category": "DNS域名解析",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "bind": {
+        "dns_server_ip": {
+          "*": {
+            "param": "dns_server_ip"
+          }
+        }
+      },
+      "optional": [
+        "test_domain"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "ef5e0a8b-63b4-512a-a975-c44f65020f13",
+          "lines": [
+            {
+              "re": "^ip\\s+name-server\\s+(?P<dns_server_ip>[\\d.]+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+domain-lookup\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "dns_server_ip"
+          ]
+        },
+        "ruijie": {
+          "entry": "7ba70204-4b1f-500d-9fad-638eb2ec00ae",
+          "lines": [
+            {
+              "re": "^ip\\s+name-server\\s+(?P<dns_server_ip>[\\d.]+)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "dns_server_ip"
+          ]
+        },
+        "zte": {
+          "entry": "174b1a16-198f-5013-8eed-b1b400861cdf",
+          "lines": [
+            {
+              "re": "^ip\\s+name-server\\s+(?P<dns_server_ip>[\\d.]+)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "dns_server_ip"
+          ]
+        },
+        "huawei": {
+          "entry": "1d371020-3fbe-564d-9854-30eb2fb9b756",
+          "lines": [
+            {
+              "re": "^dns\\s+server\\s+(?P<dns_server_ip>[\\d.]+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^dns\\s+resolve\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "dns_server_ip"
+          ]
+        },
+        "h3c": {
+          "entry": "e5cdb683-3772-5ed0-a5b0-bcb4249401ff",
+          "lines": [
+            {
+              "re": "^dns\\s+server\\s+(?P<dns_server_ip>[\\d.]+)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "dns_server_ip"
+          ]
+        },
+        "juniper": {
+          "entry": "f0b04fd6-2368-5c82-a8a8-f2a50d70577e",
+          "lines": [
+            {
+              "re": "^set\\s+system\\s+name-server\\s+(?P<dns_server_ip>[\\d.]+)\\s*$"
+            }
+          ],
+          "key": [
+            "dns_server_ip"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ssh",
+      "name": "SSH 管理与本地管理用户",
+      "category": "SSH管理",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "bind": {
+        "hostname": {
+          "*": {
+            "param": "hostname"
+          }
+        },
+        "domain": {
+          "*": {
+            "param": "domain"
+          }
+        },
+        "timeout_min": {
+          "*": {
+            "param": "timeout_min"
+          }
+        }
+      },
+      "optional": [
+        "hostname",
+        "domain",
+        "username",
+        "password",
+        "timeout_min",
+        "uid",
+        "password_hash",
+        "banner"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "c51d45e0-bfe2-531c-9db4-2debdb2dba00",
+          "lines": [
+            {
+              "re": "^hostname\\s+(?P<hostname>\\S+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+domain-name\\s+(?P<domain>\\S+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+ssh\\s+version\\s+2\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^line\\s+vty\\s+0\\s+4\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*login\\s+local\\s*$"
+            },
+            {
+              "re": "^\\s*transport\\s+input\\s+ssh\\s*$"
+            }
+          ],
+          "key": [
+            "hostname"
+          ]
+        },
+        "ruijie": {
+          "entry": "294982b2-6cad-5377-87ff-033423a38030",
+          "lines": [
+            {
+              "re": "^hostname\\s+(?P<hostname>\\S+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+domain-name\\s+(?P<domain>\\S+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+ssh\\s+version\\s+2\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^line\\s+vty\\s+0\\s+4\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*login\\s+local\\s*$"
+            },
+            {
+              "re": "^\\s*transport\\s+input\\s+ssh\\s*$"
+            }
+          ],
+          "key": [
+            "hostname"
+          ]
+        },
+        "zte": {
+          "entry": "7bd18367-ba07-55eb-a9ca-882b8963841a",
+          "lines": [
+            {
+              "re": "^hostname\\s+(?P<hostname>\\S+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+domain-name\\s+(?P<domain>\\S+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ip\\s+ssh\\s+version\\s+2\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^line\\s+vty\\s+0\\s+4\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*login\\s+local\\s*$"
+            },
+            {
+              "re": "^\\s*transport\\s+input\\s+ssh\\s*$"
+            }
+          ],
+          "key": [
+            "hostname"
+          ]
+        },
+        "huawei": {
+          "entry": "db7e7679-a4e4-51cc-ba17-156b1d8e98eb",
+          "lines": [
+            {
+              "re": "^sysname\\s+(?P<hostname>\\S+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^stelnet\\s+server\\s+enable\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^user-interface\\s+vty\\s+0\\s+4\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*authentication-mode\\s+aaa\\s*$"
+            },
+            {
+              "re": "^\\s*protocol\\s+inbound\\s+ssh\\s*$"
+            },
+            {
+              "re": "^\\s*idle-timeout\\s+(?P<timeout_min>\\d+)(?:\\s+\\d+)?\\s*$"
+            }
+          ],
+          "key": [
+            "hostname"
+          ]
+        },
+        "h3c": {
+          "entry": "de093fea-fd7e-58c0-a310-9a839cff8917",
+          "lines": [
+            {
+              "re": "^sysname\\s+(?P<hostname>\\S+)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^ssh\\s+server\\s+enable\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^line\\s+vty\\s+0\\s+4\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*authentication-mode\\s+scheme\\s*$"
+            },
+            {
+              "re": "^\\s*protocol\\s+inbound\\s+ssh\\s*$"
+            },
+            {
+              "re": "^\\s*idle-timeout\\s+(?P<timeout_min>\\d+)(?:\\s+\\d+)?\\s*$"
+            }
+          ],
+          "key": [
+            "hostname"
+          ]
+        },
+        "juniper": {
+          "entry": "7a6092d4-a515-5f25-9af1-0550a38f8ec1",
+          "lines": [
+            {
+              "re": "^set\\s+system\\s+host-name\\s+(?P<hostname>\\S+)\\s*$"
+            },
+            {
+              "re": "^set\\s+system\\s+domain-name\\s+(?P<domain>\\S+)\\s*$"
+            },
+            {
+              "re": "^set\\s+system\\s+services\\s+ssh.*$"
+            }
+          ],
+          "key": [
+            "hostname"
+          ]
+        }
+      }
+    },
+    {
+      "id": "password",
+      "name": "Console 口令与本地认证",
+      "category": "密码",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte"
+      ],
+      "bind": {
+        "console_id": {
+          "*": {
+            "param": "console_id"
+          }
+        },
+        "timeout_min": {
+          "*": {
+            "param": "timeout_min"
+          }
+        }
+      },
+      "optional": [
+        "console_password",
+        "enable_secret",
+        "privilege",
+        "timeout_min",
+        "console_id"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "dd503bcb-810d-58e7-9c2d-8af6903226fc",
+          "lines": [
+            {
+              "re": "^line\\s+console\\s+(?P<console_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*logging\\s+synchronous\\s*$"
+            },
+            {
+              "re": "^\\s*exec-timeout\\s+(?P<timeout_min>\\d+)\\s+\\d+\\s*$"
+            },
+            {
+              "re": "^\\s*login\\s*$"
+            }
+          ],
+          "key": [
+            "console_id"
+          ]
+        },
+        "ruijie": {
+          "entry": "f4066cd1-f4ee-5a1a-b7d3-d2d39edd624b",
+          "lines": [
+            {
+              "re": "^line\\s+console\\s+(?P<console_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*logging\\s+synchronous\\s*$"
+            },
+            {
+              "re": "^\\s*exec-timeout\\s+(?P<timeout_min>\\d+)\\s+\\d+\\s*$"
+            },
+            {
+              "re": "^\\s*login\\s*$"
+            }
+          ],
+          "key": [
+            "console_id"
+          ]
+        },
+        "zte": {
+          "entry": "426b9f4e-62ac-5ffc-8cdb-4fe45e3fef3a",
+          "lines": [
+            {
+              "re": "^line\\s+console\\s+(?P<console_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*logging\\s+synchronous\\s*$"
+            },
+            {
+              "re": "^\\s*exec-timeout\\s+(?P<timeout_min>\\d+)\\s+\\d+\\s*$"
+            },
+            {
+              "re": "^\\s*login\\s*$"
+            }
+          ],
+          "key": [
+            "console_id"
+          ]
+        },
+        "huawei": {
+          "entry": "aec91111-a95a-5257-afc1-fef4195ad322",
+          "lines": [
+            {
+              "re": "^user-interface\\s+console\\s+(?P<console_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*authentication-mode\\s+password\\s*$"
+            },
+            {
+              "re": "^\\s*user\\s+privilege\\s+level\\s+(?P<privilege>\\d+)\\s*$"
+            },
+            {
+              "re": "^\\s*idle-timeout\\s+(?P<timeout_min>\\d+)(?:\\s+\\d+)?\\s*$"
+            }
+          ],
+          "key": [
+            "console_id"
+          ]
+        },
+        "h3c": {
+          "entry": "e06208c2-ed72-56d8-a381-d7a353aa0b0f",
+          "lines": [
+            {
+              "re": "^line\\s+console\\s+(?P<console_id>\\d+)\\s*$",
+              "scope": "header",
+              "view": "root"
+            },
+            {
+              "re": "^\\s*authentication-mode\\s+password\\s*$"
+            },
+            {
+              "re": "^\\s*user-role\\s+\\S+\\s*$"
+            },
+            {
+              "re": "^\\s*idle-timeout\\s+(?P<timeout_min>\\d+)(?:\\s+\\d+)?\\s*$"
+            }
+          ],
+          "key": [
+            "console_id"
+          ]
+        }
+      }
+    },
+    {
+      "id": "devmgmt",
+      "name": "查询对照：硬件资产与版本巡检",
+      "category": "设备管理",
+      "kind": "query",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "849cc74f-96db-5e11-899c-2994d4103129",
+          "lines": [
+            {
+              "re": "^show\\s+version\\s*$"
+            },
+            {
+              "re": "^show\\s+inventory\\s*$"
+            },
+            {
+              "re": "^show\\s+environment(?:\\s+all)?\\s*$"
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "2202db1c-855f-5220-a472-79855a5257bf",
+          "lines": [
+            {
+              "re": "^display\\s+version\\s*$"
+            },
+            {
+              "re": "^display\\s+device\\s*$"
+            },
+            {
+              "re": "^display\\s+elabel(?:\\s+.*)?$"
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "551296a1-ca9d-562c-ba4c-c37cf127c082",
+          "lines": [
+            {
+              "re": "^display\\s+version\\s*$"
+            },
+            {
+              "re": "^display\\s+device(?:\\s+manuinfo)?\\s*$"
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "f41f39ad-9b87-5f24-be97-10849eed7b5a",
+          "lines": [
+            {
+              "re": "^show\\s+version(?:\\s+devices)?\\s*$"
+            },
+            {
+              "re": "^show\\s+environment\\s*$"
+            }
+          ]
+        },
+        "zte": {
+          "entry": "0a76a227-698d-577c-ba97-cc4205ceb359",
+          "lines": [
+            {
+              "re": "^show\\s+version\\s*$"
+            },
+            {
+              "re": "^show\\s+card\\s*$"
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "f6975b35-076c-5013-a3c2-b789d66f6052",
+          "lines": [
+            {
+              "re": "^show\\s+version\\s*$"
+            },
+            {
+              "re": "^show\\s+chassis\\s+hardware\\s*$"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "snmp",
+      "name": "SNMP v2c 与 Trap 上报",
+      "category": "SNMP",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "bind": {
+        "nms_ip": {
+          "*": {
+            "param": "nms_ip"
+          }
+        },
+        "location": {
+          "*": {
+            "param": "location"
+          }
+        },
+        "contact": {
+          "*": {
+            "param": "contact"
+          }
+        }
+      },
+      "optional": [
+        "ro_community",
+        "rw_community",
+        "location",
+        "contact",
+        "v3_group",
+        "v3_user",
+        "v3_auth_pass",
+        "v3_priv_pass",
+        "description",
+        "trap_group",
+        "trap_source_port"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "a372ea5c-0f6e-51b8-b56b-8cc570ebe7cd",
+          "lines": [
+            {
+              "re": "^snmp-server\\s+host\\s+(?P<nms_ip>[\\d.]+).*$",
+              "view": "root"
+            },
+            {
+              "re": "^snmp-server\\s+location\\s+(?P<location>.+?)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^snmp-server\\s+contact\\s+(?P<contact>.+?)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "nms_ip"
+          ]
+        },
+        "ruijie": {
+          "entry": "7d2f4189-56c9-5318-9860-b00f9386d016",
+          "lines": [
+            {
+              "re": "^snmp-server\\s+host\\s+(?P<nms_ip>[\\d.]+).*$",
+              "view": "root"
+            },
+            {
+              "re": "^snmp-server\\s+location\\s+(?P<location>.+?)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^snmp-server\\s+contact\\s+(?P<contact>.+?)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "nms_ip"
+          ]
+        },
+        "zte": {
+          "entry": "0c99899f-4aa7-5c17-a535-8e9bb24fc930",
+          "lines": [
+            {
+              "re": "^snmp-server\\s+host\\s+(?P<nms_ip>[\\d.]+).*$",
+              "view": "root"
+            },
+            {
+              "re": "^snmp-server\\s+location\\s+(?P<location>.+?)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^snmp-server\\s+contact\\s+(?P<contact>.+?)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "nms_ip"
+          ]
+        },
+        "huawei": {
+          "entry": "bd0741fb-c566-5c28-b34f-a83908946c5f",
+          "lines": [
+            {
+              "re": "^snmp-agent\\s+target-host\\s+trap\\s+address\\s+udp-domain\\s+(?P<nms_ip>[\\d.]+).*$",
+              "view": "root"
+            },
+            {
+              "re": "^snmp-agent\\s+sys-info\\s+location\\s+(?P<location>.+?)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^snmp-agent\\s+sys-info\\s+contact\\s+(?P<contact>.+?)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "nms_ip"
+          ]
+        },
+        "h3c": {
+          "entry": "056a903f-ba41-5748-b870-498b341e9e25",
+          "lines": [
+            {
+              "re": "^snmp-agent\\s+target-host\\s+trap\\s+address\\s+udp-domain\\s+(?P<nms_ip>[\\d.]+).*$",
+              "view": "root"
+            },
+            {
+              "re": "^snmp-agent\\s+sys-info\\s+location\\s+(?P<location>.+?)\\s*$",
+              "view": "root"
+            },
+            {
+              "re": "^snmp-agent\\s+sys-info\\s+contact\\s+(?P<contact>.+?)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "nms_ip"
+          ]
+        },
+        "juniper": {
+          "entry": "1f3f324e-2420-5fdc-abd2-ac860cf74997",
+          "lines": [
+            {
+              "re": "^set\\s+snmp\\s+trap-group\\s+\\S+\\s+targets\\s+(?P<nms_ip>[\\d.]+).*$"
+            },
+            {
+              "re": "^set\\s+snmp\\s+location\\s+\\\"?(?P<location>[^\\\"]+?)\\\"?\\s*$"
+            },
+            {
+              "re": "^set\\s+snmp\\s+contact\\s+\\\"?(?P<contact>[^\\\"]+?)\\\"?\\s*$"
+            }
+          ],
+          "key": [
+            "nms_ip"
+          ]
+        }
+      }
+    },
+    {
+      "id": "rollback",
+      "name": "配置回滚（归档/备份恢复）",
+      "category": "配置回滚",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte"
+      ],
+      "bind": {
+        "backup_file": {
+          "*": {
+            "param": "backup_file"
+          }
+        }
+      },
+      "vendors": {
+        "cisco": {
+          "entry": "6156cb72-fcd3-5f9f-926a-7b93745d3764",
+          "lines": [
+            {
+              "re": "^configure\\s+replace\\s+flash:(?P<backup_file>\\S+)\\s+force\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "backup_file"
+          ]
+        },
+        "ruijie": {
+          "entry": "a77b2d1c-b32a-595e-a3dc-e383154ff91b",
+          "lines": [
+            {
+              "re": "^copy\\s+flash:/(?P<backup_file>\\S+)\\s+running-config\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "backup_file"
+          ]
+        },
+        "zte": {
+          "entry": "501e1ffe-5ab1-5d70-9d07-6eec9a315864",
+          "lines": [
+            {
+              "re": "^copy\\s+flash:/(?P<backup_file>\\S+)\\s+running-config\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "backup_file"
+          ]
+        },
+        "huawei": {
+          "entry": "78f9a12d-524a-504a-b72d-2a31a8899346",
+          "lines": [
+            {
+              "re": "^copy\\s+flash:/(?P<backup_file>\\S+)\\s+flash:/vrpcfg\\.zip\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "backup_file"
+          ]
+        },
+        "h3c": {
+          "entry": "adcbbf79-f438-5478-bcf3-393d03adf44d",
+          "lines": [
+            {
+              "re": "^configuration\\s+replace\\s+file\\s+flash:/archive/(?P<backup_file>\\S+)\\s*$",
+              "view": "root"
+            }
+          ],
+          "key": [
+            "backup_file"
+          ]
+        }
+      }
+    },
+    {
+      "id": "log",
+      "name": "查询对照：系统日志排查",
+      "category": "日志",
+      "kind": "query",
+      "scope": [
+        "cisco",
+        "huawei",
+        "h3c",
+        "ruijie",
+        "zte",
+        "juniper"
+      ],
+      "optional": [
+        "keyword"
+      ],
+      "vendors": {
+        "cisco": {
+          "entry": "526e648c-b0c2-5029-a9b4-c2d8d1f4119f",
+          "lines": [
+            {
+              "re": "^show\\s+logging(?:\\s+\\|.*)?\\s*$"
+            }
+          ]
+        },
+        "ruijie": {
+          "entry": "33307a5b-ecc8-56f3-af5a-4937383919cf",
+          "lines": [
+            {
+              "re": "^show\\s+logging(?:\\s+\\|.*)?\\s*$"
+            }
+          ]
+        },
+        "zte": {
+          "entry": "401fd7e4-6910-590c-83b8-eb54c68f28cc",
+          "lines": [
+            {
+              "re": "^show\\s+logging(?:\\s+\\|.*)?\\s*$"
+            },
+            {
+              "re": "^show\\s+alarm\\s*$"
+            }
+          ]
+        },
+        "huawei": {
+          "entry": "ed8335ed-fdf5-5bd3-abef-957f25c82dc5",
+          "lines": [
+            {
+              "re": "^display\\s+logbuffer(?:\\s+.*)?$"
+            },
+            {
+              "re": "^display\\s+trapbuffer(?:\\s+.*)?$"
+            }
+          ]
+        },
+        "h3c": {
+          "entry": "20ff35a6-bd75-50e6-ad77-0649bea74203",
+          "lines": [
+            {
+              "re": "^display\\s+logbuffer(?:\\s+.*)?$"
+            }
+          ]
+        },
+        "juniper": {
+          "entry": "9dd90b53-7b41-5ff3-b043-570063149775",
+          "lines": [
+            {
+              "re": "^show\\s+log(?:\\s+messages)?(?:\\s+\\|.*)?$"
+            }
+          ]
+        }
+      }
     }
   ]
 }

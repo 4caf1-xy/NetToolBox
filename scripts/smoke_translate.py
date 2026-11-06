@@ -1,21 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-smoke_translate.py —— 配置翻译器（U 批 2026-11-06）冒烟
+smoke_translate.py —— 配置翻译器冒烟（U 批 2026-11-06 / V 批扩族 2026-11-06）
 
-覆盖九案（全部 offscreen + 本地样例，主库零接触、零联网）：
-    [A] 映射表随种子：8 族 / 48 条厂商映射；validate_rules 零 [E]/[W]
+覆盖（全部 offscreen + 本地样例，主库零接触、零联网）：
+    [A] 映射表随种子：27 族 / 147 条厂商映射；validate_rules 零 [E]/[W]；
+        族级 scope 与实际 vendors 自洽（缺格族如实声明目标范围）
     [B] 六厂商整机样例：每行必落一档（无丢失行）；a 档行带 uuid 且条目存在、
         且条目属**目标**厂商；c 档必带原因
-    [C] 族内映射正确性抽验：VLAN / Trunk / 静态路由 / 链路聚合 / OSPF / NTP
-        的关键目标命令行与「源行 → 目标条目 uuid」追溯
-    [D] 私有特性必落 c 档（Cisco spanning-tree / 华为 stp / Junos rstp / ZXR10 等）
+    [C] 族内映射正确性：U 批 8 族抽验 + V 批 19 族逐族正例（族命中 + 目标命令可核）
+    [D] 私有特性 / 目标缺格 / 参数不可推导 必落 c 档且零外译（逐族反例）
     [E] 零臆测：输出无 {{ 残留；每条目标命令都能在「被引用条目的渲染结果」里找到；
         目标条目 vendor 恒等于目标厂商；无族命中时输出零命令
-    [F] 覆盖率可复算：档位计数 == coverage；pct == 已译/命令行；账本行数 == 总行数
+    [F] 覆盖率可复算：档位计数 == coverage；pct == 已译/命令行；账本行数 == 总行数；
+        六样例总账本与冻结数字一致（可复算）
     [G] 回退：变更类实例带库内 rollback，且出现在 output.rollback
     [H] 坏映射表被 --validate-seed [E] 硬拦截（端到端），移除后复位 EXIT=0 且计数不动
     [I] 离屏 UI：TranslateTab 构造 / 载入样例 / 翻译 / 账本表格行数 / split_state /
         Markdown 账本导出；两模块零联网源码断言
+    [J] V 批专项：uncovered_view 仅对族外命令触发（逐样例计数）；族级 scope 越界
+        目标判 no_family；查询对照族输出只进复核区不进配置区
 
 用法：python scripts/smoke_translate.py   （EXIT=0 全过；PyQt5 经 _vendor）
 """
@@ -23,6 +26,7 @@ import io
 import contextlib
 import json
 import os
+import re
 import sys
 import tempfile
 
@@ -52,6 +56,45 @@ PAIRS = (
     ("juniper", "huawei"),
 )
 
+# V 批族数 / 映射数（映射表实际值，--validate-seed 统计行同源）
+FAMILY_COUNT = 27
+MAPPING_COUNT = 147
+
+# 六样例总账本（V 批冻结值：命令行 437 / 已译 370 / 84.7%；改样例须同步本表）
+LEDGER = {"total": 585, "command": 437, "translated": 370, "comment": 24,
+          "manual": 33, "skipped": 34, "pct": 84.7}
+
+# V 批 19 族逐族正例：(族, 源, 目标, 源行特征, 目标输出必含)
+V_POS = (
+    ("acl",         "cisco",   "ruijie", "permit ip 192.168.10.0", "ip access-list extended ACL-MGMT-01"),
+    ("nat",         "cisco",   "huawei", "ip nat inside source list", "nat outbound 2000"),
+    ("vrrp",        "cisco",   "huawei", "vrrp 10 ip", "vrrp vrid 10 virtual-ip 10.10.10.254"),
+    ("poe",         "cisco",   "huawei", "power inline auto", "poe enable"),
+    ("storm",       "cisco",   "huawei", "storm-control broadcast", "broadcast-suppression 5"),
+    ("bgp",         "cisco",   "huawei", "show ip bgp summary", "display bgp peer"),
+    ("stack",       "cisco",   "huawei", "show switch", "display stack"),
+    ("loop",        "cisco",   "huawei", "show spanning-tree summary", "display stp"),
+    ("display_ctl", "cisco",   "huawei", "terminal length 0", "screen-length 0 temporary"),
+    ("ha",          "cisco",   "huawei", "show standby brief", "display vrrp brief"),
+    ("save",        "cisco",   "huawei", "copy running-config flash:backup", "copy flash:/vrpcfg.zip flash:/vrpcfg-20261106.zip"),
+    ("aaa",         "cisco",   "huawei", "address ipv4 10.1.1.5", "radius-server authentication 10.1.1.5 1812"),
+    ("dns",         "cisco",   "huawei", "ip name-server 223.5.5.5", "dns server 223.5.5.5"),
+    ("ssh",         "cisco",   "huawei", "ip domain-name corp.local", "sysname SW-ACC-01"),
+    ("password",    "cisco",   "huawei", "line console 0", "user-interface console 0"),
+    ("devmgmt",     "cisco",   "huawei", "show version", "display version"),
+    ("snmp",        "cisco",   "huawei", "snmp-server location", "snmp-agent sys-info location IDC-A-机柜12"),
+    ("rollback",    "cisco",   "huawei", "configure replace flash:", "startup saved-configuration flash:/vrpcfg.zip"),
+    ("log",         "cisco",   "huawei", "show logging", "display logbuffer"),
+)
+
+# V 批反例：(说明, 源, 目标, 源行特征, 期望档, 期望原因)
+V_NEG = (
+    ("私有特性不可跨厂商", "cisco", "huawei", "spanning-tree portfast", "c", "private"),
+    ("目标厂商不在族 scope（堆叠缺思科）", "huawei", "cisco", "display stack", "c", "no_family"),
+    ("参数不可推导（ACL 名→编号）", "cisco", "huawei", "ip access-list extended ACL-MGMT-01", "c", "param_missing"),
+    ("源项在目标条目无对应参数（NAT 接口标记）", "cisco", "huawei", "ip nat outside", "c", "unbound"),
+)
+
 
 def _sample(slug):
     with open(os.path.join(SAMPLE_DIR, "%s.txt" % slug), encoding="utf-8") as fp:
@@ -71,10 +114,11 @@ def _rules():
     return translate_tool, data, problems
 
 
-def _run(slug, dst, db=None):
+def _run(slug, dst, db=None, src=None):
     translate_tool, rules, _p = _rules()
     db = db or _seeded_db()
-    return translate_tool.translate(_sample(slug), slug, dst, rules, db.get_entry)
+    src = src or slug
+    return translate_tool.translate(_sample(src), src, dst, rules, db.get_entry)
 
 
 # ======================================================================
@@ -86,8 +130,9 @@ def case_a():
     fams = rules.get("families") or []
     pairs = sum(len(f.get("vendors") or {}) for f in fams)
     check("A1 映射表可加载且无文件级问题", problems == [], "; ".join(problems))
-    check("A2 族数 = 8", len(fams) == 8, "families=%d" % len(fams))
-    check("A3 厂商映射数 = 48（8 族 × 6 厂商）", pairs == 48, "pairs=%d" % pairs)
+    check("A2 族数 = %d（U 批 8 + V 批 19）" % FAMILY_COUNT, len(fams) == FAMILY_COUNT,
+          "families=%d" % len(fams))
+    check("A3 厂商映射数 = %d" % MAPPING_COUNT, pairs == MAPPING_COUNT, "pairs=%d" % pairs)
 
     db = _seeded_db()
     import db as dbmod
@@ -95,8 +140,24 @@ def case_a():
         rules, entry_getter=db.get_entry, vendor_slugs=list(dbmod.VENDOR_SLUGS.keys()))
     check("A4 validate_rules 零 [E]", errs == [], "; ".join(errs[:3]))
     check("A5 validate_rules 零 [W]", warns == [], "; ".join(warns[:3]))
-    every_vendor = all(len(f.get("vendors") or {}) == 6 for f in fams)
-    check("A6 每族六厂商齐备（可任意方向翻译）", every_vendor, "")
+
+    # 族级 scope：目标厂商必须是族内真有条目的厂商；声明了 scope 的族可少于六家（缺格如实标）
+    slugs = set((rules.get("vendors") or {}).keys())
+    bad_scope = []
+    partial = []
+    for f in fams:
+        fv = set((f.get("vendors") or {}).keys())
+        scope = f.get("scope")
+        if scope:
+            if not set(scope) <= fv or not set(scope) <= slugs:
+                bad_scope.append(f["id"])
+            if len(scope) < 6:
+                partial.append("%s(%d)" % (f["id"], len(scope)))
+        elif fv != slugs:
+            bad_scope.append("%s(未声明 scope 却缺厂商)" % f["id"])
+    check("A6 scope 与 vendors 自洽（目标厂商必有条目）", not bad_scope, "; ".join(bad_scope))
+    check("A7 缺格族如实声明 scope（不凑六厂商）", len(partial) >= 5,
+          "partial=%s" % "、".join(partial))
 
 
 # ======================================================================
@@ -143,9 +204,9 @@ def case_b():
               "缺原因 %d 行" % len([x for x in c_rows if not (x.get("note") or "").strip()]))
 
         cov = r["coverage"]
-        check("B7[%s] 四档全覆盖（a/b/c/d 均非空）" % tag,
-              all(cov[k] > 0 for k in ("translated", "comment", "manual", "skipped")),
-              str(cov))
+        check("B7[%s] a/b/d 三档非空且 c 档计数与账本一致（V 批允许 c=0）" % tag,
+              cov["translated"] > 0 and cov["comment"] > 0 and cov["skipped"] > 0
+              and cov["manual"] == len(c_rows), str(cov))
 
 
 # ======================================================================
@@ -214,9 +275,20 @@ def case_c():
     check("C16 zte→cisco OSPF 被动接口 → passive-interface",
           "passive-interface gei_0/1" in out or "passive-interface" in out, out[:200])
 
+    # ---- V 批：19 族逐族正例（族命中 + 目标命令可核） ----
+    for fam, src, dst, needle, expect in V_POS:
+        r = _run(src, dst, db)
+        row = next((x for x in r["lines"] if needle in (x["text"] or "")), None)
+        check("C17[%s] 族命中并判已译（%s→%s）" % (fam, src, dst),
+              row is not None and row["tier"] == "a" and row.get("family") == fam,
+              "%s/%s" % ((row or {}).get("tier"), (row or {}).get("family")))
+        out = "\n".join(r["output"]["config"])
+        check("C18[%s] 目标命令由库内条目渲染（%s）" % (fam, expect[:28]),
+              expect in out, out[:120])
+
 
 # ======================================================================
-# [D] 私有特性必落需人工
+# [D] 私有特性 / 缺格 / 参数不可推导 必落需人工
 # ======================================================================
 
 def case_d():
@@ -239,12 +311,12 @@ def case_d():
               needle.split()[0] not in "\n".join(r["output"]["config"]) or
               row["tier"] == "c", "")
 
-    # 杂项行（库内无族）同样不得臆造
+    # 族外杂项行（库内无族）同样不得臆造
     r = _run("cisco", "huawei", db)
-    row = next((x for x in r["lines"] if "hostname" in (x["text"] or "")), None)
-    check("D4 杂项行（hostname）落 c 档", row is not None and row["tier"] == "c",
+    row = next((x for x in r["lines"] if (x["text"] or "").strip() == "ip routing"), None)
+    check("D4 族外杂项行（ip routing）落 c 档", row is not None and row["tier"] == "c",
           (row or {}).get("tier", "missing"))
-    check("D5 杂项行原因写明库内无对应族",
+    check("D5 族外杂项行原因写明库内无对应族",
           row is not None and "库内无对应" in (row.get("note") or ""),
           (row or {}).get("note", "")[:40])
 
@@ -254,6 +326,19 @@ def case_d():
           (row or {}).get("tier", "missing"))
     check("D7 口令不外译（输出无 secret 行）",
           "secret" not in "\n".join(r["output"]["config"]), "")
+
+    # ---- V 批反例：私有特性 / 目标缺格 / 参数不可推导 / 无对应参数 ----
+    for label, src, dst, needle, tier, reason in V_NEG:
+        r = _run(src, dst, db)
+        row = next((x for x in r["lines"] if needle in (x["text"] or "")), None)
+        check("D8 反例判 c[%s]" % label,
+              row is not None and row["tier"] == tier and row.get("reason") == reason,
+              "%s/%s" % ((row or {}).get("tier"), (row or {}).get("reason")))
+
+    # 反例零外译：缺格 / 不可推导族的命令不得出现在目标配置里
+    r = _run("huawei", "cisco", db)          # 堆叠族无思科目标
+    check("D9 目标缺格不外译（堆叠 → 思科 无 display stack 产物）",
+          "virtual-chassis" not in "\n".join(r["output"]["config"]), "")
 
 
 # ======================================================================
@@ -303,6 +388,7 @@ def case_e():
 
 def case_f():
     db = _seeded_db()
+    total = {k: 0 for k in LEDGER}
     for slug, dst in PAIRS:
         r = _run(slug, dst, db)
         tag = "%s→%s" % (slug, dst)
@@ -325,6 +411,14 @@ def case_f():
         check("F5[%s] skipped == d 档 - 空行 - 分隔符" % tag,
               cov["skipped"] == counts["d"] - blank - sep,
               "%d vs %d" % (cov["skipped"], counts["d"] - blank - sep))
+        for k in total:
+            if k != "pct":
+                total[k] += cov[k]
+
+    total["pct"] = round(total["translated"] * 100.0 / total["command"], 1)
+    check("F6 六样例总账本与冻结数字一致（命令行 %d / 已译 %d / %.1f%%）"
+          % (LEDGER["command"], LEDGER["translated"], LEDGER["pct"]),
+          total == LEDGER, "%s vs %s" % (total, LEDGER))
 
 
 # ======================================================================
@@ -395,8 +489,9 @@ def case_h():
     check("H6 移除坏文件后 validate 复位 EXIT=0", rc_ok == 0, "rc=%s" % rc_ok)
     check("H7 种子计数不动（459/26/106，映射表不新增条目）",
           "459 条条目 + 26 棵排查树 + 106 条报错字典" in buf.getvalue(), "")
-    check("H8 输出含映射表统计 8 族 48 映射",
-          "8 族 ｜ 48 条厂商映射" in buf.getvalue(), "")
+    check("H8 输出含映射表统计 %d 族 ｜ %d 映射" % (FAMILY_COUNT, MAPPING_COUNT),
+          "%d 族 ｜ %d 条厂商映射" % (FAMILY_COUNT, MAPPING_COUNT) in buf.getvalue(),
+          [l for l in buf.getvalue().splitlines() if "配置翻译映射" in l][:1])
 
 
 # ======================================================================
@@ -412,7 +507,8 @@ def case_i():
     db = _seeded_db()
     tab = ui_translate.TranslateTab(db, None)
     check("I1 TranslateTab 构造成功", tab is not None, "")
-    check("I2 映射表提示已加载", "8 族" in tab.lbl_rule.text(), tab.lbl_rule.text()[:60])
+    check("I2 映射表提示已加载", "%d 族" % FAMILY_COUNT in tab.lbl_rule.text(),
+          tab.lbl_rule.text()[:60])
     check("I3 厂商下拉六家", tab.cmb_src.count() == 6, str(tab.cmb_src.count()))
 
     idx = tab.cmb_src.findData("cisco")
@@ -472,11 +568,66 @@ def _safe_empty(tab):
 
 
 # ======================================================================
+# [J] V 批专项：族覆盖面与输出分区
+# ======================================================================
+
+# 族外命令白名单：这些行的确不属于任何跨厂商族（库内无六厂商族条目），
+# 因此可以继续落 uncovered_view —— 其余行出现该原因码即视为「假命中残留」
+OUT_OF_FAMILY = (
+    "ip address",
+)
+
+
+def case_j():
+    db = _seeded_db()
+    for slug, dst in PAIRS:
+        r = _run(slug, dst, db)
+        tag = "%s→%s" % (slug, dst)
+        unc = [x for x in r["lines"] if x.get("reason") == "uncovered_view"]
+        bad = [x for x in unc
+               if not any((x["text"] or "").strip().lower().startswith(p)
+                          for p in OUT_OF_FAMILY)]
+        check("J1[%s] uncovered_view 仅对族外命令触发（族内零残留）" % tag,
+              not bad, " | ".join("%s:%s" % (x["no"], (x["text"] or "").strip()[:24])
+                                  for x in bad[:3]))
+        check("J2[%s] 族外行均可解释（逐行白名单）" % tag,
+              all((x.get("note") or "").strip() for x in unc), "")
+
+    # 查询对照族：输出只进「复核命令」区，不得混进配置正文（复核区之前的命令行）
+    r = _run("cisco", "huawei", db)
+    cfg = r["output"]["config"]
+    cut = next((i for i, ln in enumerate(cfg) if "复核命令" in ln), len(cfg))
+    body = [ln for ln in cfg[:cut]
+            if ln.strip() and not ln.lstrip().startswith(("#", "!"))]
+    leak = [ln for ln in body if ln.split()[0] in ("show", "display") and ln in
+            set(r["output"]["verify"])]
+    check("J3 查询对照族的命令只进复核区（不进配置正文）", not leak, str(leak[:2]))
+
+    # 族级 scope 越界：明确判 no_family 且原因可读（不是假 uncovered_view）
+    r = _run("huawei", "cisco", db)
+    row = next((x for x in r["lines"] if "display stack" in (x["text"] or "")), None)
+    check("J4 scope 越界判 no_family 且注明可译目标",
+          row is not None and row.get("reason") == "no_family"
+          and "该族可译目标" in (row.get("note") or ""),
+          (row or {}).get("note", "")[:60])
+
+    # 逐族正例覆盖：19 族在 C17/C18 全覆盖（此处只做汇总断言）
+    fams_hit = set()
+    for _fam, src, dst, needle, _exp in V_POS:
+        r = _run(src, dst, db)
+        if any((x["text"] or "").find(needle) >= 0 and x["tier"] == "a" for x in r["lines"]):
+            fams_hit.add(_fam)
+    check("J5 V 批 19 族全部有正例命中", len(fams_hit) == len(V_POS),
+          "缺少 %s" % (set(f for f, *_ in V_POS) - fams_hit))
+
+
+# ======================================================================
 def main():
     print("=" * 68)
-    print("smoke_translate —— 配置翻译器冒烟（U 批）")
+    print("smoke_translate —— 配置翻译器冒烟（U 批 + V 批扩族）")
     print("=" * 68)
-    for fn in (case_a, case_b, case_c, case_d, case_e, case_f, case_g, case_h, case_i):
+    for fn in (case_a, case_b, case_c, case_d, case_e, case_f, case_g, case_h,
+               case_i, case_j):
         try:
             fn()
         except Exception as exc:

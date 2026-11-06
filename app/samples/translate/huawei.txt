@@ -49,4 +49,72 @@ ntp-service unicast-server 10.1.1.10
 #
 local-user admin password irreversible-cipher %^%#Xk3pQ9dLmZ7v
 #
+# ---- V 批扩族样例：ACL / NAT / VRRP / PoE / 风暴抑制 ----
+acl number 3000
+ rule 5 permit ip source 192.168.10.0 0.0.0.255 destination 10.10.0.0 0.0.255.255
+ rule 10 deny ip
+ quit
+#
+interface GigabitEthernet0/0/5
+ description TO-PC-AREA-C
+ port link-type access
+ port default vlan 10
+ traffic-filter inbound acl 3000
+ poe enable
+ broadcast-suppression 5
+ quit
+#
+interface Vlanif 10
+ ip address 10.10.10.1 24
+ vrrp vrid 10 virtual-ip 10.10.10.254
+ vrrp vrid 10 priority 120
+ quit
+#
+acl number 2000
+ rule 5 permit source 192.168.10.0 0.0.0.255
+ quit
+#
+interface GigabitEthernet0/0/6
+ description TO-WAN
+ ip address 200.1.1.2 255.255.255.0
+ nat outbound 2000
+ quit
+#
+# ---- V 批扩族样例：系统管理（AAA / DNS / SSH / Console / SNMP / 保存 / 回滚 / 显示）----
+radius-server template RD1
+ radius-server authentication 10.1.1.5 1812
+ radius-server shared-key cipher Rd1@12345
+ quit
+#
+dns resolve
+dns server 223.5.5.5
+#
+stelnet server enable
+user-interface vty 0 4
+ authentication-mode aaa
+ protocol inbound ssh
+ quit
+#
+user-interface console 0
+ authentication-mode password
+ user privilege level 15
+ quit
+#
+snmp-agent target-host trap address udp-domain 10.0.0.100 params securityname cipher RO@Public1 v2c
+snmp-agent sys-info location IDC-A-机柜12
+snmp-agent sys-info contact 网络运维组
+#
+copy flash:/vrpcfg.zip flash:/vrpcfg-20261106.zip
+copy flash:/backup-20261106.cfg flash:/vrpcfg.zip
+#
+screen-length 0 temporary
+#
+# ---- 运维查询行（迁移后现场核对用，非 running-config 内容）----
+display version
+display bgp peer
+display stack
+display stp
+display vrrp brief
+display logbuffer
+#
 return

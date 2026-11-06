@@ -175,6 +175,23 @@ def validate_rules(data, entry_getter=None, vendor_slugs=None):
         if not isinstance(fv, dict) or not fv:
             errors.append("families[%s]：vendors 为空" % fid)
             continue
+        key_stats = {}
+        # 族级目标厂商范围（V 批 2026-11-06）：库内确有厂商缺格的族（如堆叠缺中兴、
+        # HA 仅思科/华为）如实声明可译目标，不再用「六厂商齐备」硬校验逼出凑数映射。
+        # 未声明 scope = 与顶层 vendors 同集（旧表行为不变）。
+        scope = fam.get("scope")
+        if scope is not None:
+            if not isinstance(scope, list) or not scope:
+                errors.append("families[%s]：scope 必须是非空数组" % fid)
+                scope = None
+            else:
+                unknown = [s for s in scope if s not in vendors_meta]
+                if unknown:
+                    errors.append("families[%s]：scope 含未声明厂商「%s」"
+                                  % (fid, "、".join(unknown)))
+        targets = [s for s in (scope if scope else list(vendors_meta))
+                   if s in vendors_meta]
+        # scope 外的源厂商是合法设计（如堆叠族以思科为源、思科本身不作目标），不告警
         for src, meta in fv.items():
             where = "families[%s].vendors[%s]" % (fid, src)
             if src not in vendors_meta:
@@ -195,8 +212,9 @@ def validate_rules(data, entry_getter=None, vendor_slugs=None):
                     errors.append("%s：entry 属于厂商「%s」，与族声明不符"
                                   % (where, entry.get("vendor")))
             key = meta.get("key") or fam.get("key") or []
-            if not isinstance(key, list) or not key:
-                warnings.append("%s：缺 key（实例分组键），退化为单实例" % where)
+            if key and not isinstance(key, list):
+                errors.append("%s：key 必须是数组" % where)
+            key_stats[src] = bool(key)
             lines = meta.get("lines") or []
             if not lines:
                 errors.append("%s：lines 为空（该厂商无任何可识别行）" % where)
@@ -222,9 +240,16 @@ def validate_rules(data, entry_getter=None, vendor_slugs=None):
                     if tgt not in _canon_names(fam, src):
                         warnings.append("%s：inherit/collect 目标「%s」不在族参数表内" % (lw, tgt))
 
+        # 无键族 = 单实例族（V 批：查询对照 / 显示控制），整族一致即合法；
+        # 只有「部分厂商有键、部分没有」才是可疑的写法
+        if key_stats and any(key_stats.values()) and not all(key_stats.values()):
+            warnings.append("families[%s]：实例分组键不一致（%s 有键、%s 无键）"
+                            % (fid, "、".join(k for k, v in key_stats.items() if v),
+                               "、".join(k for k, v in key_stats.items() if not v)))
+
         # 目标模板占位可填性：目标厂商条目的每个占位必须有来源
         if entry_getter is not None:
-            for dst in vendors_meta:
+            for dst in targets:
                 if dst not in fv:
                     errors.append("families[%s]：缺目标厂商 %s 的条目（无法译到该厂商）"
                                   % (fid, dst))
@@ -269,6 +294,27 @@ def _resolve_bind(bind, dst):
             out.setdefault(param, []).append((str(key).split("@")[0], spec.get("transform"),
                                               bool(spec.get("narrow"))))
     return out
+
+
+def fam_scope(fam, vendors_meta=None):
+    """族的目标厂商范围（未声明 = 顶层 vendors 全集；旧表行为不变）"""
+    scope = fam.get("scope")
+    if scope:
+        return list(scope)
+    return list((vendors_meta or {}).keys())
+
+
+def fam_target_covered(fam, dst, vendors_meta=None):
+    return dst in fam_scope(fam, vendors_meta)
+
+
+def fam_has_key(fam):
+    """族是否声明了实例分组键；无键族 = 单实例族（如查询对照族、显示控制）"""
+    fv = fam.get("vendors") or {}
+    for meta in fv.values():
+        if (meta or {}).get("key"):
+            return True
+    return bool(fam.get("key"))
 
 
 def _check_template_fillable(fam, dst, entry_getter):
@@ -650,6 +696,17 @@ def translate(text, src, dst, rules=None, entry_getter=None):
                 ledger[no] = None        # 待二次判定（容器行 / 未覆盖）
                 continue
             fam, vmeta, params = match
+            if not fam_target_covered(fam, dst, vendors_meta):
+                # 族声明了目标厂商范围（库内确缺该厂商条目）→ 如实判需人工，
+                # 不硬凑映射、也不归入「族外」口径
+                ledger[no] = _line(
+                    no, line, "c", reason="no_family",
+                    note="族「%s」库内无 %s 条目（该族可译目标：%s），需人工处理"
+                         % (fam.get("name") or fam["id"],
+                            (vendors_meta.get(dst) or {}).get("label") or dst,
+                            "、".join((vendors_meta.get(s) or {}).get("label") or s
+                                     for s in fam_scope(fam, vendors_meta))))
+                continue
             key = _instance_key(fam, vmeta, params, ctx)
             inst = instances.get((fam["id"], key))
             if inst is None:
@@ -692,17 +749,22 @@ def translate(text, src, dst, rules=None, entry_getter=None):
                                        note="接口视图起始行：由目标条目模板自带（%s）"
                                             % owner["family_name"])
                     seg_map[no] = (owner["family"], owner["key"])
+                    # 容器行随属主实例同进退：属主渲染失败时一并降级，
+                    # 不留「a 档却指向未产出命令的条目」的假已译行
+                    owner["lines"].append(no)
                     continue
             if ctx["view"] in ("if", "vlan", "ospf"):
                 reason = "uncovered_view"
-                note = "「%s」视图内该行无库内族映射规则（v1 覆盖族清单见报告）" % unit["header"][1].strip()
+                note = ("「%s」视图内该行无库内族映射规则（族清单见 docs/dev-notes.md V 批）"
+                        % unit["header"][1].strip())
             else:
                 reason = "no_family"
                 note = "库内无对应族条目，需人工换算"
             ledger[no] = _line(no, line, "c", reason=reason, note=note)
 
     # ---- 无键实例合并：同类同端口的「无键」行并入有键实例 ----
-    _merge_keyless(instances, order, ledger)
+    nokey = {f["id"] for f in families if not fam_has_key(f)}
+    _merge_keyless(instances, order, ledger, nokey)
 
     # ---- 实例渲染 ----
     rendered = []
@@ -886,12 +948,16 @@ def _instance_key(fam, vmeta, params, ctx):
     return "|".join(vals) if any(vals) else "*"
 
 
-def _merge_keyless(instances, order, ledger):
+def _merge_keyless(instances, order, ledger, nokey_fams=None):
     """
     一行匹配上了族但取不到族键（如『switchport mode access』本身不含 vlan_id）时，
     该行先落在无键实例（key='*'）。这里把它并入「同族 + 同端口」的唯一有键实例；
     并不到则整行降级为需人工——绝不拿库内默认值凑一个实例出来。
+
+    无键族（V 批：查询对照族 / 显示控制这类单实例族）不适用降级：
+    整族本就没有分组键，key='*' 即其唯一实例。
     """
+    nokey_fams = nokey_fams or set()
     by_port = {}
     for fam_id, key in list(order):
         if key == "*":
@@ -903,6 +969,8 @@ def _merge_keyless(instances, order, ledger):
     for fam_id, key in list(order):
         if key != "*":
             continue
+        if fam_id in nokey_fams:
+            continue                    # 无键族：key='*' 就是它的唯一实例，原样保留
         inst = instances[(fam_id, key)]
         p = inst["params"].get("ifname") or inst["params"].get("port") or ""
         cands = by_port.get((fam_id, _fmt_range(*parse_range(str(p))))) if p else None
@@ -937,7 +1005,8 @@ def _container_owner(instances, order, port):
     cands = []
     for fam_id, key in order:
         inst = instances[(fam_id, key)]
-        p = inst["params"].get("ifname") or inst["params"].get("port") or ""
+        p = (inst["params"].get("ifname") or inst["params"].get("port")
+             or inst["params"].get("vlan_id") or "")
         if p and _fmt_range(*parse_range(str(p))) == port:
             cands.append(inst)
             continue
@@ -1037,7 +1106,12 @@ def _render_instance(fam, entry, inst, dst, dst_meta):
     for name in spec_map:
         if name in inst["params"] and name not in resolved:
             bound.add(name)
-    unbound = sorted(k for k in inst["params"] if k not in bound and k != "members")
+    # 实例分组键只用于定位目标条目实例，不是「待译字段」——不参与无对应参数判定
+    key_names = set(fam.get("key") or [])
+    key_names.update(((fam.get("vendors") or {}).get(inst.get("vendor") or "") or {})
+                     .get("key") or [])
+    unbound = sorted(k for k in inst["params"]
+                     if k not in bound and k not in key_names and k != "members")
     return {"pre": pre, "body": body, "post": post, "verify": verify,
             "out": body, "rollback": rb_out, "defaults": defaults,
             "dropped": dropped, "narrow": narrow_flags, "unbound": unbound}
@@ -1048,7 +1122,10 @@ def split_entry_lines(lines):
     pre, body, post, verify = [], [], [], []
     idx_body_start = None
     for i, ln in enumerate(lines):
-        if not _is_wrapper(ln) and not _is_comment(ln) and ln.strip():
+        # 纯查询条目（全篇 show/display + 注释）没有「配置体」：整篇进复核区，
+        # 否则夹在查询行之间的注释会掉进配置区，看着像丢了内容
+        if (not _is_wrapper(ln) and not _is_comment(ln) and ln.strip()
+                and not _is_query(ln)):
             idx_body_start = i
             break
     if idx_body_start is None:
