@@ -25,7 +25,7 @@
 ### 1.1 数据形态：独立 JSON，与命令库彻底解耦
 
 - 位置：`app/handbook/*.json`，打包时经 `--add-data` 进 exe；
-- **不进 `command_lib.db`**：不参与条目计数、不进覆盖度矩阵、不改种子底数（`--validate-seed` 仍为 459 / 26 / 106）；
+- **不进 `command_lib.db`**：不参与条目计数、不进覆盖度矩阵、不改种子底数（`--validate-seed` 仍为 482 / 26 / 106）；
 - 目录解析（与 `seed_dirs` 同口径，`app/handbook.py::handbook_dirs`）：
   1. **程序同目录 `handbook/`** —— 现场整册替换或补一本自定义手册，不必重新打包；
   2. exe 内置 `handbook/` —— 随包发布的七本。
@@ -168,7 +168,7 @@
 | 手册结构 + 端口/状态码自检 | `python app/main.py --validate-handbook` | 7 本 / 56 组 / 520 条，EXIT=0 |
 | 手册冒烟（数据事实 + UI + CLI 反例） | `python scripts/smoke_handbook.py` | 58 项 |
 | 工具箱冒烟（子网边界 / 进制 / curl 转义 / UI） | `python scripts/smoke_tools.py` | 107 项（含 argv 还原机器验证） |
-| 种子库（本批未改动） | `python app/main.py --validate-seed` | 459 / 26 / 106，EXIT=0 |
+| 种子库（本批未改动） | `python app/main.py --validate-seed` | 482 / 26 / 106，EXIT=0 |
 | 打包 | `python scripts/build_exe.py` | 检查项已含「handbook 下 ≥7 本」与 `--validate-handbook`，数据经 `--add-data` 进包 |
 
 `--validate-handbook` 只在目录默认位置检查七本齐全；指定目录加载（测试用）不做缺册挑剔，方便单册样本与自定义手册。

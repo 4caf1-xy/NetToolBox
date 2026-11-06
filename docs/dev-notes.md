@@ -1296,3 +1296,110 @@ debug flow 追踪要带回退。包内该步 `note` 已同步改写（"会话过
 4. **诊断族不能整族放行**：debug flow 启动侧一旦判查询，操作单就不再附"清理诊断态"；
 5. **包内 note 会随判定漂移**：判定改了要顺手改 note，否则文档比代码更误导（本批 Fortinet 第 8 步
    就属于这种"代码变了、说明没变"的隐患）。
+
+## X 批 防火墙缺格位补库（2026-11-06，v1.0.0 攒批③，不发版不 tag）
+
+一句话结论：**T 批点名的 12 类缺格位逐类核过——Fortinet 补 13 条、Palo Alto 补 10 条（合计 +23，
+459 → 482），深信服 AF / 天融信 TopOS 一类未补（无可靠 CLI 依据，继续标缺）；新增 3 个分类
+（安全区域 / VPN / 安全防护，45 → 48），矩阵 16 × 48 实填 344 格 mismatch=0；四包 10 步链路
+一条不动，仅改包说明的缺格位口径。**
+
+### 一、12 类逐条裁决（补 / 不补 + 依据）
+
+| # | 格位 | Fortinet | Palo Alto | 深信服 AF | 天融信 TopOS | 依据（公开资料） |
+|---|---|---|---|---|---|---|
+| 1 | 独立安全区域 | **补**（zone） | **补**（zone） | 不补 | 不补 | FortiOS CLI Ref `config system zone`（interface/intrazone/description）；PAN-OS 官方 KB「3 层接口配为管理口」`set zone … layer3`、IPsec KB 同形用法 |
+| 2 | 第二条（入向）放行策略 | **补** | **补** | 不补 | 不补 | FortiOS CLI Ref `config firewall policy`（utm-status / ips-sensor / nat）+ VIP 对象引用；PAN-OS 官方 KB「Move Security Rules」+ `profile-setting group` |
+| 3 | 服务对象独立创建 | **补** | **补** | 不补 | 不补 | FortiOS CLI Ref `config firewall service custom`（protocol / tcp-portrange / udp-portrange）；PAN-OS `set service <n> protocol tcp port <p>` |
+| 4 | 策略排序 / 禁用 / 删除 | **补** | **补** | 不补 | 不补 | Fortinet KB「change the order of the IPV4 policy list」`move <id> before|after <id>`（CLI Ref 另记旧形态 `move A to B`）+ `set status disable` / `delete`；PAN-OS 官方 KB「How to Move Security Rules Through the CLI」（top/bottom/before/after）+ `disabled yes` |
+| 5 | 策略命中计数清零 | **补** | **不补** | 不补 | 不补 | Fortinet KB「How to Reset Count on the Firewall Policy」+ 7.0 New Features「Record central NAT and DNAT hit count」`diagnose firewall iprope clear 100004 <id>`；PAN-OS 无「单条规则计数清零」CLI 依据（只有全局 counter），标缺 |
+| 6 | 会话强制清除 / 导出 | **补** | **补** | 不补 | 不补 | Fortinet KB 清会话组合 `diagnose sys session filter … → list → clear`（W 批已入只读名单）；PAN-OS `show session all filter` / `clear session all filter` / `clear session id`。**导出**：两家均无原生导出命令，条目内注明用输出贴档/tech-support |
+| 7 | HA 配置 / 倒换 / 会话同步 | **补** | **补** | 不补 | 不补 | FortiOS CLI Ref `config system ha`（mode/group-name/password/hbdev/session-pickup/override/priority）；PAN-OS 官方 HA 文档 + KB `request high-availability state suspend|functional`、`show high-availability state` |
+| 8 | IPsec 站点到站点 / SSL VPN | **补 2 条**（IPsec + SSL VPN） | **补 IPsec**；SSL VPN 不补 | 不补 | 不补 | FortiOS CLI Ref `vpn ipsec phase1/phase2-interface`、`vpn ssl settings` / `vpn ssl web portal`；PAN-OS 官方 KB「IPSec VPN with Route and Tunnel from CLI」（ike gateway / tunnel ipsec / tunnel.10）。PAN-OS 无 SSL VPN（远程接入是 GlobalProtect，另属产品面） |
+| 9 | IPS / AV / 应用识别 / URL 过滤 | **补 1 条**（四件套合一） | **补 1 条**（漏洞+AV）；URL 不补 | 不补 | 不补 | FortiOS CLI Ref `config ips sensor` / `antivirus profile` / `application list` / `webfilter profile`（ftgd-wf filters）；PAN-OS `profiles vulnerability` / `profiles antivirus` / `profile-group`。PAN-OS URL 过滤分类节点随版本与订阅变动，官方无稳定逐分类 set 序列 → 标缺 |
+| 10 | 策略路由 / 多出口 / 链路探测 | **补** | **不补** | 不补 | 不补 | FortiOS CLI Ref `config router policy`（input-device/output-device/gateway）+ `config system link-monitor`；PAN-OS PBF 官方文档只给 GUI 路径与 `show pbf rule all` 运维命令，配置侧 CLI 路径无权威引用 → 标缺（不猜路径） |
+| 11 | 接口 IP 直配 / PPPoE / DHCP / MTU | **补** | **补** | 不补 | 不补 | FortiOS CLI Ref `config system interface`（mode static/dhcp/pppoe、mtu、distance）；PAN-OS 官方 KB `layer3 ip` / `interface-management-profile` / `layer3 mtu` + pppoe、dhcp-client 字段（版本差异已在 notes 提示 `?` 核对） |
+| 12 | 配置对比 / 命名版本 | **部分补**（list+restore；diff 仅 GUI） | **部分补**（save/load + show config diff） | 不补 | 不补 | FortiOS Admin Guide「Configuration backups and reset」+ CLI Ref `execute revision`（**无 diff 子命令**，Diff 是 Web 界面动作，条目不臆造）；PAN-OS `save config to` / `load config from` / `show config diff`（候选 vs 运行） |
+
+**不补口径（深信服/天融信，共 12 类 × 2 家）**：AF 与 TopOS 的策略/防护/HA/VPN 类配置均以 Web 控制台
+为主，官方资料只有界面路径与少量运维命令，没有可引用的 CLI 配置序列。按用户「不编造优先于补全」
+红线，**一类不补、不塞空步骤**，清单继续留在两包的「库内暂缺」段并注明 X 批核过。
+
+### 二、新增条目（23 条，全部「语法核对档」）
+
+| 厂商 | 条数 | 分布（分类 → 条数） |
+|---|---|---|
+| Fortinet | 24 → **37**（+13） | 安全区域 1 / ACL 3 / 防火墙诊断 2 / HA/双机 1 / VPN 2 / 安全防护 1 / 静态路由 1 / 接口基础 1 / 保存配置 1 |
+| Palo Alto | 24 → **34**（+10） | 安全区域 1 / ACL 3 / 防火墙诊断 1 / HA/双机 1 / VPN 1 / 安全防护 1 / 接口基础 1 / 保存配置 1 |
+
+- 档位：全部 `exec_level` 空（未真机），notes 首行写明「语法核对档：依据官方 CLI 文档核对，未经
+  本机真机验证」；`verified` 全 0，不承诺验证等级；
+- 写法：结构化 params（type/description 必填，enum 带 choices）+ 变更类 rollback 全覆盖
+  （删对象 → 解绑 → 复核三段式，顺序错误会「entry is in use」的地方逐条写明）；
+- 保守处理的三处（**有文档但不敢写成可直接照抄**）：
+  ① Fortinet 倒换只给「断链路」确定路径，`diagnose sys ha reset-uptime` 以注释提示先 `?` 核对；
+  ② PAN-OS PPPoE / dhcp-client 字段版本差异，注释提示 `?` 核对；
+  ③ Fortinet 配置 Diff 明确写「Web 界面动作」，不给 CLI diff 命令。
+
+### 三、新增分类与矩阵
+
+- 新分类 3 个：**安全区域**（zone 归口，策略 from/to 的前置对象）、**VPN**（IPsec/SSL VPN 独立成类，
+  不再塞进 ACL）、**安全防护**（IPS/AV/URL 等配置文件）；分类 45 → **48**；
+- 矩阵 16 厂商 × 48 分类，实填 **338 → 344 格**（+6 = 3 新分类 × 2 厂商），逐格对账 mismatch=0；
+- 未并入既有分类的原因：zone 与 ACL 是「对象/域」而非「规则」，混放会让「ACL 条目」检索失真；
+  VPN 与安全防护同理会稀释策略类条目的语义。
+
+### 四、T 批四包标注销项对账
+
+| 包 | 原「库内暂缺」8 项 | 本批处置 | 包数据 | build 复跑 |
+|---|---|---|---|---|
+| fw-edge-policy-fortinet | 8 项 | **11 类销项**（8 项全销 + 新增 3 类口径），第 12 类「配置对比」标部分 | items 不动 | 10 步，变更/查询 8/2 |
+| fw-edge-policy-paloalto | 8 项 | **9 类销项**，仍标缺 4 项（命中清零 / URL 过滤 / PBF / SSL VPN） | items 不动 | 10 步，7/3 |
+| fw-edge-policy-sangfor | 8 项 | 0 销项，改为「X 批核过，不补」口径 | items 不动 | 10 步，5/5 |
+| fw-edge-policy-topsec | 8 项 | 0 销项，同上 | items 不动 | 10 步，5/5 |
+
+- **单一事实源**：包内 items 一律不动（不因新条目改链），新条目按需另立扩展包；包说明只改「缺格位」
+  段的措辞与销项状态，`abort_criteria` / `template` / `params` 覆盖全部原样；
+- 描述里保留「库内暂缺」四个字（smoke 结构断言依赖该口径词），销项状态追加在后面，避免把
+  「已补」误读成「本来就全」。
+
+### 五、验收实测
+
+- `--validate-seed` **EXIT=0**：**482 条** + 26 树 + 106 报错 + 7 包 + 27 族 147 条映射，[E]=0，
+  **[W]=17**（与 T/W 批同口径：存量 zte 骨架 1 + 骨架引用 16，本批零新增）；
+- 新增条目回扫 23/23：全部判**变更类**、rollback 非空、命令与回退渲染后**零残留占位**、
+  参数声明与引用双向对齐（无「已声明未使用」）；
+- 全量 **20 套**冒烟 rc=0：`smoke_scenarios` 110/110、`smoke_panel_dashboard` 63/63（矩阵逐格
+  mismatch=0）、`smoke_diff` 62/62、`smoke_runbook` 74/74、`smoke_translate` 224/224、
+  `smoke_tools`、`smoke_handbook`、`smoke_tree_visual` 46/46、`smoke_export_site` 8/8、安全四套全绿；
+- 主库同步：先备份 `backup/command_lib-pre-xbatch-20261106-171215.db`，再
+  `--db dist_package/command_lib.db --validate-seed --allow-main-db` 导入，主库 482 / 48 分类 /
+  7 包，状态字段由 import-guard 保留库值。
+
+### 六、★ 坑（本批新增）
+
+1. **ipv4 校验不认 CIDR**：`validate="ipv4"` 只收裸地址，PAN-OS 侧 `200.1.1.10/24` 直接 [E]
+   「IPv4 地址格式错误」——CIDR 参数只能用 `type=string` 并在 description 写清写法；
+2. **169.254/16 不在脱敏白名单**：隧道接口示例取了链路本地地址，`smoke_export_site` 直接以
+   `[IP-WHITELIST]` 拒绝落盘（白名单只放 TEST-NET / 10-8 / RFC1918 / loopback / 组播）——
+   示例地址一律用 10.x 或 TEST-NET；
+3. **只出现在 rollback 的参数会挂 [W]**：`extract_params` 只扫 commands，回退侧专用的
+   「原位置策略 ID / 原地址 / 回退快照名」必然「已声明未使用」；回退侧改用角括号说明
+   （`<变更前的前一条策略 ID>`），既保住可读性又不制造 [W]；
+4. **整文件 json.dump 会重排既有格式**：`scenario_packs.json` 的 items 是单行紧凑对象，dump 一次
+   就产生 1000+ 行噪声 diff——描述类改动必须在原文上做字符串替换；
+5. **Windows 文本模式写种子会带 CRLF**：`open(..., "w")` 默认 `os.linesep`，必须
+   `newline="\n"`，否则整文件 diff 全是换行符（本批首次写入即踩到）；
+6. **smoke 结构断言绑字面词**：「库内暂缺」被销项替换后 `smoke_scenarios` F 段 4 项直接红；
+   销项要保留口径词并追加状态，别把断言改成「随便有个 ★」；
+7. **`scripts/backup_db.py` 保留 10 份的策略把当次新备份也清掉了**（本次实测：备份完成后立刻
+   列进「清理旧备份」并删除，最新备份退回到 14:46 的 pre-tbatch）——批量导入前的备份建议手工
+   `cp` 成 `command_lib-pre-<批>-<时间戳>.db`，不依赖该脚本的保留逻辑。
+
+### 七、不做清单（本批边界）
+
+- **深信服/天融信一类未补**：无 CLI 依据，宁可留白（Web 路径已在各自条目与包说明中给出）；
+- **PAN-OS 四类不补**：策略命中清零、URL 过滤、PBF 链路探测、SSL VPN（GlobalProtect）；
+- **不给新条目编真机结论**：全部 verified=0，真机验证会按厂商分批回填（`scripts/backfill_verify.py`）；
+- **不改包内 items**：新条目暂不入链，避免「补库顺带改流程」把已验证的 10 步链路搅动；
+- 本批**不发版不 tag**（攒批③，与 v1.0.0 一并出）。
