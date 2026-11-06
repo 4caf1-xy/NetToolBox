@@ -751,6 +751,8 @@ HA 状态 / 配置回滚 / 环路检测；设备管理 1–2 条（含备份重�
    （实为变更），且无 rollback；CLI 骨架条目才判变更类并有 rollback；
 2. Fortinet 的 `diagnose ...` 不在 `QUERY_WHITELIST` → 会话/策略命中诊断被判**变更类**
    （Q 批已记同款口径），回退为"清理诊断态"，不影响业务配置。
+   **→ W 批销项**：只读子命令逐词入名单后，NAT 会话诊断归位查询类；会话+debug flow
+   那一条仍判变更类，原因是 debug 语义（刻意保留，见 §W 批）。
 
 **分支预案判断：不先补库。** 安全策略族确有缺口（见 §3），但每家都有 1 条可用的
 「地址对象+策略」与「SNAT+DNAT」条目，足以撑起 10 步边界开通链；缺的是区域/入向策略/
@@ -761,7 +763,7 @@ Web 控制台为主，凭空补 CLI 条目等于编造关键字——按用户�
 
 | pack_id | 步数 | 阶段分布（pre/change/validation/post） | 引擎判定 变更/查询 | 变更类回退 |
 |---|---|---|---|---|
-| fw-edge-policy-fortinet | 10 | 2 / 5 / 1 / 2 | 8 / 2（含 diagnose 误判） | 8/8 取库 |
+| fw-edge-policy-fortinet | 10 | 2 / 5 / 1 / 2 | 8 / 2（W 批复核：debug flow 刻意保留） | 8/8 取库 |
 | fw-edge-policy-paloalto | 10 | 2 / 5 / 1 / 2 | 7 / 3 | 7/7 取库 |
 | fw-edge-policy-sangfor | 10 | 2 / 5 / 1 / 2 | 5 / 5 | 5/5 取库（Web 两步另写来源） |
 | fw-edge-policy-topsec | 10 | 2 / 5 / 1 / 2 | 5 / 5 | 5/5 取库（Web 两步另写来源） |
@@ -835,7 +837,8 @@ Web 控制台为主，凭空补 CLI 条目等于编造关键字——按用户�
    判 query；放进变更单会让"变更类必须带回退"的检查形同虚设。落包时改用 CLI 骨架条目
    （同内容 + Web 对照 + 有 rollback），Web-only 的两步在备注写回退来源。
 2. **`diagnose` 不在查询白名单**：Fortinet 诊断条目判变更类（Q 批已记），六段式里靠 `item.phase`
-   显式标 `validation` 才不会串段；回退=清理诊断态。
+   显式标 `validation` 才不会串段；回退=清理诊断态。（W 批已把只读子命令逐词入名单，
+   debug flow 侧仍刻意留变更类——见 §W 批。）
 3. **单值引用不守厂商视图**：P 批的守卫只在 `by_vendor` 分支；四包用 `ref_id` 时错选厂商仍会生成，
    已补守卫。冒烟必须覆盖"错厂商整包跳过"，否则这种静默错误没人发现。
 4. **PackMeta 卡会打破"卡片数=步骤数"断言**：所有遍历 cards_lay 的断言一律按 objectName 过滤，
@@ -1149,3 +1152,147 @@ huawei→h3c 80.0%（ACL 4/4）、h3c→huawei 82.4%（0 行需人工）——**
 - **地址分配族**：库内只有三家，不构成六厂商族 → `ip address` 行继续属族外；
 - **AI 猜测式补翻**：仍不做（U 批口径不变）；
 - **条目数据修复**（Junos NAT 参数重名、中兴 POE/风暴/AAA/环路骨架转正）：属数据批，不在本批范围。
+
+
+## W 批 QUERY_WHITELIST 扩容小批（2026-11-06，v1.0.0 攒批②，不发版不 tag）
+
+一句话结论：**白名单 149 → 158 词（+9 个 diagnose 只读子命令）、强制变更组 40 → 43 词
+（+3 个"伪查询"口令动词），全库仅 1 条条目翻类（NAT 会话诊断 → 查询类），四包回退数
+8/2、7/3、5/5、5/5 全不变，条目/树/报错/包计数一条不动。**
+
+### 一、只读盘点
+
+**1）白名单现状与挂点**
+
+| 项 | 批前 | 批后 |
+|---|---|---|
+| `QUERY_WHITELIST` 词条 | 149 | **158** |
+| `CHANGE_FORCE_PREFIXES` 词条 | 40 | **43** |
+| 全库 query / change | 152 / 307 | **153 / 306** |
+
+判定表的消费点（改一次要连带复核的面）：`renderer.classify_entry`（validate / AI 入库钩子）→
+`runbook_export.resolve_steps`（3 处，操作单实时判定）→ `ui_runbook`（2 处，变更类标签/导出）→
+`ui_scenario._head_html` + `on_copy_entry` 守卫链 → `ui_main.guard_rollback_confirm`（复制前回退确认）→
+`translate_tool._is_query`（行级分区）。**这批只动数据 + 翻译侧一处口径，不动任何调用方。**
+
+**2）四厂商命令族逐族核对（库内实况）**
+
+| 厂商 | 条目 | 变更 / 查询 | 变更缺回退 | 诊断/show 类命令族结论 |
+|---|---|---|---|---|
+| Fortinet | 24 | 21 / 3 | 0 | `diagnose` 14 种行、`get` 3 条、`show` 1 条：只读子命令 9 个、debug flow 2 个、配置类 3 个（`execute backup/restore`） |
+| Palo Alto | 24 | 19 / 5 | 0 | `show` 6 条全查询；`request restart system` 属变更（`request` 多义，不入名单） |
+| 深信服 AF | 33 | 10 / 23 | 0 | Web 控制台 15 条（全注释→查询类，刻意设计）+ CLI 骨架 8 条查询；无 diagnose 族 |
+| 天融信 TopOS | 33 | 10 / 23 | 0 | 同深信服 |
+
+逐词核对 Fortinet `diagnose` 14 种（库内全部）：9 个纯读 / 收尾动作入名单；2 个 debug flow
+启动侧刻意留变更类；3 个配置类（`execute`）本就变更。**结论：diagnose 是"多义词族"，
+只能逐词放行——整族放行会把"清会话/起追踪"一起放进查询类。**
+
+**3）全库漏词旁证**：把 change 条目里"未入白名单的行"按首词归堆，除 diagnose 外只捞到 6 个
+Linux/巡检疑点（`hwclock --show`、`snmpwalk`、`getent hosts`、`sshd -t`、`compare configuration`、
+`curl -v telnet://`），均不属本批四厂商范围且 `curl` 需按参数级判定 —— 列进「未入词清单」，
+留给下一小批，不在这里顺手放行。
+
+**4）翻译侧分类口径核对（T 批口径②）**：**确认盲信，已修。**
+`translate_tool._is_query` 此前只查 `QUERY_WHITELIST`，完全不看 `CHANGE_FORCE_PREFIXES`——
+即"白名单动词 + 变更子命令"的行会被判查询。实测证据（本批修复前后对照，`split_entry_lines`）：
+
+```
+改造前: body=[line console 0, password X, login]        verify=[enable secret Y]   ← 写口令行被搬进复核区
+改造后: body=[line console 0, password X, login, enable secret Y]   verify=[]      ← 留在配置体
+```
+
+后果不是"显示错了"而是"配置少了一行"：渲染结果里落在 body 末尾之后的变更行会被并入复核区，
+用户照着复核区执行等于没下发。现改为与 `renderer.classify_entry` 同口径（force 优先）。
+
+### 二、入词清单（逐词 + 依据，零整段放行）
+
+| 入名单词 | 库内依据（uuid 前 8） | 为什么是查询语义 |
+|---|---|---|
+| `diagnose sys session list` | f0ac2dda / 6091c66c | 读会话表（含 NAT 转换段），不产生会话 |
+| `diagnose sys session stat` | f0ac2dda | 读会话统计（容量/新建速率） |
+| `diagnose sys session filter` | f0ac2dda / 6091c66c | `filter clear` / `filter dst <ip>` 只设**诊断输出的过滤条件**，不改配置、不影响转发 |
+| `diagnose sys flash list` | 7a5916ae | 读 flash 文件清单，核对备份是否落盘 |
+| `diagnose firewall iprope list` | 1f331c90 | 读策略的实际安装位置与命中计数 |
+| `diagnose firewall vip list` | 9c922bf5 | 读 VIP 映射表与引用关系 |
+| `diagnose netlink aggregate name` | 9fd6c2cf | 读聚合成员端口状态（Trunk 条目验证尾行） |
+| `diagnose debug reset` | f0ac2dda | 复位 debug 计数（收尾动作，无副作用） |
+| `diagnose debug disable` | f0ac2dda | 停 debug 输出（收尾动作） |
+
+强制变更组补 3 个（**不是扩容查询侧，是把"伪查询"堵住**）：
+
+| 入名单词 | 库内依据 | 为什么必须判变更 |
+|---|---|---|
+| `enable secret` | dd503bcb / f4066cd1 / 426b9f4e | 写特权口令；裸 `enable` 在查询名单里（会话级进特权），同前缀会把口令行顺带放行 |
+| `enable password` | 同上（老式写法） | 同上 |
+| `enable algorithm-type` | 同上（新式 `enable algorithm-type scrypt secret`） | 同上 |
+
+### 三、未入词清单（含理由）
+
+| 词 | 不入的理由 | 后果（刻意接受） |
+|---|---|---|
+| `diagnose debug flow filter addr` / `diagnose debug flow trace start` | 启动逐包追踪属 **debug 语义**，与 `CHANGE_FORCE_PREFIXES` 里的 `debug` 同口径；须 `diagnose debug disable` 收尾 | f0ac2dda 整条仍判变更类 → 操作单仍附"清理诊断态"回退，Fortinet 包维持 8/8 |
+| `diagnose sys session kill` | 清会话 = 断业务（不是读） | — |
+| `execute backup config` / `execute restore config` | 写 flash / 覆盖配置并重启 | 7a5916ae、be6beb84 维持变更类 |
+| `request`（Palo Alto） | 多义族（`request restart` 是变更），无只读子命令进库 | 维持变更类 |
+| `hwclock --show` / `snmpwalk` / `getent hosts` / `sshd -t` / `compare configuration` / `curl` | 语义偏只读但属 net_diag/linux 分类，不属本批四厂商；`curl` 需按参数区分（`-o` 落盘） | 留清单，下一小批单独评估 |
+
+### 四、T 批留痕①销项（Fortinet diagnose 误判变更类）
+
+**根因**：`diagnose` 整族不在名单 → 凡含 diagnose 的条目一律变更类。**已消除**：9 个只读子命令
+入名单后，`6091c66c NAT 会话与端口映射诊断` 归位查询类（全库唯一翻类条目）。
+
+**四包引擎判定重跑（不进包数据，只重跑）**：
+
+| pack_id | 变更 / 查询 | 回退缺口 | 变化 |
+|---|---|---|---|
+| fw-edge-policy-fortinet | 8 / 2 | 0 | 无（第 8 步含 debug flow，刻意留变更） |
+| fw-edge-policy-paloalto | 7 / 3 | 0 | 无 |
+| fw-edge-policy-sangfor | 5 / 5 | 0 | 无 |
+| fw-edge-policy-topsec | 5 / 5 | 0 | 无 |
+
+**销项口径（如实）**：误判消除 + 剩余判定**重新定性**——f0ac2dda 仍判变更类不是误判，而是
+debug flow 追踪要带回退。包内该步 `note` 已同步改写（"会话过滤/会话表/统计已入白名单，debug flow
+仍判变更类"），**包结构、引用、步数、params 全未动**。
+
+**备选方案（明确不做）**：把 debug flow 两词也放进白名单 → Fortinet 包变 7/7、该步归查询类。
+代价是操作单不再附"清理诊断态"，现场容易把 trace 开着走人（控制台刷屏/CPU 抬升）。按
+"分不清就当变更类"的 fail-safe 原则否决。
+
+### 五、V 批留痕复扫（六厂商：cisco / huawei / h3c / ruijie / zte / juniper）
+
+三条扫描口径，逐条跑（结果：**私有特性侧零残留，分类假象侧一处，已修**）：
+
+| 扫描 | 口径 | 结果 |
+|---|---|---|
+| ① 查询行被 secret/private 吞 | 库内 query 类行 → `secret_patterns` / `private_hints` 命中 | **0 命中**（V 批收紧 `storm-control`/`spanning-tree` 后无残留） |
+| ② 非查询行被 private 判 c | 反向扫描（族覆盖缺口的假像） | **0 命中** |
+| ③ 强制变更行被翻译判查询 | `CHANGE_FORCE_PREFIXES` 命中 ∩ `_is_query` 为真 | **修复前 3 处**（cisco/ruijie/zte 的 `enable secret`）→ 修复后 **0 命中** |
+
+结论：V 批的"私有特性吞查询行"已收净；本轮捞到的是**另一类误伤**（白名单前缀 + 变更子命令），
+根因在判定表不在翻译器，两边同时修（force 词 + 翻译侧口径）后归零。
+
+### 六、验收实测
+
+- `--validate-seed` **EXIT=0**：459 条 + 26 树 + 106 报错 + 7 包 + 27 族 147 条映射，
+  [E]=0，[W]=17（与 T 批同口径，未增未减）；
+- 全量 **20 套**冒烟 rc=0：`smoke_scenarios` **95 → 110 项**（新增 [G] W 批块 15 项）、
+  `smoke_translate` **217 → 224 项**（新增 [K] 块 7 项）、`smoke_runbook` 74/74、
+  `smoke_schema_rollback` 9/9、`smoke_panel_dashboard` 63/63、`smoke_diff` 62/62、
+  `smoke_tools` 107/107、`smoke_handbook` 58/58、`smoke_tree_visual` 46/46；
+- 新增断言要点：`G1` 入名单 11 词逐词判查询 / `G2` debug flow 与 `session kill` 逐词判变更 /
+  `G3` enable 家族分词 / `G5` 四包变更查询数锁定 / `G6` 查询类复制**不弹**回退确认（弹窗即失败）；
+  `K1` 行级口径 / `K2` 分区不丢变更行 / `K3` 六厂商零误伤 / `K4` force 行零误判；
+- 主库：**条目零改动**（本批只改判定表与翻译器），无需导入；各套件"主库零接触"指纹断言全通过。
+
+### 七、★ 坑（本批新增）
+
+1. **裸动词是"伪查询"入口**：`enable` 在名单里（会话级进特权），`enable secret` 就被顺带放行。
+   凡白名单收了"会话级单词"，必须同时在 `CHANGE_FORCE_PREFIXES` 里把它的写配置变体挡住；
+2. **翻译侧行级分区必须与 classify 同口径**：force 优先漏了，配置体末尾的变更行会被搬进复核区，
+   表现为"已译但配置少一行"，比报错更难发现；
+3. **别把"目标配置里没有 enable secret"当 bug**：源侧口令行按 d 档（secret）不外译，是 U/V 批
+   既定口径；要测分类就看 `split_entry_lines`，别看整机输出；
+4. **诊断族不能整族放行**：debug flow 启动侧一旦判查询，操作单就不再附"清理诊断态"；
+5. **包内 note 会随判定漂移**：判定改了要顺手改 note，否则文档比代码更误导（本批 Fortinet 第 8 步
+   就属于这种"代码变了、说明没变"的隐患）。

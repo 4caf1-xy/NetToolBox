@@ -5,7 +5,7 @@
 **补充口径（2026-10-12）**：发布后短窗内完成的 MVP 追加批次收口走 **patch**（0.6.x）；
 独立排期的功能批走 **minor**（下一个功能批从 0.7.0 起算）。
 
-## 未发布（v1.0.0 开发线，T 批 + V 批 2026-11-06）
+## 未发布（v1.0.0 开发线，T 批 + V 批 + W 批 2026-11-06）
 
 > **配置翻译器扩族（V 批）**：U 批点名的 20 个六厂商分类里 **19 个建成族**（含 6 个查询对照族），
 > 映射 48 → **147 条**、族 8 → **27 族**；「版本升级」如实不建族（启动镜像文件名不可跨厂商搬运）。
@@ -79,6 +79,34 @@
   包入口与默认厂商视图 / 包级纪律卡 / 一键生成草稿）；
 - 全量 19 套冒烟 rc=0；`--validate-seed` EXIT=0（459 + 26 + 106 + **7** 场景包）；
   `--validate-handbook` EXIT=0（7 本 520 条）；CI validate-seed 绿。
+
+> **查询白名单扩容小批（W 批）**：`diagnose` 只读子命令逐词入名单（+9 词），顺手堵住
+> `enable secret` 一类「白名单动词 + 变更子命令」的伪查询（强制变更组 +3 词），并修正配置翻译器
+> 行级分区**盲信白名单**的口径。全库仅 1 条条目翻类（NAT 会话诊断 → 查询类）；四包回退数
+> 8/2、7/3、5/5、5/5 全不变；种子 459 / 26 / 106 / 7 包 **一条不动**，**本批不发版、不 tag**。
+
+### 修复：变更类判定（`app/renderer.py`）
+
+- `QUERY_WHITELIST` 149 → **158 词**：FortiOS `diagnose` 族逐词放行（会话表/统计/会话过滤、
+  `sys flash list`、`firewall iprope list`、`firewall vip list`、`netlink aggregate name`、
+  `debug reset`/`debug disable`），**`diagnose debug flow filter / trace start` 刻意不入**
+  （启动逐包追踪属 debug 语义，须 `debug disable` 收尾，留着变更类才带得出回退）；
+- `CHANGE_FORCE_PREFIXES` 40 → **43 词**：补 `enable secret` / `enable password` /
+  `enable algorithm-type`——裸 `enable` 是会话级进特权（在查询名单里），此前会把写特权口令的行
+  一并放行；单行条目或翻译器行级判定会漏判成查询类；
+- **翻译器分类口径**（`translate_tool._is_query`）：此前只查白名单、不看强制变更组，属盲信——
+  `enable secret <pw>` 这类行会被判查询行，渲染后被从配置体拎进「复核区」（表现为"已译但配置少一行"）。
+  现与 `classify_entry` 同口径（force 优先）。
+
+### 工程
+
+- `smoke_scenarios` 95 → **110 项**：新增 [G] W 批块——入名单 11 词逐词判查询 / debug flow 与
+  `session kill` 逐词判变更 / `enable` 家族分词 / 四包变更查询数与回退缺口锁定 / 查询类复制
+  **不弹**回退确认（弹窗即失败）；
+- `smoke_translate` 217 → **224 项**：新增 [K] 块——行级口径、分区不丢变更行、六厂商零误伤、
+  强制变更行零误判；
+- 全量 20 套冒烟 rc=0；`--validate-seed` EXIT=0（459 + 26 + 106 + 7 包 + 27 族 147 条映射，[W] 不变）；
+- 主库条目零改动（只改判定表与翻译器），无需导入。
 
 ## v0.9.0（2026-11-02）
 

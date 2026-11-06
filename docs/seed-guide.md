@@ -124,7 +124,9 @@ validate 与 AI 入库钩子同口径），**无需作者标注**：
 1. 扫描 commands 全部**非注释行**（`#` / `!` 开头不计）；
 2. 任一行命中**强制变更组** → 变更类。强制变更组（词前缀，全文如下，
    代码事实源 `renderer.CHANGE_FORCE_PREFIXES`）：
-   `clear / debug / undebug / no debug / reload / erase / undo / reset / restart /
+   `enable secret / enable password / enable algorithm-type（写特权口令，
+   裸 enable 是会话级进特权不在此列——W 批补）/ clear / debug / undebug /
+   no debug / reload / erase / undo / reset / restart /
    write / save / commit / delete / format / restore / shutdown / reboot /
    poweroff / halt / kill / pkill / killall / init 0 / init 6 / dd / mkfs /
    useradd / userdel / usermod / passwd / chmod / chown / chattr / swapoff /
@@ -140,7 +142,10 @@ validate 与 AI 入库钩子同口径），**无需作者标注**：
 `app/renderer.py` 的 `QUERY_WHITELIST` 数据**，本文档只列家族概要、不逐条复制
 （防止两处漂移）：网络侧 `show / display / get / print` 单动词家族；Linux 只读
 单义命令（`cat / ss / df / journalctl / ping / dig / tcpdump …`）；多义动词
-（`ip / systemctl / nmcli / iptables / rpm / yum / apt …`）仅其只读子命令精确列入。
+（`ip / systemctl / nmcli / iptables / rpm / yum / apt …`）仅其只读子命令精确列入；
+FortiOS `diagnose` 族同样逐词列入（会话表/统计/会话过滤、flash 清单、策略与 VIP
+安装结果、聚合成员、HA 状态 + `debug reset/disable` 收尾），**`diagnose debug flow
+filter / trace start` 刻意不入**（启动逐包追踪属 debug 语义，要带回退）。
 新厂商/新命令要进白名单 → 改 `QUERY_WHITELIST` 数据并跑 validate，**别在本页加字**。
 
 ### 三类典型 rollback 写法
