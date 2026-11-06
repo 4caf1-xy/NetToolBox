@@ -6,7 +6,7 @@
   "vendor_slug": "paloalto",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 24,
+  "count": 34,
   "entries": [
     {
       "uuid": "050e539a-7623-530e-8b25-bb9a7d72796f",
@@ -1349,6 +1349,1060 @@
       "verified": 0,
       "rollback": "# 回退：删除认证 profile 与 server-profile，管理员恢复本地认证\ndelete shared authentication-profile {{auth_profile}}\ndelete shared server-profile radius {{radius_profile}}\ncommit\n# 管理员侧：Web 上把认证 profile 改回 None",
       "exec_level": "skeleton"
+    },
+    {
+      "uuid": "62c06054-722c-5800-9d79-06fb3bd2343a",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220 / VM 系列",
+      "category": "安全区域",
+      "title": "创建安全区域并归入接口（PAN-OS）",
+      "description": "建 layer3 区域、把接口加进虚拟路由器、再纳入区域；三步顺序错了会报「not a valid reference」。",
+      "commands": "# ===== 1) 建区域（layer3 类型）=====\nset zone {{zone_name}} network layer3 {{interface}}\n# ===== 2) 接口先加入虚拟路由器（区域归属的前置条件）=====\nset network virtual-router {{vr_name}} interface {{interface}}\n# ===== 3) 提交 =====\ncommit description \"{{commit_note}}\"\n# ===== 4) 复核 =====\nshow zone {{zone_name}}",
+      "rollback": "# 回退：先解除策略/路由对区域的引用，再删区域（接口本身保留）\ndelete zone {{zone_name}}\n# 若该接口是为本次变更临时加入 VR 的，可按需移除：\n# delete network virtual-router {{vr_name}} interface {{interface}}\ncommit",
+      "params": [
+        {
+          "name": "zone_name",
+          "label": "区域名",
+          "default": "trust-oa",
+          "required": true,
+          "validate": "",
+          "example": "trust-oa",
+          "type": "string",
+          "description": "区域名，策略的 from/to 直接引用；按信任级别命名（trust / untrust / dmz）比按接口号命名更稳"
+        },
+        {
+          "name": "interface",
+          "label": "接口名",
+          "default": "ethernet1/2",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/2",
+          "type": "string",
+          "description": "要归入该区域的接口（含子接口，如 ethernet1/2.10）；必须是已存在的 layer3 接口"
+        },
+        {
+          "name": "vr_name",
+          "label": "虚拟路由器",
+          "default": "default",
+          "required": true,
+          "validate": "",
+          "example": "default",
+          "type": "string",
+          "description": "接口所属虚拟路由器；PAN-OS 要求接口先入 VR 才能被区域引用"
+        },
+        {
+          "name": "commit_note",
+          "label": "提交说明",
+          "default": "X-batch zone 变更",
+          "required": true,
+          "validate": "",
+          "example": "X-batch zone 变更",
+          "type": "string",
+          "description": "commit 说明会写进配置审计日志，写工单号或变更单号"
+        }
+      ],
+      "notes": "1) 官方依据：PAN-OS CLI（官方 KB「如何将3层接口配置为通过 CLI 充当管理端口」示例 set zone DMZ network layer3 ethernet1/9；\n   官方 KB「How to Configure an IPSEC VPN with Route and Tunnel Configuration from CLI」同形 set zone vpn network layer3 tunnel.10）。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) 顺序固定：建/改接口 → 入 VR → 入区域 → commit；跳步会报「layer3 'x' is not a valid reference」。\n4) 部分版本配置路径写作 set network zone <name> network layer3 <if>，两种写法等价，执行前用 ? 确认本级节点。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "8bdb6faf-cdda-5c54-a548-595b2413309c",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220 / VM 系列",
+      "category": "ACL",
+      "title": "配置入向发布策略（目的地址对象 + 安全配置文件组）",
+      "description": "公网 VIP 发布：建目的地址对象、写入向放行规则、挂配置文件组、并置顶到拒绝规则之前。",
+      "commands": "# ===== 1) 目的地址对象（公网 VIP）=====\nset address {{vip_obj}} ip-netmask {{public_ip}}\n# ===== 2) 入向放行规则（untrust → 服务所在区）=====\nset rulebase security rules {{rule_name}} from {{src_zone}} to {{dst_zone}}\nset rulebase security rules {{rule_name}} source any\nset rulebase security rules {{rule_name}} destination {{vip_obj}}\nset rulebase security rules {{rule_name}} application {{application}}\nset rulebase security rules {{rule_name}} service {{service}}\nset rulebase security rules {{rule_name}} action allow\nset rulebase security rules {{rule_name}} profile-setting group {{profile_group}}\nset rulebase security rules {{rule_name}} log-end yes\n# ===== 3) 置于拒绝规则之前（规则从上到下首个命中即生效）=====\nmove rulebase security rules {{rule_name}} before {{before_rule}}\ncommit description \"{{commit_note}}\"\n# ===== 4) 复核（预判命中 + 运行配置）=====\ntest security-policy-match from {{src_zone}} to {{dst_zone}} source {{test_src}} destination {{public_ip}} destination-port {{dst_port}} protocol 6\nshow running security-policy",
+      "rollback": "# 回退：删入向规则与临时地址对象（公网发布立即中断）\ndelete rulebase security rules {{rule_name}}\n# 地址对象若被 NAT/其他规则引用，先解除引用再删：\n# delete address {{vip_obj}}\ncommit",
+      "params": [
+        {
+          "name": "vip_obj",
+          "label": "目的地址对象名",
+          "default": "VIP-OA-443",
+          "required": true,
+          "validate": "",
+          "example": "VIP-OA-443",
+          "type": "string",
+          "description": "公网发布地址对象名；DNAT 的目的地址也引用它，改一处两边生效"
+        },
+        {
+          "name": "public_ip",
+          "label": "公网地址/掩码",
+          "default": "200.1.1.30/32",
+          "required": true,
+          "validate": "",
+          "example": "200.1.1.30/32",
+          "type": "string",
+          "description": "公网 IP 与掩码长度（ip-netmask 写法）；单主机固定 /32"
+        },
+        {
+          "name": "rule_name",
+          "label": "规则名",
+          "default": "IN-OA-443",
+          "required": true,
+          "validate": "",
+          "example": "IN-OA-443",
+          "type": "string",
+          "description": "入向规则名，建议体现方向与端口；日志按规则名筛选最快"
+        },
+        {
+          "name": "src_zone",
+          "label": "源区域",
+          "default": "untrust",
+          "required": true,
+          "validate": "",
+          "example": "untrust",
+          "type": "string",
+          "description": "入向流量的源区域（公网侧）"
+        },
+        {
+          "name": "dst_zone",
+          "label": "目的区域",
+          "default": "trust-oa",
+          "required": true,
+          "validate": "",
+          "example": "trust-oa",
+          "type": "string",
+          "description": "服务所在的内部区域"
+        },
+        {
+          "name": "application",
+          "label": "应用",
+          "default": "ssl",
+          "required": true,
+          "validate": "",
+          "example": "ssl",
+          "type": "string",
+          "description": "放行的 App-ID 应用（ssl / web-browsing 等）；写 any 会失去应用层管控"
+        },
+        {
+          "name": "service",
+          "label": "服务",
+          "default": "application-default",
+          "required": true,
+          "validate": "",
+          "example": "application-default",
+          "type": "string",
+          "description": "服务端口；application-default 表示按应用默认端口，避免手写端口与应用不匹配"
+        },
+        {
+          "name": "profile_group",
+          "label": "配置文件组",
+          "default": "PG-STRICT",
+          "required": true,
+          "validate": "",
+          "example": "PG-STRICT",
+          "type": "string",
+          "description": "安全配置文件组（防病毒/漏洞/URL 打包成组），入向暴露面必须挂"
+        },
+        {
+          "name": "before_rule",
+          "label": "置顶参照规则",
+          "default": "Deny-All",
+          "required": true,
+          "validate": "",
+          "example": "Deny-All",
+          "type": "string",
+          "description": "把新规则移到该规则之前；新规则默认追加在末尾，会被前面的 deny 抢先命中"
+        },
+        {
+          "name": "commit_note",
+          "label": "提交说明",
+          "default": "入向发布 443",
+          "required": true,
+          "validate": "",
+          "example": "入向发布 443",
+          "type": "string",
+          "description": "commit 说明写进配置审计日志"
+        },
+        {
+          "name": "test_src",
+          "label": "探测源 IP",
+          "default": "10.20.10.80",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.20.10.80",
+          "type": "ip",
+          "description": "test security-policy-match 的模拟源地址，用于预判命中哪条规则（不实际发包）"
+        },
+        {
+          "name": "dst_port",
+          "label": "目的端口",
+          "default": "443",
+          "required": true,
+          "validate": "port",
+          "example": "443",
+          "type": "string",
+          "description": "预判命中用的目的端口，需与 VIP 映射端口一致"
+        }
+      ],
+      "notes": "1) 官方依据：PAN-OS 官方 KB（How to Move Security Rules Through the CLI）与官方 Admin 文档（Policy / PBF 章节）；\n   set address / set rulebase security rules / profile-setting group / move 均为官方 CLI 语法；test security-policy-match 为官方运维命令。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) 入向发布必须同时具备：目的 NAT 规则（公网→内网）+ 本条放行规则 + 服务侧回程路由，三者缺一即不通。\n4) 规则未 commit 前只在候选配置里，commit 后才生效；回滚也要 commit。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "5ac235ce-c046-5a46-8e84-52bf559a7ac1",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220 / VM 系列",
+      "category": "ACL",
+      "title": "创建自定义服务对象（PAN-OS service）",
+      "description": "把非标端口/端口段做成命名服务对象，策略里按对象引用，替代散落裸端口。",
+      "commands": "# ===== 1) 建服务对象（TCP）=====\nset service {{svc_name}} protocol tcp port {{port}}\n# UDP 服务：set service {{svc_name}} protocol udp port {{port}}\n# ===== 2) 提交并复核 =====\ncommit description \"{{commit_note}}\"\nshow service",
+      "rollback": "# 回退：先确认无策略引用，再删服务对象\ndelete service {{svc_name}}\ncommit",
+      "params": [
+        {
+          "name": "svc_name",
+          "label": "服务对象名",
+          "default": "TCP-8443",
+          "required": true,
+          "validate": "",
+          "example": "TCP-8443",
+          "type": "string",
+          "description": "服务对象名，建议「协议-端口」形式；策略引用它比写裸端口更易审计"
+        },
+        {
+          "name": "port",
+          "label": "端口/端口段",
+          "default": "8443",
+          "required": true,
+          "validate": "port_range",
+          "example": "8443",
+          "type": "string",
+          "description": "单个端口写 8443，端口段写 8000-8010；与协议匹配"
+        },
+        {
+          "name": "commit_note",
+          "label": "提交说明",
+          "default": "新增服务对象",
+          "required": true,
+          "validate": "",
+          "example": "新增服务对象",
+          "type": "string",
+          "description": "commit 说明写进配置审计日志"
+        }
+      ],
+      "notes": "1) 官方依据：PAN-OS CLI（官方 KB 与 PAN-OS CLI 速查均记 set service <name> protocol tcp port <port> 语法）。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) 服务对象是全局的（非 vsys 作用域外的对象树），命名加业务前缀避免多业务重名。\n4) 对象建好未 commit 前，策略引用会报找不到——先 commit 对象再写规则更稳。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "d13a3a50-247d-58e8-b935-45eed53346b1",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220 / VM 系列",
+      "category": "ACL",
+      "title": "安全策略排序、禁用与删除（PAN-OS rulebase）",
+      "description": "用 move 调整规则位置、disabled 临时禁用、delete 删除；提交前用 show config diff 核对候选变更。",
+      "commands": "# ===== 1) 调整顺序（top / bottom / before X / after X）=====\nmove rulebase security rules {{rule_name}} {{position}} {{ref_rule}}\n# ===== 2) 临时禁用（保留规则，随时恢复）=====\nset rulebase security rules {{rule_name}} disabled yes\n# ===== 3) 彻底删除（确认后取消注释执行）=====\n# delete rulebase security rules {{rule_name}}\n# ===== 4) 提交前核对候选差异，再提交 =====\nshow config diff\ncommit description \"{{commit_note}}\"\n# ===== 5) 复核 =====\nshow running security-policy",
+      "rollback": "# 回退：恢复启用并移回原位置\nset rulebase security rules {{rule_name}} disabled no\nmove rulebase security rules {{rule_name}} after <变更前的后一条规则名>\ncommit",
+      "params": [
+        {
+          "name": "rule_name",
+          "label": "规则名",
+          "default": "IN-OA-443",
+          "required": true,
+          "validate": "",
+          "example": "IN-OA-443",
+          "type": "string",
+          "description": "要调整的规则名（PAN-OS 按名字引用，不像 FortiOS 用数字 ID）"
+        },
+        {
+          "name": "position",
+          "label": "移动方式",
+          "default": "before",
+          "required": true,
+          "validate": "",
+          "example": "before",
+          "type": "enum",
+          "description": "top/bottom 移到首尾；before/after 相对某条规则",
+          "choices": [
+            "top",
+            "bottom",
+            "before",
+            "after"
+          ]
+        },
+        {
+          "name": "ref_rule",
+          "label": "参照规则名",
+          "default": "Deny-All",
+          "required": true,
+          "validate": "",
+          "example": "Deny-All",
+          "type": "string",
+          "description": "相对定位的参照规则名；top/bottom 时可忽略（写任意占位即可，命令里仍会带上）"
+        },
+        {
+          "name": "commit_note",
+          "label": "提交说明",
+          "default": "调整入向规则顺序",
+          "required": true,
+          "validate": "",
+          "example": "调整入向规则顺序",
+          "type": "string",
+          "description": "commit 说明写进配置审计日志"
+        }
+      ],
+      "notes": "1) 官方依据：PAN-OS 官方 KB「How to Move Security Rules Through the CLI」（move rulebase security rules <name> top|bottom|before|after …，单 vsys 与多 vsys 两种写法）。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) 多 vsys 环境路径为 move vsys rulebase security rules …；条目按单 vsys 写，多 vsys 现场加 vsys 层。\n4) 顺序变更对已建会话不重判（已有会话沿用原规则），验证要看新会话日志。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "75ab5d0d-2500-5b5f-8167-335452903e60",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220 / VM 系列",
+      "category": "防火墙诊断",
+      "title": "会话查询与强制清除（PAN-OS show/clear session）",
+      "description": "按源/目的/端口查会话、看单条会话详情、按条件强制清除；改策略或 NAT 后清存量会话。",
+      "commands": "# ===== 1) 按条件查会话（先看后清）=====\nshow session all filter source {{src_ip}} destination {{dst_ip}} destination-port {{dst_port}}\n# ===== 2) 单条会话详情（含 NAT 前后地址与命中规则）=====\nshow session id {{session_id}}\n# ===== 3) 强制清除（业务瞬断，终端重连即恢复）=====\nclear session all filter source {{src_ip}} destination {{dst_ip}}\n# 单条清除：clear session id {{session_id}}\n# ===== 4) 复核（命中会话应为 0）=====\nshow session all filter source {{src_ip}} destination {{dst_ip}}",
+      "rollback": "# 回退：会话清除不可回退（会话由终端重连重建）；清空前先 show session all filter 留证\nshow session all filter source {{src_ip}} destination {{dst_ip}}",
+      "params": [
+        {
+          "name": "src_ip",
+          "label": "源 IP",
+          "default": "10.20.10.80",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.20.10.80",
+          "type": "ip",
+          "description": "过滤源地址；不带过滤直接 clear session all 会断全设备会话"
+        },
+        {
+          "name": "dst_ip",
+          "label": "目的 IP",
+          "default": "10.20.30.20",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.20.30.20",
+          "type": "ip",
+          "description": "过滤目的地址；与源/端口一起把范围收到单条业务流"
+        },
+        {
+          "name": "dst_port",
+          "label": "目的端口",
+          "default": "443",
+          "required": true,
+          "validate": "port",
+          "example": "443",
+          "type": "string",
+          "description": "过滤目的端口"
+        },
+        {
+          "name": "session_id",
+          "label": "会话 ID",
+          "default": "12345",
+          "required": false,
+          "validate": "int:1-999999999",
+          "example": "12345",
+          "type": "int",
+          "description": "show session all 输出里的会话编号，用于精确查看/清除单条",
+          "range": "1-999999999"
+        }
+      ],
+      "notes": "1) 官方依据：PAN-OS CLI 运维命令（show session all filter / show session id / clear session all filter / clear session id），\n   官方文档与 PAN-OS CLI 速查一致。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) 会话表导出：PAN-OS 无原生「导出会话表」命令——用 show session all 输出贴档，或 tftp/scp export tech-support 取全量证据。\n4) 清会话不会改变配置；若清完立刻又建起来，说明策略仍放行，问题在上层（应用/路由），不是会话。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "66430dce-10d4-5e12-aca5-2e5a3f927dfe",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220 / VM 系列",
+      "category": "HA/双机",
+      "title": "HA 主备配置、状态核对与主备倒换（PAN-OS）",
+      "description": "启用 HA、配 HA1 控制链路与 HA2 数据链路、开会话与配置同步；用 state suspend/functional 做可控倒换。",
+      "commands": "# ===== 1) 启用 HA（主备）=====\nset deviceconfig high-availability enabled yes\nset deviceconfig high-availability group group-id {{group_id}}\nset deviceconfig high-availability group mode {{ha_mode}}\nset deviceconfig high-availability group description \"{{ha_desc}}\"\n# ===== 2) 控制链路 HA1（含备份口）=====\nset deviceconfig high-availability interface ha1 port {{ha1_port}}\nset deviceconfig high-availability interface ha1 ip-address {{local_ha1_ip}}\nset deviceconfig high-availability interface ha1 netmask {{ha1_mask}}\nset deviceconfig high-availability interface ha1 peer-ip-address {{peer_ha1_ip}}\nset deviceconfig high-availability interface ha1 backup port {{ha1b_port}}\n# ===== 3) 数据链路 HA2（会话同步走这里）=====\nset deviceconfig high-availability interface ha2 port {{ha2_port}}\n# ===== 4) 会话与配置同步 =====\nset deviceconfig high-availability group session-synchronization enabled yes\nset deviceconfig high-availability group configuration-synchronization enabled yes\ncommit description \"{{commit_note}}\"\n# ===== 5) 主备倒换（仅在活动设备执行；对端随即接管）=====\n# request high-availability state suspend\n# 恢复：request high-availability state functional\n# ===== 6) 复核 =====\nshow high-availability state\nshow high-availability state-synchronization",
+      "rollback": "# 回退：先挂起本机（避免双主），再关 HA\n# request high-availability state suspend\nset deviceconfig high-availability enabled no\ncommit\nshow high-availability state",
+      "params": [
+        {
+          "name": "group_id",
+          "label": "HA 组号",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-255",
+          "example": "1",
+          "type": "int",
+          "description": "HA 组 ID，两台必须一致",
+          "range": "1-255"
+        },
+        {
+          "name": "ha_mode",
+          "label": "HA 模式",
+          "default": "active-passive",
+          "required": true,
+          "validate": "",
+          "example": "active-passive",
+          "type": "enum",
+          "description": "active-passive 主备（推荐）/ active-active 主主（需交换机配合，排障复杂）",
+          "choices": [
+            "active-passive",
+            "active-active"
+          ]
+        },
+        {
+          "name": "ha_desc",
+          "label": "HA 描述",
+          "default": "FW-HA-PAIR",
+          "required": true,
+          "validate": "",
+          "example": "FW-HA-PAIR",
+          "type": "string",
+          "description": "HA 组描述，两台一致便于核对"
+        },
+        {
+          "name": "ha1_port",
+          "label": "HA1 控制口",
+          "default": "ethernet1/5",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/5",
+          "type": "string",
+          "description": "HA1 心跳/控制口，建议独立直连"
+        },
+        {
+          "name": "local_ha1_ip",
+          "label": "本机 HA1 IP",
+          "default": "10.0.99.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.99.1",
+          "type": "ip",
+          "description": "本机 HA1 地址（与对端同 /30 网段）"
+        },
+        {
+          "name": "ha1_mask",
+          "label": "HA1 掩码",
+          "default": "255.255.255.252",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.252",
+          "type": "string",
+          "description": "HA1 掩码，点对点常用 /30"
+        },
+        {
+          "name": "peer_ha1_ip",
+          "label": "对端 HA1 IP",
+          "default": "10.0.99.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.0.99.2",
+          "type": "ip",
+          "description": "对端 HA1 地址，必须与本机同网段"
+        },
+        {
+          "name": "ha1b_port",
+          "label": "HA1 备份口",
+          "default": "ethernet1/6",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/6",
+          "type": "string",
+          "description": "HA1 备份链路（Heartbeat Backup），主心跳断了仍能防双主"
+        },
+        {
+          "name": "ha2_port",
+          "label": "HA2 数据口",
+          "default": "ethernet1/7",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/7",
+          "type": "string",
+          "description": "HA2 会话/配置同步口，需与 HA1 分开物理口"
+        },
+        {
+          "name": "commit_note",
+          "label": "提交说明",
+          "default": "HA 主备配置",
+          "required": true,
+          "validate": "",
+          "example": "HA 主备配置",
+          "type": "string",
+          "description": "commit 说明写进配置审计日志"
+        }
+      ],
+      "notes": "1) 官方依据：PAN-OS 官方 Admin 文档 High Availability 章节 + 官方 KB（request high-availability state suspend/functional、\n   show high-availability state 为官方命令）；configuration-synchronization / session-synchronization 字段见官方 HA 配置项说明。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) 倒换优先用 state suspend（可控、会先同步），不要用重启做倒换演练。\n4) 两台必须同型号同 PAN-OS 版本、HA1/HA2 直连且 group-id 一致，否则永远不同步。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "56f36cd3-fc3d-5452-9ab1-cbcb6d5d2bb4",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220 / VM 系列",
+      "category": "VPN",
+      "title": "配置 IPsec 站点到站点隧道（PAN-OS IKE 网关 + 隧道接口）",
+      "description": "隧道接口 + 区域 + IKE/IPSEC 加密配置 + IKE 网关 + IPsec 隧道 + 路由与放行，附 SA 复核。",
+      "commands": "# ===== 1) 隧道接口与区域归属 =====\nset network interface tunnel units {{tunnel_if}} ip {{tunnel_ip}}\nset network interface tunnel units {{tunnel_if}} comment \"{{tunnel_desc}}\"\nset zone {{vpn_zone}} network layer3 {{tunnel_if}}\nset network virtual-router {{vr_name}} interface {{tunnel_if}}\n# ===== 2) IKE / IPsec 加密配置 =====\nset network ike crypto-profiles ike-crypto-profiles {{ike_profile}} encryption {{ike_enc}} hash sha256 dh-group {{dh_group}}\nset network ike crypto-profiles ipsec-crypto-profiles {{ipsec_profile}} esp encryption {{ipsec_enc}} esp authentication sha256 dh-group {{dh_group}}\n# ===== 3) IKE 网关（预共享密钥）=====\nset network ike gateway {{gw_name}} authentication pre-shared-key key {{psk}}\nset network ike gateway {{gw_name}} local-address interface {{out_interface}}\nset network ike gateway {{gw_name}} peer-address ip {{peer_ip}}\nset network ike gateway {{gw_name}} protocol ikev1 ike-crypto-profile {{ike_profile}}\nset network ike gateway {{gw_name}} protocol-common nat-traversal enable yes\n# ===== 4) IPsec 隧道（含 proxy-id 选择子）=====\nset network tunnel ipsec {{tunnel_name}} auto-key ike-gateway {{gw_name}}\nset network tunnel ipsec {{tunnel_name}} auto-key ipsec-crypto-profile {{ipsec_profile}}\nset network tunnel ipsec {{tunnel_name}} tunnel-interface {{tunnel_if}}\nset network tunnel ipsec {{tunnel_name}} auto-key proxy-id {{proxy_id}} local {{local_net}} remote {{remote_net}}\n# ===== 5) 去对端网段的路由 =====\nset network virtual-router {{vr_name}} routing-table ip static-route {{route_name}} destination {{remote_net}} interface {{tunnel_if}}\n# ===== 6) 放行隧道流量（生产请把 any 收成地址对象）=====\nset rulebase security rules {{rule_name}} from {{local_zone}} to {{vpn_zone}}\nset rulebase security rules {{rule_name}} source any\nset rulebase security rules {{rule_name}} destination any\nset rulebase security rules {{rule_name}} application any\nset rulebase security rules {{rule_name}} service any\nset rulebase security rules {{rule_name}} action allow\ncommit description \"{{commit_note}}\"\n# ===== 7) 复核（IKE SA / IPsec SA / 隧道流量计数）=====\nshow vpn ike-sa\nshow vpn ipsec-sa\nshow vpn flow",
+      "rollback": "# 回退：删规则 → 删路由 → 删隧道 → 删网关 → 删隧道接口\ndelete rulebase security rules {{rule_name}}\ndelete network virtual-router {{vr_name}} routing-table ip static-route {{route_name}}\ndelete network tunnel ipsec {{tunnel_name}}\ndelete network ike gateway {{gw_name}}\ndelete network interface tunnel units {{tunnel_if}}\ncommit",
+      "params": [
+        {
+          "name": "tunnel_if",
+          "label": "隧道接口",
+          "default": "tunnel.10",
+          "required": true,
+          "validate": "",
+          "example": "tunnel.10",
+          "type": "string",
+          "description": "隧道接口名（tunnel.N），地址与路由都挂在它上面"
+        },
+        {
+          "name": "tunnel_ip",
+          "label": "隧道接口 IP",
+          "default": "10.255.255.1/30",
+          "required": true,
+          "validate": "",
+          "example": "10.255.255.1/30",
+          "type": "string",
+          "description": "隧道接口地址（CIDR 写法，点对点常用 /30），两端不能相同"
+        },
+        {
+          "name": "tunnel_desc",
+          "label": "隧道描述",
+          "default": "to-branch",
+          "required": false,
+          "validate": "",
+          "example": "to-branch",
+          "type": "string",
+          "description": "隧道接口描述"
+        },
+        {
+          "name": "vpn_zone",
+          "label": "VPN 区域",
+          "default": "vpn",
+          "required": true,
+          "validate": "",
+          "example": "vpn",
+          "type": "string",
+          "description": "隧道接口所属区域，策略 from/to 引用"
+        },
+        {
+          "name": "vr_name",
+          "label": "虚拟路由器",
+          "default": "default",
+          "required": true,
+          "validate": "",
+          "example": "default",
+          "type": "string",
+          "description": "隧道接口与路由所属虚拟路由器"
+        },
+        {
+          "name": "ike_profile",
+          "label": "IKE 加密配置名",
+          "default": "IKE-DEFAULT",
+          "required": true,
+          "validate": "",
+          "example": "IKE-DEFAULT",
+          "type": "string",
+          "description": "IKE 加密配置名（crypto-profiles 下），两端算法需一致"
+        },
+        {
+          "name": "ike_enc",
+          "label": "IKE 加密算法",
+          "default": "aes-256-cbc",
+          "required": true,
+          "validate": "",
+          "example": "aes-256-cbc",
+          "type": "enum",
+          "description": "IKE 加密算法；与对端完全一致",
+          "choices": [
+            "aes-128-cbc",
+            "aes-192-cbc",
+            "aes-256-cbc",
+            "aes-256-gcm"
+          ]
+        },
+        {
+          "name": "ipsec_profile",
+          "label": "IPsec 加密配置名",
+          "default": "IPSEC-DEFAULT",
+          "required": true,
+          "validate": "",
+          "example": "IPSEC-DEFAULT",
+          "type": "string",
+          "description": "IPsec 加密配置名，两端算法需一致"
+        },
+        {
+          "name": "ipsec_enc",
+          "label": "IPsec 加密算法",
+          "default": "aes-256-cbc",
+          "required": true,
+          "validate": "",
+          "example": "aes-256-cbc",
+          "type": "enum",
+          "description": "ESP 加密算法；与对端一致",
+          "choices": [
+            "aes-128-cbc",
+            "aes-192-cbc",
+            "aes-256-cbc",
+            "aes-256-gcm"
+          ]
+        },
+        {
+          "name": "dh_group",
+          "label": "DH 组",
+          "default": "group14",
+          "required": true,
+          "validate": "",
+          "example": "group14",
+          "type": "enum",
+          "description": "Diffie-Hellman 组，两端一致",
+          "choices": [
+            "group2",
+            "group5",
+            "group14",
+            "group19",
+            "group20"
+          ]
+        },
+        {
+          "name": "gw_name",
+          "label": "IKE 网关名",
+          "default": "GW-BRANCH",
+          "required": true,
+          "validate": "",
+          "example": "GW-BRANCH",
+          "type": "string",
+          "description": "IKE 网关名，IPsec 隧道引用它"
+        },
+        {
+          "name": "psk",
+          "label": "预共享密钥",
+          "default": "IPSEC-PSK-CHANGE-ME",
+          "required": true,
+          "validate": "",
+          "example": "IPSEC-PSK-CHANGE-ME",
+          "type": "string",
+          "description": "IKE 预共享密钥，两端一致；现场换成独立强口令"
+        },
+        {
+          "name": "out_interface",
+          "label": "出接口",
+          "default": "ethernet1/1",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/1",
+          "type": "string",
+          "description": "承载 IPsec 的公网接口"
+        },
+        {
+          "name": "peer_ip",
+          "label": "对端公网 IP",
+          "default": "203.0.113.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "203.0.113.2",
+          "type": "ip",
+          "description": "对端防火墙公网地址"
+        },
+        {
+          "name": "tunnel_name",
+          "label": "IPsec 隧道名",
+          "default": "VPN-TO-BRANCH",
+          "required": true,
+          "validate": "",
+          "example": "VPN-TO-BRANCH",
+          "type": "string",
+          "description": "IPsec 隧道对象名"
+        },
+        {
+          "name": "proxy_id",
+          "label": "proxy-id 名",
+          "default": "PID-BRANCH",
+          "required": true,
+          "validate": "",
+          "example": "PID-BRANCH",
+          "type": "string",
+          "description": "选择子名；与友商互通时必须显式指定 proxy-id"
+        },
+        {
+          "name": "local_net",
+          "label": "本端网段",
+          "default": "10.20.10.0/24",
+          "required": true,
+          "validate": "",
+          "example": "10.20.10.0/24",
+          "type": "string",
+          "description": "本端走隧道的网段（CIDR）；与对端镜像"
+        },
+        {
+          "name": "remote_net",
+          "label": "对端网段",
+          "default": "10.30.20.0/24",
+          "required": true,
+          "validate": "",
+          "example": "10.30.20.0/24",
+          "type": "string",
+          "description": "对端需要互通的网段（CIDR）"
+        },
+        {
+          "name": "route_name",
+          "label": "路由名",
+          "default": "RT-BRANCH",
+          "required": true,
+          "validate": "",
+          "example": "RT-BRANCH",
+          "type": "string",
+          "description": "去对端网段的静态路由名"
+        },
+        {
+          "name": "rule_name",
+          "label": "放行规则名",
+          "default": "VPN-OA-TO-BRANCH",
+          "required": true,
+          "validate": "",
+          "example": "VPN-OA-TO-BRANCH",
+          "type": "string",
+          "description": "隧道放行规则名"
+        },
+        {
+          "name": "local_zone",
+          "label": "本端区域",
+          "default": "trust-oa",
+          "required": true,
+          "validate": "",
+          "example": "trust-oa",
+          "type": "string",
+          "description": "本端业务所在区域；反向规则需另建"
+        },
+        {
+          "name": "commit_note",
+          "label": "提交说明",
+          "default": "IPsec 隧道上线",
+          "required": true,
+          "validate": "",
+          "example": "IPsec 隧道上线",
+          "type": "string",
+          "description": "commit 说明写进配置审计日志"
+        }
+      ],
+      "notes": "1) 官方依据：PAN-OS 官方 KB「How to Configure an IPSEC VPN with Route and Tunnel Configuration from CLI」\n   （set network interface tunnel units / set zone … layer3 tunnel.N / set network ike gateway / set network tunnel ipsec / 静态路由）。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) 排查序：show vpn ike-sa（第一阶段）→ show vpn ipsec-sa（第二阶段）→ show vpn flow（加解密计数）→ 路由 → 策略双向。\n4) 与友商互通必须显式 proxy-id；纯 Palo Alto 两端可省，但显式写更稳。\n5) 反向流量需另一条规则与路由（或同区域互通），只建单向是最常见的「隧道 up 业务不通」。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "da72c658-c88c-56ce-979b-4319d554b711",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220 / VM 系列",
+      "category": "安全防护",
+      "title": "配置安全配置文件（漏洞防护 / 防病毒）并成组绑定",
+      "description": "建漏洞防护与防病毒配置文件，打成 profile-group 后挂到安全策略；URL 过滤本批不补（分类节点随版本变动，无稳定 CLI 依据）。",
+      "commands": "# ===== 1) 漏洞防护配置文件（按规则动作）=====\nset profiles vulnerability {{vuln_profile}} rules {{vuln_rule}} action {{vuln_action}}\n# ===== 2) 防病毒配置文件（http / smtp 解码器）=====\nset profiles antivirus {{av_profile}} decoder http action {{av_action}}\nset profiles antivirus {{av_profile}} decoder smtp action {{av_action}}\n# ===== 3) 打成配置文件组（策略侧只引组，便于统一调整）=====\nset profile-group {{pg_name}} virus {{av_profile}}\nset profile-group {{pg_name}} vulnerability {{vuln_profile}}\n# ===== 4) 绑定到策略 =====\n# set rulebase security rules {{rule_name}} profile-setting group {{pg_name}}\ncommit description \"{{commit_note}}\"\n# ===== 5) 复核 =====\nshow profiles vulnerability\nshow profiles antivirus",
+      "rollback": "# 回退：先解除策略绑定，再删组与配置文件\nset rulebase security rules {{rule_name}} profile-setting none\ndelete profile-group {{pg_name}}\ndelete profiles vulnerability {{vuln_profile}}\ndelete profiles antivirus {{av_profile}}\ncommit",
+      "params": [
+        {
+          "name": "vuln_profile",
+          "label": "漏洞防护配置名",
+          "default": "VULN-STRICT",
+          "required": true,
+          "validate": "",
+          "example": "VULN-STRICT",
+          "type": "string",
+          "description": "漏洞防护（Threat Prevention）配置文件名称"
+        },
+        {
+          "name": "vuln_rule",
+          "label": "规则名",
+          "default": "critical-high",
+          "required": true,
+          "validate": "",
+          "example": "critical-high",
+          "type": "string",
+          "description": "配置文件内的规则名；按严重级别命名便于审计"
+        },
+        {
+          "name": "vuln_action",
+          "label": "规则动作",
+          "default": "reset-both",
+          "required": true,
+          "validate": "",
+          "example": "reset-both",
+          "type": "enum",
+          "description": "命中动作：alert 仅告警 / drop 丢包 / reset-both 双向重置（阻断最彻底）",
+          "choices": [
+            "alert",
+            "allow",
+            "drop",
+            "reset-both"
+          ]
+        },
+        {
+          "name": "av_profile",
+          "label": "防病毒配置名",
+          "default": "AV-STRICT",
+          "required": true,
+          "validate": "",
+          "example": "AV-STRICT",
+          "type": "string",
+          "description": "防病毒配置文件名称"
+        },
+        {
+          "name": "av_action",
+          "label": "AV 动作",
+          "default": "reset-both",
+          "required": true,
+          "validate": "",
+          "example": "reset-both",
+          "type": "enum",
+          "description": "防病毒命中动作；reset-both 阻断并重置会话",
+          "choices": [
+            "alert",
+            "allow",
+            "drop",
+            "reset-both"
+          ]
+        },
+        {
+          "name": "pg_name",
+          "label": "配置文件组名",
+          "default": "PG-STRICT",
+          "required": true,
+          "validate": "",
+          "example": "PG-STRICT",
+          "type": "string",
+          "description": "安全配置文件组名，策略侧引用它（组内容可后续统一调整）"
+        },
+        {
+          "name": "rule_name",
+          "label": "绑定策略名",
+          "default": "OUT-OA-TO-UNTRUST",
+          "required": true,
+          "validate": "",
+          "example": "OUT-OA-TO-UNTRUST",
+          "type": "string",
+          "description": "要挂配置文件组的安全策略名"
+        },
+        {
+          "name": "commit_note",
+          "label": "提交说明",
+          "default": "安全配置文件上线",
+          "required": true,
+          "validate": "",
+          "example": "安全配置文件上线",
+          "type": "string",
+          "description": "commit 说明写进配置审计日志"
+        }
+      ],
+      "notes": "1) 官方依据：PAN-OS 官方配置对象（profiles vulnerability / profiles antivirus / profile-group）与官方 Admin 文档安全配置文件章节。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) ★ 本批不补 URL 过滤：url-filtering 的分类节点随 PAN-OS 版本与订阅变化，官方文档未给出稳定的逐分类 set 序列——按不编造红线标缺，\n   现场走 Web 界面（Objects > Security Profiles > URL Filtering）配置。\n4) 配置文件需在 Threat Prevention / Antivirus 授权有效时才真正生效，无授权的动作实际不拦截。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "14e26b44-25d4-52da-893a-9c018d5e6bd7",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220 / VM 系列",
+      "category": "接口基础",
+      "title": "接口 IP 直配 / PPPoE / DHCP 客户端与 MTU（PAN-OS）",
+      "description": "layer3 口直配地址与 MTU、加入虚拟路由器与区域；附 PPPoE 与 DHCP 客户端替换写法。",
+      "commands": "# ===== 1) 静态 IP 直配（layer3）=====\nset network interface ethernet {{interface}} layer3 ip {{ip}}\nset network interface ethernet {{interface}} layer3 mtu {{mtu}}\nset network interface ethernet {{interface}} layer3 interface-management-profile {{mgmt_profile}}\nset network interface ethernet {{interface}} comment \"{{comment}}\"\n# ===== 2) 入虚拟路由器 + 划区域（直配后必须做，否则不转发）=====\nset network virtual-router {{vr_name}} interface {{interface}}\nset zone {{zone_name}} network layer3 {{interface}}\n# ===== 3) PPPoE（把上面 layer3 ip 行换成下面两行）=====\n# set network interface ethernet {{interface}} pppoe username {{pppoe_user}}\n# set network interface ethernet {{interface}} pppoe password {{pppoe_password}}\n# ===== 4) DHCP 客户端（把上面 layer3 ip 行换成本行）=====\n# set network interface ethernet {{interface}} layer3 dhcp-client create-default-route yes\ncommit description \"{{commit_note}}\"\n# ===== 5) 复核 =====\nshow interface {{interface}}",
+      "rollback": "# 回退：恢复原地址/原取址方式（变更前先记录 show interface {{interface}} 输出）\nset network interface ethernet {{interface}} layer3 ip <变更前记录的地址/掩码>\n# 若是 DHCP 口，改回：set network interface ethernet {{interface}} layer3 dhcp-client create-default-route yes\ncommit",
+      "params": [
+        {
+          "name": "interface",
+          "label": "接口名",
+          "default": "ethernet1/1",
+          "required": true,
+          "validate": "",
+          "example": "ethernet1/1",
+          "type": "string",
+          "description": "物理接口名；改管理口前先确认 Console 可登录"
+        },
+        {
+          "name": "ip",
+          "label": "接口 IP/掩码",
+          "default": "200.1.1.10/24",
+          "required": true,
+          "validate": "",
+          "example": "200.1.1.10/24",
+          "type": "string",
+          "description": "接口地址（CIDR 写法，如 200.1.1.10/24）；必须与上游网关同网段"
+        },
+        {
+          "name": "mtu",
+          "label": "MTU",
+          "default": "1500",
+          "required": true,
+          "validate": "int:68-9000",
+          "example": "1500",
+          "type": "int",
+          "description": "接口 MTU；PPPoE/隧道场景常见 1492，跨网不通先查这里",
+          "range": "68-9000"
+        },
+        {
+          "name": "mgmt_profile",
+          "label": "管理配置文件",
+          "default": "PING-HTTPS-SSH",
+          "required": true,
+          "validate": "",
+          "example": "PING-HTTPS-SSH",
+          "type": "string",
+          "description": "接口管理配置文件（允许 ping/https/ssh）；不挂则接口无法被管理"
+        },
+        {
+          "name": "comment",
+          "label": "接口描述",
+          "default": "ISP1 上行",
+          "required": false,
+          "validate": "",
+          "example": "ISP1 上行",
+          "type": "string",
+          "description": "接口描述，写清运营商与带宽"
+        },
+        {
+          "name": "vr_name",
+          "label": "虚拟路由器",
+          "default": "default",
+          "required": true,
+          "validate": "",
+          "example": "default",
+          "type": "string",
+          "description": "接口所属虚拟路由器"
+        },
+        {
+          "name": "zone_name",
+          "label": "区域名",
+          "default": "untrust",
+          "required": true,
+          "validate": "",
+          "example": "untrust",
+          "type": "string",
+          "description": "接口所属安全区域"
+        },
+        {
+          "name": "pppoe_user",
+          "label": "PPPoE 账号",
+          "default": "adsl-user",
+          "required": false,
+          "validate": "",
+          "example": "adsl-user",
+          "type": "string",
+          "description": "PPPoE 拨号账号（注释示例用）"
+        },
+        {
+          "name": "pppoe_password",
+          "label": "PPPoE 口令",
+          "default": "PPPOE-PASS-CHANGE-ME",
+          "required": false,
+          "validate": "",
+          "example": "PPPOE-PASS-CHANGE-ME",
+          "type": "string",
+          "description": "PPPoE 拨号口令（注释示例用）"
+        },
+        {
+          "name": "commit_note",
+          "label": "提交说明",
+          "default": "接口地址调整",
+          "required": true,
+          "validate": "",
+          "example": "接口地址调整",
+          "type": "string",
+          "description": "commit 说明写进配置审计日志"
+        }
+      ],
+      "notes": "1) 官方依据：PAN-OS 官方 KB「如何将3层接口配置为通过 CLI 充当管理端口」与「How to Configure an IPSEC VPN ... from CLI」\n   （set network interface ethernet X layer3 ip / interface-management-profile / set network virtual-router … interface / set zone … layer3）。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) 只配 IP 不加入 VR/区域 → 接口 up 但不转发，这是 PAN-OS 最常见的「配了地址不通」原因。\n4) PPPoE 与 dhcp-client 字段随版本略有差异，执行前用 ? 在本级节点核对。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "dc7f8f07-6ee8-52a3-99a6-59fd38d92ac7",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "paloalto",
+      "os_family": "panos",
+      "models": "PA-440 / PA-3220 / PA-5220 / VM 系列",
+      "category": "保存配置",
+      "title": "命名配置快照、候选差异核对与回载（PAN-OS）",
+      "description": "变更前另存命名快照、提交前核对候选与运行配置差异、误操作时回载快照（需再 commit）。",
+      "commands": "# ===== 1) 变更前保存命名快照（可回载的基线）=====\nsave config to {{snapshot_file}}\n# ===== 2) 提交前核对候选与运行配置的差异 =====\nshow config diff\n# ===== 3) 回载快照（覆盖候选配置，需再 commit 才生效）=====\n# load config from {{snapshot_file}}\n# ===== 4) 复核（当前运行配置关键段）=====\nshow config running",
+      "rollback": "# 回退：回载快照前先另存当前运行配置；误回载后用该文件 load 回来\nsave config to <回退前快照文件名>\n# load config from <回退前快照文件名>\n# commit",
+      "params": [
+        {
+          "name": "snapshot_file",
+          "label": "快照文件名",
+          "default": "pre-change-20261106.xml",
+          "required": true,
+          "validate": "",
+          "example": "pre-change-20261106.xml",
+          "type": "string",
+          "description": "变更前快照文件名，建议「场景-日期」命名；存于设备本地，重要变更应 scp 外存"
+        }
+      ],
+      "notes": "1) 官方依据：PAN-OS 运维命令（save config to / load config from / show config running / show config diff），与官方配置备份文档一致。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) 与 FortiOS 的差异：PAN-OS 有候选配置（candidate）概念——show config diff 看的是候选 vs 运行，不是两版历史对比；\n   历史版本对比走 Web 界面 Device > Setup > Operations 的配置审计/命名快照。\n4) load config 只替换候选配置，不 commit 不生效；这一步给了「先看后提交」的缓冲。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
     }
   ]
 }

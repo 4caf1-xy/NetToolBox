@@ -118,8 +118,8 @@ def main():
     out = proc.stdout or ""
     check("validate EXIT=0", proc.returncode == 0,
           "rc=%s\n%s" % (proc.returncode, (proc.stderr or out)[-300:]))
-    check("质检通过行存在（459/26/106 口径）",
-          "459 条条目 + 26 棵排查树 + 106 条报错字典" in out,
+    check("质检通过行存在（482/26/106 口径）",
+          "482 条条目 + 26 棵排查树 + 106 条报错字典" in out,
           out[-200:])
     check("[E] 报错字典零问题", "报错字典发现" not in out)
 

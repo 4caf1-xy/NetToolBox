@@ -6,7 +6,7 @@
   "vendor_slug": "fortinet",
   "verified_policy": "全部条目 verified=0：AI 生成、未经真机验证，须走团队验证流程后才能变绿",
   "generated_at": "2026-09-28",
-  "count": 24,
+  "count": 37,
   "entries": [
     {
       "uuid": "2fa0c57a-36a1-5293-adf3-4dc727c13e9b",
@@ -1367,6 +1367,1262 @@
       "duration": "",
       "verified": 0,
       "rollback": "# 回退：管理员改回本地认证，再删用户组与 RADIUS 配置\nconfig system admin\n    edit \"{{admin_user}}\"\n        set remote-auth disable\n    next\nend\nconfig user group\n    delete \"{{group_name}}\"\nend\nconfig user radius\n    delete \"{{radius_name}}\"\nend\nget system admin"
+    },
+    {
+      "uuid": "22141eb1-f56a-56d7-96ff-63c282e8ca9a",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "安全区域",
+      "title": "创建安全区域并归入接口（FortiOS zone）",
+      "description": "把两个及以上接口并成一个 zone，策略按 zone 名引用；intrazone 决定同区接口之间是否放行。",
+      "commands": "# ===== 1) 建区域并归入接口（zone 至少两个接口）=====\nconfig system zone\n    edit \"{{zone_name}}\"\n        set interface \"{{intf_a}}\" \"{{intf_b}}\"\n        set intrazone {{intrazone}}\n        set description \"{{zone_desc}}\"\n    next\nend\n# ===== 2) 复核（区域成员与同区放行策略）=====\nshow system zone\nshow system interface | grep {{intf_a}}",
+      "rollback": "# 回退：区域不能直接删——先解除策略/路由对 zone 名的引用，再删区域（接口本身不动）\nconfig firewall policy\n    show\nend\nconfig system zone\n    delete \"{{zone_name}}\"\nend\n# 复核（期望查不到该区域）\nshow system zone | grep {{zone_name}}",
+      "params": [
+        {
+          "name": "zone_name",
+          "label": "区域名",
+          "default": "ZONE-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "ZONE-OFFICE",
+          "type": "string",
+          "description": "安全区域名，策略的 srcintf/dstintf 直接引用它；建议按业务语义命名（ZONE-OFFICE / ZONE-DMZ），不要用 port 号命名"
+        },
+        {
+          "name": "intf_a",
+          "label": "成员接口 1",
+          "default": "port2",
+          "required": true,
+          "validate": "",
+          "example": "port2",
+          "type": "string",
+          "description": "归入该区域的第一个接口；接口一旦归区，策略应引用区域名而非单接口，否则维护成本翻倍"
+        },
+        {
+          "name": "intf_b",
+          "label": "成员接口 2",
+          "default": "port3",
+          "required": true,
+          "validate": "",
+          "example": "port3",
+          "type": "string",
+          "description": "归入该区域的第二个接口；FortiOS 要求 zone 至少两个接口"
+        },
+        {
+          "name": "intrazone",
+          "label": "同区互访",
+          "default": "deny",
+          "required": true,
+          "validate": "",
+          "example": "deny",
+          "type": "enum",
+          "description": "同一 zone 内不同成员接口之间是否放行；默认 deny（同区也要过策略），排障时若同区不通先看这一项",
+          "choices": [
+            "allow",
+            "deny"
+          ]
+        },
+        {
+          "name": "zone_desc",
+          "label": "区域描述",
+          "default": "办公区",
+          "required": false,
+          "validate": "",
+          "example": "办公区",
+          "type": "string",
+          "description": "区域描述文字，运维辨识用途"
+        }
+      ],
+      "notes": "1) 官方依据：FortiOS CLI Reference「config system zone」（7.4 / 8.0 均含 interface / intrazone / description 参数）。\n2) 语法核对档：依据官方 CLI 文档核对，未经本机真机验证。\n3) 接口必须尚未归入其他 zone、且未被策略以单接口方式引用，否则 set interface 会报错——先改策略再归区。\n4) 归区后策略里写 zone 名（如 srcintf \"ZONE-OFFICE\"）即可，不必逐接口写。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "e96d3fe9-d37e-5298-ab4a-bdfe354482f6",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "ACL",
+      "title": "配置入向发布策略（DNAT 后放行 + UTM 绑定）",
+      "description": "为 VIP 对外发布补第二条策略：外网口 → 内网口，目的地址引用 VIP 对象，绑定 IPS/AV 配置文件。",
+      "commands": "# ===== 入向放行策略（VIP 已完成 DNAT 映射，故策略侧 nat disable）=====\nconfig firewall policy\n    edit {{policy_id}}\n        set name \"{{policy_name}}\"\n        set srcintf \"{{src_intf}}\"\n        set dstintf \"{{dst_intf}}\"\n        set srcaddr \"all\"\n        set dstaddr \"{{vip_name}}\"\n        set action accept\n        set schedule \"always\"\n        set service \"{{service_name}}\"\n        set utm-status enable\n        set ips-sensor \"{{ips_profile}}\"\n        set av-profile \"{{av_profile}}\"\n        set ssl-ssh-profile \"{{ssl_profile}}\"\n        set logtraffic all\n        set nat disable\n    next\nend\n# ===== 复核（策略安装位置 + VIP 引用）=====\nshow firewall policy {{policy_id}}\ndiagnose firewall iprope list 100004",
+      "rollback": "# 回退：删除入向策略（VIP 对象保留，外网发布立即中断）\nconfig firewall policy\n    delete {{policy_id}}\nend\n# 复核（期望无该策略）\nshow firewall policy | grep {{policy_name}}",
+      "params": [
+        {
+          "name": "policy_id",
+          "label": "策略 ID",
+          "default": "120",
+          "required": true,
+          "validate": "int:1-4294967",
+          "example": "120",
+          "type": "int",
+          "description": "入向策略的策略 ID（不是序号）；执行前先用 show firewall policy 找一个空号，避免覆盖现网策略",
+          "range": "1-4294967"
+        },
+        {
+          "name": "policy_name",
+          "label": "策略名",
+          "default": "IN-OA-443",
+          "required": true,
+          "validate": "",
+          "example": "IN-OA-443",
+          "type": "string",
+          "description": "策略名称，建议体现方向与端口（IN-业务-端口），日志与命中排查时按名字定位最快"
+        },
+        {
+          "name": "src_intf",
+          "label": "入接口",
+          "default": "wan1",
+          "required": true,
+          "validate": "",
+          "example": "wan1",
+          "type": "string",
+          "description": "入向策略的源接口，通常是公网 WAN 口（或对应 zone 名）"
+        },
+        {
+          "name": "dst_intf",
+          "label": "出接口",
+          "default": "VLAN10-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "VLAN10-OFFICE",
+          "type": "string",
+          "description": "目的接口，即服务所在内网接口/区域；与 VIP 的映射后接口一致"
+        },
+        {
+          "name": "vip_name",
+          "label": "VIP 对象名",
+          "default": "VIP-OA-443",
+          "required": true,
+          "validate": "",
+          "example": "VIP-OA-443",
+          "type": "string",
+          "description": "已建好的 VIP（端口映射）对象名；写 VIP 对象而不是公网 IP，策略才会命中 DNAT 后的流量"
+        },
+        {
+          "name": "service_name",
+          "label": "服务",
+          "default": "HTTPS",
+          "required": true,
+          "validate": "",
+          "example": "HTTPS",
+          "type": "string",
+          "description": "放行的服务对象名；端口与 VIP 映射端口必须一致，用 ALL 会放大暴露面"
+        },
+        {
+          "name": "ips_profile",
+          "label": "IPS 配置文件",
+          "default": "default",
+          "required": true,
+          "validate": "",
+          "example": "default",
+          "type": "string",
+          "description": "入侵防御配置文件（config ips sensor 里的名字）；default 为出厂配置，生产建议自建"
+        },
+        {
+          "name": "av_profile",
+          "label": "AV 配置文件",
+          "default": "default",
+          "required": true,
+          "validate": "",
+          "example": "default",
+          "type": "string",
+          "description": "防病毒配置文件（config antivirus profile 里的名字）"
+        },
+        {
+          "name": "ssl_profile",
+          "label": "SSL 检测配置",
+          "default": "certificate-inspection",
+          "required": true,
+          "validate": "",
+          "example": "certificate-inspection",
+          "type": "string",
+          "description": "SSL/SSH 检测配置：certificate-inspection（只查证书，不解密）/ deep-inspection（需下发 CA）；生产加密流量检测才用 deep"
+        }
+      ],
+      "notes": "1) 官方依据：FortiOS CLI Reference「config firewall policy」字段（srcintf/dstintf/srcaddr/dstaddr/service/utm-status/ips-sensor/av-profile/ssl-ssh-profile/logtraffic/nat）。\n2) 语法核对档：依据官方 CLI 文档核对，未经本机真机验证。\n3) VIP 已在 config firewall vip 里完成 公网IP:端口 → 内网IP:端口 映射，本策略只负责放行，所以 nat disable。\n4) 配置文件名必须已存在，否则 set 报「entry not found」——先建 IPS/AV 配置再绑策略（见安全防护类条目）。\n5) 顺序：新策略默认追加在末尾，可能被前面的 deny 抢走命中 → 用 move 或设 ID 后调整（见策略排序条目）。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "c5eda833-a2c2-5b37-a20b-dbeb5849c934",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "ACL",
+      "title": "创建自定义服务对象（firewall service custom）",
+      "description": "把非标端口/端口段做成命名服务对象，策略里按对象引用，避免直接写 ALL 或散落的端口号。",
+      "commands": "# ===== 1) 建自定义服务（TCP）=====\nconfig firewall service custom\n    edit \"{{svc_name}}\"\n        set protocol {{protocol}}\n        set tcp-portrange {{port_range}}\n        set comment \"{{svc_comment}}\"\n    next\nend\n# UDP 服务改成：set protocol UDP / set udp-portrange {{port_range}}\n# ===== 2) 复核 =====\nshow firewall service custom {{svc_name}}",
+      "rollback": "# 回退：先确认没有策略/地址组引用该服务，再删\nconfig firewall policy\n    show\nend\nconfig firewall service custom\n    delete \"{{svc_name}}\"\nend\n# 复核（期望查不到）\nshow firewall service custom | grep {{svc_name}}",
+      "params": [
+        {
+          "name": "svc_name",
+          "label": "服务对象名",
+          "default": "TCP-8443",
+          "required": true,
+          "validate": "",
+          "example": "TCP-8443",
+          "type": "string",
+          "description": "服务对象名，建议「协议-端口」形式（TCP-8443 / TCP-8000-8010），策略里引用它比写裸端口可读"
+        },
+        {
+          "name": "protocol",
+          "label": "协议",
+          "default": "TCP",
+          "required": true,
+          "validate": "",
+          "example": "TCP",
+          "type": "enum",
+          "description": "传输层协议；选 UDP 时命令里的 tcp-portrange 要同步换成 udp-portrange",
+          "choices": [
+            "TCP",
+            "UDP",
+            "SCTP"
+          ]
+        },
+        {
+          "name": "port_range",
+          "label": "端口/端口段",
+          "default": "8443",
+          "required": true,
+          "validate": "port_range",
+          "example": "8443",
+          "type": "string",
+          "description": "端口或端口段：单个写 8443，连续段写 8000-8010，不连续用空格分隔；与协议匹配"
+        },
+        {
+          "name": "svc_comment",
+          "label": "注释",
+          "default": "自建 Web 管理端口",
+          "required": false,
+          "validate": "",
+          "example": "自建 Web 管理端口",
+          "type": "string",
+          "description": "注释，写清业务归属，半年后回看能省一次全量排查"
+        }
+      ],
+      "notes": "1) 官方依据：FortiOS CLI Reference「config firewall service custom」（protocol / tcp-portrange / udp-portrange / comment）。\n2) 语法核对档：依据官方 CLI 文档核对，未经本机真机验证。\n3) 端口段写法 tcp-portrange 8000-8010 受单条 15 段上限约束，超了拆多条或改用 service group。\n4) 自定义服务默认归在「自定义」分类下，show firewall service custom 可直接核对。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "2e9605a5-fd27-5252-b2f8-905513a20ca0",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "ACL",
+      "title": "策略排序、禁用与删除（move / status / delete）",
+      "description": "按序调整策略位置（ID 不变）、临时禁用保留配置、彻底删除；变更后核对安装位置与命中。",
+      "commands": "# ===== 1) 调整顺序（ID 不变，立即影响在线流量）=====\nconfig firewall policy\n    move {{policy_id}} {{position}} {{ref_policy_id}}\nend\n# ===== 2) 临时禁用（保留配置，随时恢复）=====\nconfig firewall policy\n    edit {{policy_id}}\n        set status disable\n    next\nend\n# ===== 3) 彻底删除（不可恢复，执行前先备份配置）=====\n# config firewall policy\n#     delete {{policy_id}}\n# end\n# ===== 4) 复核（顺序 + 安装位置 + 命中）=====\nshow firewall policy\ndiagnose firewall iprope list 100004",
+      "rollback": "# 回退：恢复启用并把策略移回原位置（顺序错位是策略类变更最常见的副作用）\nconfig firewall policy\n    edit {{policy_id}}\n        set status enable\n    next\n    move {{policy_id}} before <变更前的前一条策略 ID>\nend\n# 删除动作不可回退——执行删除前必须已 execute backup config flash\nshow firewall policy",
+      "params": [
+        {
+          "name": "policy_id",
+          "label": "被移动策略 ID",
+          "default": "110",
+          "required": true,
+          "validate": "int:1-4294967",
+          "example": "110",
+          "type": "int",
+          "description": "要调整的策略 ID（不是序号）；move 只改顺序不改 ID，日志里仍是这个 ID",
+          "range": "1-4294967"
+        },
+        {
+          "name": "position",
+          "label": "移动方式",
+          "default": "before",
+          "required": true,
+          "validate": "",
+          "example": "before",
+          "type": "enum",
+          "description": "before/after 指定相对策略；只有 before/after 两种（FortiOS 7.x），旧版可写 move A to B",
+          "choices": [
+            "before",
+            "after"
+          ]
+        },
+        {
+          "name": "ref_policy_id",
+          "label": "参照策略 ID",
+          "default": "100",
+          "required": true,
+          "validate": "int:1-4294967",
+          "example": "100",
+          "type": "int",
+          "description": "相对定位的参照策略 ID；移动后本策略位于它之前/之后",
+          "range": "1-4294967"
+        }
+      ],
+      "notes": "1) 官方依据：Fortinet KB「Using the CLI to change the order of the IPV4 ... policy list」（config firewall policy move <id> before|after <id>）；\n   FortiOS CLI Reference 亦记 move 子命令（旧形态 move A to B），两种写法按版本取舍。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) 调整顺序会立即改变在線流量命中，且已有会话不会重新匹配——需配合 diagnose sys session filter policy + clear 才让存量会话走新策略。\n4) 删除策略前先 execute backup config flash，否则不可回退。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "103d8304-688c-5266-aa20-7da9ed3d141f",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "防火墙诊断",
+      "title": "策略命中计数查看与清零（diagnose firewall iprope）",
+      "description": "按策略 ID 查看命中/字节计数并清零，用于「这条策略还有人用吗」的定期审计。",
+      "commands": "# ===== 1) 查看指定策略计数（100004 = IPv4 防火墙策略表）=====\ndiagnose firewall iprope show 100004 {{policy_id}}\n# ===== 2) 清零该策略计数（只清统计，不动配置）=====\ndiagnose firewall iprope clear 100004 {{policy_id}}\n# ===== 3) 复核（计数从 0 起算）=====\ndiagnose firewall iprope show 100004 {{policy_id}}",
+      "rollback": "# 计数清零不可逆（清零前数值不保留）；清零前先留证：\ndiagnose firewall iprope show 100004 {{policy_id}}\n# 若需保存，把上面输出贴入变更单或截图归档",
+      "params": [
+        {
+          "name": "policy_id",
+          "label": "策略 ID",
+          "default": "110",
+          "required": true,
+          "validate": "int:1-4294967",
+          "example": "110",
+          "type": "int",
+          "description": "策略 ID（GUI 的 ID 列，不是 Seq# 序号）；省略该参数则清零全部策略计数",
+          "range": "1-4294967"
+        }
+      ],
+      "notes": "1) 官方依据：Fortinet KB「How to Reset Count on the Firewall Policy」+ FortiOS 7.0 New Features「Record central NAT and DNAT hit count」\n   （diagnose firewall iprope show/clear 100004 <policy-id>；SNAT 表 10000d、DNAT 表 100000 同理）。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) 策略 ID ≠ 策略序号：ID 是创建时分配且不变，Seq# 是当前排序位置。\n4) 清零只清统计，配置与策略本身不动；重启设备不会让历史计数回来（本就不持久）。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "923cc648-ed49-5f35-bf97-a88e7e9a5443",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "防火墙诊断",
+      "title": "会话过滤、强制清除与会话表核查（diagnose sys session）",
+      "description": "按源/目的/端口/policy 过滤会话，先看后清；改策略或 NAT 后清掉存量会话让新规则立即生效。",
+      "commands": "# ===== 1) 设过滤条件（只作用于 diagnose 输出，不改配置）=====\ndiagnose sys session filter clear\ndiagnose sys session filter src {{src_ip}}\ndiagnose sys session filter dport {{dst_port}}\n# 也可按策略过滤：diagnose sys session filter policy {{policy_id}}\n# ===== 2) 先看命中会话（确认清的是目标会话）=====\ndiagnose sys session list\ndiagnose sys session stat\n# ===== 3) 强制清除命中会话（业务瞬断，终端重连即恢复）=====\ndiagnose sys session clear\n# ===== 4) 复核（命中会话应为 0）=====\ndiagnose sys session list",
+      "rollback": "# 会话清除不可回退（已断会话由终端重连重建）；清空前必须先跑 diagnose sys session list 留证\ndiagnose sys session list\n# 若误清导致业务异常：核对策略/路由是否放行新会话，必要时在终端侧断开重连触发重建",
+      "params": [
+        {
+          "name": "src_ip",
+          "label": "源 IP",
+          "default": "10.20.10.80",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.20.10.80",
+          "type": "ip",
+          "description": "过滤用的源 IP；只填想清的那部分会话，不要不带过滤直接 clear（会断全设备会话）"
+        },
+        {
+          "name": "dst_port",
+          "label": "目的端口",
+          "default": "443",
+          "required": true,
+          "validate": "port",
+          "example": "443",
+          "type": "string",
+          "description": "过滤用的目的端口；与服务端口配合定位单条业务流"
+        },
+        {
+          "name": "policy_id",
+          "label": "策略 ID",
+          "default": "110",
+          "required": false,
+          "validate": "int:1-4294967",
+          "example": "110",
+          "type": "int",
+          "description": "按策略过滤（注释行示例用）；策略改动后清该策略的存量会话最常用",
+          "range": "1-4294967"
+        }
+      ],
+      "notes": "1) 官方依据：FortiOS 官方 KB「Using the CLI to change the order of ... policy list」中给出的清会话组合\n   （diagnose sys session filter policy <id> → list → clear）；diagnose sys session 族的 filter/list/stat 已在 W 批入只读名单。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) ★ 必守顺序：filter clear → filter 条件 → list 确认 → clear；直接 clear 会清掉全设备会话（含管理面 SSH，可能自断）。\n4) 会话表导出：FortiOS 无原生导出命令，用 diagnose sys session list 输出贴档，或 configure 备份留档。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "af4fd106-034c-5632-aa42-2e5104b3c6cc",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "HA/双机",
+      "title": "HA 主备配置、状态核对与主备倒换（FortiOS）",
+      "description": "两台同型号设备组 HA：心跳口 + 会话同步 + 优先级；核对 checksum 一致后再做倒换演练。",
+      "commands": "# ===== 1) 配置 HA（两台参数一致，仅 priority 互换）=====\nconfig system ha\n    set mode {{ha_mode}}\n    set group-name \"{{group_name}}\"\n    set password {{ha_password}}\n    set hbdev \"{{hb_port}}\" {{hb_priority}}\n    set session-pickup enable\n    set override {{override}}\n    set priority {{priority}}\nend\n# ===== 2) 状态与校验和复核（两侧 checksum 必须一致）=====\ndiagnose sys ha status\ndiagnose sys ha checksum cluster\n# ===== 3) 主备倒换（择一，先在窗口内演练）=====\n# ① 断开主机上行/心跳（最接近真实故障，验证对端接管）；\n# ② 主机侧 diagnose sys ha reset-uptime（部分版本支持，执行前先用 ? 核对是否存在）；\n# ③ 备机侧 execute ha manage {{peer_id}} 可切到对端 CLI 交叉核对",
+      "rollback": "# 回退：拆 HA 前先在备机执行，避免出现双主（双主会引发 IP/MAC 冲突）\nconfig system ha\n    unset mode\n    unset group-name\n    unset hbdev\nend\n# 复核（期望 HA 未启用、单机转发正常）\ndiagnose sys ha status",
+      "params": [
+        {
+          "name": "ha_mode",
+          "label": "HA 模式",
+          "default": "a-p",
+          "required": true,
+          "validate": "",
+          "example": "a-p",
+          "type": "enum",
+          "description": "a-p 主备（推荐，会话同步可靠）/ a-a 主主（需交换机侧配合，排障复杂度高）",
+          "choices": [
+            "a-p",
+            "a-a"
+          ]
+        },
+        {
+          "name": "group_name",
+          "label": "集群名",
+          "default": "FG-CLUSTER",
+          "required": true,
+          "validate": "",
+          "example": "FG-CLUSTER",
+          "type": "string",
+          "description": "HA 集群名，两台必须完全一致，否则无法协商"
+        },
+        {
+          "name": "ha_password",
+          "label": "心跳口令",
+          "default": "HA-PSK-CHANGE-ME",
+          "required": true,
+          "validate": "",
+          "example": "HA-PSK-CHANGE-ME",
+          "type": "string",
+          "description": "心跳口认证口令，两台一致；现场务必改成独立强口令，不要沿用出厂/文档值"
+        },
+        {
+          "name": "hb_port",
+          "label": "心跳口",
+          "default": "port3",
+          "required": true,
+          "validate": "",
+          "example": "port3",
+          "type": "string",
+          "description": "心跳/会话同步使用的物理口，建议独立直连（不经交换机）并单独 VLAN"
+        },
+        {
+          "name": "hb_priority",
+          "label": "心跳口优先级",
+          "default": "50",
+          "required": true,
+          "validate": "int:0-512",
+          "example": "50",
+          "type": "int",
+          "description": "心跳口优先级，数值越大越优先；多心跳口时决定主用口",
+          "range": "0-512"
+        },
+        {
+          "name": "override",
+          "label": "抢占",
+          "default": "disable",
+          "required": true,
+          "validate": "",
+          "example": "disable",
+          "type": "enum",
+          "description": "enable 时优先级高的设备恢复后抢回主角色；disable 则维持现状（避免抖动，生产多用 disable）",
+          "choices": [
+            "enable",
+            "disable"
+          ]
+        },
+        {
+          "name": "priority",
+          "label": "设备优先级",
+          "default": "200",
+          "required": true,
+          "validate": "int:0-255",
+          "example": "200",
+          "type": "int",
+          "description": "HA 优先级，数值大者为主；两台必须不同（主机 200 / 备机 100）",
+          "range": "0-255"
+        },
+        {
+          "name": "peer_id",
+          "label": "对端成员序号",
+          "default": "1",
+          "required": true,
+          "validate": "int:0-1",
+          "example": "1",
+          "type": "int",
+          "description": "execute ha manage 的目标成员序号（0 或 1），用于切到对端 CLI 交叉核对",
+          "range": "0-1"
+        }
+      ],
+      "notes": "1) 官方依据：FortiOS CLI Reference「config system ha」（mode / group-name / password / hbdev / session-pickup / override / priority 均为官方字段）；\n   diagnose sys ha status / checksum cluster 已在 W 批入只读名单。\n2) 语法核对档：依据官方 CLI 文档核对，未经本机真机验证。\n3) ★ 倒换手段刻意只给「断链路」这一条确定路径：reset-uptime 属版本相关命令，条目内以注释提示先 ? 核对，不写成可直接照抄的命令。\n4) 倒换后必须核对三件事：备机变主、会话同步表非空、业务 VIP/路由仍通。\n5) 两台固件版本与型号需一致，否则 checksum 永远对不上。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "6d2eddee-e7b7-5612-83f0-93c1b1b49bdd",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "VPN",
+      "title": "配置 IPsec 站点到站点隧道（FortiOS phase1/phase2）",
+      "description": "第一阶段 IKE + 第二阶段选择子 + 隧道放行策略，附 IKE/IPsec SA 状态复核。",
+      "commands": "# ===== 1) 第一阶段（IKE）=====\nconfig vpn ipsec phase1-interface\n    edit \"{{tunnel_name}}\"\n        set interface \"{{out_interface}}\"\n        set peertype any\n        set remote-gw {{peer_ip}}\n        set psksecret {{psk}}\n        set proposal {{ike_proposal}}\n        set dhgrp {{dh_group}}\n    next\nend\n# ===== 2) 第二阶段（IPsec 选择子，两端必须镜像）=====\nconfig vpn ipsec phase2-interface\n    edit \"{{tunnel_name}}-p2\"\n        set phase1name \"{{tunnel_name}}\"\n        set proposal {{ipsec_proposal}}\n        set src-subnet {{local_net}} {{local_mask}}\n        set dst-subnet {{remote_net}} {{remote_mask}}\n    next\nend\n# ===== 3) 放行隧道流量（本端 → 对端；反向需另建同法策略）=====\nconfig firewall policy\n    edit {{policy_id}}\n        set name \"{{policy_name}}\"\n        set srcintf \"{{local_intf}}\"\n        set dstintf \"{{tunnel_name}}\"\n        set srcaddr \"{{local_obj}}\"\n        set dstaddr \"{{remote_obj}}\"\n        set action accept\n        set schedule \"always\"\n        set service \"ALL\"\n    next\nend\n# ===== 4) 状态复核（IKE 与 IPsec SA 双向都要 Established）=====\ndiagnose vpn ike gateway list\ndiagnose vpn tunnel list",
+      "rollback": "# 回退：删策略 → 删 phase2 → 删 phase1（隧道接口随 phase1 一起消失）\nconfig firewall policy\n    delete {{policy_id}}\nend\nconfig vpn ipsec phase2-interface\n    delete \"{{tunnel_name}}-p2\"\nend\nconfig vpn ipsec phase1-interface\n    delete \"{{tunnel_name}}\"\nend\n# 复核（期望查不到该隧道）\ndiagnose vpn tunnel list | grep {{tunnel_name}}",
+      "params": [
+        {
+          "name": "tunnel_name",
+          "label": "隧道名",
+          "default": "to-branch",
+          "required": true,
+          "validate": "",
+          "example": "to-branch",
+          "type": "string",
+          "description": "phase1 名称，同时作为隧道接口名（地址/路由/策略都引用它）；建议「to-对端站点」命名"
+        },
+        {
+          "name": "out_interface",
+          "label": "出接口",
+          "default": "wan1",
+          "required": true,
+          "validate": "",
+          "example": "wan1",
+          "type": "string",
+          "description": "承载 IPsec 的物理口；NAT 环境下需放行 UDP 500/4500 与 ESP"
+        },
+        {
+          "name": "peer_ip",
+          "label": "对端公网 IP",
+          "default": "203.0.113.2",
+          "required": true,
+          "validate": "ipv4",
+          "example": "203.0.113.2",
+          "type": "ip",
+          "description": "对端防火墙公网地址；动态地址场景改用 set remote-gw 0.0.0.0 + 对端主动发起"
+        },
+        {
+          "name": "psk",
+          "label": "预共享密钥",
+          "default": "IPSEC-PSK-CHANGE-ME",
+          "required": true,
+          "validate": "",
+          "example": "IPSEC-PSK-CHANGE-ME",
+          "type": "string",
+          "description": "IKE 预共享密钥，两端一致；现场改成独立强口令，不要沿用文档值"
+        },
+        {
+          "name": "ike_proposal",
+          "label": "IKE 提议",
+          "default": "aes256-sha256",
+          "required": true,
+          "validate": "",
+          "example": "aes256-sha256",
+          "type": "string",
+          "description": "第一阶段加密/哈希组合，两端必须完全一致（大小写不敏感但算法名要对）"
+        },
+        {
+          "name": "dh_group",
+          "label": "DH 组",
+          "default": "14",
+          "required": true,
+          "validate": "",
+          "example": "14",
+          "type": "enum",
+          "description": "Diffie-Hellman 组，两端一致；14（2048 位）为常用档，19/20 为 ECC 组",
+          "choices": [
+            "5",
+            "14",
+            "19",
+            "20"
+          ]
+        },
+        {
+          "name": "ipsec_proposal",
+          "label": "IPsec 提议",
+          "default": "aes256-sha256",
+          "required": true,
+          "validate": "",
+          "example": "aes256-sha256",
+          "type": "string",
+          "description": "第二阶段 ESP 加密/哈希组合，两端一致"
+        },
+        {
+          "name": "local_net",
+          "label": "本端网段",
+          "default": "10.20.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.20.10.0",
+          "type": "ip",
+          "description": "本端需要走隧道的网段（与掩码配合）；两端选择子必须镜像"
+        },
+        {
+          "name": "local_mask",
+          "label": "本端掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0",
+          "type": "string",
+          "description": "本端网段掩码"
+        },
+        {
+          "name": "remote_net",
+          "label": "对端网段",
+          "default": "10.30.20.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.30.20.0",
+          "type": "ip",
+          "description": "对端需要互通的网段"
+        },
+        {
+          "name": "remote_mask",
+          "label": "对端掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0",
+          "type": "string",
+          "description": "对端网段掩码"
+        },
+        {
+          "name": "policy_id",
+          "label": "策略 ID",
+          "default": "130",
+          "required": true,
+          "validate": "int:1-4294967",
+          "example": "130",
+          "type": "int",
+          "description": "隧道放行策略 ID，找一个空号",
+          "range": "1-4294967"
+        },
+        {
+          "name": "policy_name",
+          "label": "策略名",
+          "default": "VPN-OA-TO-BRANCH",
+          "required": true,
+          "validate": "",
+          "example": "VPN-OA-TO-BRANCH",
+          "type": "string",
+          "description": "隧道策略名，建议体现两侧站点"
+        },
+        {
+          "name": "local_intf",
+          "label": "本端接口/区域",
+          "default": "VLAN10-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "VLAN10-OFFICE",
+          "type": "string",
+          "description": "隧道策略的源接口（内网侧接口或 zone 名）"
+        },
+        {
+          "name": "local_obj",
+          "label": "本端地址对象",
+          "default": "OA-NET",
+          "required": true,
+          "validate": "",
+          "example": "OA-NET",
+          "type": "string",
+          "description": "本端地址对象名（config firewall address 里的名字）"
+        },
+        {
+          "name": "remote_obj",
+          "label": "对端地址对象",
+          "default": "BRANCH-NET",
+          "required": true,
+          "validate": "",
+          "example": "BRANCH-NET",
+          "type": "string",
+          "description": "对端地址对象名，需先建好"
+        }
+      ],
+      "notes": "1) 官方依据：FortiOS CLI Reference「config vpn ipsec phase1-interface / phase2-interface」（interface / remote-gw / psksecret / proposal / dhgrp / src-subnet / dst-subnet）。\n2) 语法核对档：依据官方 CLI 文档核对，未经本机真机验证。\n3) 隧道不通的固定排查序：IKE SA 是否 Established → IPsec SA 是否双向 → 选择子是否镜像 → 策略是否双向放行 → 路由是否指向隧道接口。\n4) 策略只写了单方向，反向必须另建一条（源/目的对调），这是最常见的「隧道 up 但业务不通」原因。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "3bef212e-fd9d-5a76-a5d9-cd9511d80770",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "VPN",
+      "title": "配置 SSL VPN 远程接入（门户 + 地址池 + 放行策略）",
+      "description": "开 SSL VPN 监听、建隧道地址池与门户、放行 ssl.root → 内网，并绑定用户组。",
+      "commands": "# ===== 1) SSL VPN 全局参数（监听口 / 端口 / 地址池）=====\nconfig vpn ssl settings\n    set servercert \"{{server_cert}}\"\n    set source-interface \"{{out_interface}}\"\n    set source-address \"all\"\n    set port {{ssl_port}}\n    set tunnel-ip-pools \"{{ip_pool}}\"\n    set default-portal \"{{portal_name}}\"\nend\n# ===== 2) 隧道地址池（首次配置时建，iprange 类型）=====\nconfig firewall address\n    edit \"{{ip_pool}}\"\n        set type iprange\n        set start-ip {{pool_start}}\n        set end-ip {{pool_end}}\n    next\nend\n# ===== 3) Web 门户（隧道模式 + 分流）=====\nconfig vpn ssl web portal\n    edit \"{{portal_name}}\"\n        set tunnel-mode enable\n        set ip-pools \"{{ip_pool}}\"\n        set split-tunneling enable\n    next\nend\n# ===== 4) 放行 SSL VPN 流量（ssl.root → 内网，按用户组限制）=====\nconfig firewall policy\n    edit {{policy_id}}\n        set name \"{{policy_name}}\"\n        set srcintf \"ssl.root\"\n        set dstintf \"{{dst_intf}}\"\n        set srcaddr \"all\"\n        set dstaddr \"{{dst_obj}}\"\n        set action accept\n        set schedule \"always\"\n        set groups \"{{user_group}}\"\n        set service \"ALL\"\n    next\nend\n# ===== 5) 复核（监听端口 / 在线用户 / 统计）=====\nshow vpn ssl settings\ndiagnose vpn ssl statistics",
+      "rollback": "# 回退：删策略 → 删门户 → 关监听（保留地址池对象，便于下次重开）\nconfig firewall policy\n    delete {{policy_id}}\nend\nconfig vpn ssl web portal\n    delete \"{{portal_name}}\"\nend\nconfig vpn ssl settings\n    unset source-interface\n    unset port\nend\n# 复核（期望端口不再监听）\nshow vpn ssl settings | grep port",
+      "params": [
+        {
+          "name": "server_cert",
+          "label": "服务端证书",
+          "default": "Fortinet_Factory",
+          "required": true,
+          "validate": "",
+          "example": "Fortinet_Factory",
+          "type": "string",
+          "description": "SSL VPN 使用的服务端证书；生产应换成受信 CA 签发证书，否则浏览器每次告警"
+        },
+        {
+          "name": "out_interface",
+          "label": "监听接口",
+          "default": "wan1",
+          "required": true,
+          "validate": "",
+          "example": "wan1",
+          "type": "string",
+          "description": "对外提供 SSL VPN 的接口；只需一个公网入口"
+        },
+        {
+          "name": "ssl_port",
+          "label": "监听端口",
+          "default": "10443",
+          "required": true,
+          "validate": "port",
+          "example": "10443",
+          "type": "string",
+          "description": "SSL VPN 端口；用 443 会与管理面/发布服务抢端口，建议独立高位端口"
+        },
+        {
+          "name": "ip_pool",
+          "label": "隧道地址池名",
+          "default": "SSLVPN_TUNNEL_ADDR1",
+          "required": true,
+          "validate": "",
+          "example": "SSLVPN_TUNNEL_ADDR1",
+          "type": "string",
+          "description": "隧道模式分配给客户端的地址池对象名，与第 2 步的 firewall address 同名"
+        },
+        {
+          "name": "portal_name",
+          "label": "门户名",
+          "default": "full-access",
+          "required": true,
+          "validate": "",
+          "example": "full-access",
+          "type": "string",
+          "description": "Web 门户名，决定客户端拿到的路由与权限；可分角色建多个门户"
+        },
+        {
+          "name": "pool_start",
+          "label": "地址池起始",
+          "default": "10.212.134.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.212.134.1",
+          "type": "ip",
+          "description": "地址池起始 IP；务必与内网/对端 VPN 网段不重叠"
+        },
+        {
+          "name": "pool_end",
+          "label": "地址池结束",
+          "default": "10.212.134.100",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.212.134.100",
+          "type": "ip",
+          "description": "地址池结束 IP；容量按并发用户数留 20% 余量"
+        },
+        {
+          "name": "policy_id",
+          "label": "策略 ID",
+          "default": "140",
+          "required": true,
+          "validate": "int:1-4294967",
+          "example": "140",
+          "type": "int",
+          "description": "SSL VPN 放行策略 ID",
+          "range": "1-4294967"
+        },
+        {
+          "name": "policy_name",
+          "label": "策略名",
+          "default": "SSLVPN-TO-OA",
+          "required": true,
+          "validate": "",
+          "example": "SSLVPN-TO-OA",
+          "type": "string",
+          "description": "策略名，建议体现「VPN → 目标区」"
+        },
+        {
+          "name": "dst_intf",
+          "label": "目的接口/区域",
+          "default": "VLAN10-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "VLAN10-OFFICE",
+          "type": "string",
+          "description": "VPN 用户可访问的内网接口/区域；只放开必要区段"
+        },
+        {
+          "name": "dst_obj",
+          "label": "目的地址对象",
+          "default": "OA-NET",
+          "required": true,
+          "validate": "",
+          "example": "OA-NET",
+          "type": "string",
+          "description": "可访问的内网地址对象；写 all 等于把整个内网暴露给 VPN 用户"
+        },
+        {
+          "name": "user_group",
+          "label": "用户组",
+          "default": "SSLVPN-GROUP",
+          "required": true,
+          "validate": "",
+          "example": "SSLVPN-GROUP",
+          "type": "string",
+          "description": "允许接入的用户组名（config user group 里已建）；策略侧按组限制，别用 all"
+        }
+      ],
+      "notes": "1) 官方依据：FortiOS CLI Reference「config vpn ssl settings / config vpn ssl web portal」（servercert / source-interface / port / tunnel-ip-pools / default-portal / tunnel-mode / ip-pools / split-tunneling）。\n2) 语法核对档：依据官方 CLI 文档核对，未经本机真机验证。\n3) 前置：管理员账号需在 config system admin 里允许 SSL VPN 登录，用户组需先建好，否则策略 set groups 报找不到对象。\n4) split-tunneling enable = 只有内网流量走 VPN；disable = 全流量回注，带宽与审计压力都在防火墙上。\n5) 客户端连通但访问不了内网：先看 ssl.root 策略，再看 portal 的 ip-pools 与实际分配地址是否同网段。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "26a8babf-b768-5bb6-a7d7-a6838ee6975d",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "安全防护",
+      "title": "配置 UTM 安全配置文件（IPS / 防病毒 / 应用控制 / URL 过滤）",
+      "description": "四类配置文件一次建齐并在策略侧绑定；IPS 按严重级别阻断，AV 覆盖 http/ftp/smtp，应用控制按类别拦，URL 走 FortiGuard 分类。",
+      "commands": "# ===== 1) IPS 传感器（按严重级别阻断）=====\nconfig ips sensor\n    edit \"{{ips_name}}\"\n        set comment \"{{profile_comment}}\"\n        config entries\n            edit 1\n                set severity high critical\n                set action block\n            next\n        end\n    next\nend\n# ===== 2) 防病毒配置文件（http / ftp / smtp 三协议）=====\nconfig antivirus profile\n    edit \"{{av_name}}\"\n        set comment \"{{profile_comment}}\"\n        config http\n            set av-scan block\n        next\n        config ftp\n            set av-scan block\n        next\n        config smtp\n            set av-scan block\n        next\n    next\nend\n# ===== 3) 应用控制（按应用类别阻断）=====\nconfig application list\n    edit \"{{app_name}}\"\n        set comment \"{{profile_comment}}\"\n        config entries\n            edit 1\n                set category {{app_category}}\n                set action block\n            next\n        end\n    next\nend\n# ===== 4) URL 过滤（FortiGuard 分类）=====\nconfig webfilter profile\n    edit \"{{url_name}}\"\n        set comment \"{{profile_comment}}\"\n        config ftgd-wf\n            set options error-allow\n            config filters\n                edit 1\n                    set category {{url_category}}\n                    set action block\n                next\n            end\n        next\n    next\nend\n# ===== 5) 绑定到策略（策略侧一次性挂四件套）=====\n# config firewall policy\n#     edit {{policy_id}}\n#         set utm-status enable\n#         set ips-sensor \"{{ips_name}}\"\n#         set av-profile \"{{av_name}}\"\n#         set application-list \"{{app_name}}\"\n#         set webfilter-profile \"{{url_name}}\"\n#     next\n# end\n# ===== 6) 复核 =====\nshow ips sensor {{ips_name}}\nshow antivirus profile {{av_name}}",
+      "rollback": "# 回退：先解除策略绑定，再删四个配置文件（顺序反了会因「仍被引用」删不掉）\nconfig firewall policy\n    edit {{policy_id}}\n        set utm-status disable\n    next\nend\nconfig firewall policy\n    edit {{policy_id}}\n        unset ips-sensor\n        unset av-profile\n        unset application-list\n        unset webfilter-profile\n    next\nend\nconfig ips sensor\n    delete \"{{ips_name}}\"\nend\nconfig antivirus profile\n    delete \"{{av_name}}\"\nend\nconfig application list\n    delete \"{{app_name}}\"\nend\nconfig webfilter profile\n    delete \"{{url_name}}\"\nend",
+      "params": [
+        {
+          "name": "ips_name",
+          "label": "IPS 配置名",
+          "default": "IPS-EDGE",
+          "required": true,
+          "validate": "",
+          "example": "IPS-EDGE",
+          "type": "string",
+          "description": "IPS 传感器名，策略里按名字引用"
+        },
+        {
+          "name": "av_name",
+          "label": "AV 配置名",
+          "default": "AV-EDGE",
+          "required": true,
+          "validate": "",
+          "example": "AV-EDGE",
+          "type": "string",
+          "description": "防病毒配置文件名单示例"
+        },
+        {
+          "name": "app_name",
+          "label": "应用控制名",
+          "default": "APP-CTRL-EDGE",
+          "required": true,
+          "validate": "",
+          "example": "APP-CTRL-EDGE",
+          "type": "string",
+          "description": "应用控制配置文件名称"
+        },
+        {
+          "name": "url_name",
+          "label": "URL 过滤名",
+          "default": "WEBFILTER-EDGE",
+          "required": true,
+          "validate": "",
+          "example": "WEBFILTER-EDGE",
+          "type": "string",
+          "description": "URL 过滤配置文件名称"
+        },
+        {
+          "name": "profile_comment",
+          "label": "注释",
+          "default": "边界统一安全配置文件",
+          "required": false,
+          "validate": "",
+          "example": "边界统一安全配置文件",
+          "type": "string",
+          "description": "四个配置文件的注释（同一用途，统一写便于审计）"
+        },
+        {
+          "name": "app_category",
+          "label": "应用分类 ID",
+          "default": "2",
+          "required": true,
+          "validate": "int:1-100",
+          "example": "2",
+          "type": "int",
+          "description": "要阻断的应用类别 ID（2=Email、6=VoIP、25=P2P 等，以设备上 show application list 的分类枚举为准）；多个用空格分隔",
+          "range": "1-100"
+        },
+        {
+          "name": "url_category",
+          "label": "URL 分类 ID",
+          "default": "26",
+          "required": true,
+          "validate": "int:1-200",
+          "example": "26",
+          "type": "int",
+          "description": "要阻断的 FortiGuard URL 分类 ID（26=Malicious Websites 常用档）；以设备分类枚举为准",
+          "range": "1-200"
+        },
+        {
+          "name": "policy_id",
+          "label": "绑定策略 ID",
+          "default": "120",
+          "required": false,
+          "validate": "int:1-4294967",
+          "example": "120",
+          "type": "int",
+          "description": "要绑定这些配置文件的防火墙策略 ID",
+          "range": "1-4294967"
+        }
+      ],
+      "notes": "1) 官方依据：FortiOS CLI Reference「config ips sensor / config antivirus profile / config application list / config webfilter profile」\n   （severity+action、av-scan、entries.category、ftgd-wf filters 均为官方字段）。\n2) 语法核对档：依据官方 CLI 文档核对，未经本机真机验证。\n3) 分类 ID 随 FortiGuard 库更新会变化——条目给的 2/26 只是常见档，执行前用 show application list / show webfilter profile 核对枚举。\n4) 先建配置文件再绑策略；删除顺序必须「先解绑再删配置」，否则报「entry is in use」。\n5) 四件套全开对性能有影响（尤其 deep-inspection），低端型号按业务取舍。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "897a8c2d-d458-517b-9bfe-e2ddc2234e1a",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "静态路由",
+      "title": "策略路由与链路探测（router policy + link-monitor）",
+      "description": "指定源网段走指定出口（多出口分流），并用 link-monitor 探测对端，链路失效时退避。",
+      "commands": "# ===== 1) 链路探测（探测失败按 failtime 计数，恢复按 recoverytime）=====\nconfig system link-monitor\n    edit \"{{monitor_name}}\"\n        set srcintf \"{{out_interface}}\"\n        set server \"{{probe_ip}}\"\n        set protocol ping\n        set interval {{interval}}\n        set failtime {{failtime}}\n        set recoverytime {{recoverytime}}\n    next\nend\n# ===== 2) 策略路由（源网段 → 指定出口，优先于路由表）=====\nconfig router policy\n    edit {{pbr_id}}\n        set input-device \"{{in_interface}}\"\n        set src {{src_net}} {{src_mask}}\n        set dst {{dst_net}} {{dst_mask}}\n        set output-device \"{{out_interface}}\"\n        set gateway {{gateway}}\n    next\nend\n# ===== 3) 复核（策略路由表 + 探测状态）=====\ndiagnose firewall proute list\ndiagnose sys link-monitor status",
+      "rollback": "# 回退：删策略路由 → 删链路探测（顺序反了探测会先失效，导致出口提前退避）\nconfig router policy\n    delete {{pbr_id}}\nend\nconfig system link-monitor\n    delete \"{{monitor_name}}\"\nend\n# 复核（期望策略路由表无该条目）\ndiagnose firewall proute list",
+      "params": [
+        {
+          "name": "monitor_name",
+          "label": "探测名",
+          "default": "MON-ISP1",
+          "required": true,
+          "validate": "",
+          "example": "MON-ISP1",
+          "type": "string",
+          "description": "链路探测对象名，建议按出口命名（MON-ISP1 / MON-ISP2）"
+        },
+        {
+          "name": "out_interface",
+          "label": "出口接口",
+          "default": "wan1",
+          "required": true,
+          "validate": "",
+          "example": "wan1",
+          "type": "string",
+          "description": "被探测的出口接口；探测源地址取该接口 IP"
+        },
+        {
+          "name": "probe_ip",
+          "label": "探测目标",
+          "default": "223.5.5.5",
+          "required": true,
+          "validate": "ipv4",
+          "example": "223.5.5.5",
+          "type": "ip",
+          "description": "探测目标 IP，选稳定可达的公网地址（如公共 DNS）；不要探测对端业务服务器"
+        },
+        {
+          "name": "interval",
+          "label": "探测间隔(ms)",
+          "default": "500",
+          "required": true,
+          "validate": "int:20-3600000",
+          "example": "500",
+          "type": "int",
+          "description": "探测间隔毫秒；太小会增加设备与对端负担，500 为常用值",
+          "range": "20-3600000"
+        },
+        {
+          "name": "failtime",
+          "label": "失败次数阈值",
+          "default": "5",
+          "required": true,
+          "validate": "int:1-3600",
+          "example": "5",
+          "type": "int",
+          "description": "连续失败多少次判链路失效；与 interval 相乘即为实际收敛时间",
+          "range": "1-3600"
+        },
+        {
+          "name": "recoverytime",
+          "label": "恢复次数阈值",
+          "default": "5",
+          "required": true,
+          "validate": "int:1-3600",
+          "example": "5",
+          "type": "int",
+          "description": "连续成功多少次判链路恢复；设太小会抖动",
+          "range": "1-3600"
+        },
+        {
+          "name": "pbr_id",
+          "label": "策略路由 ID",
+          "default": "1",
+          "required": true,
+          "validate": "int:1-65535",
+          "example": "1",
+          "type": "int",
+          "description": "策略路由条目 ID，按序匹配（小的先命中）",
+          "range": "1-65535"
+        },
+        {
+          "name": "in_interface",
+          "label": "入口接口",
+          "default": "VLAN10-OFFICE",
+          "required": true,
+          "validate": "",
+          "example": "VLAN10-OFFICE",
+          "type": "string",
+          "description": "策略路由的匹配入接口（源侧接口/区域）"
+        },
+        {
+          "name": "src_net",
+          "label": "源网段",
+          "default": "10.20.10.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "10.20.10.0",
+          "type": "ip",
+          "description": "要分流的源网段"
+        },
+        {
+          "name": "src_mask",
+          "label": "源掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0",
+          "type": "string",
+          "description": "源网段掩码"
+        },
+        {
+          "name": "dst_net",
+          "label": "目的网段",
+          "default": "0.0.0.0",
+          "required": true,
+          "validate": "ipv4",
+          "example": "0.0.0.0",
+          "type": "ip",
+          "description": "目的网段，0.0.0.0 + 0.0.0.0 表示全部目的"
+        },
+        {
+          "name": "dst_mask",
+          "label": "目的掩码",
+          "default": "0.0.0.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "0.0.0.0",
+          "type": "string",
+          "description": "目的掩码，全 0 表示匹配任意目的"
+        },
+        {
+          "name": "gateway",
+          "label": "下一跳",
+          "default": "200.1.1.1",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.1",
+          "type": "ip",
+          "description": "策略路由的下一跳网关（必须是出口网段内可达地址）"
+        }
+      ],
+      "notes": "1) 官方依据：FortiOS CLI Reference「config router policy」（input-device / src / dst / output-device / gateway）与「config system link-monitor」\n   （srcintf / server / protocol / interval / failtime / recoverytime）。\n2) 语法核对档：依据官方 CLI 文档核对，未经本机真机验证。\n3) 策略路由优先于路由表：命中即走 output-device，不再查 RIB——配错会把整段业务导到死链路。\n4) diagnose firewall proute list 可看策略路由命中计数，是验证分流是否生效的第一手证据。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "db524249-8ed1-5509-8b63-5ba1ddd3bb2b",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "接口基础",
+      "title": "接口 IP 直配 / PPPoE / DHCP 客户端与 MTU（FortiOS）",
+      "description": "物理口直配静态地址（非子接口），并给出 PPPoE 拨号与 DHCP 取址的替换写法与 MTU 调整。",
+      "commands": "# ===== 1) 静态 IP 直配（物理口，非子接口）=====\nconfig system interface\n    edit \"{{port}}\"\n        set mode static\n        set ip {{ip}} {{mask}}\n        set allowaccess ping https ssh\n        set mtu {{mtu}}\n        set description \"{{description}}\"\n    next\nend\n# ===== 2) PPPoE 拨号（把上面 set mode/ip 两行换成下面三行）=====\n# config system interface\n#     edit \"{{port}}\"\n#         set mode pppoe\n#         set username \"{{pppoe_user}}\"\n#         set password {{pppoe_password}}\n#     next\n# end\n# ===== 3) DHCP 客户端（动态取址，wan 口出厂默认）=====\n# config system interface\n#     edit \"{{port}}\"\n#         set mode dhcp\n#         set distance {{distance}}\n#     next\n# end\n# ===== 4) 复核 =====\nshow system interface {{port}}\ndiagnose ip address list",
+      "rollback": "# 回退：wan 口默认 DHCP 取址，恢复默认模式即可；内网口请改回原静态地址（变更前先记录）\nconfig system interface\n    edit \"{{port}}\"\n        set mode dhcp\n        unset ip\n        unset mtu\n    next\nend\n# 复核（期望拿到 DHCP 地址或回到原址）\nshow system interface {{port}}",
+      "params": [
+        {
+          "name": "port",
+          "label": "接口名",
+          "default": "wan1",
+          "required": true,
+          "validate": "",
+          "example": "wan1",
+          "type": "string",
+          "description": "物理接口名（port1/wan1/内部接口名）；改 wan1 前确认 Console 可登录，避免管理面断"
+        },
+        {
+          "name": "ip",
+          "label": "接口 IP",
+          "default": "200.1.1.10",
+          "required": true,
+          "validate": "ipv4",
+          "example": "200.1.1.10",
+          "type": "ip",
+          "description": "接口静态地址；必须与上游网关同网段"
+        },
+        {
+          "name": "mask",
+          "label": "掩码",
+          "default": "255.255.255.0",
+          "required": true,
+          "validate": "masklen",
+          "example": "255.255.255.0",
+          "type": "string",
+          "description": "接口子网掩码；与 ip 配套"
+        },
+        {
+          "name": "mtu",
+          "label": "MTU",
+          "default": "1500",
+          "required": true,
+          "validate": "int:68-9000",
+          "example": "1500",
+          "type": "int",
+          "description": "接口 MTU；PPPoE/隧道场景常见 1492，改小会影响分片行为，跨网隧道不通先查这里",
+          "range": "68-9000"
+        },
+        {
+          "name": "description",
+          "label": "描述",
+          "default": "ISP1 上行",
+          "required": false,
+          "validate": "",
+          "example": "ISP1 上行",
+          "type": "string",
+          "description": "接口描述，写清运营商与带宽，排障时最快定位"
+        },
+        {
+          "name": "pppoe_user",
+          "label": "PPPoE 账号",
+          "default": "adsl-user",
+          "required": false,
+          "validate": "",
+          "example": "adsl-user",
+          "type": "string",
+          "description": "PPPoE 拨号账号（注释示例用，启用 PPPoE 时填）"
+        },
+        {
+          "name": "pppoe_password",
+          "label": "PPPoE 口令",
+          "default": "PPPOE-PASS-CHANGE-ME",
+          "required": false,
+          "validate": "",
+          "example": "PPPOE-PASS-CHANGE-ME",
+          "type": "string",
+          "description": "PPPoE 拨号口令（注释示例用）"
+        },
+        {
+          "name": "distance",
+          "label": "管理距离",
+          "default": "5",
+          "required": false,
+          "validate": "int:1-255",
+          "example": "5",
+          "type": "int",
+          "description": "DHCP 客户端拿到的默认路由管理距离；多 WAN 时用它决定默认路由优先级",
+          "range": "1-255"
+        }
+      ],
+      "notes": "1) 官方依据：FortiOS CLI Reference「config system interface」（mode static|dhcp|pppoe、ip、mtu、allowaccess、distance 均为官方字段）。\n2) 语法核对档：依据官方 CLI 文档核对，未经本机真机验证。\n3) 同一接口只能有一种取址方式：static / dhcp / pppoe 三选一，切换时旧字段要 unset 掉。\n4) 改管理口 IP 前先确认 Console 可用；allowaccess 漏写 https/ssh 会把自己关在门外。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
+    },
+    {
+      "uuid": "e6fde60d-f4ec-5b83-b2f2-857dcb985c5f",
+      "platform": "network",
+      "device_type": "防火墙",
+      "vendor": "fortinet",
+      "os_family": "fortios",
+      "models": "FortiGate 60F / 100F / 600E / VM 版",
+      "category": "保存配置",
+      "title": "配置修订列表、差异核对与按修订恢复（FortiOS）",
+      "description": "开启修订留痕后列出历史配置版本，核对差异并按修订号恢复；CLI 只到 list/restore，Diff 在 Web 界面。",
+      "commands": "# ===== 1) 开启修订留痕（登出/升级时自动存一份）=====\nconfig system global\n    set revision-backup-on-logout enable\nend\n# ===== 2) 列出现有修订（拿到修订 ID 与时间）=====\nexecute revision list config\n# ===== 3) 差异核对：Web 界面 用户名 → Configuration → Revisions → 选两版 → Diff =====\n#     （CLI 侧无 diff 子命令，本条目只做 list 与 restore，不臆造 diff 命令）\n# ===== 4) 按修订号恢复（会重启网络面，确认维护窗口后执行）=====\n# execute restore config flash {{revision_id}}\n# ===== 5) 复核 =====\nexecute revision list config",
+      "rollback": "# 回退：恢复动作本身即「回到旧版」；反向回退=恢复到恢复前的修订\nexecute revision list config\n# 取恢复前最新修订 ID，再执行：execute restore config flash <该修订 ID>",
+      "params": [
+        {
+          "name": "revision_id",
+          "label": "修订 ID",
+          "default": "3",
+          "required": true,
+          "validate": "int:1-999",
+          "example": "3",
+          "type": "int",
+          "description": "execute revision list config 输出中的修订编号；恢复会整机重载配置并重启网络面",
+          "range": "1-999"
+        }
+      ],
+      "notes": "1) 官方依据：FortiOS Admin Guide「Configuration backups and reset」（execute revision list config / execute restore config flash）\n   + FortiOS CLI Reference「execute revision」（list/delete 子命令）+ Fortinet KB「Using the 'Revision' option to revert to a previous configuration」。\n2) 语法核对档：依据官方文档核对，未经本机真机验证。\n3) ★ 配置「对比」在 FortiOS 是 Web 界面动作（Revisions 页选两版点 Diff），CLI 只有 list/restore——本条目不写 diff 子命令。\n4) 修订存在 flash 里，容量随型号不同；flash 不足时修订会被覆盖，重要变更仍应 execute backup config 外存。\n5) restore 会重载配置并重启网络面，务必在窗口内做，且先把当前配置备份出来。",
+      "duration": "",
+      "verified": 0,
+      "verified_by": "",
+      "verified_model": "",
+      "verified_date": "",
+      "favorite": 0,
+      "exec_level": ""
     }
   ]
 }

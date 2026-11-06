@@ -81,7 +81,7 @@ def make_seed_copy():
 def case_a():
     db = seeded_db()
     check("A/导入-7包", db.count_packs() == 7, str(db.count_packs()))
-    check("A/三库规模", db.count() == 459 and db.count_trees() == 26
+    check("A/三库规模", db.count() == 482 and db.count_trees() == 26
           and db.count_errs() == 106,
           "%d/%d/%d" % (db.count(), db.count_trees(), db.count_errs()))
     titles = sorted(p["title"] for p in db.all_packs())
