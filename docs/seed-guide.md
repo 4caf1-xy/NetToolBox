@@ -270,6 +270,34 @@ by_vendor 厂商非 slug、**三类引用不存在**（entry uuid / tree_id / er
 `ref_id` + 六段式 + 场景化参数预填）。新增包前先查
 `app/seed_data/scenario_packs.json` 现有 pack_id 避免语义重复。
 
+## 四·E、配置翻译映射写法（translate_rules.json，U 批 2026-11-06）
+
+整机配置翻译的**族映射表**随种子走：`seed_data/translate_rules.json`，与 diff_rules 同机制
+（同名文件取最高优先级一份、`isfile` 防御、坏规则由 `--validate-seed` [E] 拦截），
+**不新增条目**——所有目标命令都由既有条目的 `commands` 模板渲染，条目计数不变。
+
+最小骨架：
+
+```json
+{
+  "format": "netcmdl config-translate map", "schema": 1,
+  "vendors": {"huawei": {"label": "华为", "style": "indent",
+                          "if_prefix": "GigabitEthernet", "comment": "#",
+                          "mode_decl": "^\\s*port\\s+link-type\\s+(?P<mode>access|trunk)\\s*$"}},
+  "families": [{
+    "id": "ntp", "name": "NTP 服务器", "category": "时间同步",
+    "bind": {"ntp_server_ip": {"*": {"param": "ntp_server_ip", "transform": "id"}}},
+    "vendors": {"huawei": {"entry": "<条目 uuid>", "key": ["ntp_server_ip"],
+                           "lines": [{"re": "^ntp-service\\s+unicast-server\\s+(?P<ntp_server_ip>[\\d.]+)\\s*$"}]}}
+  }]
+}
+```
+
+字段与变换链清单见 `docs/dev-notes.md`「U 批」节（唯一权威出处）。
+**validate [E] 硬拦截**：族 id 非法/重复 / 厂商未在顶层声明 / 条目 uuid 不存在或厂商不符 /
+行规则正则坏 / 族缺某目标厂商条目 / **目标条目模板占位无填充来源**（bind、库内默认
+`default_ok`、`optional` 三缺一即拦，防止输出残缺命令）。
+
 ## 四·D、变更对比提取规则写法（diff_rules.json，H 批 2026-10-14）
 
 Before/After 变更对比的**状态提取规则**随种子走：`seed_data/diff_rules.json`，

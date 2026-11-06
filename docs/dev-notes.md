@@ -842,3 +842,120 @@ Web 控制台为主，凭空补 CLI 条目等于编造关键字——按用户�
    别再用 `count()-1`。
 5. **`smoke_scenarios` 的包名断言按 Unicode 码点排序**：ASCII 名（Fortinet/Palo Alto）排最前，
    中文按码点（新 U+65B0 < 深 U+6DF1），手写期望列表别凭语感。
+
+## U 批 配置翻译器（2026-11-06，v1.0.0 功能线第二件，不发版不 tag）
+
+整机口径：粘贴源厂商 running-config（整份或片段）→ 按「配置块」识别命令族 → 用**目标厂商**
+库内条目模板重组命令串 → 行级四档账本。输出零臆测：目标侧每一行命令都可追到一条库内条目 uuid。
+
+### 盘点（只读，先出数再动手）
+
+| 盘点项 | 结论 |
+|---|---|
+| params 结构化覆盖 | 459 条里 **357 条**带结构化 params（77.8%）；其余为历史无参条目 / Web 路径条目 |
+| 跨厂商族条件 | 45 个分类中 **28 个**「六家网络厂商齐全」（VLAN/Trunk/静态路由/OSPF/ACL/NAT/保存配置/DNS/AAA/接口基础/环路检测/显示控制/HA/链路聚合/VRRP/端口安全/POE/风暴抑制/BGP/堆叠/设备管理/SSH管理/密码/时间同步/配置回滚/日志/SNMP/版本升级）；其余 17 类是 Linux/防火墙/运维专属，跨厂商无对象 |
+| diff_rules 复用 | 11 类 48 变体的**行形态正则**是本批解析规则主来源（华为/H3C 的 `port link-type`/`port trunk`、Cisco/RGOS/ZXR10 的 `switchport` 族、Junos 的 `set` 行）；「种子侧 JSON 随包 + 同名优先级 + isfile 防御 + 坏规则 [E] 拦截」四件基础设施直接照搬；四态卡片的呈现经验转成四档账本。约 6 成经验可迁移，4 成是新的（块级上下文 / 参数绑定 / 目标模板渲染） |
+| 整机行构成预估 | 六份小样实测：命令 190 行 → 族内可映射 **161**（84.7%）、注释 6、私有/杂项 13、会话包装与口令 16。族内 : 杂项 ≈ 8.5 : 1.5，账本分档划算 |
+| UI 挂点 | 取「第 10 个 Tab」：变更对比之后、工具箱之前（作业顺序：改前翻译 → 执行 → 对比回显）；视图菜单加 Ctrl+Shift+Y 直达。Ctrl+K 面板保持四库检索不动（翻译入口不是检索） |
+
+### 覆盖族（8 族 × 6 厂商 = 48 条映射）
+
+| 族 id | 分类 | 覆盖内容 | 说明 |
+|---|---|---|---|
+| `vlan` | VLAN | VLAN 创建 + Access 口划分 | 纯 VLAN 定义（无端口归属）时端口参数缺失 → 落 c，不猜端口 |
+| `trunk` | Trunk | Trunk 模式 + 放通列表 + PVID/native | 放通列表/PVID 源里没有就整行剔除，不外溢 |
+| `ifbase` | 接口基础 | 描述 / 速率 / 双工 / 开启 | description/speed/duplex 全 optional |
+| `port_security` | 端口安全 | MAC 上限 + 违规动作 | 华为/H3C 模板硬编码 `0/0`、`1/0` 前缀 → `if_last` 只取末段 |
+| `link_agg` | 链路聚合 | 聚合口 + 成员口 | 成员口用 `members` 收集列表，双口模板取 [0]/[1] |
+| `ospf` | OSPF | 进程 / router-id / network / area / 静默口 | Junos 用接口宣告，推导不出 network → 落 c（真实限制） |
+| `static_route` | 静态路由 | 目的网段 / 掩码 / 下一跳 / 距离 | 掩码 ↔ 前缀长度双向换算 |
+| `ntp` | 时间同步 | NTP 服务器单行 | 单行族，验证命令自动进「复核」区 |
+
+未纳入 v1（库内六家齐全但暂不做）：ACL / NAT / VRRP / POE / 风暴抑制 / BGP / 堆叠 /
+环路检测 / 显示控制 / HA / 保存配置 / AAA / DNS / SSH管理 / 密码 / 设备管理 / SNMP /
+版本升级 / 配置回滚 / 日志（共 20 个）→ 命中落 c 档，原因写明「视图中无族映射规则」。
+
+### 映射表 schema（`seed_data/translate_rules.json`，随种子走，不新增条目）
+
+- `vendors.<slug>`：`style`（indent / flat，Junos set 形式为 flat）、`if_prefix`（→ `if_full`）、
+  `comment`（目标注释符）、`mode_decl`（access/trunk 预扫正则）；
+- `families[].bind`：规范参数 → `{厂商: {param, transform[], narrow}}`；键可写 `canon@tag`
+  让一个规范参数派生多个目标参数（`ifname` → `port_start`/`port_end`）；`"*"` 兜底、
+  `null` = 该目标厂商不映射（源项会被记「无对应参数」并降级）；
+- `families[].vendors.<src>`：`entry`（**源侧参照**，仅作追溯）、`key`（实例分组键）、
+  `lines[]`（`re` + `scope:header` + `view:if|vlan|ospf` + `mode:access|trunk` +
+  `port_prefix` + `inherit` / `collect` / `resolve`）；
+- `optional`：源里没有就**整行剔除**（不外溢）；`default_ok`：允许取库内默认值的参数白名单；
+  其余参数缺失 = 整个实例降级 c（禁止用默认值凑身份类参数）；
+- 变换链：`id` / `if_short` / `if_full` / `if_last` / `range_start|end|expr|full` /
+  `first_port` / `members0|1` / `to_mask` / `to_masklen` / `speed` / `duplex` / `strip_unit`。
+
+### 四档账本（每行必落一档，不存在「凭空消失行」）
+
+| 档 | 含义 | 典型来源 |
+|---|---|---|
+| a 已译 | 命中族规则，输出由库内条目渲染，附「行号 → 目标条目 uuid」 | 族内配置行 + 接口视图起始行（由模板自带） |
+| b 逐行映射 | 注释/说明行非命令，按目标注释符（`!` ↔ `#`）重写 | `! 接入交换机 ...` / `# 描述：...` |
+| c 需人工 | 私有特性 / 库内无族 / 族内未覆盖行，逐条列原因 | 原因码 `private` / `no_family` / `uncovered_view` / `key_missing` / `param_missing` / `entry_missing` / `unbound` |
+| d 跳过 | 空行、分隔符、会话包装行、口令密钥行 | 原因码 `blank` / `separator` / `session` / `secret` |
+
+### 安全默认（与 T 批口径一致）
+
+- 输出头部固定四行声明：**语法核对档，未经真机** / 接口编号沿用源写法（不做机框槽位换算）/
+  库内条目为完整配方（可能含源配置没有的配套行：缺省路由、端口开启、保存）/ 覆盖率数字；
+- 变更类条目自带 `rollback` → 单独「回退命令（库内条自带）」区，并再声明一次未真机核对；
+- 口令/密钥行（username secret、local-user、snmp community、root-authentication…）**一律 d 档不外译**；
+- 模板占位填不满 → 该实例所有源行整体降级 c，绝不输出 `{{x}}`，也不用字面量凑数。
+
+### 验收实测
+
+| 样例 | 目标 | 命令行 | 已译 | b | c | d | 完成度 |
+|---|---|---|---|---|---|---|---|
+| cisco | huawei | 28 | 22 | 1 | 4 | 2 | 78.6% |
+| huawei | cisco | 38 | 31 | 1 | 2 | 5 | 81.6% |
+| h3c | cisco | 37 | 30 | 1 | 1 | 6 | 81.1% |
+| ruijie | huawei | 32 | 30 | 1 | 1 | 1 | 93.8% |
+| zte | cisco | 28 | 26 | 1 | 1 | 1 | 92.9% |
+| juniper | huawei | 27 | 22 | 1 | 4 | 1 | 81.5% |
+| **合计** | — | **190** | **161** | 6 | 13 | 16 | **84.7%** |
+
+- `smoke_translate` **157/157**（九案：规则随种子 / 六样例行级完整性 / 族映射正确性抽验 /
+  私有特性必 c / 零臆测 / 覆盖率可复算 / 回退 / 坏表 [E] 注入 / 离屏 UI）；
+- 全量 **20 套**冒烟 rc=0（`smoke_handbook`、`smoke_scenarios`、`smoke_panel_dashboard`
+  三套 Tab 数断言同步 9 → 10）；
+- `--validate-seed` **EXIT=0**：459 条 + 26 树 + 106 错 + 7 包不动，新增统计行
+  「配置翻译映射：8 族 ｜ 48 条厂商映射」；新 [E] 拦截四类：坏正则 / 条目不存在 /
+  族缺目标厂商条目 / **目标模板占位无填充来源**。
+
+### UI（第 10 个 Tab「配置翻译」）
+
+左粘贴源配置 → 选源/目标厂商 → 翻译：右侧上「目标配置（语法核对档）」，右侧下四档账本表
+（行号 / 档 / 源命令 / 归属族 / 目标条目 uuid8 / 说明），表上方是覆盖率与四档计数；
+「载入样例」读 `app/samples/translate/<厂商>.txt`，「导出账本」出 Markdown（覆盖摘要 +
+族覆盖 + 需人工清单 + 行级追溯）。截图：`docs/screenshots/translate.png`
+（cisco → huawei，28 命令行 / 78.6%，表格 40 行与源文件行数一致）。
+
+### ★ 坑（本批新增）
+
+1. **必须渲染目标厂商条目**：第一版拿源条目 uuid 渲染，等于把源厂商命令当目标输出——
+   翻译器最致命的错，靠 `B5 已译行 uuid 属目标厂商` 断言兜住。
+2. **同一目标参数多来源不能靠 dict 覆盖**：OSPF 的 `silent`/`uplink` 都落 `silent_port`，
+   `{param: canon}` 后写覆盖前者 → 整块判「必填缺失」。改成候选列表，渲染时取第一个有值者。
+3. **单行模式行不含族键**：`switchport mode access` 本身没有 vlan_id，会生成无键实例，
+   进而用库内默认值凭空造一个 VLAN 块。必须并入「同族 + 同端口」的唯一有键实例，并不到就降级 c。
+4. **库内默认值不能当填充料**：network / vlans / port_range 这类身份参数若允许取默认值，
+   账本会显示「已译」但配置是错的。→ `default_ok` 白名单，其余缺失一律 c。
+5. **DB 的 params 是 JSON 字符串**：直接 iterate 得到字符，validate 会静默漏检；
+   一律走 `renderer._load_params`。
+6. **条目配方会外溢**：静态路由条目自带缺省路由、ifbase 自带 `no shutdown`、VLAN 条目自带
+   `save`。这是库内条目的整体语义，不删，但必须在输出头声明「逐行核对」。
+7. **Junos set 形式是 flat**：一行一单元、没有缩进层级，接口 access/trunk 必须靠预扫
+   `mode_by_port` 消歧，否则 `vlan members` 会被 VLAN 族抢走（trunk 口被译成 access 口）。
+
+### 不做清单（本批边界）
+
+- **AI 猜测式补翻**：对 c 档行用 LLM 生成「等价」命令 —— 本批明确不做（那是把编造自动化）；
+  若后续要做，须独立批且输出永久带「AI 生成，未经核对」标注，与库译行严格区分；
+- 接口编号/槽位换算（`1/0/1` ↔ `0/0/1` ↔ `ge-0/0/1`）：一律沿用源写法 + 输出头声明；
+- 层级式 Junos 配置（非 `set` 形式）：落 c 档；
+- 跨设备整网翻译（多台设备间引用关系）：本批单机口径。
