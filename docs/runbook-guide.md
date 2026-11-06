@@ -89,6 +89,27 @@ uuid 失效（条目被删/换库）：步骤标「条目失效」，`title_snap
 
 生成**不自动套六段式**：模板是另一种组织视图，由用户在操作单里显式开启（见 2.2）。
 
+### 2.1.1 场景包 schema v2（T 批 2026-11-06）
+
+包文件 `seed_data/scenario_packs.json` 与操作单 JSON 是两套版本号（包文件固定 `schema: 2`，
+本次是**纯增补**，老包不带这些字段照旧可用）：
+
+| 位置 | 字段 | 规则 |
+|---|---|---|
+| 包级 | `abort_criteria` | 回退条件文本（命中即执行 Rollback）；`template=six` 时**必填**，validate [E] |
+| 包级 | `template` | `""` / `"six"`；非法值 validate [E]，脏值在 build 时回落平铺 |
+| 条目级 | `phase` | `pre` / `change` / `validation` / `rollback` / `post`；非法值 validate [E] |
+| 条目级 | `params` | 参数覆盖表（参数名 → 值），叠在条目 `params.default` 之上；非对象/空参数名 [E]，参数名未在条目声明 [W] |
+
+- 生成时：包级两字段写进 `meta.abort_criteria` / `meta.template`，`item.phase` 写进 `step.phase`，
+  `item.params` 覆盖预填值——**顺序仍是 seq，阶段只做分组**；
+- **单厂商包**：条目用 `ref_id` + 单厂商视图；厂商视图里只有一家时自动选中，错选别家厂商
+  build 会整包跳过（`该厂商（x）在本包内无对应条目`），不会把别家命令塞进单里；
+- 四个防火墙包（`fw-edge-policy-{fortinet,paloalto,sangfor,topsec}`）即此形态：10 步、六段式、
+  场景化预填 + 逐包回退条件；库内暂缺格位与「未真机」口径见包说明与
+  `docs/dev-notes.md` T 批节（不塞空步骤、不承诺验证等级）。
+
+
 ## 2.2 六段式阶段模板（二批②，2026-11-02）
 
 六段固定顺序：**Pre-check → Change → Validation → 回退条件 → Rollback → Post-check**。

@@ -225,6 +225,26 @@ Web 控制台路径条目（全注释 commands）判查询类、天然无回退�
 }
 ```
 
+**schema v2 包字段（T 批 2026-11-06，纯增补）**——带六段式的包在包级写两段、条目级写两键：
+
+```json
+{
+  "pack_id": "fw-edge-policy-fortinet",
+  "abort_criteria": "命中以下任一即回退：管理面失联 / 策略命中为 0 且业务 100% 丢包 / …",
+  "template": "six",
+  "items": [
+    {"seq": 1, "ref_type": "entry", "ref_id": "<uuid>", "phase": "pre",
+     "params": {"vlan_ip": "10.20.10.1"}, "note": "参数覆盖写场景值，不写命令文本"}
+  ]
+}
+```
+
+- `abort_criteria`（包级）：回退条件文本，生成操作单时写进单头；`template=six` 时必填；
+- `template`（包级）：`""` / `"six"`；只做阶段分组，**不改变执行顺序**（顺序恒为 seq）；
+- `phase`（条目级）：`pre` / `change` / `validation` / `rollback` / `post`；
+- `params`（条目级）：参数覆盖表，叠在条目 `params.default` 之上（场景化预填）；
+  参数名必须在该条目 params 里声明过，否则 validate [W]（防错字静默失效）。
+
 **字段规则**：
 
 - `ref_type` 三选一：`entry` / `tree` / `err`；
@@ -238,11 +258,16 @@ Web 控制台路径条目（全注释 commands）判查询类、天然无回退�
 
 **validate [E] 硬拦截**：pack_id 重复、title/description 为空、items 为空、
 seq 断号、ref_type 非法、ref_id 与 by_vendor 同现、tree/err 带 by_vendor、
-by_vendor 厂商非 slug、**三类引用不存在**（entry uuid / tree_id / err_id 查无）。
-**[W] 提示**（不阻塞）：包内重复引用同一目标、包内含 skeleton 骨架条目。
+by_vendor 厂商非 slug、**三类引用不存在**（entry uuid / tree_id / err_id 查无）、
+`template` 非法、`template=six` 缺 `abort_criteria`、`phase` 非法、
+`params` 非对象 / 空参数名 / 值为对象或数组。
+**[W] 提示**（不阻塞）：包内重复引用同一目标、包内含 skeleton 骨架条目、
+`params` 覆盖了条目未声明的参数名。
 
-预置 3 包参考：新设备上架（9 步 × 6 厂商开局链）、割接前检查（10 步 × 4 厂商
-只读体检）、故障应急回退（8 家回滚 + 4 树 + 4 保存类报错）。新增包前先查
+预置 7 包参考：新设备上架（9 步 × 6 厂商开局链）、割接前检查（10 步 × 4 厂商
+只读体检）、故障应急回退（8 家回滚 + 4 树 + 4 保存类报错）、防火墙四包
+（Fortinet / Palo Alto / 深信服 AF / 天融信 TopOS 各 10 步边界策略开通，单厂商
+`ref_id` + 六段式 + 场景化参数预填）。新增包前先查
 `app/seed_data/scenario_packs.json` 现有 pack_id 避免语义重复。
 
 ## 四·D、变更对比提取规则写法（diff_rules.json，H 批 2026-10-14）

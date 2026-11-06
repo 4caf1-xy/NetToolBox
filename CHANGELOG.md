@@ -5,6 +5,44 @@
 **补充口径（2026-10-12）**：发布后短窗内完成的 MVP 追加批次收口走 **patch**（0.6.x）；
 独立排期的功能批走 **minor**（下一个功能批从 0.7.0 起算）。
 
+## 未发布（v1.0.0 开发线，T 批 2026-11-06）
+
+> **防火墙四家场景包**（N 批遗留池「防火墙 4 家场景包」落地）：Fortinet / Palo Alto / 深信服 AF /
+> 天融信 TopOS 各一包，10 步边界策略开通链。种子条目 459 / 26 / 106 **不变**，场景包 3 → **7**。
+> **本批不发版、不 tag**；真机验证会仍挂 v1.0.0，按厂商分批推进。
+
+### 新增：防火墙四家场景包（`seed_data/scenario_packs.json`）
+
+- 四包：`fw-edge-policy-fortinet` / `-paloalto` / `-sangfor` / `-topsec`，每包 10 步、单厂商视图；
+  链序 = 设备巡检 → WAN 接口 → VLAN 子接口（区域归属）→ 地址对象/出向策略 → SNAT + DNAT →
+  静态路由 → syslog 外发 → 会话与策略命中诊断 → 配置备份 → HA 状态复核；
+- 每包带**包级回退条件**（管理面失联 / 策略命中为 0 且业务 100% 丢包 / NAT 无转换 / 接口 down 超 3 分钟）
+  与 `template=six` 六段式分组；步骤带 `item.phase` 与 `item.params` 场景化预填（办公网 10.20.10.0/24、
+  公网 VIP 200.1.1.30:443 → 10.20.10.80、syslog 10.20.99.10）；
+- **不编造**：库内暂缺格位（独立安全区域、第二条入向策略、服务对象、策略排序/禁用、会话清除、
+  HA 配置与倒换、IPsec/SSL VPN、IPS/AV）逐条写进包说明与 `docs/dev-notes.md`，不塞空步骤；
+- **未真机口径**：四家条目 `verified` 全 0（Fortinet/Palo Alto 为 AI 生成档，深信服/天融信 CLI 为
+  skeleton 骨架 + Web 对照），包说明与文档明示「语法核对档，未经真机」，本批不碰验证字段。
+
+### 场景包 schema v2（包级六段式字段，纯增补）
+
+- `scenario_packs` 新增 `abort_criteria` / `template` 两列（老库 `PRAGMA table_info` 检测后自动补列，
+  `user_version` 2 → 3）；条目级 `item.phase` / `item.params` 存 items JSON，不加列；
+- `runbook_export.build_from_pack` 落地：包级回退条件与模板写进单头、`item.phase` 写进步骤、
+  `item.params` 叠在条目默认值之上；**单值引用（ref_id）也守厂商视图**——错选别家厂商整包跳过，
+  不把别家命令塞进操作单；
+- 场景包 Tab：包级「场景纪律」卡展示六段式与回退条件；单厂商包默认选中该厂商视图；
+- `--validate-seed` 场景包段新增：`template` 非法 / `six` 缺回退条件 / `phase` 非法 /
+  `params` 非对象或空参数名 / 参数名未在条目声明（[W]）——坏值硬拦截。
+
+### 工程
+
+- `smoke_scenarios` 38 → **95 项**（新增 [F] 防火墙四包：四包 build 步数 / 包级 abort 与 six 落地 /
+  `item.phase` 与参数覆盖 / 变更类回退 100% / Web 条目回退来源 / 单厂商包厂商不符整包跳过 /
+  包入口与默认厂商视图 / 包级纪律卡 / 一键生成草稿）；
+- 全量 19 套冒烟 rc=0；`--validate-seed` EXIT=0（459 + 26 + 106 + **7** 场景包）；
+  `--validate-handbook` EXIT=0（7 本 520 条）；CI validate-seed 绿。
+
 ## v0.9.0（2026-11-02）
 
 > **数据 + 功能双线 minor 收口版**（四个批次合并出库，明细见下，按新→旧排列：R / P / Q / O）。

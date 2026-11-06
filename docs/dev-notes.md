@@ -726,3 +726,117 @@ seed-guide「新分类先 Issue」约定由用户点名场景直接授权，后�
 | Runbook 二批剩余项 | P 批已落地主体，剩三项 | 已落 2 项（模板库以场景包形态 / 六段式） | AI 生成操作单 + QPrinter PDF → **按需立项**；执行留痕 → **v1.0.0** |
 | 验证档：真机 27 / 语法核对 61 / 骨架 62 / 其余未验证 309（报错库 106 全部未真机） | 长期真机验证池 | 待真机/模拟器 | **v1.0.0 起的验证会**（按厂商分批，非发版阻塞项） |
 | err_unresolved 13 条 pending（含 4 条无效残留 #12–#15） | E 批 | 未清 | **v1.0.0** 清理批 |
+
+## T 批：防火墙四家场景包（2026-11-06，v1.0.0 功能线开局，不发版不 tag）
+
+用户点名的 N 批遗留池项「防火墙 4 家场景包」。口径：先只读盘点 → 再落包，**不加一条命令条目**
+（459 / 26 / 106 不变），场景包 3 → 7。真机验证会仍挂 v1.0.0 按厂商分批，本批不碰验证字段。
+
+### 1. 只读盘点（库内现状）
+
+| 厂商 | 条目 | 档位（verified/exec_level） | rollback 覆盖 | 分类数 | 文件 |
+|---|---|---|---|---|---|
+| Fortinet | 24 | verified 0；AI 生成档 23 + skeleton 1（环路检测） | 22/24（HA 检查、资产巡检只读） | 22 | fortinet.json |
+| Palo Alto | 24 | verified 0；AI 生成档 19 + skeleton 5（接口/环路/显示/日志/AAA） | 19/24（诊断与 HA 只读） | 22 | paloalto.json |
+| 深信服 AF | 33 | verified 0；Web 控制台 15（无 rollback）+ CLI 骨架 18（有 rollback） | 10/33（Web 条目全无 rollback） | 21 | sangfor.json + sangfor_cli.json |
+| 天融信 TopOS | 33 | 同深信服（Web 15 + CLI 骨架 18） | 10/33 | 21 | topsec.json + topsec_cli.json |
+
+命令族（四家同构，每家各 1 条）：VLAN 子接口 / 接口基础 / Trunk / 静态路由 / OSPF / ACL（地址对象+策略）/
+NAT（SNAT+DNAT）/ SSH / 密码 / SNMP / 保存配置 / DNS / NTP / 版本升级 / 日志 / 防火墙诊断 ×2 /
+HA 状态 / 配置回滚 / 环路检测；设备管理 1–2 条（含备份重启）。**全部 verified=0**：四家均无真机。
+
+盘点同时暴露两条影响落包实现的事实（已顺手修正，见 §4）：
+
+1. 深信服/天融信的 Web 控制台条目命令体全是 `#` 注释 → `classify_entry` 判为**查询类**
+   （实为变更），且无 rollback；CLI 骨架条目才判变更类并有 rollback；
+2. Fortinet 的 `diagnose ...` 不在 `QUERY_WHITELIST` → 会话/策略命中诊断被判**变更类**
+   （Q 批已记同款口径），回退为"清理诊断态"，不影响业务配置。
+
+**分支预案判断：不先补库。** 安全策略族确有缺口（见 §3），但每家都有 1 条可用的
+「地址对象+策略」与「SNAT+DNAT」条目，足以撑起 10 步边界开通链；缺的是区域/入向策略/
+服务对象等**独立格位**，属于"标注暂缺"而非"无法落包"。另：深信服/天融信的策略类本就是
+Web 控制台为主，凭空补 CLI 条目等于编造关键字——按用户口径「不编造」直接标缺，宁缺不掺水。
+
+### 2. 四包清单
+
+| pack_id | 步数 | 阶段分布（pre/change/validation/post） | 引擎判定 变更/查询 | 变更类回退 |
+|---|---|---|---|---|
+| fw-edge-policy-fortinet | 10 | 2 / 5 / 1 / 2 | 8 / 2（含 diagnose 误判） | 8/8 取库 |
+| fw-edge-policy-paloalto | 10 | 2 / 5 / 1 / 2 | 7 / 3 | 7/7 取库 |
+| fw-edge-policy-sangfor | 10 | 2 / 5 / 1 / 2 | 5 / 5 | 5/5 取库（Web 两步另写来源） |
+| fw-edge-policy-topsec | 10 | 2 / 5 / 1 / 2 | 5 / 5 | 5/5 取库（Web 两步另写来源） |
+
+链序：设备巡检 → WAN 接口 → VLAN 子接口（区域归属）→ 地址对象/出向策略 → SNAT + DNAT →
+静态路由 → syslog 外发 → 会话与策略命中诊断 → 配置备份 → HA 状态复核。
+
+- 场景值统一：办公网 `10.20.10.0/24`（网关 .1）、服务器 `10.20.10.80`、公网 VIP `200.1.1.30:443`、
+  ISP 网关 `200.1.1.1`、syslog `10.20.99.10:514`；每包 `item.params` 只覆盖现场相关项，
+  其余沿用条目默认值——**参数覆盖可改，不写死命令文本**；
+- 回退条件按场景写死（每包一段）：① 管理面失联（SSH/HTTPS 60s 不通且 Console 不能登录）；
+  ② 策略命中为 0 且 `10.20.10.80:443` 探测 100% 丢包；③ NAT 无转换记录 / 业务中断；
+  ④ 接口 down 超 3 分钟或 HA 主备翻转。Fortinet 首选 `execute restore config flash`，
+  Palo Alto 首选 `load config version`，深信服/天融信首选 Web 配置备份恢复；
+- 深信服/天融信的「接口」「日志」两条为 Web 控制台条目（无 rollback），步骤备注逐条写明
+  **回退来源**（Web 路径 + 先截图记录原值）；
+- 本包**不塞**交换机类行为：Trunk 聚合 / 堆叠 / POE / 风暴抑制 / MAC 表 / 端口安全均未进包
+  （库内有 Trunk 条目也不用），保持防火墙本职场景。
+
+### 3. 库内暂缺格位（逐条列明，不塞空步骤）
+
+| 格位 | Fortinet | Palo Alto | 深信服 AF | 天融信 | 处置 |
+|---|---|---|---|---|---|
+| 独立安全区域（zone 对象 / 接口归区） | 缺（接口/接口组承担） | 部分（VLAN 条目 `zone_name`） | 部分（VLAN/策略引用区域名） | 部分 | 包内用子接口 `zone_name` / 策略 from-to 落地，独立 zone 配置标缺 |
+| 第二条（入向/发布）安全策略 | 缺 | 缺 | 缺 | 缺 | 每家仅 1 条策略条目；包内注明"同法另建反向策略" |
+| 服务对象独立创建 | 缺（策略内 `service` 字符串） | 有（策略条目内建） | 缺（策略内服务名） | 缺 | — |
+| 策略排序 / 禁用 / 删除 / 默认 any 收紧 | 缺 | 缺 | 缺 | 缺 | 标缺 |
+| 策略命中计数清零 | 缺 | 缺 | 缺 | 缺 | 标缺（诊断条目只读） |
+| 会话强制清除 / 同步 / 会话表导出 | 缺 | 缺 | 缺 | 缺 | 标缺 |
+| HA 配置 / 主备倒换 / 会话同步 | 缺（仅状态检查） | 缺 | 缺 | 缺 | 标缺 |
+| IPsec 站点到站点 / SSL VPN | 缺 | 缺 | 缺 | 缺 | 标缺 |
+| IPS / AV / 应用识别 / URL 过滤 | 缺 | 缺 | 缺 | 缺 | 标缺 |
+| 策略路由 / 多出口负载 / 链路探测 | 缺（静态路由有） | 缺 | 缺 | 缺 | 标缺 |
+| 接口 IP 直配（非子接口）/ PPPoE / DHCP 客户端 / MTU | 缺 | 缺 | 缺 | 缺 | 标缺（接口描述与启停有） |
+| 配置对比 / 命名版本管理 | 缺 | 部分（commit 前 diff 在条目内） | 缺 | 缺 | 标缺 |
+
+**真机口径**：四家 verified 全 0；Fortinet/Palo Alto 为 AI 生成档，深信服/天融信 CLI 为 skeleton
+骨架 + Web 对照。包说明与本文均写「语法核对档，未经真机」，包内不承诺验证等级、不改验证字段；
+真机验证会按厂商分批（v1.0.0 起），验证后回填走 `scripts/backfill_verify.py`。
+
+### 4. 代码改动（包 schema v2 + 入口）
+
+- `db.py`：`scenario_packs` 增 `abort_criteria` / `template` 两列（建表 + `_migrate` 自动补列；
+  `SCHEMA_VERSION` 2 → 3，老库 `PRAGMA table_info` 检测后 ALTER）；`SCENARIO_PACK_FIELDS` 同步；
+  条目级 `phase` / `params` 存 items JSON，不加列；
+- `runbook_export.build_from_pack`：包级两字段写 `meta`，`item.phase` 写步骤，`item.params`
+  叠在 `prefill_params` 之上；**新增厂商守卫**——`ref_id` 单值引用在指定厂商视图下与条目厂商不符
+  即跳过（此前只有 `by_vendor` 守，单值引用会漏）；
+- `main.py` validate 场景包段：`template` 非法 / `six` 缺回退条件 / `phase` 非法 /
+  `params` 非对象、空参数名、值为对象或数组 → [E]；`params` 覆盖未声明参数名 → [W]；
+- `ui_scenario.py`：包级「场景纪律」卡（objectName=`PackMeta`，六段式说明 + 回退条件正文）；
+  单厂商包默认选中该厂商视图（不再默认"全部厂商"给一排灰卡）；
+- `smoke_scenarios` 38 → **95 项**（[F] 四包；步骤卡计数排除 PackMeta；单厂商包厂商不符整包跳过）。
+
+### 5. 验收实测
+
+- `--validate-seed` EXIT=0：459 条 + 26 树 + 106 报错 + **7 场景包**，[E]=0；
+  [W] 17 处 = 存量 1（zte 骨架）+ 新增 16（Palo Alto 2、深信服 7、天融信 7 条 skeleton 引用）；
+- 四包 build 实测：步数 10/10/10/10，`skipped`/`missing` 全 0，`abort_criteria` 与 `template=six`
+  落地，`item.phase` 与 `params` 覆盖逐项命中，**变更类回退 100%**（8/8、7/7、5/5、5/5）；
+  错选 `huawei` 跑 Fortinet 包 → 10 步全 skip（"该厂商在本包内无对应条目"）；
+- 全量 **19 套**冒烟 rc=0（`smoke_scenarios` 95/95、`smoke_runbook` 74/74、`smoke_panel_dashboard` 62/62、
+  `smoke_tools` 107/107、`smoke_handbook` 58/58 …）；`--validate-handbook` EXIT=0（7 本 520 条）；
+- 主库同步：备份 `backup/command_lib-pre-tbatch-*.db` → `--allow-main-db` 导入（仅包新增，条目零变化）。
+
+### ★ 坑（本批新增）
+
+1. **Web 控制台条目的分类是"查询类"**：命令体全为 `#` 注释 → `classify_entry` 看不到可执行命令，
+   判 query；放进变更单会让"变更类必须带回退"的检查形同虚设。落包时改用 CLI 骨架条目
+   （同内容 + Web 对照 + 有 rollback），Web-only 的两步在备注写回退来源。
+2. **`diagnose` 不在查询白名单**：Fortinet 诊断条目判变更类（Q 批已记），六段式里靠 `item.phase`
+   显式标 `validation` 才不会串段；回退=清理诊断态。
+3. **单值引用不守厂商视图**：P 批的守卫只在 `by_vendor` 分支；四包用 `ref_id` 时错选厂商仍会生成，
+   已补守卫。冒烟必须覆盖"错厂商整包跳过"，否则这种静默错误没人发现。
+4. **PackMeta 卡会打破"卡片数=步骤数"断言**：所有遍历 cards_lay 的断言一律按 objectName 过滤，
+   别再用 `count()-1`。
+5. **`smoke_scenarios` 的包名断言按 Unicode 码点排序**：ASCII 名（Fortinet/Palo Alto）排最前，
+   中文按码点（新 U+65B0 < 深 U+6DF1），手写期望列表别凭语感。
