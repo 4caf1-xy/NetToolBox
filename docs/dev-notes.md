@@ -1403,3 +1403,121 @@ debug flow 追踪要带回退。包内该步 `note` 已同步改写（"会话过
 - **不给新条目编真机结论**：全部 verified=0，真机验证会按厂商分批回填（`scripts/backfill_verify.py`）；
 - **不改包内 items**：新条目暂不入链，避免「补库顺带改流程」把已验证的 10 步链路搅动；
 - 本批**不发版不 tag**（攒批③，与 v1.0.0 一并出）。
+
+## Y 批 v1.0.0 收口发版（2026-11-10）
+
+发版批（微量级），沿用 S 批精简口径：只做版本三处 / CHANGELOG 收口 / README 定位与事实段 /
+CI 门槛 / tag 与 Release / 出库自核验 / 遗留池盘点，**不碰种子与功能代码**。
+发布 commit `03fc09b`，annotated tag 对象 `1a58469` → deref `03fc09b`（远端 `git ls-remote` 复核一致）。
+
+### 1. 版本三处（AST 断言实测，不靠目测）
+
+- `app/ui_main.py` APP_VERSION `0.9.0 → 1.0.0`（标题栏与「关于」对话框均引用该常量）；
+- 沿用 `.workbuddy/release_s/check_versions.py`：AST 取 APP_VERSION、正则取 README「当前版本：**vX**」、
+  正则取 CHANGELOG 首个 `## vX（` → 三者 **1.0.0 / 1.0.0 / 1.0.0**，
+  标题栏/关于框常量驱动均 True、源码无 `"v0.9.0"` 类硬编码 → **PASS（rc=0）**；
+- 构建侧补断言：`scripts/build_exe.py` / `NetToolBox.spec` / `release.yml` 均**无版本硬编码**，
+  zip 名由 `GITHUB_REF_NAME` 推导（`NetToolBox_v{ver}.zip`）——版本第四处天然随 tag，无漂移面；
+- README 事实段逐条与实现核对：主界面 Tab **10**（`ui_main.py` 10 处 `addTab` 实点）、
+  场景包 **7**（`scenario_packs.json` count=7 且 len=7）、翻译 **27 族 / 147 条映射**
+  （`translate_rules.json` families=27、vendors 合计 147，`--validate-seed` 统计行同口径）、
+  种子 **482 / 26 / 106 / 48 分类 / 344 格**（validate [OK] 行 + 本地主库实点）、手册 7 本 520 条；
+- README 定位段改写为「**多厂商命令库 + 场景包 + 配置翻译器**」三条主线叙事，
+  与版本号 v1.0.0、事实段新增「主界面 Tab」行同批落地。
+
+### 2. CHANGELOG 收口
+
+- 「未发布（v1.0.0 开发线…）」收口为 `## v1.0.0（2026-11-10）`，节首新增总览
+  （功能线 T/U/V、数据线 W/X、发版口径、真机验证线零冒充声明）；
+- **五批各自立节并按 T / U / V / W / X 重排**：原「未发布」节只有 X / V / T / W 四块，
+  **U 批（配置翻译器 Tab 10 + 四档账本 + 零臆测）此前只在 dev-notes 与 README 特性里，
+  CHANGELOG 从未立节**——本批据 U 批 dev-notes 实测（8 族 48 映射 / 190 行已译 161 / 84.7% /
+  smoke_translate 157 项 / 三套 Tab 数断言 9→10）补写独立节；
+- 批内 10 个小节标题 `### → ####` 降级，四个批次引言的「本批不发版、不 tag」统一改为
+  **「随 v1.0.0 合并出库」**（v0.9.0 及更早历史表述保留原样）；
+- 冒烟计数以实测为准：发布节总览与各批明细统一 **20 套 rc=0**（T / U 批的 19 套属当时基线，
+  在批内如实标注「当时基线」，不冒充终态）。
+
+### 3. tag、CI 与 Release
+
+- 提交 `03fc09b` → `git tag -a v1.0.0` → SSH 推 main + tag（HTTPS 恒 502，标准路径仍是 SSH）；
+  本次未复现 N 批「tag 双执行」怪癖，`git cat-file -p` + `git ls-remote` 一次到位；
+- CI 在发布 commit 上三条全绿：
+  `validate-seed` main（42739226622）/ tag（42739234431）均 **seed + handbook 两步 success**、
+  `release`（42739234811）**14 步全 success**（构建 → exe 断言 → staging 净库 → 脱敏扫描 →
+  白名单 zip → zip 断言 → 挂 draft）；
+- CI 自动建 draft Release（id `439857836`，asset `729731558` / **42,746,684 B** /
+  digest `sha256:71c8d58f…e2`）→ API `PATCH` 转 **publish**（`2026-11-10T01:58:58Z`），
+  标题「NetToolBox v1.0.0 —— 功能面成形（多厂商命令库 + 场景包 + 配置翻译器）」，
+  正文 `notes_v100.md` 与 CHANGELOG v1.0.0 节同源（**1876 字符逐字相等**，含 482/26/106、
+  48 分类、344 格、27 族 147 映射、20 套冒烟）；
+- 本地对照构建 `python scripts/build_exe.py` rc=0（Python 3.13 / 45,343,045 B），
+  CI 产物 exe 42,047,427 B（Python 3.11）——版本栈差异，非内容差异（S 批已实证）。
+
+### 4. 出库自核验（S 批全量哈希口径，通道可用）
+
+- 整包下载 **42,746,684 B / 16s**，本地 sha256 `71c8d58fef0e6610f2cd19ace465e45dfd4f16b384385c6f96effda00d3260e2`
+  与 GitHub asset `digest` **逐字相同**（免用 N 批 Range 兜底法）；
+- zip **30 条目**白名单零违规：`NetToolBox.exe` / `check_db.py`（24,957 B，与仓库逐字节同尺寸）/
+  `command_lib.db` / `seed_data/*.json` **27 份**（X 批后 translate_rules 等在列）；
+- 包内净库：entries **482** / trouble_trees **26** / err_dict **106** / scenario_packs **7** /
+  categories **48** / `ai_imports=0` / `err_unresolved=0` / **`verified=1` 计数 0**
+  （真机验证线在 v1.0.0 内零冒充）/ user_version 3 / history 621（CI 导入留痕属正常）；
+- 包内净库 vs 本地主库：**四库 id 集合全等**（482/26/106/7）、entries 正文（剔除状态字段，14 列）
+  与树/报错正文逐行一致；byte hash 不同只因 created_at/updated_at 为各自导入时刻（S 批口径）；
+  本地主库 err_unresolved=13 属实机运行数据，净库 0 属种子重建，两者语义不冲突；
+- **手册七 JSON 在包**：内嵌 exe（`--add-data handbook`），`CArchiveReader` 列出 7 条，
+  未压缩长度与 `app/handbook/*.json` **逐本字节完全相同**（15997/15037/20569/17656/15167/13087/17124）；
+- **旧版资产未动**：发版前基线 8 个 Release（v0.4.0–v0.9.0）逐项比对
+  资产名 / 字节数 / digest / updated_at / name / published_at，**8/8 UNCHANGED**；
+  发版后 Release 总数 8 → 9，新增仅 v1.0.0。
+
+### 5. 冒烟与校验（本批实测）
+
+- 统一 `PYTHONPATH="app;_vendor"` 全量 **20 套** `scripts/smoke_*.py` **rc=0**（含 7 套安全/UI 套件）；
+  各套件末行 atexit 零接触打印仅作参考，判定只看 rc；
+- `--validate-seed` **EXIT=0**（482 + 26 + 106 + 7 包 + 11 类 48 变体 + 27 族 147 映射，
+  [E]=0，[W]=17 存量骨架提示）；`--validate-handbook` **EXIT=0**（7 本 / 56 组 / 520 条）；
+- 主库零接触：20 套 `_smoke_env` 指纹断言全通过，发版批未导入/未改写主库。
+
+### 6. ★ 坑与口径澄清（本批）
+
+1. **凭据通道**：gh CLI 未登录、环境变量无 PAT、历史会话与磁盘均无 token 落盘
+   （S 批「token 不落盘」纪律）。可用写凭据来自 **Windows 凭据管理器**
+   `git credential fill`（`gho_…`，账号 4caf1-xy，scopes 含 `repo`/`workflow`）；
+   API 走 `curl --noproxy '*' --ssl-no-revoke`，hosts-switch 处于「关」（GitHub 条目全注释）。
+   凭据不写入任何文件，仅内联传给 curl；
+2. **draft `browser_download_url` 是 `untagged-…` 路径**：整包下载须走
+   `/releases/assets/{id}` + `Accept: application/octet-stream` + `-L`（S 批同款），
+   publish 后浏览器地址才换成 `v1.0.0`；
+3. **包内 exe 与本地 exe 尺寸必然不同**（CI py3.11 / 本地 py3.13），
+   「资产元数据与本地构建一字不差」落在 **zip 条目名集合 / 包内库内容 / check_db.py 字节**
+   三处，而非 exe 字节（S 批已裁决）；
+4. **CHANGELOG 攒批节不等于五批齐全**：U 批从未进 CHANGELOG，收口先做「五批入列」盘点再动笔，
+   否则 v1.0.0 发布节会静默漏掉一条功能线。
+
+### 7. 发版后遗留池盘点（逐项归属，不静默关闭）
+
+| 项 | 来源 | v1.0.0 内状态 | 归属 |
+|---|---|---|---|
+| 真机验证档：**真机 27 / 语法核对 61 / 骨架 62 / 未验证 309**（报错库 106 全未真机） | S 批遗留池 / 场 2 饱和场 | **零冒充**：四家场景包与 X 批 +23 条 `verified` 全 0，全部标「语法核对档，未经真机」；包内净库 `verified=1` 计数 0 | **v1.1.0 起的真机验证会**（按厂商分批：场 1 防火墙 38 + 中兴 3，非发版阻塞项）；回填走 `scripts/backfill_verify.py` |
+| V 批留痕：版本升级族不建 / Junos ACL·NAT·VRRP·口令落 c / 地址分配族不建 / 中兴 POE·风暴·AAA·环路骨架转正 / Junos NAT 参数重名 | V 批「十、不做清单」 | 未动（V 批已如实标缺，不猜路径） | **v1.1.0 数据批**（骨架转正 + 条目修复）；族级扩张**按需立项**，版本升级族维持不建（镜像文件名不可跨厂商搬运） |
+| W 批留痕：`diagnose debug flow filter / trace start` 刻意不入白名单；备选方案「把两词也入名单」明确否决 | W 批「四、T 批留痕①」「备选方案」 | T 批 Fortinet `diagnose` 误判已销项、V 批三条复扫归零；debug flow 维持变更类以带出回退 | **维持裁决**（fail-safe「分不清就当变更类」），非待办；若将来真机证明只读再立批 |
+| X 批留痕：深信服 AF / 天融信 TopOS 12 类不补、PAN-OS 4 类不补（命中清零 / URL 过滤 / PBF / SSL VPN）、X 批 23 条新条目**暂不入四包链** | X 批「七、不做清单」 | 未动（宁缺毋滥，Web 路径已给出；四包 items 一条未改） | **v1.1.0 数据批**（拿到权威 CLI 依据才补；扩展包另立，不搅动已验证的 10 步链路） |
+| U 批留痕：AI 猜测式补翻 / 接口编号槽位换算 / 层级式 Junos / 跨设备整网翻译 | U 批「不做清单」 | 未动（四档账本 c 档如实交代，零臆测口径保持） | **按需立项**；若做 AI 补翻须独立批且输出永久带「AI 生成，未经核对」标注 |
+| BSD 最小集（FreeBSD 命令/排查树）+ 迪普 DPtech / 占位厂商代码侧注册（`VENDOR_SLUGS`/platform/端口展开） | N 批遗留池 / E 批评估 | 未动（需代码+数据批，非纯数据可落地） | **v1.1.0 代码+数据批** |
+| 树编辑器二批（整树新建/删除、跨树拖拽复制、批量重构、多树并排对比） | N 批遗留池 / F 批两期制 | 未动（一期只编辑既有 26 棵） | **v1.1.0 功能批** |
+| Runbook 执行留痕（执行结果/回显归档回填） | P 批二批剩余 | 未动（六段式与一键生成已在 v0.9.0 落地） | **v1.1.0 功能批** |
+| AI 生成操作单 + QPrinter PDF 导出 | P 批二批剩余 | 未动 | **按需立项**（`docs/runbook-guide.md` §6 已记理由） |
+| err_unresolved 13 条 pending（含 4 条无效残留 #12–#15："not"/"all"/"Error"/重复行） | E 批 / 场 2 | 未清（本地主库 13 条属运行数据，净库 0 属种子重建） | **v1.1.0 清理批**（UI 侧清理 + resolved 回写） |
+| 图片附件多模态外发面 / sessions·ai_cases 治理后续 | 安全加固批候选 | 未动 | **按需立项** |
+| 防火墙 4 家场景包 | N 批遗留池 | **T 批已落地**（3 → 7 包），本版交付 | 销项（v1.0.0） |
+
+> 口径：本版为**功能面成形**版，不是「验证完成」版。四档账本、场景包、翻译器产物均标
+> 「语法核对档，未经真机」；遗留池逐项有归属、无静默关闭，真机结论只在验证会后经
+> `backfill_verify.py` 回填，不在发版批里凑绿。
+
+### 8. 建议（发版后用户侧手测一轮，非阻塞）
+
+双击 exe → 配置翻译 Tab 粘贴六厂商样例看四档账本 → 场景包选 Fortinet 一键生成操作单
+（查包级回退条件与六段式）→ 速查手册 / 网工计算器 → 关于对话框显示 v1.0.0。
