@@ -122,8 +122,8 @@ def main():
         assert "rollback" not in cols or True   # 老备份无 rollback 列属正常
         cur = dbmod.Database(":memory:")
         cur.import_seed_dir()
-        assert cur.count() == 482
-    check("C2 备份锚点存在 + 种子条目数稳定 482", c2)
+        assert cur.count() == 497
+    check("C2 备份锚点存在 + 种子条目数稳定 497（Z 批 +15）", c2)
 
     # ---- D. UI ----
     def d_all():
@@ -179,6 +179,50 @@ def main():
         assert not probs and not warns
         assert ai_bridge.strip_ai_blocks(plain) == plain if (plain := "show version") else True
     check("E1 AI mock 正例（parse+校验）+ strip 幂等", e_all)
+
+    # ---- F. Z 批基础命令补库回归（2026-11-10）----
+    with open(os.path.join(REPO, "app", "seed_data", "base_commands.json"),
+              encoding="utf-8") as fp:
+        z_seed = json.load(fp)
+    z_ids = {e["uuid"] for e in z_seed["entries"]}
+    z_new = [e for e in entries if e["uuid"] in z_ids]
+
+    def f1():
+        kinds = [renderer.classify_entry(e) for e in z_new]
+        assert len(z_new) == 15 and kinds.count("query") == 13 \
+            and kinds.count("change") == 2, (len(z_new), kinds)
+    check("F1 Z 批 15 条到位（13 查询 / 2 变更）", f1)
+
+    def f2():
+        chg = [e for e in z_new if renderer.classify_entry(e) == "change"]
+        assert chg and all((e.get("rollback") or "").strip() for e in chg)
+        for e in z_new:
+            probs, warns = renderer.check_entry_params(e)
+            assert not probs and not warns, (e["title"], probs, warns)
+    check("F2 变更类 rollback 全覆盖 + 同口径零违规", f2)
+
+    def f3():
+        for e in z_new:
+            txt, missing, _ = renderer.render_entry(e, {})
+            assert "{{" not in txt and not missing, (e["title"], missing)
+            assert "{{" not in (e.get("rollback") or "")
+    check("F3 命令/回退渲染零残留占位", f3)
+
+    def f4():
+        assert all("语法核对档" in (e.get("notes") or "")
+                   and int(e.get("verified") or 0) == 0 for e in z_new)
+    check("F4 全部标语法核对档且 verified=0（零冒充）", f4)
+
+    def f5():
+        cases = {"ip a": "query", "ip a show": "query", "ip address show": "query",
+                 "tracert 192.0.2.1": "query",
+                 "ip a add 192.0.2.1/24 dev eth0": "change",
+                 "ip a del 192.0.2.1/24 dev eth0": "change",
+                 "ip a flush dev eth0": "change"}
+        for line, want in cases.items():
+            got = renderer.classify_entry({"commands": line})
+            assert got == want, (line, got, want)
+    check("F5 ip a 缩写入名单 + force 守卫逐词生效", f5)
 
     print("-" * 60)
     print("通过 %d / %d" % (len(PASS), len(PASS) + len(FAIL)))

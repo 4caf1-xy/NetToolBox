@@ -487,8 +487,8 @@ def case_h():
     with contextlib.redirect_stdout(buf):
         rc_ok = mainmod.validate_seed()
     check("H6 移除坏文件后 validate 复位 EXIT=0", rc_ok == 0, "rc=%s" % rc_ok)
-    check("H7 种子计数不动（482/26/106，映射表不新增条目）",
-          "482 条条目 + 26 棵排查树 + 106 条报错字典" in buf.getvalue(), "")
+    check("H7 种子计数不动（497/26/106，映射表不新增条目；Z 批基础命令 +15）",
+          "497 条条目 + 26 棵排查树 + 106 条报错字典" in buf.getvalue(), "")
     check("H8 输出含映射表统计 %d 族 ｜ %d 映射" % (FAMILY_COUNT, MAPPING_COUNT),
           "%d 族 ｜ %d 条厂商映射" % (FAMILY_COUNT, MAPPING_COUNT) in buf.getvalue(),
           [l for l in buf.getvalue().splitlines() if "配置翻译映射" in l][:1])

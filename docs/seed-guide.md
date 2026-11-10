@@ -484,3 +484,23 @@ Linux 条目缺 duration 是 ERROR（validate 拦截），网络侧条目可留�
 | 白名单收裸前缀（`ip addr`、`systemctl`） | `ip addr add` 等变更命令被前缀吞进查询类 | 白名单必须"命令+子命令"精确到词（判定表增补①） |
 | `no username`/口令类回退写死新值 | 回退目标=旧值，参数里没有 | 尖括号人工位 `password <旧console口令>`，注明按变更记录回填 |
 | 升级类 rollback 写"undo reload"类臆造命令 | 该厂商不存在此命令 | 回退=指回旧镜像/旧配置文件 + 重启 + 复核；版本差异以 `?` 实测为准并标注 |
+
+## 九、会话态命令的入库口径（Z 批 2026-11-10 明写，避免下次再问）
+
+**一句话：搜不到独立的 `enable`（或 `quit` / `terminal monitor`）条目不是缺库，是设计性排除。**
+
+`enable` / `disable` / `configure terminal` / `system-view` / `quit` / `exit` / `end` /
+`terminal monitor` / `terminal no monitor` / `screen-length 0 temporary` /
+`set cli screen-length 0`、Linux 侧 `sudo -i` / `logout` 等，只切换当前登录会话的
+视图或显示状态，**不落 running-config、无持久化、没有回退对象**。本库一条条目 =
+一组可复用命令（变更类必带回退），故这类词**不单独建条目、不为凑数硬塞**，只作为
+其他条目的引导行或注释出现。判定表已把会话级词收进 `QUERY_WHITELIST`（判查询类，
+与 `show` / `display` 同族），同前缀的写配置变体（`enable secret` / `enable password` /
+`enable algorithm-type`）由 `CHANGE_FORCE_PREFIXES` 挡住（W 批口径）。`显示控制` 类
+现有条目收录的是「关闭分页 / 开启日志实时输出」的现场操作提示，不是把裸会话命令当配置。
+
+**真正该补的是基础查询与基础变更**：基础查询（`show` / `display` 系列、`ip a` 族、
+`traceroute` / `tracert`）按官方文档核对语法后建独立只读条目（query 类、免 rollback、
+notes 标「语法核对档」）；基础变更走结构化 params + rollback 全覆盖。已废弃的
+net-tools 形态（`ifconfig` / `route -n` / `arp -n`）不收录，统一用 iproute2 等价命令。
+Z 批实装见 `seed_data/base_commands.json` 与 `docs/dev-notes.md` §Z 批。

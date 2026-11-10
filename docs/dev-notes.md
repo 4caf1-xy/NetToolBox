@@ -1521,3 +1521,124 @@ CI 门槛 / tag 与 Release / 出库自核验 / 遗留池盘点，**不碰种子
 
 双击 exe → 配置翻译 Tab 粘贴六厂商样例看四档账本 → 场景包选 Fortinet 一键生成操作单
 （查包级回退条件与六段式）→ 速查手册 / 网工计算器 → 关于对话框显示 v1.0.0。
+
+## Z 批 基础命令盘点补库（2026-11-10，v1.1.0 数据线开局，不发版不 tag）
+
+一句话结论：**用户点名的 `enable` 是会话态设计性排除（不是缺库），`ip a` 是真缺**。
+六厂商 + Linux 四系逐家三档盘点后补 **15 条**（13 基础查询 / 2 基础变更），
+482 → **497**；矩阵 344 → **352** 格（新增 8 个空格位）、分类仍 48；
+`QUERY_WHITELIST` 158 → **161** / `CHANGE_FORCE_PREFIXES` 43 → **49**，存量 482 条
+**零翻类**；`--validate-seed` EXIT=0（[W]=17 零新增）、全量 20 套冒烟 rc=0、
+主库零接触。种子 + 判定表 + 文档 + 冒烟断言，**不发版不 tag**。
+
+### 一、边界裁决：设计性排除 vs 真缺
+
+| 档 | 结论 | 依据 |
+|---|---|---|
+| ① 会话态 | **不补（设计性排除）** | `enable` / `disable` / `configure terminal` / `system-view` / `quit` / `exit` / `end` / `terminal monitor` / `screen-length 0 temporary` / `set cli screen-length 0` / `sudo -i` / `logout` 只切当前会话视图或显示态，**不落 running-config、无持久化、无回退对象**；本库「一条条目 = 一组可复用命令（变更类必带回退）」，单列只会产出空回退。已在 `docs/seed-guide.md` 新增**第九节**明写口径，`显示控制` 类 8 条收录的是「关分页 / 日志实时输出」现场提示，不是把裸会话命令当配置 |
+| ② 基础查询 | **缺才补（13 条）** | `show` / `display` 家族大面由 Q/X 批覆盖（uuid 见下表）；真缺的是**独立基础查询条目**——`ip addr show` / `ip route show` / `show users` 等只作为配置条目的验证行或 notes 提示，用户搜 `ip a` 搜不到 |
+| ③ 基础变更 | **已在库的不补，真缺 2 条才补** | `hostname` / `sysname` / `no ip domain-lookup` / `enable secret` / `service password-encryption` / `ip domain-name` 已在 SSH管理 / 密码 / DNS 条目（uuid 见下表）；Linux 四系 `hostnamectl set-hostname` / `timedatectl set-timezone` 全缺 |
+
+判定表口径补注：会话级词本就在 `QUERY_WHITELIST`（W 批），同前缀写配置变体
+（`enable secret/password/algorithm-type`）由 `CHANGE_FORCE_PREFIXES` 挡住；用户搜不到
+独立 `enable` 条目属**预期**，不是漏库。
+
+### 二、逐家三档清单（补 / 不补 + 依据 + 已有 uuid）
+
+> uuid 均为前 8 位；「已在库」列只列代表性条目，全量可由 `seed_data/*.json` 复核。
+
+| 厂商 | ① 会话态 | ② 基础查询·已在库 | ② 真缺→补 | ③ 基础变更·已在库 | ③ 真缺→补 |
+|---|---|---|---|---|---|
+| Cisco IOS | 不补：`enable` / `configure terminal` / `end` / `terminal monitor` | `6621a79d` 版本、`70a2b9cc` running-config、`a88980b9` 接口/ARP/MAC、`05b4d26e` CPU/内存、`b56aab99` CDP/LLDP、`849cc74f` 硬件 | **补 2**：路径追踪（`9312a891`）、在线用户（`eb818e3c`） | `c51d45e0` hostname、`dd503bcb` enable secret、`ef5e0a8b` DNS（含 no ip domain-lookup 回退）、`a98b6202` 接口描述 | 不补 |
+| 华为 VRP | 不补：`system-view` / `quit` / `return` / `screen-length 0 temporary` | `5a11c2cc` 版本、`78f9a12d` current-config、`bb912f63` 接口/ARP/MAC、`8aa8a79e` CPU/内存、`ffec9ca0` LLDP、`ed8335ed` logbuffer | **补 2**：路径追踪（`fc433c5f`）、在线用户（`8f0dd17c`） | 密码/SSH 条目内 `sysname`（`3` 条 CR 命中）、NTP/DNS/日志 | 不补 |
+| H3C Comware7 | 不补：`system-view` / `quit` / `screen-length 0 temporary` | `048dca85` 版本、`adcbbf79` current-config、`dd20dfb7` 接口/ARP/MAC、`a9ab37f3` CPU/内存、`450dd80b` LLDP、`de093fea` SSH 状态 | **补 2**：路径追踪（`76225984`）、在线用户（`72831598`） | 同上（`sysname` 在 SSH 条目）、DNS/NTP | 不补 |
+| 锐捷 RGOS | 不补：`enable` / `configure terminal` / `end` | `14f6d356` 版本、`a77b2d1c` running-config、`794b74c5` 接口/ARP/MAC、`4ea47e80` CPU/内存、`007d94c4` LLDP | **补 2**：路径追踪（`0bf47963`）、在线用户（`c43bbeef`） | `294982b2` hostname、口令/SSH | 不补 |
+| 中兴 ZXR10 | 不补：`enable` / `configure terminal` / `exit` | `6e49eda4` 版本、`501e1ffe` running-config、`67a7802b` ARP、`3a938af7` MAC、`4c86bdda` LLDP、`16a56984` CPU/内存 | **补 2**：路径追踪（`4f4916c2`）、在线用户（`d3fe1cc8`） | `7bd18367` hostname、口令/SSH | 不补 |
+| Junos | 不补：`configure` / `exit` / `set cli screen-length 0` | `615b5af2` 版本、`541581dd` configuration、`a48d3438` interfaces terse、`3b84c706` RE/进程、`eb08f035` LLDP、**`7a6092d4` `show system users` 已在库** | **补 1**：路径追踪（`0ab61ea2`）；在线用户**不补**（不重复建条目） | SSH/口令条目 | 不补 |
+| Linux 四系 | 不补：`sudo -i` / `logout` | `887ade2e`/`5b094e2d`/`f6ce82c6`/`54f524f2` `ip addr show`（仅验证行）、`2af0330b` free/ps、`a3d432c9` df/du、`7ddb249b` ss、`e2da85a1` journalctl、`edc961f1` ping/traceroute/dig | **补 2（ops 通用）**：`09e01ae2` ip a 族、`f4045c04` 主机身份与基础资源速查 | `65f66a61` 建账号+sudo、`ab2aaeca` firewalld、四系系统服务 | **补 2（ops 通用）**：`5a266558` 主机名、`2edeb2f3` 时区 |
+
+### 三、不补清单（逐条依据，零凑数）
+
+| 格位 | 不补依据 |
+|---|---|
+| 会话态全族（7 家） | 无回退对象、不落配置；seed-guide 第九节已立口径 |
+| `show startup-config`（cisco）/ `show vlan brief`（cisco）/ `display vlan`（huawei）/ `display ip interface brief`（huawei/h3c） | 已在既有条目的 rollback / notes 作验证命令（`70a2b9cc` / `e3971cfc` / `9f24e321` 等），另建独立条目只是同命令重复收录 |
+| `show tech-support` / `display diagnostic-information` / `monitor interface`（Junos） | 一键信息收集输出形态随版本/平台差异大，Junos 侧是 `request support information`，与 W 批「`request` 多义、刻意不入白名单」裁决冲突；无统一可引用序列 → 标缺不臆造 |
+| `display users`（huawei/h3c）/ `show users`（cisco/ruijie/zte） | **已补**（见上表），此处仅说明「只在 notes 出现」不等同于已覆盖 |
+| `ifconfig` / `route -n` / `arp -n` | net-tools 已停止维护、四系默认不预装；统一用 iproute2 等价命令（`ip a` / `ip route show` / `ip neigh show`），seed-guide 第九节明写 |
+| `show cpu`（ruijie）/ `show processor`（zte）/ `show interfaces`（zte） | 各家 CPU/接口诊断条目已有等价 show（`4ea47e80` / `16a56984` / `794b74c5` 同族），形态差异须现场 `?` 实测，不猜命令 |
+| `banner motd` / `header` / `clock set`（网络侧） | 六家 CLI 形态差异大、无统一权威引用；按 X 批「不编造优先于补全」标缺 |
+| `hostname` / `no ip domain-lookup` / `enable secret` / `sysname` | 用户点名「已在库的除外」，逐家核对属实（uuid 见上表），不重复 |
+
+### 四、新增 15 条（`app/seed_data/base_commands.json`，新建单文件便于审计/回退）
+
+| 子批 | 厂商 × 分类 | 条数 | 类型 | 官方依据 |
+|---|---|---|---|---|
+| Z1-a 路径追踪 | 六厂商 × `排查命令` | 6 | query | Cisco IOS / 华为 VRP / H3C Comware7 / 锐捷 RGOS / ZXR10 / Junos CLI Reference 的 `ping` + `traceroute`（华为/H3C `tracert`） |
+| Z1-b 在线用户 | 五厂商 × `设备管理`（Junos 已在库） | 5 | query | 各家 CLI Reference `show users` / `show privilege` / `show line` / `display users` / `display user-interface` |
+| Z1-c Linux 基础查询 | ops × `排查命令` / `设备管理` | 2 | query | iproute2 `ip-address(8)` 等 man 页；systemd `hostnamectl(1)` / `os-release(5)`、`ss(8)`、`lsblk(8)` |
+| Z2 Linux 基础变更 | ops × `设备管理` / `时间同步` | 2 | **change** | systemd `hostnamectl(1)` set-hostname、`timedatectl(1)` set-timezone |
+
+- 档位沿用 X 批：**`exec_level` 留空、`verified=0`**，notes 第 1 行「官方依据」、第 2 行
+  「语法核对档：依据官方 CLI 文档核对，未经本机真机验证」，零冒充真机；
+- 查询类 commands 全部命中 `QUERY_WHITELIST` → 判 query、**不写 rollback 键**；
+- 变更类走 seed-guide 标准写法：结构化 params（type/description/validate 三要素）+ rollback
+  全覆盖，回退目标写「变更前记录值」的**尖括号人工位**（避免「只在 rollback 出现的参数」触发 [W]，
+  X 批坑 3）；`192.0.2.1` 用 TEST-NET-1，主机名 default `nettoolbox-host01` 为示例值；
+- 新文件由 `import_seed_dir()` 递归扫到，CI `cp app/seed_data/*.json` 与 zip 白名单
+  `seed_data/*.json` 均通配覆盖，**无需改构建脚本**。
+
+### 五、QUERY_WHITELIST 查漏（W 批 158 词基础上）
+
+| 入名单词 | 依据 | 配对守卫 |
+|---|---|---|
+| `ip a` | iproute2 子命令截断缩写，= `ip addr show`（用户点名） | **必须**同步在 force 侧逐词挡住 `ip a add` / `change` / `replace` / `del` / `delete` / `flush`（6 词），否则 `ip a add 192.0.2.1/24 dev eth0` 会被前缀吞进查询类——W 批裸 `enable` 同款口径 |
+| `ip address show` | 官方 man 页全写形态，精确只读词，其后不接变更子命令 | 无需 force（`ip address add` 不以 `ip address show ` 开头，fail-safe 判 change） |
+| `tracert` | 华为 VRP / H3C Comware 路径追踪（只读，库内原本 0 条） | 无需 force |
+
+- `QUERY_WHITELIST` 158 → **161**、`CHANGE_FORCE_PREFIXES` 43 → **49**；
+- **存量 482 条零翻类**（用 `git show HEAD:app/renderer.py` 载入旧判定表逐条对比实测）；
+  新入词在存量 commands 里命中数为 0，force 变体原本就判 change，故不扰动四包 / 翻译器 / 操作单；
+- 逐词守卫实测：`ip a` / `ip a show` / `ip address show` / `tracert` → query；
+  `ip a add` / `ip a del` / `ip a flush` / `ip addr add` → change。
+
+### 六、验收实测（本批）
+
+- `--validate-seed` **EXIT=0**：**497 条** + 26 树 + 106 报错 + 7 包 + 11 类 48 变体 +
+  27 族 147 映射，[E]=0，**[W]=17**（存量骨架提示，零新增）；`--validate-handbook` EXIT=0
+  （7 本 / 56 组 / 520 条）——CI 两条门槛本地等价复跑通过；
+- **新增 15 条回扫异常 0**（Q 批同款）：13 query / 2 change、变更类 rollback 全覆盖、
+  `check_entry_params` 全库 [E]=0 [W]=0、命令与回退渲染零残留占位、参数双向对账无未使用、
+  notes 全标语法核对档、`verified` 全 0；
+- **全量 20 套**冒烟 rc=0（`PYTHONPATH="app;_vendor"`）；`smoke_schema_rollback` **9 → 14 项**
+  （新增 [F] Z 批块：F1 条数分档 / F2 rollback 全覆盖 / F3 零残留 / F4 零冒充 / F5 守卫逐词）；
+- 冒烟硬编码底数 482 → 497 同步 7 处（diff / regex_guard / translate / scenarios /
+  schema_rollback / tree_visual / `app/handbook.py` 注释），README 事实段同步
+  **497 / 352 格**；`[W]` 基数、diff 变体 48、翻译 27 族 147 映射、7 包、分类 48 全不动；
+- **主库零接触**：20 套 `_smoke_env` 指纹断言全通过，`dist_package/command_lib.db` 未导入未改写
+  （本地运行库仍是 482；交付物由 CI 从种子重建净库，W 批同款口径）。
+
+### 七、★ 坑（本批新增）
+
+1. **收「裸缩写」比收「命令+子命令」危险得多**：`ip a` 同时是 `ip a add` 的前缀，
+   单独入白名单等于给地址配置开了查询类后门。凡收缩写，force 侧必须把所有写变体枚举齐；
+2. **「notes 里出现过」不等于「库里有这条命令」**：盘点必须扫 commands 的**非注释行**，
+   本批 `show users` / `display users` / `no ip domain-lookup` 在 notes/rollback 里都有，
+   但 commands 里没有——只按全文子串搜会误判「已有」而漏补；
+3. **网络设备 `ip address {{ip}} {{mask}}` 与 Linux `ip address show` 同前缀**：
+   存量 13 条 Cisco/H3C 接口配 IP 行都以此开头，故只收精确 `ip address show`，
+   绝不收 `ip address` 裸前缀（否则 13 条变更条目集体翻类）；
+4. **新种子文件靠 `os.walk` 递归 + 通配白名单自动生效**，不要改 `build_exe.py` / `release.yml`；
+   但 `count` 字段、`vendor_slug` 合法 slug、Linux 条目 `duration` 必填仍要自检
+   （`import_seed_dir` 对坏文件是静默 `continue`，validate 只会表现为计数不对）；
+5. **rollback 的「原值」不能写成参数**：写成 `{{old_hostname}}` 必然「已声明未使用」[W]；
+   用尖括号人工位 + notes 提示按变更记录回填（X 批坑 3 复用）。
+
+### 八、不做清单与归属
+
+- **本批不发版不 tag**：不 bump `APP_VERSION`、不动 CHANGELOG（攒批节留待 v1.1.0 收口时
+  统一补——Y 批教训：收口先盘点入列，U 批曾漏节）；
+- **翻译器不动**：27 族 147 映射保持，不为基础查询扩族（按需另立项）；
+- **不补会话态、不补 net-tools、不补无权威 CLI 依据的格位**（逐条理由见第三节）；
+- **不回填真机态**：15 条全部 `verified=0`，真机结论只在 v1.1.0 验证会后经
+  `scripts/backfill_verify.py` 回填；Y 批遗留池逐项归属不变，本批不静默关闭任何一项。

@@ -77,7 +77,7 @@ TMP_DB = os.path.join(BASE, "command_lib.db")
 dbmod.get_db_path = lambda: TMP_DB
 database = dbmod.Database(":memory:")
 database.import_seed_dir()
-check("F0/种子导入482条", database.stats()["total"] == 482,
+check("F0/种子导入497条（Z 批 +15）", database.stats()["total"] == 497,
       str(database.stats()["total"]))
 
 # ======================================================================

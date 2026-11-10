@@ -119,6 +119,13 @@ QUERY_WHITELIST = (
     #   debug 收尾动作（停追踪/复位计数）本身无副作用，但启动侧不收 → 族不完整，
     #   此处只保证"清理态"不被误判为变更；启动侧见上方 ★
     "diagnose debug reset", "diagnose debug disable",
+    # ---- Z 批（2026-11-10）基础查询查漏：iproute2 缩写 + 厂商路径追踪 ----
+    #   ★ "ip a" 是 "ip addr show" 的 iproute2 截断缩写（用户现场最常敲的形态）。
+    #     收这个裸缩写会把 "ip a add / ip a del / ip a flush" 一起吞进查询类，
+    #     故同步在 CHANGE_FORCE_PREFIXES 逐词挡住写操作变体（W 批裸 enable 同款口径）。
+    #   "ip address show" 与 "tracert" 为精确只读词，其后不会再接变更子命令。
+    "ip a", "ip address show",
+    "tracert",                       # 华为 VRP / H3C Comware 路径追踪（只读）
 )
 
 # 强制变更组（词前缀匹配，命中即变更类，优先级高于白名单）：
@@ -134,6 +141,9 @@ CHANGE_FORCE_PREFIXES = (
     "killall", "init 0", "init 6", "dd", "mkfs", "useradd", "userdel",
     "usermod", "passwd", "chmod", "chown", "chattr", "swapoff", "swapon",
     "insmod", "rmmod", "modprobe", "setenforce", "truncate",
+    # Z 批（2026-11-10）：与 QUERY_WHITELIST 的 "ip a" 成对——收了缩写就必须把
+    # 它的写操作变体逐词挡住，否则 "ip a add 192.0.2.1/24 dev eth0" 会被判查询类。
+    "ip a add", "ip a change", "ip a replace", "ip a del", "ip a delete", "ip a flush",
 )
 
 
