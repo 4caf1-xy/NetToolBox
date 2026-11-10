@@ -1642,3 +1642,17 @@ CI 门槛 / tag 与 Release / 出库自核验 / 遗留池盘点，**不碰种子
 - **不补会话态、不补 net-tools、不补无权威 CLI 依据的格位**（逐条理由见第三节）；
 - **不回填真机态**：15 条全部 `verified=0`，真机结论只在 v1.1.0 验证会后经
   `scripts/backfill_verify.py` 回填；Y 批遗留池逐项归属不变，本批不静默关闭任何一项。
+
+### 九、提交与 CI 对账（补记，2026-11-10）
+
+- 主体提交 `fab1dfd`（12 files / +610 / -13）→ SSH 推 `main`，远端
+  `refs/heads/main` 实测 `fab1dfd7…`；`git log -3` 复核无重复提交
+  （H 批「链式 commit 疑似双执行」教训）；
+- CI：`validate-seed` run **42763957507**（push / sha `fab1dfd7`）**success**，
+  job 内 `Run seed validation` + `Run handbook validation` 两步均 success；
+  `release.yml` 只认 `v*` tag、未触发，**无新 Release、无新 tag**
+  （`git tag --sort=-creatordate` 最新仍 `v1.0.0`），旧版资产未动；
+- 中断恢复留痕：上一轮 `git push` 被会话中断且无输出，恢复后先 `git ls-remote`
+  确认远端仍停在 `afe2e66` 才补推一次，未盲目重跑 commit / push（防双提交）；
+- 主库 `dist_package/command_lib.db` 零接触（20 套 `_smoke_env` 指纹断言全过），
+  本地运行库仍 482；交付物由 CI 从种子重建净库。
