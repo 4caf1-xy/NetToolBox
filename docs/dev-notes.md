@@ -1791,3 +1791,21 @@ QTabWidget                                      QTabWidget
 发版流程沿用 Y 批：凭据取自 Windows 凭据管理器（`git credential fill`，不落盘），
 `curl --noproxy '*' --ssl-no-revoke` 打 API；**新增一个坑**：Git Bash 的 `/tmp` 与原生 curl
 不互通（`-d @/tmp/x.json` 直接报读文件失败），载荷改落仓库内 `.workbuddy/` 的 Windows 绝对路径。
+
+### 八、v1.0.0.1 发版实录（2026-11-11）
+
+| 项 | 值 |
+|---|---|
+| 版本三处一致 | `APP_VERSION` `1.0.0 → 1.0.0.1`（`app/ui_main.py`，标题栏与「关于」对话框同时生效）、`README.md` 当前版本、`CHANGELOG.md` 新节 `## v1.0.0.1（2026-11-11）` |
+| 提交 | `3567aea`（15 files / +828 / −102，含 6 张 AB 截图与 `scripts/ui_layout_shot.py`） |
+| tag | `v1.0.0.1`（tag 对象 `636c388`，指向 `3567aea`）→ SSH 推 `main` + tag |
+| CI | `validate-seed` run **42978483379** success；`release` run **42978483293** success（11 步全绿，含 Build exe / Assemble staging / Sanitize / Zip / Attach zip） |
+| Release | draft `441345521` → PATCH 发布，`published_at 2026-11-11T07:21:57Z`，`html_url .../releases/tag/v1.0.0.1` |
+| 资产 | `NetToolBox_v1.0.0.1.zip` **42,777,457 B**，asset digest `sha256:fbaea969…b0205b240`；全量下载复核哈希**逐字节一致** |
+| 出库自核验 | zip 31 条目、**白名单外 0**（exe / check_db.py / command_lib.db / seed_data/*.json×28）；包内库 **497 / 26 / 106**、场景包 7、`user_version=3`、`verified=1` 计数 **0**（零冒充口径不变） |
+| v1.0.0 未动 | 仍 published（`2026-11-10T01:58:58Z`），资产 digest `sha256:71c8d58f…` 保持原样 |
+| 本地 exe | 同步重建：`dist_package/NetToolBox.exe` 45,353,475 B `sha256:f1ae0f53…`（py3.13 栈；CI py3.11 出 42.06 MB 属版本栈差异），实跑 `--validate-seed` **rc=0** |
+
+发版流程沿用 Y 批：凭据取自 Windows 凭据管理器（`git credential fill`，不落盘），
+`curl --noproxy '*' --ssl-no-revoke` 打 API；**新增一个坑**：Git Bash 的 `/tmp` 与原生 curl
+不互通（`-d @/tmp/x.json` 直接报读文件失败），载荷改落仓库内 `.workbuddy/` 的 Windows 绝对路径。
