@@ -21,7 +21,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QToolButton, QTableWidget, QTableWidgetItem,
-                             QHeaderView, QAbstractItemView, QFrame)
+                             QHeaderView, QAbstractItemView, QFrame,
+                             QSizePolicy)
 
 import db as dbmod
 from theme import (BG_RAISED, BG_INPUT, BORDER, ACCENT, SUCCESS, WARNING,
@@ -120,7 +121,10 @@ class TierBar(QWidget):
         row.addWidget(self.bar, 1)
         self.lbl_nums = QLabel("")
         self.lbl_nums.setObjectName("Hint")
-        self.lbl_nums.setMinimumWidth(330)
+        # AB 批：列表区只占 45% 宽，固定 330px 会把整个 pane 的最小宽顶上去；
+        # 改为可压缩 + 全文进 tooltip（数字口径不变，窄窗下由 tooltip 兜底可读）
+        self.lbl_nums.setMinimumWidth(0)
+        self.lbl_nums.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         row.addWidget(self.lbl_nums)
         self._paint()
 
@@ -154,6 +158,7 @@ class TierBar(QWidget):
         tip = "总计 %d（口径见 docs/verify-guide.md 四档标准；「不可验证」计入挂起）" \
               % c.get("total", total)
         self.setToolTip(tip)
+        self.lbl_nums.setToolTip(self.lbl_nums.text() + "\n" + tip)
 
 
 class CoverageDashboard(QWidget):
@@ -173,6 +178,9 @@ class CoverageDashboard(QWidget):
         self.toggle.setText("▸ 覆盖度仪表盘")
         self.toggle.setToolTip("展开厂商×分类覆盖矩阵与三库验证进度（只读，直查 db）")
         self.toggle.toggled.connect(self._on_toggle)
+        # AB 批：列表区变窄后摘要行按宽度在"长/短"两版间切换，不硬裁半句
+        self._summary_long = "覆盖度仪表盘　—　命令 0｜绿 0｜挂起 0｜未验证 0"
+        self._summary_short = "覆盖度　命令 0｜绿 0｜挂起 0｜未验证 0"
         root.addWidget(self.toggle)
 
         self.content = QWidget()
@@ -200,6 +208,7 @@ class CoverageDashboard(QWidget):
 
         self.content.setVisible(False)
         root.addWidget(self.content)
+        self._sync_toggle_text()
 
     # ---------------- 对外 ----------------
     def refresh(self):
@@ -207,17 +216,34 @@ class CoverageDashboard(QWidget):
         counts = coverage_counts(self.db)
         e = counts.get("entries") or {"total": 0, "green": 0, "suspended": 0,
                                       "unverified": 0}
-        self.toggle.setText(
-            "▸ 覆盖度仪表盘　—　命令 %d｜绿 %d｜挂起 %d｜未验证 %d"
-            % (e["total"], e["green"], e["suspended"], e["unverified"]))
+        self._summary_long = ("覆盖度仪表盘　—　命令 %d｜绿 %d｜挂起 %d｜未验证 %d"
+                              % (e["total"], e["green"], e["suspended"],
+                                 e["unverified"]))
+        self._summary_short = ("覆盖度　命令 %d｜绿 %d｜挂起 %d｜未验证 %d"
+                               % (e["total"], e["green"], e["suspended"],
+                                  e["unverified"]))
+        self._sync_toggle_text()
         if self.toggle.isChecked():
             self._rebuild(counts)
         return counts
 
     # ---------------- 内部 ----------------
+    def _sync_toggle_text(self):
+        """按当前宽度选长/短摘要（宽度够就上完整版，否则退短版，不裁半句）"""
+        arrow = "▾" if self.toggle.isChecked() else "▸"
+        long_text = "%s %s" % (arrow, self._summary_long)
+        need = self.toggle.fontMetrics().boundingRect(long_text).width() + 28
+        short_text = "%s %s" % (arrow, self._summary_short)
+        self.toggle.setText(long_text if self.width() >= need else short_text)
+        self.toggle.setToolTip("%s\n展开厂商×分类覆盖矩阵与三库验证进度（只读，直查 db）"
+                               % self._summary_long)
+
+    def resizeEvent(self, event):
+        super(CoverageDashboard, self).resizeEvent(event)
+        self._sync_toggle_text()
+
     def _on_toggle(self, checked):
-        self.toggle.setText(self.toggle.text().replace(
-            "▸ ", "▾ " if checked else "▸ ", 1))
+        self._sync_toggle_text()
         self.content.setVisible(checked)
         if checked:
             self._rebuild(coverage_counts(self.db))

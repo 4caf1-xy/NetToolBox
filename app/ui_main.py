@@ -30,6 +30,7 @@ from PyQt5.QtGui import (QColor, QFont, QKeySequence,                          Q
                          QDesktopServices, QIcon)
 from PyQt5.QtCore import QUrl
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+                             QGridLayout,
                              QLineEdit, QPushButton,
                              QListWidget, QListWidgetItem, QLabel, QPlainTextEdit,
                              QTreeWidget, QTreeWidgetItem, QTableWidget, QTableWidgetItem,
@@ -37,6 +38,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QDialogButtonBox, QAction, QShortcut, QMenu,
                              QHeaderView, QAbstractItemView, QTextEdit, QSizePolicy,
                              QStackedWidget, QToolButton, QFrame, QCheckBox)
+from PyQt5.QtCore import QByteArray, QEvent
 
 import renderer
 import db as dbmod
@@ -58,15 +60,24 @@ from theme import (VENDOR_COLORS, DEFAULT_VENDOR_COLOR, PLATFORM_COLORS,
                    TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED,
                    SPACE_XS, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XL,
                    GripSplitter, ThemedComboBox, mono_font,
+                   ElidedLabel, ElidedStatusBar,
                    load_ui_state, save_ui_state, read_sizes, set_state)
 
 # 布局尺寸约定（第 5 轮 UI 专项：三栏 pane 的初始/最小尺寸集中在此便于调整）
+# ★ AB 批（2026-11-11）改为「左导航 │ 列表 │ 详情」左右三分栏：
+#   详情从下方搬到右侧，列表区与详情区各自有宽度底线，参数表不再被垂直挤没。
 PANE_MIN_NAV = 180          # 左导航最小宽（任务要求 ≥180）
-PANE_MIN_LIST = 300         # 命令列表最小宽（≥300）
-PANE_MIN_DETAIL = 360       # 详情面板最小宽（≥360）
+PANE_MIN_LIST_W = 320       # 命令列表最小宽（AB 批：≥320）
+PANE_MIN_DETAIL_W = 400     # 详情面板最小宽（AB 批：≥400）
 PANE_INIT_NAV = 220         # 左导航初始宽
-PANE_MIN_LIST_H = 150       # 列表区最小高（上下分栏）
+PANE_INIT_SPLIT = 45        # 列表 : 详情 初始比例（45 : 55）
+PANE_MIN_LIST_H = 150       # 列表区最小高（保留：窄高窗口下的底线）
 PANE_MIN_DETAIL_H = 260     # 详情区最小高
+PARAM_TABLE_MIN_ROWS = 4    # 参数表至少要露出几行（AB 批：改前只剩表头）
+PARAM_TABLE_MAX_ROWS = 5    # 参数表按几行封顶（再多交给滚动条）
+# 布局记忆键（沿用 ui_state.json 的 key 风格：xxx_split 存尺寸数组；
+# 本键存 QSplitter.saveState() 的 base64 —— 精确像素 + 折叠态）
+CMD_SPLIT_STATE_KEY = "cmd_work_split_state"
 
 # ---------------------------------------------------------------------------
 # 厂商配色（左侧色块 + 列表色块，便于一眼区分厂商）
@@ -80,7 +91,7 @@ APP_NAME = "NetToolBox"
 APP_TITLE = "离网网络运维工具箱"
 APP_SUBTITLE = "网络设备 + Linux 命令库 / 排查向导 / 报错诊断 / 操作单"
 # 产品版本（semver；发版时与 tag/Release/CHANGELOG 三处对齐，标题栏与关于对话框均引用此常量）
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.0.1"
 
 
 def copy_to_clipboard(text):
@@ -362,13 +373,13 @@ class EntryCard(QWidget):
         block.setStyleSheet("background-color:%s;" % color)
 
         # 标题（收藏加星；颜色交给 QSS 的属性选择器 [fav="true"]）
+        # AB 批：列表区变窄后标题/副标题会硬裁半字 → 改单行省略（全文进 tooltip）
         favorite = bool(entry.get("favorite"))
-        title = QLabel(("★ " if favorite else "") + ("🤖 " if self._ai_imported else "")
-                       + (entry.get("title") or "(无标题)"))
+        title = ElidedLabel(("★ " if favorite else "") + ("🤖 " if self._ai_imported else "")
+                            + (entry.get("title") or "(无标题)"), mode=Qt.ElideRight)
         title.setObjectName("EntryTitle")
         title.setProperty("fav", "true" if favorite else "false")
         title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        title.setToolTip(entry.get("title") or "")
 
         # 场景标签（统一最小宽度，避免长短不一导致右侧徽章参差）
         tag = QLabel(entry.get("category") or "未分类")
@@ -409,7 +420,8 @@ class EntryCard(QWidget):
                                      entry.get("models") or "-")
         if dbmod.normalize_duration(entry.get("duration")):
             sub_text += " · %s" % dbmod.DURATIONS[dbmod.normalize_duration(entry["duration"])]
-        sub = QLabel(sub_text)
+        # AB 批：副标题同样改单行省略（改前 QSizePolicy.Ignored 是硬裁切）
+        sub = ElidedLabel(sub_text, mode=Qt.ElideRight)
         sub.setObjectName("EntrySub")
         sub.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
 
@@ -513,6 +525,10 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(QIcon(_icon_path))
         self.resize(1420, 900)
         self.setMinimumSize(1100, 700)
+
+        # AB 批（2026-11-11）：状态栏换成"超长消息省略 + tooltip 全文"的实现，
+        # 必须在任何 showMessage 之前装上 —— 底部提示不再截半行。
+        self.setStatusBar(ElidedStatusBar(self))
 
         self._build_menu()
         self._build_ui()
@@ -663,16 +679,16 @@ class MainWindow(QMainWindow):
 
     def _build_ui(self):
         """
-        总装（第 5 轮 UI 专项）：
+        总装（第 5 轮 UI 专项；AB 批 2026-11-11 布局重构）：
 
             QTabWidget
               └─ 命令库 Tab
-                   └─ GripSplitter(H)  左导航 │ 右侧
-                        └─ GripSplitter(V)  列表区 │ 详情区
+                   └─ GripSplitter(H)  左导航 │ 工作区
+                        └─ GripSplitter(H)  列表区 │ 详情区   ← AB 批：由上下改左右
 
-        三处都能拖：左导航↔右侧（左右）、列表↔详情（上下）。
-        handle 宽 8px、带 grip 点、hover 高亮（theme.GripSplitter），
-        各 pane 有最小尺寸卡限，拖不成 0。
+        两处都能拖：左导航↔工作区、列表↔详情（都是左右）。
+        handle 宽 6px、带 grip 点、hover 高亮（theme.GripSplitter），
+        各 pane 有最小尺寸卡限且 setCollapsible(False)，拖不成 0。
         """
         # ---------- 左：树导航（P-F：层级缩进 + 灰色计数 + 选中竖条）----------
         self.tree = QTreeWidget()
@@ -688,12 +704,17 @@ class MainWindow(QMainWindow):
         self.lbl_stats = QLabel("共 0 条 | 已验证 0 | 收藏 0")
         self.lbl_stats.setObjectName("NavStats")
         self.lbl_stats.setWordWrap(True)
-        self.lbl_path = QLabel("")
+        # AB 批：路径改为单行中间省略（全文进 tooltip）。改前 wordWrap 的普通 QLabel
+        # 在底部被压成半行 + 行尾硬裁，正是用户截图里"状态栏文字被截断"的那处。
+        self.lbl_path = ElidedLabel("")
         self.lbl_path.setObjectName("NavPath")
-        self.lbl_path.setWordWrap(True)
-        self.lbl_path.setToolTip("db 文件位置（U 盘整盘拷贝即迁移）")
+        self.lbl_path.setWordWrap(False)
         db_dir = get_base_dir()
-        self.lbl_path.setText("库文件：command_lib.db\n位置：%s" % db_dir)
+        # 只放路径本身：前缀"库文件：command_lib.db"会把可用宽度吃掉一半
+        # （文件名固定，位置才是要看的信息），文件名写进 tooltip。
+        self.lbl_path.setText("位置：%s" % db_dir)
+        self.lbl_path.setToolTip("库文件：command_lib.db\n"
+                                 "db 文件位置（U 盘整盘拷贝即迁移）：\n%s" % db_dir)
 
         left = QFrame()
         left.setObjectName("NavPane")
@@ -752,17 +773,27 @@ class MainWindow(QMainWindow):
         row1.setSpacing(SPACE_SM)
         row1.addWidget(self.ed_search, 1)
 
-        row2 = QHBoxLayout()
-        row2.setSpacing(SPACE_SM)
-        # 五个下拉等比例伸缩 → 宽度策略统一；窄窗口下整体压缩而不是溢出裁切
-        for cmb in (self.cmb_platform, self.cmb_device, self.cmb_vendor,
-                    self.cmb_os, self.cmb_cat):
-            cmb.setMinimumWidth(96)
-            row2.addWidget(cmb, 1)
-        row2.addWidget(self.tgl_fav)
-        row2.addWidget(self.tgl_verified)
-        row2.addWidget(btn_reset)
-        row2.addWidget(self.lbl_count)
+        # AB 批：列表区只占 45% 宽，原来"五个下拉 + 两开关 + 重置 + 计数"挤一行
+        # 会把下拉压到溢出（Qt 只能抬高整个 pane 的最小宽）。改成 3 列网格：
+        #   行1 平台｜设备｜厂商      行2 OS｜场景｜(空)
+        #   行3 只看收藏｜只看已验证｜重置筛选 ········ 共 N 条
+        self.filter_grid = QGridLayout()
+        self.filter_grid.setSpacing(SPACE_SM)
+        self.filter_grid.setContentsMargins(0, 0, 0, 0)
+        for col in range(3):
+            self.filter_grid.setColumnStretch(col, 1)
+        for i, cmb in enumerate((self.cmb_platform, self.cmb_device,
+                                 self.cmb_vendor, self.cmb_os, self.cmb_cat)):
+            cmb.setMinimumWidth(88)               # 够放"全部厂商"四字 + 箭头
+            self.filter_grid.addWidget(cmb, i // 3, i % 3)
+
+        row3 = QHBoxLayout()
+        row3.setSpacing(SPACE_SM)
+        row3.addWidget(self.tgl_fav)
+        row3.addWidget(self.tgl_verified)
+        row3.addWidget(btn_reset)
+        row3.addStretch(1)
+        row3.addWidget(self.lbl_count)
 
         self.list_entries = QListWidget()
         self.list_entries.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -787,28 +818,40 @@ class MainWindow(QMainWindow):
         self.dashboard = CoverageDashboard(self.db)
         tv.addWidget(self.dashboard)
         tv.addLayout(row1)
-        tv.addLayout(row2)
+        tv.addLayout(self.filter_grid)
+        tv.addLayout(row3)
         tv.addWidget(self.list_stack, 1)
         self._list_top = top
 
-        # ---------- 右中下部：详情面板 ----------
+        # ---------- 右侧：详情面板（AB 批：由下方搬到右侧）----------
         detail = self._build_detail_panel()
+        detail.setMinimumWidth(PANE_MIN_DETAIL_W)     # 右侧操作底线 ≥400
         detail.setMinimumHeight(PANE_MIN_DETAIL_H)
+        self._detail_panel = detail                   # 截图/冒烟量测用（只读引用）
 
-        # ---------- 任务1：两级 GripSplitter，三处都能拖 ----------
-        #   垂直：列表区 │ 详情区（上下拖，初始约 40% : 60%）
-        self.center_split = GripSplitter(Qt.Vertical)
-        self.center_split.addWidget(top)
-        self.center_split.addWidget(detail)
-        self.center_split.setStretchFactor(0, 4)
-        self.center_split.setStretchFactor(1, 6)
-        self.center_split.setMinimumWidth(PANE_MIN_DETAIL)
-        self.center_split.setSizes([360, 540])
+        top.setMinimumWidth(PANE_MIN_LIST_W)          # 左侧列表底线 ≥320
 
-        #   水平：左导航 │ 右侧区域（左右拖，左导航初始 220）
+        # ---------- AB 批：列表 │ 详情 左右分栏 ----------
+        #   改前是"列表 ↑ 详情"垂直堆叠，垂直空间被上面各段吃光，参数表只剩表头；
+        #   现在把详情整体搬到右侧：垂直方向全给详情，参数表按 4~5 行保底。
+        self.work_split = GripSplitter(Qt.Horizontal)
+        self.work_split.addWidget(top)                # 0 = 列表（仪表盘+筛选+列表）
+        self.work_split.addWidget(detail)             # 1 = 详情（元信息/按钮/代码/子页）
+        for index in (0, 1):
+            self.work_split.setCollapsible(index, False)   # 任何一侧都拖不到 0
+        self.work_split.setStretchFactor(0, PANE_INIT_SPLIT)          # 45
+        self.work_split.setStretchFactor(1, 100 - PANE_INIT_SPLIT)    # 55
+        self.work_split.setSizes([(1200 * PANE_INIT_SPLIT) // 100,
+                                  (1200 * (100 - PANE_INIT_SPLIT)) // 100])
+        # 拖动分隔条改变详情宽度 → 说明列折行数变化 → 参数表行高/最小高度重算
+        self.work_split.splitterMoved.connect(self._on_work_split_moved)
+
+        #   水平：左导航 │ 右侧工作区（左右拖，左导航初始 220）
         self.main_split = GripSplitter(Qt.Horizontal)
         self.main_split.addWidget(left)
-        self.main_split.addWidget(self.center_split)
+        self.main_split.addWidget(self.work_split)
+        for index in (0, 1):
+            self.main_split.setCollapsible(index, False)
         self.main_split.setStretchFactor(0, 0)      # 左导航宽度固定，右侧吃掉伸缩
         self.main_split.setStretchFactor(1, 1)
         self.main_split.setSizes([PANE_INIT_NAV, 1200])
@@ -981,13 +1024,25 @@ class MainWindow(QMainWindow):
             except (TypeError, ValueError):
                 pass
 
-        sizes = read_sizes(state, "main_split", (PANE_MIN_NAV, PANE_MIN_DETAIL))
+        sizes = read_sizes(state, "main_split", (PANE_MIN_NAV, PANE_MIN_LIST_W))
         if sizes:
             self.main_split.setSizes(sizes)
 
-        sizes = read_sizes(state, "center_split", (PANE_MIN_LIST_H, PANE_MIN_DETAIL_H))
-        if sizes:
-            self.center_split.setSizes(sizes)
+        # 列表 │ 详情（AB 批）：首选 saveState/restoreState 的 base64 快照
+        # （同时记住折叠态与精确像素），坏了/版本不符再退回 sizes 数组。
+        restored = False
+        raw = state.get(CMD_SPLIT_STATE_KEY)
+        if isinstance(raw, str) and raw:
+            try:
+                restored = bool(self.work_split.restoreState(
+                    QByteArray.fromBase64(raw.encode("ascii"))))
+            except Exception:
+                restored = False
+        if not restored:
+            sizes = read_sizes(state, "work_split",
+                               (PANE_MIN_LIST_W, PANE_MIN_DETAIL_W))
+            if sizes:
+                self.work_split.setSizes(sizes)
 
         # 子 Tab 分栏记忆（AI 诊断 / 报错诊断 / 排查向导 / 场景包 / 操作单 /
         # 速查手册 / 工具箱，任务2-3）：各 Tab 自校验
@@ -1019,7 +1074,11 @@ class MainWindow(QMainWindow):
             payload = {
                 "window": {"w": self.width(), "h": self.height()},
                 "main_split": list(self.main_split.sizes()),
-                "center_split": list(self.center_split.sizes()),
+                # AB 批：列表│详情 走 saveState（精确像素 + 折叠态）；
+                # work_split 另存一份可读 sizes，便于人工排查与降级恢复。
+                CMD_SPLIT_STATE_KEY: bytes(
+                    self.work_split.saveState().toBase64()).decode("ascii"),
+                "work_split": list(self.work_split.sizes()),
             }
             payload.update(self._sub_tab_split_state())
             payload[self.RECENT_KEY] = list(self._recent)
@@ -1153,28 +1212,20 @@ class MainWindow(QMainWindow):
         """
         详情面板（P-D 按钮三组分级 / P-E 信息页留白 / P-G 代码块）
 
-        按钮分组（视觉权重递减，组间用 1px 竖线分隔）：
-            组1 主操作  —— 复制全部(Primary) / 仅复制命令 / 逐条复制 / 下一条
-            组2 生成工具 —— 参数生成器 / 配置包 / 导出 .txt      （Ghost 描边）
-            组3 管理     —— 编辑条目 / 去排查树                   （Subtle 无框）
-            最右独立     —— 星形收藏 toggle（★ 实心 = 已收藏）
+        AB 批（2026-11-11）：详情从"列表下方"搬到"列表右侧"，宽度只有半屏，
+        按钮由 1 行拆成 2 行、管理组并入标题行：
+            标题行   —— 标题（超长省略） + ★收藏 + 编辑条目 + 去排查树
+            第 1 行  —— 复制全部(Primary) / 仅复制命令 / 逐条复制 / 下一条 / 行号
+            第 2 行  —— 参数生成器 / 配置包 / 导出 .txt / 问 AI   （Ghost 描边）
         """
         # ---- 标题行 ----
-        self.lbl_title = QLabel("未选中条目")
+        self.lbl_title = ElidedLabel("未选中条目", mode=Qt.ElideRight)
         self.lbl_title.setObjectName("DetailTitle")
-        self.lbl_title.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.lbl_title.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
 
         self.lbl_meta = QLabel("")
         self.lbl_meta.setObjectName("DetailMeta")
         self.lbl_meta.setWordWrap(True)
-
-        def _vline():
-            """组间 1px 竖分隔线"""
-            line = QFrame()
-            line.setObjectName("VLine")
-            line.setFixedWidth(1)
-            line.setMinimumHeight(22)
-            return line
 
         # ---- 组1：主操作（复制）----
         self.btn_copy_all = QPushButton("复制全部")
@@ -1242,28 +1293,31 @@ class MainWindow(QMainWindow):
 
         btns = QHBoxLayout()
         btns.setSpacing(SPACE_SM)
-        # 组 1
+        # 组 1（AB 批：详情搬右侧后宽度只有半屏，按钮拆行：复制动作单独一行）
         btns.addWidget(self.btn_copy_all)
         btns.addWidget(self.btn_copy_cmd)
         btns.addWidget(self.btn_copy_line)
         btns.addWidget(self.btn_next_line)
-        btns.addSpacing(SPACE_XS)
-        btns.addWidget(_vline())
-        btns.addSpacing(SPACE_XS)
-        # 组 2
-        btns.addWidget(self.btn_generator)
-        btns.addWidget(self.btn_package)
-        btns.addWidget(self.btn_export_txt)
-        btns.addWidget(self.btn_ask_ai)
-        btns.addSpacing(SPACE_XS)
-        btns.addWidget(_vline())
-        btns.addSpacing(SPACE_XS)
-        # 组 3
-        btns.addWidget(self.btn_edit)
-        btns.addWidget(self.btn_goto_tree)
+        btns.addWidget(self.lbl_line_pos)
         btns.addStretch(1)
-        # 独立：星标
-        btns.addWidget(self.btn_fav)
+
+        btns_tools = QHBoxLayout()
+        btns_tools.setSpacing(SPACE_SM)
+        # 组 2：生成工具
+        btns_tools.addWidget(self.btn_generator)
+        btns_tools.addWidget(self.btn_package)
+        btns_tools.addWidget(self.btn_export_txt)
+        btns_tools.addWidget(self.btn_ask_ai)
+        btns_tools.addStretch(1)
+
+        # 组 3：管理 + 星标 —— 与标题同一行（AB 批：标题行原本只占 22px，
+        # 把管理类动作抬上去，省一整行按钮高度给参数表）
+        title_row = QHBoxLayout()
+        title_row.setSpacing(SPACE_SM)
+        title_row.addWidget(self.lbl_title, 1)
+        title_row.addWidget(self.btn_fav)
+        title_row.addWidget(self.btn_edit)
+        title_row.addWidget(self.btn_goto_tree)
 
         # ---- 提示行 ----
         self.lbl_param_hint = QLabel("")
@@ -1305,6 +1359,8 @@ class MainWindow(QMainWindow):
         self.tbl_params.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tbl_params.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_params.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
+        # 表格宽度变化（拖分隔条 / 窗口缩放）→ 说明列折行数变 → 行高与最小高度重算
+        self.tbl_params.installEventFilter(self)
 
         self._param_tab_suffix = ""
         self.btn_param_toggle = QToolButton()
@@ -1320,7 +1376,14 @@ class MainWindow(QMainWindow):
         _pv.setContentsMargins(0, 2, 0, 0)
         _pv.setSpacing(2)
         _pv.addWidget(self.btn_param_toggle)
-        _pv.addWidget(self.tbl_params)
+        # 收起态占位提示（AB 批）：详情独占整列高度后，收起时整页会是空白大块，
+        # 放一句"点这里展开 N 条参数"比留白更像"有东西可看"。
+        self.lbl_param_collapsed = QLabel("")
+        self.lbl_param_collapsed.setObjectName("HintText")
+        self.lbl_param_collapsed.setWordWrap(True)
+        self.lbl_param_collapsed.setContentsMargins(4, 6, 4, 0)
+        _pv.addWidget(self.lbl_param_collapsed)
+        _pv.addWidget(self.tbl_params, 1)     # AB 批：表格吃掉整页高度（原来无 stretch）
         self.tab_info.addTab(self.param_panel, "参数说明")
 
         self.txt_notes = QTextEdit()
@@ -1366,23 +1429,30 @@ class MainWindow(QMainWindow):
 
         root = QWidget()
         rv = QVBoxLayout(root)
-        rv.setContentsMargins(SPACE_MD, SPACE_MD, SPACE_MD, SPACE_MD)
+        # AB 批：详情独占一列后垂直空间要精打细算，上下边距收到 8px
+        rv.setContentsMargins(SPACE_MD, SPACE_SM, SPACE_MD, SPACE_SM)
         rv.setSpacing(SPACE_SM)
-        rv.addWidget(self.lbl_title)
+        rv.addLayout(title_row)
         rv.addWidget(self.lbl_meta)
         rv.addLayout(btns)
-        rv.addWidget(self.lbl_param_hint)
+        rv.addLayout(btns_tools)
 
+        # 提示行与"配套条目"按钮同一行（AB 批：合并掉一行空白布局，
+        # 把省下的高度留给代码块与参数表）
         hint_row = QHBoxLayout()
         hint_row.setSpacing(SPACE_SM)
+        hint_row.addWidget(self.lbl_param_hint, 1)
         hint_row.addWidget(self.btn_pair)
-        hint_row.addWidget(self.lbl_line_pos)
-        hint_row.addStretch(1)
         rv.addLayout(hint_row)
 
-        rv.addWidget(self.txt_commands, 3)
+        # AB 批：详情独占整列高度后，代码块与信息页按 1:3 分（改前 3:2）——
+        # 参数表要"4 行完整可见"，信息页必须有足够高度。
+        # ★ tab_info 不设显式 minimumHeight：显式值会盖掉 QTabWidget 由页内
+        #   最小高度算出的 minimumSizeHint，参数表就会被 tab 页边界裁掉。
+        self.txt_commands.setMinimumHeight(72)
+        rv.addWidget(self.txt_commands, 1)
         rv.addWidget(self.lbl_preview_state)
-        rv.addWidget(self.tab_info, 2)
+        rv.addWidget(self.tab_info, 3)
         return root
 
     def _build_shortcuts(self):
@@ -2017,11 +2087,45 @@ class MainWindow(QMainWindow):
         self.btn_rollback_toggle.setChecked(False)
         self.txt_rollback.setVisible(False)
 
+    def _on_work_split_moved(self, pos, index):
+        """列表│详情 分隔条被拖动：详情宽度变了 → 参数表行高/最小高度重算"""
+        if not self.tbl_params.isVisible() or self.tbl_params.rowCount() <= 0:
+            return
+        QTimer.singleShot(
+            0, lambda: self._sync_param_table_min_height(
+                self.tbl_params.rowCount()))
+
+    def eventFilter(self, obj, event):
+        """
+        参数表宽度变化 → 重算行高（AB 批）。
+
+        ★ 为什么要走事件而不是只靠 splitterMoved：分隔条拖动时表格的**实际宽度**
+          要等布局跑完才更新；在 splitterMoved 里立刻量宽度会拿到旧值，
+          行高与最小高度就停在旧的大值上（详情面板被顶穿）。
+          这里以"宽度真的变了"为准，宽度不变就不重算，避免 resize ↔ 最小高度死循环。
+        """
+        if obj is getattr(self, "tbl_params", None) \
+                and event.type() == QEvent.Resize:
+            width = event.size().width()
+            if width != getattr(self, "_param_last_width", None):
+                self._param_last_width = width
+                if self.tbl_params.isVisible() and self.tbl_params.rowCount() > 0:
+                    QTimer.singleShot(
+                        0, lambda: self._sync_param_table_min_height(
+                            self.tbl_params.rowCount()))
+        return super(MainWindow, self).eventFilter(obj, event)
+
     def _toggle_param_panel(self, checked):
         """折叠面板开关：收起只留标题行，展开显示参数表"""
         self.tbl_params.setVisible(bool(checked))
+        self.lbl_param_collapsed.setVisible(not checked)
         self.btn_param_toggle.setText(("▾ 参数说明" if checked else "▸ 参数说明")
                                       + self._param_tab_suffix)
+        if checked:
+            # 展开这一刻列宽才定型（说明列折行数 → 行高），下一轮事件循环重算最小高度
+            QTimer.singleShot(
+                0, lambda: self._sync_param_table_min_height(
+                    self.tbl_params.rowCount()))
 
     def _sync_param_tab(self, specs):
         """无参数条目：参数说明整页不渲染（任务2 要求）；有参数时默认收起"""
@@ -2036,6 +2140,10 @@ class MainWindow(QMainWindow):
         self.btn_param_toggle.setText("▸ 参数说明" + self._param_tab_suffix)
         self.btn_param_toggle.setChecked(False)
         self.tbl_params.setVisible(False)
+        self.lbl_param_collapsed.setText(
+            "共 %d 条参数（名称 / 必填 / 默认值 / 类型 / 说明）——点上方折叠头展开。"
+            % len(specs or []))
+        self.lbl_param_collapsed.setVisible(bool(specs))
 
     def _fill_param_table(self, specs):
         """填充参数说明表（schema 升级 2026-09-30：名称|必填*|默认值|类型|说明）"""
@@ -2087,13 +2195,69 @@ class MainWindow(QMainWindow):
             lbl.setContentsMargins(4, 2, 4, 2)
             self.tbl_params.setCellWidget(row, 4, lbl)
             self.tbl_params.resizeRowToContents(row)
+        self._sync_param_table_min_height(len(specs or []))
 
+    def _sync_param_table_min_height(self, row_count):
+        """
+        参数表最小高度（AB 批 2026-11-11）：保证前 4 行（最多 5 行）完整可见。
+
+        改前详情面板被压在列表下方，表格只剩表头（viewport 22px、0 行可见）；
+        这里按**真实行高逐行累加**给表格一个底线（"最高行 × 行数"会高估，
+        反而把表格顶出可视区）。
+
+        细节行高依赖说明列宽度，所以宽度一变（拖分隔条 / 面板 resize）就要重算：
+        入口见 _on_work_split_moved 与 eventFilter 的 Resize 分支。
+        """
+        if getattr(self, "_param_sync_busy", False):     # 防重入（resize ↔ 最小高度）
+            return
+        self._param_sync_busy = True
+        try:
+            self._sync_param_table_min_height_impl(row_count)
+        finally:
+            self._param_sync_busy = False
+
+    def _sync_param_table_min_height_impl(self, row_count):
+        rows = int(row_count or 0)
+        if rows <= 0:
+            self.tbl_params.setMinimumHeight(0)
+            return
+
+        # ---- 行高/列宽先定型（说明列按剩余宽度拉伸，折行数随之变化）----
         self.tbl_params.resizeColumnsToContents()
-        # 说明列吃掉剩余宽度，避免右侧几列被挤到看不见
         self.tbl_params.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
         self.tbl_params.setColumnWidth(0, max(90, self.tbl_params.columnWidth(0)))
         for col in (1, 2, 3):
-            self.tbl_params.setColumnWidth(col, max(64, min(120, self.tbl_params.columnWidth(col))))
+            self.tbl_params.setColumnWidth(
+                col, max(64, min(120, self.tbl_params.columnWidth(col))))
+        # ★ 行高按"说明列当前宽度"量，而不是直接 resizeRowToContents：
+        #   后者读的是单元格部件**上一次布局**的宽度，拖宽详情后行高不会缩回去
+        #   （表格最小高度一直停在旧的大值，把详情面板顶穿）。
+        #   做法：先把标签宽度钉到当前列宽（此时 sizeHint 才是这个宽度下的高度），
+        #   量完再放开，让表格自己管宽度。
+        desc_w = max(120, self.tbl_params.columnWidth(4) - 8)
+        for row in range(rows):
+            cell = self.tbl_params.cellWidget(row, 4)
+            if cell is None:
+                self.tbl_params.resizeRowToContents(row)
+                continue
+            cell.setFixedWidth(desc_w)
+            self.tbl_params.resizeRowToContents(row)
+            cell.setMinimumWidth(0)
+            cell.setMaximumWidth(16777215)
+
+        header = max(24, self.tbl_params.horizontalHeader().height())
+        visible = min(max(rows, PARAM_TABLE_MIN_ROWS), PARAM_TABLE_MAX_ROWS)
+        heights = [self.tbl_params.rowHeight(r) for r in range(min(rows, visible))]
+        heights = [h for h in heights if h > 0]
+        if not heights:
+            self.tbl_params.setMinimumHeight(0)
+            return
+        frame = 2 * self.tbl_params.frameWidth()
+        need = header + sum(heights) + frame + 4
+        # ★ 这里不再按"当前页高"给表格设上限：页高本身是被这个最小高度决定的，
+        #   按当前值封顶会形成"越算越小"的棘轮（实测从 4 行缩到 3 行）。
+        #   窗口太矮时由外层布局自然压缩代码块，仍不够则表格自带滚动条兜底。
+        self.tbl_params.setMinimumHeight(need)
 
     def _guard_missing_required(self):
         """P2 守卫：缺必填参数时阻止复制类动作，返回 True 表示已拦截"""

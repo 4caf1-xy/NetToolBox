@@ -32,9 +32,10 @@ import json
 import os
 import re
 
-from PyQt5.QtCore import Qt, QPointF, QRectF
+from PyQt5.QtCore import Qt, QPointF, QRectF, QTimer
 from PyQt5.QtGui import QColor, QFont, QPainter, QFontDatabase, QPolygonF
-from PyQt5.QtWidgets import QApplication, QSplitter, QSplitterHandle, QComboBox
+from PyQt5.QtWidgets import (QApplication, QSplitter, QSplitterHandle, QComboBox,
+                             QLabel, QStatusBar, QSizePolicy)
 
 
 # ===========================================================================
@@ -1115,6 +1116,145 @@ def has_family(name):
         return name in QFontDatabase().families()
     except Exception:
         return False
+
+
+# ===========================================================================
+# 三·补、单行省略文本（AB 批 2026-11-11）
+# ===========================================================================
+class ElidedLabel(QLabel):
+    """
+    单行省略标签（中间省略，全文进 tooltip）。
+
+    为什么需要：底部信息区/路径这类"必然超宽"的文字，普通 QLabel 是**硬裁切**——
+    行尾连省略号都没有，看着像界面坏了。这类文本也不该折行：折行会挤掉别的部件。
+    用法：setText() 传全文，宽度变化时自动重算省略形态；fullText() 取原文。
+    """
+
+    def __init__(self, text="", parent=None, mode=Qt.ElideMiddle):
+        super(ElidedLabel, self).__init__(parent)
+        self._full = ""
+        self._mode = mode
+        self._eliding = False
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.setText(text)
+
+    def setText(self, text):
+        self._full = "" if text is None else str(text)
+        QLabel.setToolTip(self, self._full)
+        self._refresh()
+
+    def fullText(self):
+        return self._full
+
+    def sizeHint(self):
+        """
+        ★ 宽度按"可省略"给：不覆盖的话 QLabel 会按**全文**宽度给 sizeHint，
+          在 QListWidget 里条目卡片的 sizeHint 会被最长文案顶大，而 QListView
+          的条目宽度取 max(sizeHint, 视口宽) —— 一旦 sizeHint 超视口，卡片就
+          比视口还宽，标签永远压不窄，省略号也就永远不出现（只会硬裁半字）。
+          这里只给一个很小的宽度，真正的宽度由布局分配，省略才有效。
+        """
+        hint = super(ElidedLabel, self).sizeHint()
+        return hint.__class__(min(hint.width(), 48), hint.height())
+
+    def minimumSizeHint(self):
+        hint = super(ElidedLabel, self).minimumSizeHint()
+        return hint.__class__(24, hint.height())
+
+    def _refresh(self):
+        if self._eliding:            # 防递归（QLabel.setText 触发重绘/布局）
+            return
+        self._eliding = True
+        try:
+            width = self.width() - 2
+            if width <= 8:           # 还没布局出宽度：先放全文，resize 时再收
+                QLabel.setText(self, self._full)
+            else:
+                QLabel.setText(self, self.fontMetrics().elidedText(
+                    self._full, self._mode, width))
+        finally:
+            self._eliding = False
+
+    def resizeEvent(self, event):
+        super(ElidedLabel, self).resizeEvent(event)
+        self._refresh()
+
+    def changeEvent(self, event):
+        super(ElidedLabel, self).changeEvent(event)
+        self._refresh()
+
+
+class ElidedStatusBar(QStatusBar):
+    """
+    状态栏：长消息按省略绘制 + tooltip 全文（AB 批：底部不再出现"截半行"）。
+
+    原生 QStatusBar 对超长消息是直接裁切，右侧永久部件（AI 状态灯）还会盖住尾部；
+    这里按「栏宽 − 永久部件宽 − 边距」做 elide，并在 showMessage 时把全文挂 tooltip。
+    """
+
+    _MARGIN = 10          # 左右内边距（与 QSS 的 QStatusBar padding 对齐）
+    _GAP = 6              # 消息区与永久部件之间的空隙
+
+    def __init__(self, parent=None):
+        super(ElidedStatusBar, self).__init__(parent)
+        self._full = ""
+        self._shown = None
+        self._permanent = []
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self.clearMessage)
+
+    def addPermanentWidget(self, widget, stretch=0):
+        super(ElidedStatusBar, self).addPermanentWidget(widget, stretch)
+        if widget not in self._permanent:
+            self._permanent.append(widget)
+
+    def showMessage(self, message, timeout=0):
+        self._full = "" if message is None else str(message)
+        self.setToolTip(self._full)
+        self._apply()
+        if timeout and int(timeout) > 0:
+            self._timer.start(int(timeout))
+        else:
+            self._timer.stop()
+
+    def fullMessage(self):
+        """完整消息（省略前的原文；排查/冒烟用）"""
+        return self._full
+
+    def clearMessage(self):
+        self._full = ""
+        self._shown = None
+        self._timer.stop()
+        self.setToolTip("")
+        super(ElidedStatusBar, self).clearMessage()
+
+    def _available(self):
+        used = 0
+        for widget in self._permanent:
+            if widget is not None and widget.isVisible():
+                used += max(widget.width(), widget.sizeHint().width()) + self._GAP
+        return self.width() - 2 * self._MARGIN - used
+
+    def _apply(self):
+        avail = self._available()
+        text = self._full
+        if text and avail > 24:
+            text = self.fontMetrics().elidedText(self._full, Qt.ElideRight, avail)
+        if text == getattr(self, "_shown", None):     # 防 event()/resize 重入死循环
+            return
+        self._shown = text
+        super(ElidedStatusBar, self).showMessage(text)
+
+    def resizeEvent(self, event):
+        super(ElidedStatusBar, self).resizeEvent(event)
+        self._apply()
+
+    def event(self, event):
+        # 永久部件显隐/尺寸变化后可用宽度会变，这里统一兜一层重算
+        if event.type() in (event.Show, event.Hide, event.LayoutRequest):
+            self._apply()
+        return super(ElidedStatusBar, self).event(event)
 
 
 

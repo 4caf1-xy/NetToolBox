@@ -2,6 +2,19 @@
 
 README 首图引用 `docs/screenshots/main.png`——已放置命令库 Tab 界面图。
 
+## 命令库布局重构 before / after（2026-11-11，AB 批）
+
+| 图 | 内容 |
+|---|---|
+| `ab_before.png` | 改前：列表 ↑ 详情 ↓ 垂直堆叠，参数说明表只剩表头（viewport 22px、0 行可见） |
+| `ab_after.png` | 改后：详情整体搬到右侧（45:55 可拖）+ 参数说明 4 行完整可见 + 状态栏不截断 |
+| `ab_after_params.png` | 参数表 1:1 裁剪（4 行齐全，含「示例：」附注行） |
+| `ab_after_collapsed.png` | 默认收起态：代码块 139px + 一行「共 4 条参数…点折叠头展开」提示 |
+| `ab_list.png` | 列表卡片标题/副标题超长时的省略号形态（改前是硬裁半字） |
+
+采集脚本：`python scripts/ui_layout_shot.py <out.png> [--size 1400x880] [--collapsed]`
+（offscreen；走 `_smoke_env` 路径劫持 + 主库 sha256 断言，只读、不碰种子/库）。
+
 ## README 重构配套四图（2026-10-12，offscreen 重拍）
 
 | 图 | 内容 | README 引用位置 |

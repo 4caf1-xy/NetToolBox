@@ -1656,3 +1656,120 @@ CI 门槛 / tag 与 Release / 出库自核验 / 遗留池盘点，**不碰种子
   确认远端仍停在 `afe2e66` 才补推一次，未盲目重跑 commit / push（防双提交）；
 - 主库 `dist_package/command_lib.db` 零接触（20 套 `_smoke_env` 指纹断言全过），
   本地运行库仍 482；交付物由 CI 从种子重建净库。
+
+## AB 批 命令库布局重构（2026-11-11，UI 批，**不发版不 tag**）
+
+一句话结论：**详情面板从"列表下方"搬到"列表右侧"**，`GripSplitter(Horizontal)` 45:55
+可拖且两侧都拖不到 0；参数说明表实测 4 行完整可见（改前 viewport 22px、**0 行可见**），
+底部状态栏与左导航路径不再截半行。数据/种子/库零改动（`--validate-seed` EXIT=0，
+497 / 26 / 106 计数不变），全量 20 套冒烟 rc=0。
+
+### 一、结构：改前 → 改后
+
+```
+改前（垂直堆叠，垂直空间被上面各段吃光）        改后（左右分栏，详情独占整列高度）
+QTabWidget                                      QTabWidget
+ └─ 命令库                                        └─ 命令库
+     └─ GripSplitter(H) 左导航 │ 工作区                 └─ GripSplitter(H) 左导航 │ 工作区(H)
+          └─ GripSplitter(V)  列表 ↑ 详情 ↓                  └─ GripSplitter(H) 列表 │ 详情
+               ├─ 列表：仪表盘/搜索/筛选/列表                     ├─ 列表：仪表盘/搜索/筛选(3列网格)/列表
+               └─ 详情：元信息/按钮/提示/代码/子页                 └─ 详情：标题行/元信息/按钮×2/提示/代码/子页
+```
+
+| 项 | 改前 | 改后 |
+|---|---|---|
+| 命令库 splitter | `center_split` 垂直（列表 4 : 详情 6） | `work_split` 水平（列表 45 : 详情 55） |
+| 参数表 viewport | **22px（0 行可见）** | **351px（4 行完整可见）** |
+| 代码块高度 | 137px | 139px（收起态）/ 72px（展开参数表时） |
+| 底部路径 | `wordWrap` 普通 QLabel，被压成半行硬裁 | `ElidedLabel` 单行中间省略 + tooltip 全文 |
+| 状态栏 | 原生 QStatusBar，超长消息硬裁 | `ElidedStatusBar`，省略 + tooltip 全文 |
+
+### 二、分隔条参数与宽度记忆
+
+| 参数 | 值 | 说明 |
+|---|---|---|
+| 方向 | `Qt.Horizontal`（`GripSplitter`） | handle 默认隐形，hover 显主色 3px 高亮线 |
+| handle 宽 | **6px**（`theme.HANDLE_WIDTH`） | 光标 `Qt.SplitHCursor`（实测 shape=12） |
+| 可折叠 | `setCollapsible(0/1, False)` | 拖到极端：左 320 / 右 400，**都不会到 0** |
+| 最小宽 | 左列表 `PANE_MIN_LIST_W=320`；右详情 `PANE_MIN_DETAIL_W=400` | 左导航仍 180 |
+| 初始比例 | `PANE_INIT_SPLIT=45` → 45:55，`setSizes([540, 660])` | 1400 窗实测 526 / 642 |
+| 伸缩因子 | `setStretchFactor(0,45)/(1,55)` | 窗口缩放按比例走 |
+
+**记忆键**（沿用 `ui_state.json` 的 `xxx_split` 风格，不引入第二套存储）：
+
+| 键 | 形态 | 用途 |
+|---|---|---|
+| `main_split` | `[220, 1174]` | 左导航 │ 工作区（沿用，未改语义） |
+| `cmd_work_split_state` | `QSplitter.saveState()` 的 base64 | 列表 │ 详情：精确像素 + 折叠态（首选） |
+| `work_split` | `[526, 642]` | 同上的可读 sizes 备份（`restoreState` 失败或老版本时兜底） |
+
+恢复顺序：`restoreState` → 失败/缺键 → `read_sizes("work_split")`（校验 ≥ 最小值）
+→ 默认 45:55。**没有引入 QSettings**：全站布局记忆都落在 exe 同目录的 `ui_state.json`
+（U 盘整盘拷贝即迁移），QSettings 在 Windows 落注册表会打破这个前提；`saveState/restoreState`
+保留，只是存储介质沿用既有文件。
+
+### 三、详情面板内部（为"4 行可见"腾高度）
+
+- 按钮 **1 行拆 2 行** + 管理组上移标题行：标题行 = 标题(省略) + ★ + 编辑条目 + 去排查树；
+  行 1 = 复制全部/仅复制命令/逐条复制/下一条/行号；行 2 = 参数生成器/配置包/导出.txt/问 AI；
+- 代码块 : 信息页 = **1 : 3**（改前 3 : 2），代码块 `minimumHeight=72`，上下边距 12→8；
+- **参数表最小高度** = 表头 + 前 4 行真实行高（`PARAM_TABLE_MIN_ROWS=4`，最多 5 行封顶），
+  行高按"把说明列标签钉到当前列宽再 `resizeRowToContents`"测（见第七节坑 3）；
+- 重算触发点：展开面板（singleShot）、拖分隔条（`splitterMoved`）、表格宽度变化
+  （`eventFilter` 的 `Resize`，按宽度去抖 + `_param_sync_busy` 防重入）；
+- 收起态占位提示：`共 N 条参数（名称/必填/默认值/类型/说明）——点上方折叠头展开。`
+  （详情整列变高后，收起时整页会是空白大块）。
+
+### 四、顺带修复（同批小项）
+
+| 项 | 改法 |
+|---|---|
+| 底部状态栏截断 | `theme.ElidedStatusBar`：按"栏宽 − 永久部件宽"省略，`tooltip` 存全文（`fullMessage()` 可取原文），超时计时器自己管 |
+| 左导航路径截断 | `theme.ElidedLabel`（中间省略）单行显示 `位置：<db 目录>`，文件名与完整路径进 tooltip |
+| 列表卡片标题/副标题 | 同上改 `ElidedLabel`（右省略）——改前 `QSizePolicy.Ignored` 是**硬裁半字** |
+| 覆盖度仪表盘 | `TierBar` 计数标签去掉固定 330px（会顶高 pane 最小宽）+ 全文 tooltip；折叠条摘要按宽度切"长/短"两版 |
+| 筛选区 | 5 下拉 + 2 开关 + 重置 + 计数原为 2 行 → 改 **3 列网格 + 开关行**（列表只占 45% 宽，原布局会溢出） |
+
+### 五、连带影响 Tab 清单
+
+| Tab / 组件 | 影响 |
+|---|---|
+| 命令库 | 重构主体（本批唯一改结构） |
+| 其余 9 个 Tab | **不动**：均用自己的 splitter / 自己的状态栏消息；Tab 数、标题、顺序回归全过 |
+| `ElidedStatusBar` | 全局替换 `MainWindow.statusBar()`：所有 Tab 的 `showMessage` 都走省略+tooltip（行为兼容，签名不变） |
+| `EntryCard` | 仅命令库列表使用，改省略后无外溢影响 |
+| `CoverageDashboard` | 仅命令库页内使用（父链 `main_split` 断言仍过） |
+
+### 六、验证证据
+
+- 截图（`docs/screenshots/`）：`ab_before.png`（改前，参数表只剩表头）、
+  `ab_after.png`（改后，详情在右 + 4 行完整）、`ab_after_params.png`（参数表 1:1 裁剪）、
+  `ab_after_collapsed.png`（默认收起态，代码块 139px）、`ab_list.png`（列表省略号）；
+- 采集脚本：`scripts/ui_layout_shot.py <out.png> [--size WxH] [--collapsed]`（offscreen，
+  走 `_smoke_env` 路径劫持 + 主库指纹断言，只读）；
+- 冒烟：`smoke_panel_dashboard.py` **75 / 75**（新增 12 条 AB 断言：分栏方向/详情在右/
+  两侧不可折叠/最小宽/6px+SplitHCursor/拖不塌/参数表 4 行完整/未溢出/`work_split` 落盘与
+  重启恢复/恢复后仍不可折叠）；
+- 全量：20 套 `scripts/smoke_*.py` **rc=0**；`python app/main.py --validate-seed` EXIT=0，
+  **497 条 + 26 树 + 106 报错**（与 Z 批底数一致，本批不动种子/库）；
+- 手动路径：搜索 `scp` → 选中 → 拖动分隔条（两侧到 320/400 停住）→ 关闭重开（宽度保持）。
+
+**已知取舍**：1400×880 窗口下，参数表要 4 行完整可见（约 350px）后，详情面板余量只够
+代码块 72px（约 3 行 + 滚动）；默认收起参数表时代码块 139px。窗口更高/更宽时按 1:3
+自动回升。右侧被拖到 400px 极窄时 4 行装不下（说明列折行变多），表格以滚动条兜底——
+这是物理空间限制，不是布局缺陷。
+
+### 七、踩坑（三条，均实测）
+
+1. **`QTabWidget.setMinimumHeight()` 在 singleShot 里调用会让进程静默退出**（rc=127，
+   无 traceback、无 faulthandler 输出）。为让 tab 页给参数表留足高度试过两条路：
+   `tab_info.setMinimumHeight(need + chrome)` 与"先归零再读 `minimumSizeHint`"
+   （内部 `layout().activate()`）都会触发；最终改为**不设显式最小高度**，靠
+   QTabWidget 由页内最小高度算出的 `minimumSizeHint` 自然撑开——这也解释了为什么
+   "给 tab 设显式最小值"反而盖掉了页内需求。
+2. **QListView 条目宽度 = max(条目 sizeHint, 视口宽)**：列表变窄后，若标题 `sizeHint`
+   仍按全文宽度给，卡片会比视口还宽、标签永远压不窄（省略号也就不出现）。`ElidedLabel`
+   因此把 `sizeHint().width()` 压到 48，真实宽度交给布局。
+3. **`resizeRowToContents()` 读的是单元格部件上一次布局的宽度**：详情宽度变化后行高
+   不会缩回去，参数表最小高度就停在旧的大值、把面板顶穿。改为先把说明列标签
+   `setFixedWidth(当前列宽)` 量完再放开。

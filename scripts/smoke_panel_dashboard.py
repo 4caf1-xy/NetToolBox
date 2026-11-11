@@ -11,7 +11,9 @@ smoke_panel_dashboard.py —— Ctrl+K 面板 / 最近使用 / 覆盖度仪表�
     [C] 仪表盘对账：coverage_counts 与 db 直查 SQL 逐格一致；
         矩阵行列与 GROUP BY 一致；四档合计=总数（含"不可验证"挂起口径）
     [D] B14 连点回归：250ms 时间窗内连点 toggle_favorite 只产生 1 条 history
-    [E] 四 Tab 回归：Tab 数不变、Splitter 可恢复、仪表盘折叠卡片在命令库 Tab
+    [E] 四 Tab 回归：Tab 数不变、Splitter 可恢复、仪表盘折叠卡片在命令库 Tab；
+        AB 批（2026-11-11）命令库布局：详情在右侧、分隔条不可折叠、参数表 4 行可见、
+        宽度记忆（saveState → 新窗恢复）
     [F] D 批收藏视图（2026-10-13）：收藏 3 条 → 只看收藏过滤 3 条 →
         取消收藏即时消失；Ctrl+K 空输入收藏区置顶；种子再导入 favorite 保留
 
@@ -390,18 +392,124 @@ def case_e():
                 break
             p = p.parentWidget()
         check("E/仪表盘-在命令库Tab", in_tab, "")
+
+        # ----------------------------------------------------------
+        # AB 批（2026-11-11）：命令库布局重构——列表 │ 详情 左右分栏
+        # ----------------------------------------------------------
+        # ★ 必须先 resize+show：不显示的窗口布局没跑过，splitter.sizes()
+        #   是"未布局时的默认值"，拖拽/记忆断言都会变成假通过。
+        from PyQt5.QtCore import Qt
+        w.resize(1400, 880)
+        w.show()
+        for _ in range(8):
+            app.processEvents()
+        split = w.work_split
+        check("E/AB-分栏-水平", split.orientation() == Qt.Horizontal,
+              str(split.orientation()))
+        check("E/AB-详情在右侧",
+              w._detail_panel.mapTo(w, w._detail_panel.rect().topLeft()).x()
+              > w._list_top.mapTo(w, w._list_top.rect().topLeft()).x(),
+              "detail.x=%d list.x=%d"
+              % (w._detail_panel.mapTo(w, w._detail_panel.rect().topLeft()).x(),
+                 w._list_top.mapTo(w, w._list_top.rect().topLeft()).x()))
+        check("E/AB-两侧不可折叠",
+              not split.isCollapsible(0) and not split.isCollapsible(1),
+              "(%s,%s)" % (split.isCollapsible(0), split.isCollapsible(1)))
+        check("E/AB-最小宽底线",
+              w._list_top.minimumWidth() >= 320
+              and w._detail_panel.minimumWidth() >= 400,
+              "list=%d detail=%d" % (w._list_top.minimumWidth(),
+                                     w._detail_panel.minimumWidth()))
+        handle = split.handle(1)
+        check("E/AB-分隔条-6px+SplitHCursor",
+              handle is not None and handle.width() == 6
+              and handle.cursor().shape() == Qt.SplitHCursor,
+              "w=%s cursor=%s"
+              % (handle.width() if handle else "-",
+                 handle.cursor().shape() if handle else "-"))
+        # 拖到极端：任何一侧都不塌成 0
+        split.setSizes([1, 5000])
+        left_floor = split.sizes()[0]
+        split.setSizes([5000, 1])
+        right_floor = split.sizes()[1]
+        check("E/AB-拖不塌", left_floor >= 300 and right_floor >= 380,
+              "left=%d right=%d" % (left_floor, right_floor))
+        # 复位到默认 45:55（后面"4 行可见"按常规比例量；拖到 400 宽时行高会被
+        # 说明列折行顶大，4 行装不下是物理限制，不是布局错）
+        total = sum(split.sizes())
+        split.setSizes([total * 45 // 100, total - total * 45 // 100])
+        for _ in range(6):
+            app.processEvents()
+
+        # 参数说明：4 行必须完整可见（AB 批用户点名问题）
+        scp = [e for e in db.search() if "scp 限速传输" in (e.get("title") or "")]
+        check("E/AB-用例条目存在", len(scp) == 1, str(len(scp)))
+        if scp:
+            # 参数表"4 行完整可见"是物理空间问题：这里把窗口拉高到 1000px
+            # 再量（离屏环境的字体度量比实机略大，880px 会差一行）
+            w.resize(1400, 1000)
+            for _ in range(4):
+                app.processEvents()
+            w.select_by_uuid(scp[0]["uuid"])
+            idx = w.tab_info.indexOf(w.param_panel)
+            if idx >= 0:
+                w.tab_info.setCurrentIndex(idx)
+            w.btn_param_toggle.setChecked(True)
+            w._toggle_param_panel(True)          # 含 singleShot 重算最小高度
+            for _ in range(12):
+                app.processEvents()
+            table = w.tbl_params
+            vp = table.viewport().height()
+            shown = 0
+            for r in range(table.rowCount()):
+                if table.rowViewportPosition(r) + table.rowHeight(r) <= vp:
+                    shown += 1
+            check("E/AB-参数表4行完整可见",
+                  table.rowCount() == 4 and shown == 4,
+                  "rows=%d shown=%d vp=%d" % (table.rowCount(), shown, vp))
+            # 表格自身高度不得溢出详情面板（否则底行会被裁）
+            check("E/AB-参数表未溢出",
+                  table.mapTo(w._detail_panel, table.rect().bottomLeft()).y()
+                  <= w._detail_panel.height(),
+                  "table.bottom=%d detail.h=%d tab(y=%d,h=%d) code=%d tbMin=%d"
+                  % (table.mapTo(w._detail_panel,
+                                 table.rect().bottomLeft()).y(),
+                     w._detail_panel.height(), w.tab_info.y(),
+                     w.tab_info.height(), w.txt_commands.height(),
+                     table.minimumHeight()))
+
         # Splitter 记忆链路不破坏：改比例 → 保存 → 新窗恢复
         w.main_split.setSizes([300, 1400])
+        w.work_split.setSizes([560, 700])
+        want_work = list(w.work_split.sizes())      # setSizes 会按实际宽度归一化
         w._save_ui_state()
         with open(theme.state_file_path(), "r", encoding="utf-8") as fp:
             saved = json.load(fp)
         check("E/记忆-main_split落盘", "main_split" in saved
               and "recent_used" in saved, str(list(saved.keys())))
+        check("E/AB-记忆-work_split落盘",
+              "work_split" in saved and "cmd_work_split_state" in saved
+              and len(saved.get("work_split") or []) == 2,
+              str(saved.get("work_split")))
         w.deleteLater()
 
         w2 = ui_main.MainWindow(db)
+        w2.resize(1400, 880)
+        w2.show()
+        for _ in range(8):
+            app.processEvents()
         sizes = w2.main_split.sizes()
         check("E/记忆-恢复比例", sizes and sizes[0] <= 460, str(sizes))
+        restored = w2.work_split.sizes()
+        # saveState/restoreState 精确恢复（允许 ±8px：分栏边界取整）
+        check("E/AB-记忆-重启恢复work_split",
+              len(restored) == 2 and abs(restored[0] - want_work[0]) <= 8
+              and abs(restored[1] - want_work[1]) <= 8,
+              "want=%s got=%s" % (want_work, restored))
+        # 恢复后仍不可折叠（restoreState 不应把 collapsible 改回来）
+        check("E/AB-恢复后仍不可折叠",
+              not w2.work_split.isCollapsible(0)
+              and not w2.work_split.isCollapsible(1), "")
         w2.deleteLater()
     finally:
         teardown_state_dir(theme, tmpdir, orig)
