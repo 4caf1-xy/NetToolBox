@@ -855,10 +855,20 @@ class MainWindow(QMainWindow):
         #   第二行：过滤链下拉（统一宽度策略，等分剩余空间）+ 两个可选中的开关 + 重置 + 计数徽章
         self.ed_search = QLineEdit()
         self.ed_search.setObjectName("SearchBox")
+        # AE 批（2026-11-12）：原文案自称"全局搜索"，与 Ctrl+K 浮层的标题「全局搜索」
+        # 撞名 —— 用户分不清"这个框"和"那个框"。这里改称"搜索命令库"，并把匹配范围
+        # 与"空格分词"语法写进 placeholder（列表区只占 45% 宽，文案必须短到能显示完，
+        # 否则关键字提示会被省略号吃掉 —— 实测 1080px 窗口下 420px 只能放约 27 个汉字）。
         self.ed_search.setPlaceholderText(
-            "全局搜索：标题 / 描述 / 命令内容 / 备注 / 型号…（Ctrl+F 聚焦，输入即搜）")
+            "搜索命令库：标题/描述/命令/备注/参数…（空格分词）")
+        self.ed_search.setToolTip(
+            "只搜【命令库】这一个库，结果就在下方列表；\n"
+            "多个关键词用空格分开（AND：每个词都要命中）；全角半角不敏感。\n\n"
+            "要找报错字典 / 排查树 / 速查手册 → 用 Ctrl+K 的四库全局搜索。")
         self.ed_search.setClearButtonEnabled(True)
         self.ed_search.setMinimumHeight(32)
+        # AE 批：ESC 清空搜索框（Esc 事件在 eventFilter 里处理）
+        self.ed_search.installEventFilter(self)
         # AD 批（2026-11-12）：输入防抖 —— 逐键触发全量过滤时，连续输入会排成一串
         # 重建（改前单次 1.1 s，输入 5 个字就是 5 秒卡顿）。这里把"停止输入 200 ms
         # 后"合并成一次过滤；回车/清空/筛选项切换仍走立即刷新（refresh_list 本体不变）。
@@ -896,7 +906,11 @@ class MainWindow(QMainWindow):
 
         btn_reset = QPushButton("重置筛选")
         btn_reset.setObjectName("Ghost")
+        # AE 批：作用范围一次说清（此前无 tooltip，用户不知道它连不清搜索词/树选中）
+        btn_reset.setToolTip("一次清干净：搜索词 + 5 个下拉 + 只看收藏/只看已验证\n"
+                             "左侧分类树选中也会回到【全部命令】")
         btn_reset.clicked.connect(self.reset_filters)
+        self.btn_reset = btn_reset          # 冒烟/截图引用
 
         self.lbl_count = QLabel("共 0 条")
         self.lbl_count.setObjectName("CountBadge")     # 徽章样式，右侧留 16px 安全边距
@@ -1811,6 +1825,12 @@ class MainWindow(QMainWindow):
         # ★ 不再 resizeColumnToContents(0)：第 0 列已设为 Stretch（见 _build_ui），
         #   自动撑满并让计数列贴住右边缘
 
+        # AE 批：树是整棵重建的（clear 会把选中态一起丢掉），重建后按当前过滤链
+        # 重新点亮对应节点 —— 否则「编辑保存 / 导入刷新」之后树变全无选中，
+        # 而下拉还带着过滤值，两边又对不上。签名清空 = 强制重新点亮。
+        self._tree_sig = None
+        self._sync_tree_selection_from_filters()
+
     def _refresh_stats(self):
         s = self.db.stats()
         # 紧凑文案：左导航 220px 放不下完整分隔符版本（会折行掉字）
@@ -1821,6 +1841,11 @@ class MainWindow(QMainWindow):
 
     def _on_search_text_changed(self, _text):
         """搜索框逐键：只重置防抖计时器，真正过滤在停止输入后跑一次（AD 批）"""
+        # AE 批（2026-11-12）：占位厂商节点是"导航占位"，refresh_list 在它面前会
+        # 直接 return 空列表 + 补充指引 —— 此时用户输入关键字毫无反应（实测症状：
+        # 点过『待补充厂商 → Arista』后再搜 vlan，列表永远是 0 条，看着像搜索坏了）。
+        # 一输入就退出占位态，搜索回到全库语义；详情区由随后的 refresh_list 重绘。
+        self.placeholder_vendor = ""
         self._search_timer.start()
 
     def _flush_search(self):
@@ -1851,6 +1876,8 @@ class MainWindow(QMainWindow):
             self._show_empty_state("该厂商模板待补充", "可在编辑器中新建条目（Ctrl+N）补充")
             self._refresh_stats()
             self.show_placeholder_vendor(self.placeholder_vendor)
+            self._tree_sig = None
+            self._sync_tree_selection_from_filters()
             return
         self.entries_in_view = self.db.search(
             keyword=keyword,
@@ -1878,6 +1905,9 @@ class MainWindow(QMainWindow):
 
         self.lbl_count.setText("共 %d 条" % len(self.entries_in_view))
         self._refresh_stats()
+        # AE 批：下拉/开关也能改变过滤链 —— 树高亮每轮都按当前四维过滤重新投影，
+        # 避免"树停在『全部命令』、列表却只剩 8 条"这种各说各话。
+        self._sync_tree_selection_from_filters()
 
         # 选中项自动恢复
         if self.entries_in_view:
@@ -1900,11 +1930,25 @@ class MainWindow(QMainWindow):
                     "从『文件 → 导入命令库 (.nlb)』导入，或按『帮助 → 首次启动提示』\n"
                     "导入随程序发布的内置种子库（11 个厂商）。")
             else:
-                self._show_empty_state(
-                    "没有匹配的命令",
-                    "换个关键字，或重置筛选条件再试")
+                # AE 批（2026-11-12）：空结果不再只说"换个关键字"——
+                #   ① 把当前生效的条件逐项列出来（用户才知道是哪一个条件把结果压没了）；
+                #   ② 没有搜索词时不说"换个关键字"（原来只有下拉/开关过滤时这句是误导）；
+                #   ③ 清除入口就是空态页那个『重置筛选』按钮，文案点名。
+                summary = self._filter_summary()
+                kw = self.ed_search.text().strip()
+                if kw:
+                    body = ("搜索『%s』%s没有命中。\n换个关键字，或点下方『重置筛选』清除全部条件。"
+                            % (kw, ("（当前条件：%s）" % summary) if summary else ""))
+                elif summary:
+                    body = ("当前筛选条件把结果筛空了：%s\n点下方『重置筛选』清除全部条件。"
+                            % summary)
+                else:
+                    body = "换个关键字，或点下方『重置筛选』清除全部条件。"
+                self._show_empty_state("没有匹配的命令", body)
             # 注：占位厂商的情形在本函数开头已提前 return，这里不必再判一次
-            self.show_empty_detail("没有匹配的条目，换个关键字或重置筛选试试。")
+            # AE 批：详情区的空态文案与列表区空态页同源，避免"左边说条件筛空了、
+            # 右边还在说换个关键字"两套说法。
+            self.show_empty_detail(self.lbl_empty_body.text())
 
     def show_placeholder_vendor(self, vendor_slug):
         """选中"待补充厂商"节点：列表清空 + 详情区给出明确的补充指引"""
@@ -1936,6 +1980,100 @@ class MainWindow(QMainWindow):
             parts.append("骨架：CLI 骨架——待真机核对，复制执行前须验证")
         return "\n".join(parts)
 
+    def _filter_summary(self):
+        """
+        当前生效过滤条件的一句话概览（AE 批 2026-11-12）。
+
+        空结果页与状态栏共用：用户看到 0 条时，得知道是**哪一个**条件把结果压没的。
+        只算"过滤链"（平台/设备/厂商/OS/场景/两个开关），搜索词由调用方单独说，
+        避免同一句话里重复出现关键字。
+        """
+        parts = []
+        platform = self.cmb_platform.currentData()
+        if platform:
+            parts.append("平台『%s』" % display_platform(platform))
+        for cmb, label in ((self.cmb_device, "设备"), (self.cmb_vendor, "厂商"),
+                           (self.cmb_os, "OS"), (self.cmb_cat, "场景")):
+            value = cmb.currentData()
+            if value:
+                if label == "厂商":
+                    value = display_vendor(value)
+                elif label == "OS":
+                    value = display_os(value)
+                parts.append("%s『%s』" % (label, value))
+        if self.tgl_fav.isChecked():
+            parts.append("只看收藏")
+        if self.tgl_verified.isChecked():
+            parts.append("只看已验证")
+        if self.placeholder_vendor:
+            parts.append("待补充厂商『%s』" % display_vendor(self.placeholder_vendor))
+        return " · ".join(parts)
+
+    # 左侧树能表达的四个维度（场景下拉不在树里，属独立维度）
+    _TREE_FILTER_KEYS = ("platform", "device_type", "vendor", "os_family")
+
+    def _tree_items(self):
+        """深度优先遍历左侧树全部节点（含根）"""
+        for i in range(self.tree.topLevelItemCount()):
+            yield from self._walk_item(self.tree.topLevelItem(i))
+
+    def _walk_item(self, item):
+        yield item
+        for i in range(item.childCount()):
+            yield from self._walk_item(item.child(i))
+
+    def _sync_tree_selection_from_filters(self):
+        """
+        让左侧树的选中态 = 当前过滤链的投影（AE 批 2026-11-12）。
+
+        改前的两种"树在撒谎"：
+          ① 点『重置筛选』后列表回到 497 条，但树仍高亮『华为 VRP5』——
+             用户看到"我明明在华为下面，怎么冒出 497 条"；
+          ② 用下拉/占位节点改变过滤后，树高亮停在旧位置（下拉与树各说各话）。
+        修法：按"节点 data 与本轮四维过滤完全相等"找唯一节点；找不到就清掉选中
+        （宁可没有高亮，也不留一个错的高亮）。『全部命令』节点 data 为 None，
+        对应"四维全空"。
+        """
+        active = {}
+        for key, cmb in (("platform", self.cmb_platform), ("device_type", self.cmb_device),
+                         ("vendor", self.cmb_vendor), ("os_family", self.cmb_os)):
+            value = cmb.currentData() or ""
+            if value:
+                active[key] = value
+        # AE 批：过滤链没变就不必再走一遍树（refresh_list 每键都会调到这里，
+        # 497 条场景下逐节点比对虽只有零点几毫秒，但没必要白付）。树被整棵重建
+        # 时（_refresh_tree）会把签名清空，强制下一轮重新点亮。
+        signature = (self.placeholder_vendor,
+                     tuple(sorted(active.items())))
+        if signature == getattr(self, "_tree_sig", None):
+            return
+        self._tree_sig = signature
+        target = None
+        if self.placeholder_vendor:
+            for item in self._tree_items():
+                data = item.data(0, Qt.UserRole)
+                if isinstance(data, dict) \
+                        and data.get("placeholder_vendor") == self.placeholder_vendor:
+                    target = item
+                    break
+        else:
+            for item in self._tree_items():
+                data = item.data(0, Qt.UserRole)
+                if isinstance(data, dict) and ("placeholder_vendor" in data
+                                               or "placeholder_root" in data):
+                    continue
+                spec = {}
+                if isinstance(data, dict):
+                    spec = {k: data[k] for k in self._TREE_FILTER_KEYS if data.get(k)}
+                if spec == active:
+                    target = item
+                    break
+        if target is not None:
+            self.tree.setCurrentItem(target)
+        else:
+            self.tree.clearSelection()
+            self.tree.setCurrentItem(None)
+
     def reset_filters(self):
         """清空搜索与过滤链（统一 blockSignals，避免中途反复重查）"""
         widgets = (self.ed_search, self.cmb_platform, self.cmb_device, self.cmb_vendor,
@@ -1951,7 +2089,11 @@ class MainWindow(QMainWindow):
         self.tgl_verified.setChecked(False)
         for widget in widgets:
             widget.blockSignals(False)
-        self.refresh_list()
+        # AE 批：丢掉防抖计时器的残留 —— 否则键入后 200ms 内点重置，旧定时器还会
+        # 再跑一次 refresh_list（结果相同但白跑一次全量过滤）
+        if getattr(self, "_search_timer", None) is not None:
+            self._search_timer.stop()
+        self.refresh_list()      # 内部会按当前过滤链同步树高亮（AE 批）
         self.statusBar().showMessage("筛选条件已重置。")
 
     def focus_search(self):
@@ -1979,6 +2121,10 @@ class MainWindow(QMainWindow):
             self._clear_combo(self.cmb_device)
             self._clear_combo(self.cmb_vendor)
             self._clear_combo(self.cmb_os)
+            # AE 批：『全部命令』要真的是全部 —— 改前不清场景下拉，树高亮『全部命令』
+            # 而列表还是场景过滤后的子集（树在撒谎）。场景不属于树维度，这里按
+            # 字面语义一并清掉；搜索词不动（搜索框自己可见，用户看得见为什么变少）。
+            self._clear_combo(self.cmb_cat)
             self.refresh_list()
             return
 
@@ -2278,6 +2424,17 @@ class MainWindow(QMainWindow):
                 self._param_last_width = width
                 if self.tbl_params.isVisible() and self.tbl_params.rowCount() > 0:
                     self._schedule_param_recalc()
+        # AE 批（2026-11-12）：搜索框内按 ESC —— 有词就清空并立即刷新，
+        # 已经是空的就把焦点还给列表（这是"退出搜索"的通用手感）。
+        # 改前 ESC 在搜索框里完全没反应，用户以为卡住了。
+        if obj is getattr(self, "ed_search", None) and event.type() == QEvent.KeyPress \
+                and event.key() == Qt.Key_Escape:
+            if self.ed_search.text():
+                self.ed_search.clear()      # 触发 textChanged → 防抖
+                self._flush_search()        # 但清空要立刻见效，不等 200ms
+            else:
+                self.list_entries.setFocus()
+            return True
         return super(MainWindow, self).eventFilter(obj, event)
 
     def _toggle_param_panel(self, checked):

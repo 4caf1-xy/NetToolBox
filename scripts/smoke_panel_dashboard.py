@@ -614,6 +614,235 @@ def case_f():
         teardown_state_dir(theme, tmpdir, orig)
 
 
+def case_g():
+    """
+    [G] 搜索逻辑回归（AE 批 2026-11-12）
+
+    绑定的是 AE 批定下的语义，不是旧行为：
+        G1 空格分词 = AND（改前整串 LIKE，多词几乎必然 0 条）
+        G2 全角/半角等价（NFKC）
+        G3 大小写不敏感（SQLite LIKE 默认，防回归）
+        G4/G5 params / rollback 纳进检索范围
+        G6 重置筛选后树高亮回到『全部命令』
+        G7 下拉改变过滤后树不再保留错误高亮
+        G8 ESC 清空搜索框并立即生效
+        G9 占位厂商态下输入关键字能回到全库搜索
+        G10 空结果页列出当前过滤条件，且无关键字时不说"换个关键字"
+        G11 防抖常量 + 逐键耗时上限（AD 批口径）
+        G12 Ctrl+F 聚焦搜索框
+    """
+    import re
+    import time
+    from PyQt5.QtWidgets import QApplication
+    from PyQt5.QtCore import Qt
+    from PyQt5.QtTest import QTest
+    app = QApplication.instance() or QApplication(sys.argv)
+    import ui_main
+    theme, tmpdir, orig = setup_state_dir()
+    try:
+        db = seeded_db()
+        w = ui_main.MainWindow(db)
+        w.resize(1400, 880)
+        w.show()
+        for _ in range(6):
+            app.processEvents()
+
+        def flush(text):
+            """跳过 200ms 防抖，直接按"回车"路径落地（与 _flush_search 同一条链）"""
+            w.ed_search.setText(text)
+            w._flush_search()
+            app.processEvents()
+
+        def uuids():
+            return set(e["uuid"] for e in w.entries_in_view)
+
+        def tree_label():
+            item = w.tree.currentItem()
+            return item.text(0) if item is not None else ""
+
+        # ---- G1 空格 = AND ----
+        flush("华为")
+        only_vendor = uuids()
+        flush("链路聚合")
+        only_cat = uuids()
+        flush("华为 链路聚合")
+        both = uuids()
+        check("G1/分词-多词有结果", len(both) > 0, "华为∧链路聚合=%d" % len(both))
+        check("G1/分词-是交集", both <= (only_vendor & only_cat)
+              and both == (only_vendor & only_cat),
+              "%d vs %d" % (len(both), len(only_vendor & only_cat)))
+
+        # ---- G2 全角 = 半角 ----
+        flush("VLAN")
+        half = len(w.entries_in_view)
+        flush("ＶＬＡＮ")
+        check("G2/全角等价", half > 0 and len(w.entries_in_view) == half,
+              "半角=%d 全角=%d" % (half, len(w.entries_in_view)))
+
+        # ---- G3 大小写不敏感 ----
+        flush("vlan")
+        check("G3/大小写不敏感", len(w.entries_in_view) == half,
+              "小写=%d 大写=%d" % (len(w.entries_in_view), half))
+
+        # ---- G4/G5 params、rollback 可搜 ----
+        def column_only_token(field):
+            """找一段只出现在该字段（同一条目内其它字段都没有）的片段"""
+            for entry in db.search():
+                text = entry.get(field) or ""
+                if not isinstance(text, str):
+                    continue
+                for cand in re.findall(r"[0-9A-Za-z_\-\./]{5,}", text):
+                    others = "".join(str(entry.get(k) or "") for k in
+                                     ("title", "description", "commands", "notes",
+                                      "models", "category")).lower()
+                    if cand.lower() not in others:
+                        return cand
+            return None
+
+        tok = column_only_token("params")
+        flush(tok or "v3_group")
+        check("G4/params可搜", bool(tok) and len(w.entries_in_view) >= 1,
+              "token=%s 命中=%d" % (tok, len(w.entries_in_view)))
+        tok_rb = column_only_token("rollback")
+        flush(tok_rb or "回退")
+        check("G5/rollback可搜", bool(tok_rb) and len(w.entries_in_view) >= 1,
+              "token=%s 命中=%d" % (tok_rb, len(w.entries_in_view)))
+
+        # ---- G6 重置后树高亮归位 ----
+        flush("")
+        huawei_os = None
+        for i in range(w.tree.topLevelItemCount()):
+            top = w.tree.topLevelItem(i)
+            if top.text(0) == "网络设备":
+                for j in range(top.childCount()):
+                    dt = top.child(j)
+                    if dt.text(0) == "交换机":
+                        for k in range(dt.childCount()):
+                            vd = dt.child(k)
+                            if vd.text(0) == "华为":
+                                huawei_os = vd.child(0)
+                                break
+        check("G6/前置-找到华为节点", huawei_os is not None, "")
+        if huawei_os is not None:
+            w.tree.setCurrentItem(huawei_os)
+            w.on_tree_clicked(huawei_os, 0)
+            app.processEvents()
+            before = len(w.entries_in_view)
+            w.reset_filters()
+            app.processEvents()
+            check("G6/重置-树回全部命令", tree_label() == "全部命令",
+                  "树=%s 重置前=%d 重置后=%d" % (tree_label(), before,
+                                                len(w.entries_in_view)))
+            check("G6/重置-列表回全库", len(w.entries_in_view) == db.count(),
+                  "%d/%d" % (len(w.entries_in_view), db.count()))
+
+        # ---- G7 下拉改变后树不得残留错误高亮 ----
+        w.reset_filters()
+        idx = w.cmb_vendor.findData("huawei")
+        w.cmb_vendor.setCurrentIndex(idx)
+        app.processEvents()
+        check("G7/树高亮-不撒谎", tree_label() in ("", "全部命令")
+              or "华为" in tree_label() and w.cmb_device.currentData() == "交换机",
+              "树=%s 厂商=%s" % (tree_label(), w.cmb_vendor.currentData()))
+        check("G7/树高亮-与列表一致",
+              tree_label() != "全部命令" or len(w.entries_in_view) == db.count(),
+              "树=%s 条数=%d" % (tree_label(), len(w.entries_in_view)))
+
+        # ---- G8 ESC 清空 ----
+        w.reset_filters()
+        w.ed_search.setText("vlan")
+        w._flush_search()
+        app.processEvents()
+        w.ed_search.setFocus()
+        QTest.keyClick(w.ed_search, Qt.Key_Escape)
+        app.processEvents()
+        check("G8/ESC清空", w.ed_search.text() == ""
+              and len(w.entries_in_view) == db.count(),
+              "文本=%r 条数=%d" % (w.ed_search.text(), len(w.entries_in_view)))
+
+        # ---- G9 占位厂商后输入即恢复 ----
+        ph = None
+        for i in range(w.tree.topLevelItemCount()):
+            top = w.tree.topLevelItem(i)
+            if top.text(0) == "待补充厂商" and top.childCount():
+                ph = top.child(0)
+                break
+        check("G9/前置-有占位厂商", ph is not None, "")
+        if ph is not None:
+            w.tree.setCurrentItem(ph)
+            w.on_tree_clicked(ph, 0)
+            app.processEvents()
+            empty_cnt = len(w.entries_in_view)
+            flush("vlan")
+            check("G9/占位中搜索-恢复", empty_cnt == 0 and len(w.entries_in_view) > 0,
+                  "占位=%d 搜索后=%d" % (empty_cnt, len(w.entries_in_view)))
+
+        # ---- G10 空态：条件概览 + 文案不误导 ----
+        w.reset_filters()
+        w.cmb_device.setCurrentIndex(w.cmb_device.findData("防火墙"))
+        w.cmb_vendor.setCurrentIndex(w.cmb_vendor.findData("cisco"))
+        app.processEvents()
+        body = w.lbl_empty_body.text()
+        check("G10/空态-列条件", len(w.entries_in_view) == 0
+              and "当前筛选条件" in body and "防火墙" in body and "Cisco" in body, body[:40])
+        check("G10/空态-无词不说换个关键字", "换个关键字" not in body, body[:40])
+
+        # ---- G11 防抖常量 + 逐键不触发过滤 + 逐键处理耗时（AD 批口径）----
+        w.reset_filters()
+        check("G11/防抖常量", ui_main.SEARCH_DEBOUNCE_MS == 200
+              and w._search_timer.interval() == 200
+              and w._search_timer.isSingleShot(), str(w._search_timer.interval()))
+        before_uuid = [e["uuid"] for e in w.entries_in_view]
+        w.ed_search.setText("vlan")
+        app.processEvents()                 # 只跑一轮事件循环，不等 200ms
+        check("G11/键入不立即过滤", w._search_timer.isActive()
+              and [e["uuid"] for e in w.entries_in_view] == before_uuid, "")
+        # 逐键只重置定时器：处理函数本体（稳定口径）+ 真实按键往返（含事件派发）
+        n = 50
+        t0 = time.perf_counter()
+        for _ in range(n):
+            w._on_search_text_changed("x")
+        per_key = (time.perf_counter() - t0) * 1000 / n
+        check("G11/逐键处理≤2.2ms", per_key <= 2.2, "%.3fms/键" % per_key)
+        w._search_timer.stop()
+        w.ed_search.setText("")
+        QTest.qWait(0)                       # 预热（首次事件循环启动成本不计口径）
+        lat = []
+        for ch in "防火墙二层":
+            t0 = time.perf_counter()
+            w.ed_search.setText(w.ed_search.text() + ch)
+            QTest.qWait(0)
+            lat.append((time.perf_counter() - t0) * 1000)
+        lat.sort()
+        median = lat[len(lat) // 2]
+        check("G11/逐键往返中位≤2.2ms", median <= 2.2,
+              "中位=%.2fms max=%.2fms" % (median, lat[-1]))
+        # 全库口径：清空关键字再量（497 条全量重建才是 AD 批那条基线）
+        w._search_timer.stop()
+        w.ed_search.blockSignals(True)
+        w.ed_search.clear()
+        w.ed_search.blockSignals(False)
+        best = None
+        for _ in range(3):
+            t0 = time.perf_counter()
+            w.refresh_list()
+            dt = (time.perf_counter() - t0) * 1000
+            best = dt if best is None else min(best, dt)
+        check("G11/全库过滤不劣化", best <= 40.0 and len(w.entries_in_view) == db.count(),
+              "min=%.1fms 条数=%d" % (best, len(w.entries_in_view)))
+
+        # ---- G12 Ctrl+F ----
+        w.list_entries.setFocus()
+        app.processEvents()
+        QTest.keyClick(w, Qt.Key_F, Qt.ControlModifier)
+        app.processEvents()
+        check("G12/Ctrl+F聚焦搜索框", w.ed_search.hasFocus(), "")
+
+        w.deleteLater()
+    finally:
+        teardown_state_dir(theme, tmpdir, orig)
+
+
 def main():
     print("=" * 66)
     print("NetToolBox Ctrl+K 面板 / 最近使用 / 仪表盘 / B14 回归")
@@ -624,6 +853,7 @@ def main():
     case_d()
     case_e()
     case_f()
+    case_g()
     print("-" * 66)
     fails = [r for r in RESULTS if not r[1]]
     for name, ok, detail in RESULTS:

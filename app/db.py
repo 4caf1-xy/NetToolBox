@@ -22,6 +22,7 @@ import uuid
 import shutil
 import sqlite3
 import datetime
+import unicodedata
 
 import dedupe
 
@@ -61,6 +62,15 @@ EDITABLE_FIELDS = [
 # 验证状态四字段：只经真机回填流程（mark_verified）产生，导入一律不采纳
 # （P1-2 裁决 2026-10-08，见 docs/seed-guide.md 与 docs/audit/20261008-full-audit.md）
 VERIFY_FIELDS = ("verified", "verified_by", "verified_model", "verified_date")
+
+# 关键字检索覆盖的字段（AE 批 2026-11-12）
+#   · 顺序即"命中权重"的语义顺序（标题 > 描述 > 命令 > 备注 > 型号 > 场景 > 厂商 > OS
+#     > 参数 > 回退方案），排序暂未按权重做，但字段清单以本常量为唯一事实源；
+#   · params / rollback 是 AE 批补入的：参数说明与回退方案在详情页看得见，
+#     搜索就必须搜得到（改前只搜前 8 个字段，参数名/回退命令一律漏命中）；
+#   · 老库缺列时由 search() 用 has_column 过滤，不会拼出非法 SQL。
+SEARCH_FIELDS = ("title", "description", "commands", "notes", "models",
+                 "category", "vendor", "os_family", "params", "rollback")
 
 # 会话状态字段全组：验证会/界面交互产生并拥有的状态，种子导入一律禁写
 # （导入护栏 2026-10-12：09:27 种子导入把 notes/exec_level 覆盖——P1-2 只保
@@ -315,6 +325,22 @@ def new_uuid():
     return str(uuid.uuid4())
 
 
+def split_search_terms(keyword):
+    """
+    搜索词归一化 + 切成 AND 分词（AE 批 2026-11-12）
+
+    改前行为：整串当一个 LIKE 模式（"华为 链路聚合" 要求库里存在这 9 个字连写的
+    子串），所以多关键词搜索几乎必然 0 条 —— 用户眼里就是"搜索坏了"。
+    改后：按空白切成多个 token，token 之间 AND、单 token 内仍是"命中任一字段即可"。
+
+    归一化只做 NFKC（全角字母/数字/标点 → 半角，全角空格 → 空格）：
+    中文输入法下敲出 "ＶＬＡＮ" 属于高频手误，库内存的半角值应当能命中。
+    返回 token 列表（已去空），空搜索返回 []。
+    """
+    norm = unicodedata.normalize("NFKC", keyword or "")
+    return [term for term in norm.split() if term]
+
+
 def cmp_value(value):
     """
     把字段值归一化成可比较的字符串。
@@ -527,6 +553,7 @@ class Database(object):
         self.pending_import = {}                              # 上次导入时未处理的三库数组计数
         self.missing_tables = []                              # 只读库缺失的表（供 UI 显示精准指引）
         self.missing_columns = []                             # 只读库缺失的列（v1 老库：platform 等）
+        self._kw_fields = None                                # 关键字检索可用列（懒探测，见 search）
 
         # 先判断文件层可写性：只读库文件必须以只读方式打开，
         # 否则建表语句会抛 "attempt to write a readonly database"，导致程序根本起不来。
@@ -1019,28 +1046,50 @@ class Database(object):
         """
         return ("%s.%s" % (table, field)) not in self.missing_columns
 
+    def _search_columns(self):
+        """
+        关键字检索实际可用的列（AE 批 2026-11-12）。
+
+        SEARCH_FIELDS 是"想搜的列"，但真实库可能是只读的 v1 老库 —— 这种库连
+        params / rollback 都未必有，直接拼进 SQL 会 "no such column" 崩在搜索框上。
+        这里按 PRAGMA 实测列裁剪一次并缓存（每个 Database 实例只探一次）。
+        """
+        if self._kw_fields is None:
+            try:
+                have = {row["name"] for row in
+                        self.conn.execute("PRAGMA table_info(entries)").fetchall()}
+            except sqlite3.Error:
+                have = set(SEARCH_FIELDS)
+            self._kw_fields = [f for f in SEARCH_FIELDS if f in have] or ["title"]
+        return self._kw_fields
+
     def search(self, keyword="", platform=None, device_type=None, vendor=None,
                os_family=None, category=None, duration=None,
                favorite_only=False, verified_only=False):
         """
-        组合搜索：关键字（标题/描述/命令/备注/型号/场景）+ 多维过滤链。
+        组合搜索：关键字（SEARCH_FIELDS 十字段）+ 多维过滤链。
         排序：收藏优先 → 已验证优先 → 最近更新 → 标题。
         使用 LIKE ESCAPE 兜底，不依赖 FTS5，中文关键字可直接命中。
+
+        关键字语义（AE 批 2026-11-12 修订，见 split_search_terms）：
+            · 空格分隔 = AND：每个 token 都要在**某个**字段命中
+              （"华为 链路聚合" = 命中华为 且 命中链路聚合）；
+            · 单 token 内部仍是"十字段任一命中"（OR），不做列限定；
+            · 全角输入经 NFKC 归一化后参与匹配（ＶＬＡＮ → VLAN）。
+
         维度参数支持传 slug 或老的显示名（内部统一归一化后比较）。
         """
         sql = ["SELECT * FROM entries WHERE 1 = 1"]
         args = []
 
-        kw = (keyword or "").strip()
-        if kw:
-            like = "%" + self._escape_like(kw) + "%"
-            sql.append(
-                "AND (title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' "
-                "OR commands LIKE ? ESCAPE '\\' OR notes LIKE ? ESCAPE '\\' "
-                "OR models LIKE ? ESCAPE '\\' OR category LIKE ? ESCAPE '\\' "
-                "OR vendor LIKE ? ESCAPE '\\' OR os_family LIKE ? ESCAPE '\\')"
-            )
-            args.extend([like] * 8)
+        terms = split_search_terms(keyword)
+        if terms:
+            fields = self._search_columns()
+            for term in terms:
+                like = "%" + self._escape_like(term) + "%"
+                sql.append("AND (" + " OR ".join(
+                    "%s LIKE ? ESCAPE '\\'" % field for field in fields) + ")")
+                args.extend([like] * len(fields))
 
         if platform:
             platform_slug = normalize_platform(platform)
