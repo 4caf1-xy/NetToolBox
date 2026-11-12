@@ -23,6 +23,7 @@ import shutil
 import sqlite3
 import datetime
 import unicodedata
+from functools import lru_cache
 
 import dedupe
 
@@ -71,6 +72,15 @@ VERIFY_FIELDS = ("verified", "verified_by", "verified_model", "verified_date")
 #   · 老库缺列时由 search() 用 has_column 过滤，不会拼出非法 SQL。
 SEARCH_FIELDS = ("title", "description", "commands", "notes", "models",
                  "category", "vendor", "os_family", "params", "rollback")
+
+# 命中字段的中文标注（AF 批 2026-11-12，命令详情页「命中：…」行）
+#   · 键必须与 SEARCH_FIELDS 同名，顺序无关（展示顺序由调用方按 SEARCH_FIELDS 走）；
+#   · rollback 不叫"回滚"：界面上这个 Tab 一直叫「回退方案」，标注跟随界面用语。
+SEARCH_FIELD_LABELS = {
+    "title": "标题", "description": "描述", "commands": "命令", "notes": "备注",
+    "models": "型号", "category": "场景", "vendor": "厂商", "os_family": "OS",
+    "params": "参数", "rollback": "回退方案",
+}
 
 # 会话状态字段全组：验证会/界面交互产生并拥有的状态，种子导入一律禁写
 # （导入护栏 2026-10-12：09:27 种子导入把 notes/exec_level 覆盖——P1-2 只保
@@ -341,6 +351,73 @@ def split_search_terms(keyword):
     return [term for term in norm.split() if term]
 
 
+# ---------------------------------------------------------------------------
+# params 的「值域」投影（AF 批 2026-11-12，P5 反向）
+# ---------------------------------------------------------------------------
+# 背景：params 在库里是 JSON 文本（[{"name":…, "example":…, "description":…}]）。
+# 旧行为把整段 JSON 丢给 LIKE，于是**键名**也进了检索范围 —— name/label/default/
+# type/required/example/description 这些键全库同名，实测搜 example 命中 387 条
+# （全库 497 条），用户真正想找的"哪个参数默认值是 4094"被埋在噪声里。
+# 现在只让"值域"参与匹配：递归取标量叶子（字符串/数字），对象只取值不取键。
+# ★ SQL 侧（ntb_params_text）与详情页「命中：参数」标注都调用本函数 —— 同一实现，
+#   不会出现"搜不到却在详情页标命中"的自相矛盾。
+_PARAM_SKIP_TYPES = (bool, type(None))     # true/false/null 不承载检索信息
+
+
+def _collect_param_values(node, out):
+    """递归收集 params 结构里的标量值（键名一律跳过）"""
+    if isinstance(node, dict):
+        for value in node.values():        # 只取值 —— 键名不参与
+            _collect_param_values(value, out)
+        return
+    if isinstance(node, (list, tuple)):
+        for value in node:
+            _collect_param_values(value, out)
+        return
+    if isinstance(node, _PARAM_SKIP_TYPES):
+        return
+    if isinstance(node, (int, float)):
+        out.append(str(node))
+        return
+    if isinstance(node, str):
+        out.append(node)
+
+
+@lru_cache(maxsize=4096)
+def _params_value_text_cached(raw):
+    """按 JSON 原文缓存投影结果（497 条全库扫描时每条只解析一次）"""
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return raw                          # 历史脏数据不是 JSON：整段当值域（不比改前更差）
+    out = []
+    _collect_param_values(data, out)
+    return "\n".join(out)
+
+
+def params_value_text(raw):
+    """
+    params 字段的检索文本 = 值域（含嵌套数组/对象里的标量值），不含 JSON 键名。
+
+    入参可以是 JSON 字符串、list/dict（种子导入未序列化时）或空值；
+    解析失败时整段原文当值域 —— 宁可比改前多搜到一点，也不要静默丢内容。
+    """
+    if isinstance(raw, (list, dict)):
+        raw = json.dumps(raw, ensure_ascii=False)
+    if not isinstance(raw, str) or not raw.strip():
+        return ""
+    return _params_value_text_cached(raw)
+
+
+def field_search_text(field, value):
+    """某字段参与检索的文本（params 走值域投影，其余按原文）"""
+    if field == "params":
+        return params_value_text(value)
+    if value is None:
+        return ""
+    return value if isinstance(value, str) else str(value)
+
+
 def cmp_value(value):
     """
     把字段值归一化成可比较的字符串。
@@ -568,6 +645,10 @@ class Database(object):
                     "把它拷到程序同目录即可直接使用。" % self.db_path)
 
         self._connect()
+        # AF 批 2026-11-12：params 的值域投影注册为 SQL 函数（register 只作用于本连接，
+        # 不写库，只读介质同样可用）。SQL 侧与 Python 侧共用 params_value_text ——
+        # 保证「搜得到的」与详情页「命中：参数」标注永远一致。
+        self.conn.create_function("ntb_params_text", 1, params_value_text)
         if self.file_readonly:
             self.readonly = True
             # 只读库不做 DDL（只能读不能写），所以遍历全部 5 张表做一次结构校验：
@@ -1063,6 +1144,18 @@ class Database(object):
             self._kw_fields = [f for f in SEARCH_FIELDS if f in have] or ["title"]
         return self._kw_fields
 
+    @staticmethod
+    def _field_expr(field):
+        """
+        字段 → SQL 里参与 LIKE 的表达式（AF 批 2026-11-12）。
+
+        params 走值域投影函数，其余字段就是列名本身。这里是 P5 唯一的 SQL 入口 ——
+        改口径只改这一处，search() 与 match_fields() 自动同步。
+        """
+        if field == "params":
+            return "ntb_params_text(params)"
+        return field
+
     def search(self, keyword="", platform=None, device_type=None, vendor=None,
                os_family=None, category=None, duration=None,
                favorite_only=False, verified_only=False):
@@ -1077,6 +1170,10 @@ class Database(object):
             · 单 token 内部仍是"十字段任一命中"（OR），不做列限定；
             · 全角输入经 NFKC 归一化后参与匹配（ＶＬＡＮ → VLAN）。
 
+        params 字段（AF 批 2026-11-12，P5 反向）：只搜**值域**，不搜 JSON 键名 ——
+        见 _field_expr / params_value_text。实测 497 条库上搜 example 由 387 条降到 5
+        条（残留都是 example.com 这类真实参数值），搜参数值（如 1-4094）召回不变。
+
         维度参数支持传 slug 或老的显示名（内部统一归一化后比较）。
         """
         sql = ["SELECT * FROM entries WHERE 1 = 1"]
@@ -1084,12 +1181,12 @@ class Database(object):
 
         terms = split_search_terms(keyword)
         if terms:
-            fields = self._search_columns()
+            exprs = [self._field_expr(f) for f in self._search_columns()]
             for term in terms:
                 like = "%" + self._escape_like(term) + "%"
                 sql.append("AND (" + " OR ".join(
-                    "%s LIKE ? ESCAPE '\\'" % field for field in fields) + ")")
-                args.extend([like] * len(fields))
+                    "%s LIKE ? ESCAPE '\\'" % expr for expr in exprs) + ")")
+                args.extend([like] * len(exprs))
 
         if platform:
             platform_slug = normalize_platform(platform)
@@ -1130,6 +1227,33 @@ class Database(object):
     def all_entries(self):
         """全部条目（导出用）"""
         return self.search()
+
+    def match_fields(self, entry, keyword=""):
+        """
+        该条目在给定关键字下**实际命中**的字段（AF 批 2026-11-12，P1-B）。
+
+        详情页「命中：标题 · 命令」这行标注的数据来源就是这里 —— 复用 search()
+        的字段判定口径，不做第二套全文匹配，否则两边一定会走偏：
+          · 同一套 split_search_terms（NFKC + 空白分词，AND 语义）；
+          · 同一份 SEARCH_FIELDS（并按只读老库实测列裁剪，见 _search_columns）；
+          · params 同样只取值域（params_value_text）—— 否则会出现"搜 example
+            命中 0 条，详情页却标『命中：参数』"的自相矛盾。
+        单字段判定 = 该字段文本含**任一** token：搜索 "华为 链路聚合" 时 华为 命中
+        厂商、链路聚合 命中标题，两个字段都该标出来（每个 token 只要求"某字段命中"）。
+        返回值按 SEARCH_FIELDS 的顺序，便于界面稳定展示。
+        """
+        terms = split_search_terms(keyword)
+        if not terms or not entry:
+            return []
+        hits = []
+        for field in self._search_columns():
+            text = field_search_text(field, entry.get(field))
+            if not text:
+                continue
+            lowered = text.lower()          # 与 SQLite LIKE 的 ASCII 大小写不敏感对齐
+            if any(term.lower() in lowered for term in terms):
+                hits.append(field)
+        return hits
 
     def count(self):
         """条目总数"""

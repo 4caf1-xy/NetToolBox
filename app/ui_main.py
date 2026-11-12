@@ -1377,6 +1377,13 @@ class MainWindow(QMainWindow):
         self.lbl_meta.setObjectName("DetailMeta")
         self.lbl_meta.setWordWrap(True)
 
+        # AF 批（2026-11-12，P1-B）：命中字段标注 —— 有搜索词且本条目确实命中时
+        # 才出现的一行轻量说明（「命中：标题 · 命令」），无搜索词时整行不占位。
+        self.lbl_match = QLabel("")
+        self.lbl_match.setObjectName("MatchHint")
+        self.lbl_match.setWordWrap(True)
+        self.lbl_match.setVisible(False)
+
         # ---- 组1：主操作（复制）----
         self.btn_copy_all = QPushButton("复制全部")
         self.btn_copy_all.setObjectName("Primary")
@@ -1584,6 +1591,7 @@ class MainWindow(QMainWindow):
         rv.setSpacing(SPACE_SM)
         rv.addLayout(title_row)
         rv.addWidget(self.lbl_meta)
+        rv.addWidget(self.lbl_match)
         rv.addLayout(btns)
         rv.addLayout(btns_tools)
 
@@ -1692,18 +1700,24 @@ class MainWindow(QMainWindow):
         self.cmb_platform.setCurrentIndex(idx if idx >= 0 else 0)
         self.cmb_platform.blockSignals(False)
 
-    def _tree_counts(self):
+    def _tree_counts(self, entries=None):
         """
         一次遍历算出左侧树各节点的条目数（P-F：厂商/设备/OS 后附灰色小计数）。
 
-        ★ 用 all_entries() 一次性取回、在内存里聚合，而不是每个节点查一次库：
+        ★ 用一次性取回、在内存里聚合，而不是每个节点查一次库：
           树有几十个节点，逐个 search 会把每次刷新都拖慢；本地库全部条目也就几百条。
+
+        AF 批（2026-11-12，P3）：entries 传"当前过滤结果"时算的是**投影计数**——
+        refresh_list 直接把 self.entries_in_view 递进来，树计数就跟着搜索词/下拉/
+        开关走，且不额外查一次库。不传则退回全库统计（_refresh_tree 建树时用，
+        保持"无过滤 = 全量计数"的原语义）。
         """
         counts = {}
-        try:
-            entries = self.db.all_entries()
-        except Exception:
-            entries = []
+        if entries is None:
+            try:
+                entries = self.db.all_entries()
+            except Exception:
+                entries = []
         for entry in entries:
             platform = dbmod.normalize_platform(entry.get("platform"))
             vendor = dbmod.normalize_vendor(entry.get("vendor"))
@@ -1721,6 +1735,36 @@ class MainWindow(QMainWindow):
                 counts[key] = counts.get(key, 0) + 1
         return counts
 
+    @staticmethod
+    def _set_tree_count(item, number, always=False):
+        """写左侧树第 2 列计数（0 条时留空，避免满屏"0"；根节点用 always=True 恒显示）"""
+        if number or always:
+            item.setText(1, str(number))
+            item.setForeground(1, QColor(TEXT_MUTED))
+            item.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
+        else:
+            item.setText(1, "")
+
+    def _apply_tree_counts(self, entries):
+        """
+        按"当前过滤结果"刷新左侧树计数（AF 批 2026-11-12，P3）。
+
+        『计数撒谎』的观感：列表只剩 8 条，树上还写着华为 24 —— 用户没法从树判断
+        下一步该点哪儿。这里**不重建树**（重建会丢展开态与选中态），只改第 2 列数字：
+        计数键在建树时已挂在每个节点的 Qt.UserRole + 1 上，遍历改写即可（几十个节点，
+        亚毫秒级）。调用点在 refresh_list 末尾 —— 已经是防抖后一次，不逐帧算。
+        """
+        if not hasattr(self, "tree"):
+            return
+        counts = self._tree_counts(entries)
+        for item in self._tree_items():
+            key = item.data(0, Qt.UserRole + 1)
+            if isinstance(key, list):            # QVariant 往返可能把 tuple 还原成 list
+                key = tuple(key)
+            if not key:
+                continue
+            self._set_tree_count(item, counts.get(key, 0), always=(key == ("total",)))
+
     def _refresh_tree(self):
         """
         左侧树（模块 01/03 规格 + 第 5 轮 P-F）：
@@ -1735,16 +1779,15 @@ class MainWindow(QMainWindow):
         counts = self._tree_counts()
 
         def add_count(item, key):
-            """给节点写第 2 列计数（0 条时留空，避免满屏"0"）"""
-            number = counts.get(key, 0)
-            if number:
-                item.setText(1, str(number))
-                item.setForeground(1, QColor(TEXT_MUTED))
-                item.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
+            """给节点写第 2 列计数，并把计数键挂在节点上（AF 批：过滤时原地改写用）"""
+            item.setData(0, Qt.UserRole + 1, key)
+            self._set_tree_count(item, counts.get(key, 0))
 
         self.tree.clear()
         root_item = QTreeWidgetItem(["全部命令", str(counts.get(("total",), 0))])
         root_item.setData(0, Qt.UserRole, None)
+        # AF 批：根节点也挂计数键 —— 过滤后『全部命令』要显示当前命中数，不是 497
+        root_item.setData(0, Qt.UserRole + 1, ("total",))
         root_item.setForeground(0, QColor(TEXT_PRIMARY))
         root_item.setForeground(1, QColor(TEXT_MUTED))
         root_item.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
@@ -1839,13 +1882,20 @@ class MainWindow(QMainWindow):
         if self.db.readonly:
             self.lbl_stats.setText(self.lbl_stats.text() + "   [只读]")
 
-    def _on_search_text_changed(self, _text):
+    def _on_search_text_changed(self, text):
         """搜索框逐键：只重置防抖计时器，真正过滤在停止输入后跑一次（AD 批）"""
         # AE 批（2026-11-12）：占位厂商节点是"导航占位"，refresh_list 在它面前会
         # 直接 return 空列表 + 补充指引 —— 此时用户输入关键字毫无反应（实测症状：
         # 点过『待补充厂商 → Arista』后再搜 vlan，列表永远是 0 条，看着像搜索坏了）。
         # 一输入就退出占位态，搜索回到全库语义；详情区由随后的 refresh_list 重绘。
         self.placeholder_vendor = ""
+        # AF 批（2026-11-12，P9）：文本变空（点小叉 / 全选删除 / 退格删到空）绕过
+        # 200ms 防抖立即过滤 —— 与 ESC（D6）同一手感，清空不该有半拍延迟。
+        # 小叉是 QLineEdit 的内部按钮，只能从 textChanged 观察到"文本变空"；
+        # 不去 hook 私有子控件（Qt 版本一换就失效）。逐键"输入字符"的路径不变。
+        if not text:
+            self._flush_search()
+            return
         self._search_timer.start()
 
     def _flush_search(self):
@@ -1878,6 +1928,8 @@ class MainWindow(QMainWindow):
             self.show_placeholder_vendor(self.placeholder_vendor)
             self._tree_sig = None
             self._sync_tree_selection_from_filters()
+            # AF 批：占位态下没有任何条目命中 —— 树计数一起归零，不留上一轮的数字
+            self._apply_tree_counts([])
             return
         self.entries_in_view = self.db.search(
             keyword=keyword,
@@ -1908,6 +1960,10 @@ class MainWindow(QMainWindow):
         # AE 批：下拉/开关也能改变过滤链 —— 树高亮每轮都按当前四维过滤重新投影，
         # 避免"树停在『全部命令』、列表却只剩 8 条"这种各说各话。
         self._sync_tree_selection_from_filters()
+        # AF 批（2026-11-12，P3）：树计数同步为"当前过滤结果的投影"——
+        # 搜 vlan 时各节点显示命中数、父节点聚合子节点；无过滤时即全量计数。
+        # 直接吃 entries_in_view，不额外查库；防抖后一次算完，不逐帧刷新。
+        self._apply_tree_counts(self.entries_in_view)
 
         # 选中项自动恢复
         if self.entries_in_view:
@@ -1916,6 +1972,9 @@ class MainWindow(QMainWindow):
                 for row, entry in enumerate(self.entries_in_view):
                     if entry.get("uuid") == self.current_entry.get("uuid"):
                         self.list_entries.setCurrentRow(row)
+                        # AF 批：关键字变了但选中行没变时，on_entry_selected 不会重跑，
+                        # 命中标注得在这里补一次（同一套 match_fields，无额外匹配）。
+                        self._update_match_hint()
                         return
             self.list_entries.setCurrentRow(0)
         else:
@@ -2220,6 +2279,38 @@ class MainWindow(QMainWindow):
     # ==================================================================
     # 详情渲染
     # ==================================================================
+    def _update_match_hint(self, entry=None):
+        """
+        详情页「命中：…」标注（AF 批 2026-11-12，P1-B）。
+
+        为什么要这一行：一次搜索命中多条时，用户点开某条会追问"这条为什么算命中"——
+        尤其关键字落在参数/回退方案/备注这类不在首屏的字段上时，看着像"搜错了"。
+        数据一律取 db.match_fields()（与 search() 同一套分词 + 同一份字段清单 +
+        params 同一套值域投影），这里不做第二次全文匹配，避免标注与命中两套口径。
+
+        无搜索词 / 无选中条目 / 该条未命中任何字段 → 整行隐藏（不占高度）。
+        """
+        label = getattr(self, "lbl_match", None)
+        if label is None:
+            return
+        keyword = self.ed_search.text().strip()
+        current = self.current_entry if entry is None else entry
+        if not keyword or not current:
+            label.setText("")
+            label.setVisible(False)
+            return
+        hits = self.db.match_fields(current, keyword)
+        if not hits:
+            label.setText("")
+            label.setVisible(False)
+            return
+        names = [dbmod.SEARCH_FIELD_LABELS.get(f, f) for f in hits]
+        label.setText("命中：%s" % " · ".join(names))
+        label.setToolTip(
+            "当前关键字在本条目的命中字段。\n"
+            "「参数」只匹配参数的取值，不匹配 name/example 这类 JSON 键名。")
+        label.setVisible(True)
+
     def _render_detail(self, entry):
         """把条目数据铺到详情面板"""
         vendor_slug = dbmod.normalize_vendor(entry.get("vendor"))
@@ -2364,6 +2455,9 @@ class MainWindow(QMainWindow):
         if self.db.readonly:
             self.btn_fav.setEnabled(False)
             self.btn_fav.setToolTip("只读库（U 盘写保护），无法修改收藏状态")
+
+        # AF 批：命中字段标注（依赖本条正文，放最后算 —— 前面任何异常都不影响渲染）
+        self._update_match_hint(entry)
 
     def _toggle_rollback_panel(self, checked):
         """回退方案折叠开关：收起只留标题行，展开显示全文"""
@@ -2619,6 +2713,9 @@ class MainWindow(QMainWindow):
         self.line_items = []
         self.lbl_title.setText("未选中条目")
         self.lbl_meta.setText(message)
+        # AF 批：没有条目就没有"命中字段"可言，标注行一并收起
+        self.lbl_match.setText("")
+        self.lbl_match.setVisible(False)
         self.txt_commands.setPlainText("")
         self.lbl_param_hint.setText("")
         self.lbl_preview_state.setVisible(False)

@@ -628,6 +628,8 @@ QLabel#DetailTitle { color: {text_primary}; font-size: {title_size}; font-weight
 QLabel#ErrorHead { color: {danger}; font-size: {title_size}; font-weight: bold; }
 QLabel#InfoBody { color: {text_primary}; font-size: {ui_size}; }
 QLabel#DetailMeta { color: {text_secondary}; font-size: {aux_size}; }
+/* AF 批：命中字段标注（搜到才有这行；accent 提一眼可见，不加底色以免抢标题） */
+QLabel#MatchHint { color: {accent}; font-size: {aux_size}; }
 QLabel#HintText { color: {warning}; font-size: {aux_size}; }
 QLabel#LinePos { color: {warning}; font-size: {aux_size}; }
 

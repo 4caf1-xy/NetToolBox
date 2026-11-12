@@ -638,6 +638,7 @@ def case_g():
     from PyQt5.QtTest import QTest
     app = QApplication.instance() or QApplication(sys.argv)
     import ui_main
+    import db as dbmod
     theme, tmpdir, orig = setup_state_dir()
     try:
         db = seeded_db()
@@ -686,9 +687,16 @@ def case_g():
 
         # ---- G4/G5 params、rollback 可搜 ----
         def column_only_token(field):
-            """找一段只出现在该字段（同一条目内其它字段都没有）的片段"""
+            """找一段只出现在该字段（同一条目内其它字段都没有）的片段
+
+            AF 批口径修订（2026-11-12，P5 反向）：params 只在**值域**里挑候选词。
+            P5 之后键名不再参与检索，旧写法会把 'label' 这种 JSON 键名当候选词 ——
+            改前它恰好靠键名命中 1 条（假通过），现在必须换成真值才算数。
+            """
             for entry in db.search():
                 text = entry.get(field) or ""
+                if field == "params":
+                    text = dbmod.params_value_text(text)
                 if not isinstance(text, str):
                     continue
                 for cand in re.findall(r"[0-9A-Za-z_\-\./]{5,}", text):
@@ -707,6 +715,15 @@ def case_g():
         flush(tok_rb or "回退")
         check("G5/rollback可搜", bool(tok_rb) and len(w.entries_in_view) >= 1,
               "token=%s 命中=%d" % (tok_rb, len(w.entries_in_view)))
+
+        # ---- G4b params 键名不参与检索（P5 反向，AF 批 2026-11-12）----
+        # 判据不是"条数=0"，而是"没有任何一条是靠 params 键名命中的" —— 即便
+        # required 这类词将来出现在正文里，那也应算合法命中，不该误判。
+        flush("required")
+        key_hits = [e for e in w.entries_in_view
+                    if "params" in db.match_fields(e, "required")]
+        check("G4b/params键名不参与检索", not key_hits,
+              "命中 %d 条，靠键名 %d 条" % (len(w.entries_in_view), len(key_hits)))
 
         # ---- G6 重置后树高亮归位 ----
         flush("")
@@ -843,6 +860,123 @@ def case_g():
         teardown_state_dir(theme, tmpdir, orig)
 
 
+def case_h():
+    """
+    [H] AF 批（2026-11-12）搜索提案落地回归
+
+        H1 命中字段标注（P1-B）：有词且命中才显示，字段=db.match_fields 的结果
+        H2 标注跟随选中条目（换词后标注随之刷新，不是上一轮残留）
+        H3 树计数随过滤变化（P3）：根=命中数、父节点=子节点之和、清空后回落全量
+        H4 小叉清空立即刷新（P9）：40ms 内已回全库，逐键仍走防抖
+        H5 params 只搜值域（P5）：搜键名 example 不再刷出全库；值域召回不退
+    """
+    from PyQt5.QtWidgets import QApplication
+    from PyQt5.QtTest import QTest
+    app = QApplication.instance() or QApplication(sys.argv)
+    import ui_main
+    import db as dbmod
+    theme, tmpdir, orig = setup_state_dir()
+    try:
+        db = seeded_db()
+        w = ui_main.MainWindow(db)
+        w.resize(1400, 880)
+        w.show()
+        for _ in range(6):
+            app.processEvents()
+
+        def search(text, settle=260):
+            w.ed_search.setText(text)
+            QTest.qWait(settle)
+            app.processEvents()
+
+        def tree_count(*texts):
+            parent = None
+            item = None
+            for text in texts:
+                n = w.tree.topLevelItemCount() if parent is None else parent.childCount()
+                item = None
+                for i in range(n):
+                    cand = w.tree.topLevelItem(i) if parent is None else parent.child(i)
+                    if text in cand.text(0):
+                        item = cand
+                        break
+                if item is None:
+                    return None
+                parent = item
+            return int(item.text(1) or 0)
+
+        # ---- H1/H2 命中字段标注 ----
+        search("")
+        check("H1/无词不显示标注", not w.lbl_match.isVisible(),
+              repr(w.lbl_match.text()))
+        search("vlan")
+        shown = w.current_entry
+        expect = "命中：%s" % " · ".join(
+            dbmod.SEARCH_FIELD_LABELS[f] for f in db.match_fields(shown, "vlan")) \
+            if shown else ""
+        check("H1/标注=实际命中字段", w.lbl_match.isVisible()
+              and w.lbl_match.text() == expect,
+              "%r vs %r" % (w.lbl_match.text(), expect))
+        # 换词后标注必须跟着变（选中行可能没动，on_entry_selected 不会重跑）
+        search("1-4094")
+        check("H2/换词后标注刷新", w.lbl_match.isVisible()
+              and "参数" in w.lbl_match.text(), repr(w.lbl_match.text()))
+        search("zzz不存在zzz")
+        check("H2/空结果收起标注", not w.lbl_match.isVisible(), "")
+
+        # ---- H3 树计数随过滤 ----
+        search("")
+        check("H3/无过滤=全量计数", tree_count("全部命令") == db.count(),
+              "根=%s 库=%d" % (tree_count("全部命令"), db.count()))
+        search("vlan")
+        n_hit = len(w.entries_in_view)
+        root = tree_count("全部命令")
+        child_sum = 0
+        for i in range(w.tree.topLevelItemCount()):
+            top = w.tree.topLevelItem(i)
+            if top.text(0) == "网络设备":
+                for j in range(top.childCount()):
+                    child_sum += int(top.child(j).text(1) or 0)
+        check("H3/根计数=命中数", root == n_hit, "根=%s 列表=%d" % (root, n_hit))
+        check("H3/父聚合=子项之和", tree_count("网络设备") == child_sum,
+              "网络=%s 子项和=%d" % (tree_count("网络设备"), child_sum))
+        search("")
+        check("H3/清空后计数回落", tree_count("全部命令") == db.count(),
+              "根=%s" % tree_count("全部命令"))
+
+        # ---- H4 小叉立即刷新（P9）----
+        search("vlan")
+        w.ed_search.clear()                 # 与小叉同一路径：textChanged('')
+        QTest.qWait(40)                     # 远小于 200ms 防抖
+        check("H4/清空40ms内生效", len(w.entries_in_view) == db.count()
+              and not w._search_timer.isActive(),
+              "条数=%d 库=%d timer=%s"
+              % (len(w.entries_in_view), db.count(), w._search_timer.isActive()))
+        w.ed_search.setText("v")
+        QTest.qWait(30)
+        check("H4/逐键仍防抖", w._search_timer.isActive()
+              and len(w.entries_in_view) == db.count(),
+              "timer=%s" % w._search_timer.isActive())
+        w._search_timer.stop()
+        search("")
+
+        # ---- H5 params 只搜值域 ----
+        search("example")
+        n_example = len(w.entries_in_view)
+        check("H5/键名example不再刷全库", n_example < db.count() // 4,
+              "%d 条（键名时代 387/497）" % n_example)
+        check("H5/example残留都是真值", all(
+            db.match_fields(e, "example") == ["params"] for e in w.entries_in_view),
+            str([db.match_fields(e, "example") for e in w.entries_in_view][:3]))
+        search("1-4094")
+        check("H5/值域召回不退", len(w.entries_in_view) >= 20,
+              "%d 条" % len(w.entries_in_view))
+
+        w.deleteLater()
+    finally:
+        teardown_state_dir(theme, tmpdir, orig)
+
+
 def main():
     print("=" * 66)
     print("NetToolBox Ctrl+K 面板 / 最近使用 / 仪表盘 / B14 回归")
@@ -854,6 +988,7 @@ def main():
     case_e()
     case_f()
     case_g()
+    case_h()
     print("-" * 66)
     fails = [r for r in RESULTS if not r[1]]
     for name, ok, detail in RESULTS:

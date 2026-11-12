@@ -2139,3 +2139,88 @@ return 空列表）；改后 → 64 条并自动退出占位态（D8）。
 3. 占位厂商态下**点树**仍会清空四个下拉（旧行为），只是搜索词不再被它拖死 —— 是否该保留
    下拉，属 P4 同类取舍。
 4. 探针与矩阵 JSON 留在 `.workbuddy/ae/`（gitignore），未进公开仓；如需入库请指明落位。
+
+# AF 批：命令库搜索提案落地 4 项（2026-11-12，**不发版不 tag**）
+
+一句话结论：AE 批遗留的 9 条提案里，用户拍板**做 4 项**——P1-B（详情页命中字段标注）、
+P3（树计数随过滤变化）、P9（小叉立即刷新）、P5 反向（params 只搜值域）；
+**P2/P4/P6/P7/P8 明确不做**（相关性排序、树点击保留下拉、Ctrl+K 与主搜索合并等，见 §五）。
+数据零改动（497 / 26 / 106 不变），种子与主库零接触。
+
+## 一、逐项改动（每项独立可回退）
+
+| 项 | 改动 | 文件 | 回退 |
+|---|---|---|---|
+| **P1-B** 命中字段标注 | 详情页标题下新增 `lbl_match`（`QLabel#MatchHint`，accent 12px）：`命中：标题 · 命令`，无搜索词/无条目/未命中时整行隐藏不占高度。数据源 `Database.match_fields()`，与 `search()` 同一套 `split_search_terms` + 同一份 `SEARCH_FIELDS` + 同一套 params 值域投影，**不做二次全文匹配** | `app/db.py`（`match_fields` / `SEARCH_FIELD_LABELS` / `field_search_text`）、`app/ui_main.py`（`_update_match_hint` + 三处调用）、`app/theme.qss` + `app/theme.py` | 删 `lbl_match` 三处（建/挂/算）与 `match_fields` |
+| **P3** 树计数随过滤 | `_tree_counts(entries=None)` 增加"按给定条目统计"入口；建树时把计数键挂到 `Qt.UserRole+1`；新增 `_apply_tree_counts()` 只改第 2 列数字（**不重建树**，不丢展开/选中态）。`refresh_list` 末尾传 `entries_in_view` → 投影计数；无过滤时天然等于全量 | `app/ui_main.py` | 删 `_apply_tree_counts` 两处调用，`add_count` 保留 setData 无副作用 |
+| **P9** 小叉立即刷新 | `_on_search_text_changed`：文本变空 → `_flush_search()`（停定时器 + 立即过滤），与 ESC 同一手感；逐键输入仍 `_search_timer.start()`。小叉是 QLineEdit 私有子控件，**从 textChanged 观察"变空"而不 hook 私有控件** | `app/ui_main.py` | 恢复"无条件 start()"两行 |
+| **P5 反向** params 只搜值域 | 新增 `params_value_text()`（递归取标量叶子，键名/布尔/null 不参与，`lru_cache`），注册为 SQL 函数 `ntb_params_text`；`search()` 的字段表达式走 `_field_expr()`（params → 值域投影，其余列名）。**SQL 与 Python 共用同一实现** | `app/db.py` | 把 `_field_expr` 改回 `return field` |
+
+## 二、P5 实测（同一 497 条库，改前/改后逐词对照）
+
+| 关键字 | 改前 | 改后 | 说明 |
+|---|---|---|---|
+| `example` | **387** | **5** | 残留 5 条经 `match_fields` 复核全部是 `['params']` 且 `example.com` 也是 5 条 → 均为**真实参数值**（DNS 文档里的 `example.com`），不是键名噪声 |
+| `description` | 388 | 33 | 键名噪声清掉，剩 33 条正文真命中 |
+| `required` | 388 | **0** | 纯键名词，改后零命中（新增 G4b 断言绑定此语义） |
+| `label` | 389 | 1 | 仅剩 1 条正文命中（`commands`/`notes`） |
+| `1-4094` | 29 | **29** | 值域召回零退化（用户点名的那条） |
+| `eth0` / `example.com` | 40 / 5 | 40 / 5 | 参数取值搜索不受影响 |
+| `vlan` | 56（AE 前）/ 64（AE 后） | 64 | params 收窄未影响常规检索 |
+
+耗时（同机同库，10 轮均值）：`db.search()` 全库 **7.99 → 7.99 ms**、`vlan` **3.57 ms** ——
+SQL 函数逐行回调被 `lru_cache` 吃掉，**无可测劣化**。
+
+## 三、P3 / P9 实测
+
+| 项 | 数字 |
+|---|---|
+| `_apply_tree_counts` 单次（497 条 → 64 节点） | **1.81 ms**（另一次采样 0.79 ms） |
+| 全库 `refresh_list`（含 P3 计数） | **16.5 ms**（AD 批基线 15 ms；`case_g` 门限 ≤40 ms，实测 17.3 ms） |
+| 有词（`vlan`，64 条）`refresh_list` | 11.4 ms |
+| 逐键处理（稳定口径，50 次） | 0.004 ms/键；真实按键往返中位 1.74 ms / max 2.27 ms（AD 门限 2.2 ms） |
+| P9 清空后生效时间 | **40 ms 内**回 497 条（改前必须等 200 ms 防抖），定时器已停 |
+| P3 计数正确性 | 根 64 = 列表 64；网络设备 57 = 各设备类型计数之和 57；清空后根回落 497；华为 36 → 6 |
+
+## 四、回归
+
+| 项 | 结果 |
+|---|---|
+| 全量冒烟 | `scripts/smoke_*.py` **20 套全 rc=0**（`smoke_panel_dashboard` **111/111**，AE 批为 97/97） |
+| AE 22 条搜索语义断言 | **全过**（G1–G12）。**唯一口径修订：G4 的候选词来源**——原 `column_only_token("params")` 直接在 params 原文里挑 5+ 字符片段，P5 前它挑中的是 **`label`（JSON 键名）**，靠键名命中 1 条属**假通过**；现改为在 `params_value_text()` 的值域里挑（本次挑中 `0/0/9`，命中 1 条）。这是断言**变严格**，不是放水 |
+| 新增 G4b | `params键名不参与检索`：搜 `required` 后，结果集中**没有任何一条是靠 params 命中的**（判据不是"条数=0"，避免将来正文出现该词时误判） |
+| 新增 case_h（AF 批，12 条） | H1 标注=实际命中字段(2) / H2 换词后刷新+空结果收起(2) / H3 根=命中数、父=子项之和、清空回落(4) / H4 清空 40ms 生效 + 逐键仍防抖(2) / H5 键名不再刷全库 + 值域召回不退(2) |
+| AD 断言 | 未回退：`SEARCH_DEBOUNCE_MS=200`、逐键 ≤2.2 ms、全库 `refresh_list` 17.3 ms（门限 40 ms） |
+| AB 布局 12 条 | 全过：水平分栏 / 详情在右 / 不可折叠 / 320+400 底线 / 分隔条 6px / 拖不塌 / **参数表 4 行 `rows=4 shown=4 vp=430`**（与 AB 批同值）/ 未溢出 / `cmd_work_split_state` 落盘与恢复 `[484,604]` |
+| 手感链路 | 搜 `vlan`（64，根计数 64，标注「命中：备注」）→ 点小叉 40 ms 内回 497 → 树计数回落 497 → 标注收起：六项状态全自洽 |
+| 种子 | `python app/main.py --validate-seed` **EXIT=0**，497 条 + 26 树 + 106 报错 + 7 场景包（零改动） |
+| 样式一致性 | `theme.qss` 与 `_QSS_FALLBACK` 逐字一致（构建自检 True） |
+
+## 五、明确不做（用户 2026-11-12 拍板，本批未动手，勿顺手实现）
+
+| 提案 | 内容 | 裁决 |
+|---|---|---|
+| P2 | 相关性排序（标题命中优先于正文） | 不做 |
+| P4 | 树点击时保留其余下拉（当前点树会清平台/设备/厂商/OS） | 不做 |
+| P6 | 搜索词列表行内高亮（本批只做详情标注） | 不做 |
+| P7 | `trunk+vlan` 把 `+` 当分隔符 | 不做 |
+| P8 | Ctrl+K 与主搜索框合并为同一入口 | 不做 |
+
+## 六、改动文件
+
+| 文件 | 改动 |
+|---|---|
+| `app/db.py` | `SEARCH_FIELD_LABELS`；`params_value_text()` + `_collect_param_values()` + `_params_value_text_cached()` + `field_search_text()`；`Database.__init__` 注册 `ntb_params_text`；`_field_expr()`；`search()` 改用表达式列表；新增 `match_fields()` |
+| `app/ui_main.py` | `lbl_match`（建/挂）；`_update_match_hint()` + `_render_detail`/`refresh_list`/`show_empty_detail` 三处调用；`_tree_counts(entries=None)`；`_set_tree_count()`；`_apply_tree_counts()`；建树挂计数键；`_on_search_text_changed` 空文本立即刷新 |
+| `app/theme.qss` / `app/theme.py` | `QLabel#MatchHint`（两处逐字同步） |
+| `scripts/smoke_panel_dashboard.py` | `case_h()`（12 条）；G4 候选词改值域；新增 G4b |
+| `.workbuddy/af/probe_af.py` | AF 探针（P1-B/P3/P9/P5 + 性能 + 手感链路，gitignore 不入库） |
+
+## 七、遗留（如实）
+
+1. **树计数 0 条显示空白**（沿用 P-F 的"0 不留字"规则）：过滤后某节点无命中时是空白而非 `0`。
+   父节点仍有数字，不会误读；若日后要求显式 `0`，只需 `_set_tree_count` 加一个 `always` 分支。
+2. **标注行可见时详情区少 18px**：不影响参数表 4 行（AB 断言在无搜索态量，`vp=430`；
+   有搜索态实测 `vp=486`），但极端小窗下详情区更紧。
+3. P1-B 只做详情页，列表行不做高亮（P6 已裁决不做）。
+
