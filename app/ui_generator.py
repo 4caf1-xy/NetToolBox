@@ -455,7 +455,7 @@ class GeneratorDialog(QDialog):
 
         # ---- 底部：操作人 / 场景说明 + 按钮 ----
         self.ed_operator = QLineEdit(_LAST_OPERATOR["value"])
-        self.ed_operator.setPlaceholderText("操作人（写进脚本头部，离网环境留痕用）")
+        self.ed_operator.setPlaceholderText("操作人（写进脚本头部，现场留痕用）")
         self.ed_scene = QLineEdit("")
         self.ed_scene.setPlaceholderText("场景说明（可留空，默认取条目的场景分类）")
         self.ed_model = QLineEdit("")

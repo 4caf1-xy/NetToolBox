@@ -107,8 +107,8 @@ class HandbookTab(QWidget):
         root.setSpacing(6)
 
         head_row = QHBoxLayout()
-        head = QLabel("<b>速查手册</b> —— 七本离线手册（HTTP 状态码 / 常用端口 / Git / "
-                      "Linux / Vim / SSH / 网络命令），数据随程序打包，<b>不写命令库、不联网</b>。"
+        head = QLabel("<b>速查手册</b> —— 七本手册（HTTP 状态码 / 常用端口 / Git / "
+                      "Linux / Vim / SSH / 网络命令），数据随程序打包，<b>不写命令库</b>。"
                       "右键单元格可复制，Ctrl+K 可跨册搜索。")
         head.setWordWrap(True)
         head.setTextFormat(Qt.RichText)

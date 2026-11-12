@@ -1791,3 +1791,76 @@ QTabWidget                                      QTabWidget
 发版流程沿用 Y 批：凭据取自 Windows 凭据管理器（`git credential fill`，不落盘），
 `curl --noproxy '*' --ssl-no-revoke` 打 API；**新增一个坑**：Git Bash 的 `/tmp` 与原生 curl
 不互通（`-d @/tmp/x.json` 直接报读文件失败），载荷改落仓库内 `.workbuddy/` 的 Windows 绝对路径。
+
+---
+
+# AC 批：清理「离线 / 零联网」强调文案（2026-11-12）
+
+**起因**：用户点名——「程序中删除，不刻意强调零联网」。产品自称与被强调的「完全离线 / 0 联网」
+不再是卖点口径，改为中性功能描述。**文案批：不动逻辑、不动种子/库、不发版不 tag。**
+
+## 一、处理口径
+
+| 类别 | 处置 |
+|---|---|
+| 产品自称「离网网络运维工具箱」 | → 「网络运维工具箱」（标题栏 / 关于页 / 应用显示名 / 文档自称） |
+| 「完全离线」「0 联网」「零联网」「不联网」「无网络请求」「禁外网」等强调 | 删除，或改写为中性描述（本地数据库 / 数据保存在本机 / 仅本地处理） |
+| 功能本质相关的中性表述（本地库、路径、U 盘拷贝、AI 无网络时置灰） | 保留，不再附加联网与否的表态 |
+| 种子数据 / 手册 JSON / 报错字典正文 | **零改动**（属于条目主题，不是产品自称） |
+| 代码 docstring / 注释、dev-notes、CHANGELOG 历史节 | **不改写**（如实留档） |
+
+## 二、逐处改动清单（18 处 / 8 文件）
+
+| # | 位置 | 原文 | 现文 |
+|---|---|---|---|
+| 1 | `app/ui_main.py:91` `APP_TITLE` | 离网网络运维工具箱 | **网络运维工具箱** |
+| 2 | `app/main.py:1014` `setApplicationDisplayName` | 离网网络运维工具箱 | **网络运维工具箱** |
+| 3 | `app/ui_main.py:3160` 关于页首行 | `<b>离网网络运维工具箱 </b>` | `<b>网络运维工具箱 </b>` |
+| 4 | `app/ui_main.py:3167` 关于页安全边界 | 不包含任何终端、SSH、串口、**联网**功能 | 不包含任何终端、SSH、串口功能 |
+| 5 | `app/ui_main.py:3015` 上车指引小标题 | 【**离网**部署说明】 | 【**本地**部署说明】 |
+| 6 | `app/ui_main.py:3017` 同上段落 | 不含任何终端/SSH/串口/**联网**功能 | 不含任何终端/SSH/串口功能 |
+| 7 | `app/ui_main.py:3153` 使用说明·数据安全 | 本机**无任何联网行为**，命令库随 U 盘走 | **命令库数据保存在本机**，随 U 盘走 |
+| 8 | `app/ui_main.py:627` 视图菜单 | 速查手册（七本**离线**手册） | 速查手册（七本） |
+| 9 | `app/ui_main.py:641` 工具箱 tooltip | 纯本地计算与命令生成：**零联网**、不执行任何命令 | 纯本地计算与命令生成，不执行任何命令 |
+| 10 | `app/ui_main.py:566` 导出站点 tooltip | 单文件**离线**站点 | 单文件站点 |
+| 11 | `app/ui_main.py:2893` 保存对话框标题 | 导出静态站点（单文件**离线** HTML） | 导出静态站点（单文件 HTML） |
+| 12 | `app/ui_main.py:490` 验证信息缺项提示 | **离网环境**靠这个留痕 | 现场留痕靠这个 |
+| 13 | `app/ui_main.py:2059` 未验证条目提示 | 建议先在测试设备或**离线环境**执行 | 建议先在测试设备或**演练环境**执行 |
+| 14 | `app/ui_handbook.py:110` 手册页说明条 | 七本**离线**手册……**不写命令库、不联网** | 七本手册……不写命令库 |
+| 15 | `app/ui_diff.py:80` 变更对比说明条 | 粘贴内容仅本地处理，**零联网**。 | 粘贴内容**仅在**本地处理。 |
+| 16 | `app/diff_export.py:88` 导出 HTML 副标题 | 粘贴回显纯本地比对，**零联网** | 粘贴回显纯本地比对 |
+| 17 | `app/ui_generator.py:458` 操作人占位符 | 写进脚本头部，**离网环境**留痕用 | 写进脚本头部，**现场**留痕用 |
+| 18 | `README.md` + `docs/打包与部署说明.md` | 标题「离网网络运维的操作安全工具箱」、首段「离线知识库 / 全部离线完成，不联网」、`### Offline First —— 为「无网可用」而生`、首条「零联网运行」、安全模型「离线核心」、mermaid「（离线核心）」、部署说明自称与「不含…联网功能」 | 标题「网络运维的操作安全工具箱」、「网络运维知识库 / 全部能力在本地完成，数据保存在本地 SQLite 库中」、`### Local First —— 装进 U 盘就能带走`、首条「本地数据库」、安全模型「本地核心」、mermaid「（本地核心）」、部署说明自称与「不含…/串口功能」 |
+
+> exe 元数据：`NetToolBox.spec` 未使用 `version=` 资源文件（无 VERSIONINFO），元数据里没有中文
+> 描述字段，故无「离网」字样需要改；将来若补 version 文件，描述一律用「网络运维工具箱」。
+
+## 三、保留不改（附理由）
+
+| 位置 | 内容 | 理由 |
+|---|---|---|
+| 种子 / 手册 / 报错字典（`app/seed_data/*.json`、`app/handbook/*.json`） | 「★ 离网特供」「完全离线装包」「离线 rpm/deb 安装」「离网内网 DNS 标准动作」等 | **条目主题**（本地源 / 离线装包 / 内网 DNS 是命令要解决的问题），非产品自称；且本批库零改动 |
+| `app/main.py:293/306/321/347` | `NetToolBox 离网审计…` / `审计通过：本程序在离网环境中不会产生任何出网行为` | `--audit-offline` 交付前网络依赖审计的**自身输出**，属工程审计能力，不是产品 UI 文案 |
+| `app/db.py:679` | `operator TEXT, -- 操作人（离网环境留痕用）` | `history` 表 DDL 文本，改它等于动 schema |
+| `app/main.py:3`、`app/db.py:3`、`app/theme.py:10`、`diff_tool.py:5/7`、`ui_diff.py:5/7`、`tool_calc.py:5`、`tool_curl.py:6`、`output_analyzer.py:10` 等 | docstring / 注释里的「离网 / 零联网」 | 批纪律：代码注释如实留档不改写；**未进入任何 UI 可见层** |
+| `README.md:44` | 「配置缺失或无网络时置灰」 | AI 连接状态的事实描述（灰=无网络），功能性保留 |
+
+## 四、验证
+
+| 项 | 结果 |
+|---|---|
+| 全量冒烟 | `scripts/smoke_*.py` **20 套全 rc=0**（ai_chat 86 / ai_stage2 93 / ai_stage3 68 / backfill 9 / baseurl 全通 / diff 62 / export_site 8 / handbook 58 / import_guard 7 / keyvault 全通 / p1_fixes 13 / panel_dashboard 75 / regex_guard 全通 / runbook 74 / scenarios 110 / schema_rollback 14 / send_gate 全通 / tools 107 / translate 224 / tree_visual 46；各套「主库零接触」指纹断言均通过） |
+| 种子 / 库 | `python app/main.py --validate-seed` **EXIT=0**，497 条 + 26 树 + 106 报错 + 7 场景包（与 Z 批底数一字不差，本批零改动） |
+| 字符串常量级复扫 | AST 取「非 docstring 字符串常量」全仓扫禁用词 → 仅剩 **5 处**：`--audit-offline` 输出 4 处 + `db.py` DDL 注释 1 处（均在保留清单内）；UI 字符串**零命中** |
+| 控件级扫描（真实渲染） | `QAction.text/toolTip/statusTip`、`QTabWidget 页名`、`QLineEdit 占位符`、`QPushButton` 文本 **零命中**；`QLabel` 命中 9 条，逐条核对**全部是种子条目标题**（本地源 / 离线装包类） |
+| 标题与显示名 | `windowTitle()` = `网络运维工具箱 v1.0.0.1 · NetToolBox`；`QApplication.applicationDisplayName()` = `网络运维工具箱`（经真实 `main.run_gui()` 打桩 `exec_` 核，非直构窗口） |
+| 关于页 / 使用说明 / 上车指引 | 自称为「网络运维工具箱」；三处文案禁用词零命中，句末标点完整、无空占位 |
+| 截图（4 张，`docs/screenshots/` 未入库的临时证据） | `.workbuddy/ac_shots/`：`01_main.png`（主窗+状态栏）、`02_handbook.png`（手册说明条）、`03_diff.png`（对比说明条）、`04_about.png`（关于页） |
+| 采集脚本 | `.workbuddy/ac_audit.py`（控件扫描 + 截图，走 `_smoke_env` 路径劫持 + 主库指纹断言）、`.workbuddy/ac_dn.py`（真实入口显示名）—— 均 `.workbuddy/`（gitignore），未入库 |
+
+## 五、遗留
+
+1. **内部 docstring 未统一**：`app/main.py:3` 仍写「离网网络运维工具箱（NetToolBox）程序入口」、
+   `app/db.py:3` 仍写「离网网络设备命令库」——按本批「代码注释不改写」纪律保留；若要求全仓字面统一，需另立小批（改注释不影响运行）。
+2. **不发版不 tag**：本批未动 `APP_VERSION`（仍 `1.0.0.1`）、未加 CHANGELOG 节；是否随下一版发布由用户决定。
+3. **`--audit-offline` 命名保留**：命令名、输出文案未改（交付审计能力的既有接口，改动会牵动 docs/打包与部署说明 与 CI 口径）。

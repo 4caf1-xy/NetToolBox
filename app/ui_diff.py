@@ -77,7 +77,7 @@ class DiffTab(QWidget):
 
         head = QLabel("<b>Before / After 变更对比</b> —— 变更前后各粘贴一次同命令回显，"
                       "自动输出状态差异摘要；uptime / 包计数器 / 时间戳 / CPU 瞬时值自动忽略。"
-                      "粘贴内容仅本地处理，<b>零联网</b>。")
+                      "粘贴内容仅在本地处理。")
         head.setWordWrap(True)
         head.setTextFormat(Qt.RichText)
         root.addWidget(head)

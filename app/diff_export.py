@@ -85,7 +85,7 @@ table.d tr.same td{color:var(--text3)}
 <body>
 <div class="sheet">
 <h1>__TITLE__</h1>
-<div class="subtitle">Before/After 变更对比 · 由 NetToolBox 导出（__GENERATED__） · 粘贴回显纯本地比对，零联网</div>
+<div class="subtitle">Before/After 变更对比 · 由 NetToolBox 导出（__GENERATED__） · 粘贴回显纯本地比对</div>
 __META_TABLE__
 <div class="notice" style="--lvcolor:var(--__LVVAR__)"><b>__LEVEL_NAME__：</b>__LEVEL_DESC__</div>
 __DIFF_TABLE__

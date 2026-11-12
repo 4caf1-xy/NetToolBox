@@ -1011,7 +1011,7 @@ def run_gui(db_path=None):
 
     app = QApplication(sys.argv)
     app.setApplicationName("NetToolBox")
-    app.setApplicationDisplayName("离网网络运维工具箱")
+    app.setApplicationDisplayName("网络运维工具箱")
     # Fusion 样式 + 深色 palette + DARK_QSS 一次性装好（顺序有讲究，见 theme.apply_theme）
     theme.apply_theme(app)
 
