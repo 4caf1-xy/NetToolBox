@@ -95,7 +95,7 @@ APP_NAME = "NetToolBox"
 APP_TITLE = "网络运维工具箱"
 APP_SUBTITLE = "网络设备 + Linux 命令库 / 排查向导 / 报错诊断 / 操作单"
 # 产品版本（semver；发版时与 tag/Release/CHANGELOG 三处对齐，标题栏与关于对话框均引用此常量）
-APP_VERSION = "1.0.0.1"
+APP_VERSION = "1.0.0.2"
 
 
 def copy_to_clipboard(text):
