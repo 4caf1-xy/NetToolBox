@@ -1141,6 +1141,7 @@ class ElidedLabel(QLabel):
     def setText(self, text):
         self._full = "" if text is None else str(text)
         QLabel.setToolTip(self, self._full)
+        self._refresh_key = None      # 文案变了必须重算（宽度可能没变）
         self._refresh()
 
     def fullText(self):
@@ -1164,9 +1165,19 @@ class ElidedLabel(QLabel):
     def _refresh(self):
         if self._eliding:            # 防递归（QLabel.setText 触发重绘/布局）
             return
+        width = self.width() - 2
+        # AD 批（2026-11-12）：宽度与字体都没变就不重算。
+        # ★ 改前 resizeEvent/changeEvent 每次都跑一遍 elidedText：窗口 resize 一轮
+        #   实测 996 个省略标签 × 近 1 次事件 = 996 次字体度量（单次 resize 95 ms）。
+        #   现在只在"可用宽度或字体真的变了"时才算，布局抖动不再触发文本重排。
+        font = self.font()
+        key = (width, font.family(), font.pixelSize(), font.pointSizeF(),
+               font.bold(), font.italic())
+        if key == getattr(self, "_refresh_key", None):
+            return
+        self._refresh_key = key
         self._eliding = True
         try:
-            width = self.width() - 2
             if width <= 8:           # 还没布局出宽度：先放全文，resize 时再收
                 QLabel.setText(self, self._full)
             else:

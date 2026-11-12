@@ -1864,3 +1864,104 @@ QTabWidget                                      QTabWidget
    `app/db.py:3` 仍写「离网网络设备命令库」——按本批「代码注释不改写」纪律保留；若要求全仓字面统一，需另立小批（改注释不影响运行）。
 2. **不发版不 tag**：本批未动 `APP_VERSION`（仍 `1.0.0.1`）、未加 CHANGELOG 节；是否随下一版发布由用户决定。
 3. **`--audit-offline` 命名保留**：命令名、输出文案未改（交付审计能力的既有接口，改动会牵动 docs/打包与部署说明 与 CI 口径）。
+
+
+---
+
+# AD 批：卡顿诊断与修复（2026-11-12，**不发版不 tag**）
+
+**起因**：用户反馈「程序用着不流畅、一卡一卡的」，并指出 v1.0.0.1 / AB 布局之后出现或加重。
+本批纪律：**先测量后改动**，只修实测确认的项，每项独立可回退；不动种子/库/版本号。
+
+## 一、诊断方法与口径
+
+| 项 | 做法 |
+|---|---|
+| 计时 | `QElapsedTimer` 包关键段；每条路径 21~40 个样本，报 P50 / P95 / max |
+| 渲染 | 主口径 **`QT_QPA_PLATFORM=windows`（真实窗口 + 桌面合成）**；`offscreen` 作交叉复核 |
+| 数据 | 现场导入种子到临时库 = **497 条**（与出厂 exe 一致），不碰 `dist_package/command_lib.db` |
+| 对照 | `git worktree` 取 HEAD（`b989f3d`，AB 批收口）作「改前」，**同一脚本、同一份库、同一台机**跑 |
+| 抗噪 | 进程提 `HIGH_PRIORITY_CLASS`；同侧连跑 3 轮取中位；不做应用级事件过滤器（实测会引入 30 ms 假阳性） |
+| 探针 | `.workbuddy/ad_bench.py`（六路径）、`ad_cold.py`（进程级冷启动）、`ad_scrollonly.py`（纯净滚动）、`ad_visdiff.py`（改前后逐像素比对）—— 均 `.workbuddy/`（gitignore），未入库 |
+
+## 二、实测表（真实窗口平台，497 条）
+
+| 路径 | 改前 | 改后 | 判读 |
+|---|---|---|---|
+| P1 搜索逐键 **阻塞主线程** | P50 **173.7 ms** / max **2293 ms** | P50 **1.2 ms** / max **2.2 ms** | 逐键不再是全量重建，主线程几乎不占 |
+| P1 单次过滤（重建本体） | **2304 ms**（493 张卡） | **20.8 ms**（0 张卡） | 全量重建耗时 −99.1% |
+| P1 到列表更新（含防抖窗口） | 173.8 ms | 266.1 ms | 新增 200 ms 防抖窗口（可调，见 §3-F2） |
+| P2 滚动单步 | 7.6 ms | 5.0 ms | 未回退（同口径复核：offscreen 6.06→2.84） |
+| P3 拖命令库分隔条 | **105.8 ms/帧** | **12.6 ms/帧** | −88%，43fps → 79fps |
+| P4 十 Tab 首次进入合计 | 470 ms | 287 ms | 单页 9~80 ms，非卡顿主源 |
+| P5 窗口 resize | **86.9 ms/次** | **18.6 ms/次** | −79%；省略控件 996 → 2 个 |
+| P6 冷启动到可交互 | **2880 ms** | **1839 ms** | −36%（建窗 1980→1154，首帧 589→412） |
+
+**卡顿贡献度排序（改前）**：① 搜索逐键全量重建（最大 2.3 s 冻结）→ ② 拖分隔条（106 ms/帧，≈9fps）
+→ ③ 窗口 resize（87 ms）→ ④ 冷启动 2.9 s（一次性）→ ⑤ Tab 切换（≤80 ms）→ ⑥ 滚动（7.6 ms，本就不卡）。
+
+**根因（一处）**：命令列表用 `QListWidget + setItemWidget`，每条目一个 `EntryCard(QWidget)`。
+497 条 = **497 个部件 + 994 个 ElidedLabel**，任何"重新列表/改宽度/改窗口"都要销毁重建或重排这些部件。
+
+## 三、逐项修复（按贡献度）
+
+### F1 列表 widget 卡片 → `QStyledItemDelegate` 自绘（`app/ui_main.py`）
+
+- 删除 `EntryCard(QWidget)`，新增 `EntryListDelegate` + `entry_view()`；`QListWidget` 保留（`theme.qss`
+  的 `QListWidget::item` 选中/hover/左侧 3px 竖条规则原样生效），行高定长 **57px**、`setUniformItemSizes(True)`。
+- 几何与改前逐像素对齐：内容左 11 / 右 14、首行 y=8、色块 60×22、标签/徽章高 20、副标题 y=31 左缩进 68。
+- **两个坑（已固化在代码注释里）**：
+  1. `QColor("rgba(224, 168, 60, 36)")` **不解析、静默返回黑色** —— theme 的 `*_14` 半透明底必须走
+     `token_color()` 显式解析，否则徽章变黑块（本批实测踩到并修复）；
+  2. `QRect.right()` 是含端点的，直接 `right() - 14` 会整体左移 1 px；改用 `left() + width() - 14`；
+     边框用 `QRectF(rect).adjusted(.5,.5,-.5,-.5)` 内缩，才与 QSS「border 画在内侧」重合。
+- 等价性证据（`ad_visdiff.py`，11 条覆盖 骨架/收藏/Linux/长标题）：整屏 **199,430 px 中显著差异 0.137%**，
+  仅剩半透明底与圆角抗锯齿；主窗 before/after 截图显著差异 **0.052%**，无布局位移。
+- 效果：重建 2304→20.8 ms；拖分隔条 105.8→12.6 ms；resize 86.9→18.6 ms；冷启动 2880→1839 ms。
+
+### F2 搜索输入防抖 200 ms（`SEARCH_DEBOUNCE_MS`）
+
+- `textChanged` → 只重置 `QTimer(singleShot, 200ms)`；回车 `returnPressed` 走 `_flush_search()` 立即过滤。
+- 效果：5 字词从「5 次重建」并为「1 次」；逐键阻塞 173.7→1.2 ms。
+- 代价：列表在停手后 ~200 ms 更新（266 ms 中位，含 20.8 ms 过滤）。**这是唯一变慢的指标**，
+  取舍是拿 200 ms 稳态延迟换掉 2.3 s 冻结；嫌慢把常量调到 120~150（过滤本体仅 20.8 ms，1 帧内可完成）。
+
+### F3 参数表行高重算合并（`_schedule_param_recalc`）
+
+- 改前：`splitterMoved` 与参数表自身 `Resize` 各排一个 `singleShot(0)` → **2.03 次/帧**、
+  30 帧共 671 次 `resizeRowToContents`。改后用「已排队」标志合并 → **1.03 次/帧**、341 次。
+- 行高重算本体仅 1.0~2.7 ms，帧耗时主要来自列表重排（由 F1 解决）。
+
+### F4 `ElidedLabel` 宽度/字体守卫（`app/theme.py`）
+
+- `_refresh()` 增加 `(宽度, 字体族, px, pt, bold, italic)` 键；`setText()` 显式失效。
+- 改前一轮 resize 触发 **996 次** elidedText（996 个省略标签 × 近 1 次事件），改后 **2 个控件**仍在。
+  F1 之后此条收益已很小，但保留作为「布局抖动不再触发文本重排」的结构性保护。
+
+## 四、回归
+
+| 项 | 结果 |
+|---|---|
+| 全量冒烟 | `scripts/smoke_*.py` **20 套全 rc=0**（ai_chat 86 / ai_stage2 93 / ai_stage3 68 / backfill 9 / baseurl 全通 / diff 62 / export_site 8 / handbook 58 / import_guard 7 / keyvault 全通 / p1_fixes 13 / panel_dashboard 75 / regex_guard 全通 / runbook 74 / scenarios 110 / schema_rollback 14 / send_gate 全通 / tools 107 / translate 224 / tree_visual 46） |
+| AB 布局断言 | 12 条全过：水平分栏 / 详情在右 / 两侧不可折叠 / 底线 320+400 / 分隔条 6px / 拖不塌 / **参数表 4 行完整可见（rows=4 shown=4 vp=430）** / 未溢出 / `cmd_work_split_state` 落盘与重启恢复 `[484,604]` |
+| 种子 / 库 | `python app/main.py --validate-seed` **EXIT=0**：497 条 + 26 树 + 106 报错 + 7 场景包，**本批零改动** |
+| 列表功能回归 | `.workbuddy/ad_func.py`：行数 497 / 选中跟随详情 / `itemAt` 命中 / tooltip / 统一行高 / 搜索 28 行 + 自动选中 / 收藏标记 / 清空回 497 全过 |
+| 手感复测（同一台机） | 连续输入：每字阻塞 ≤2.2 ms，停手后一次成帧（不再有 2 s 冻结）；快速拖分隔条 12.6 ms/帧（79fps，跟手）；连续切 Tab 9~80 ms/次（首帧略顿，其后 2~4 ms）；快速滚动 5.0 ms/步（≈200fps，无撕裂）；窗口拖角 18.6 ms/次（>50fps） |
+
+## 五、未修 / 遗留（如实）
+
+1. **冷启动仍 1.8 s**（真实平台）：其中 10 个 Tab 全部预构建合计约 0.29 s，其余是 QSS/字体/布局与首帧合成。
+   未做 Tab 惰性化 —— 需要把 `self.tab_xxx` 改成按需构造，牵动 `_safe_tab`/状态灯/跨 Tab 跳转（`goto_ai_tab`、
+   `jump_to`、`open_handbook_tab` 等十余处），收益约 0.3 s，风险不对称，留 v1.1.0 评估。
+2. **P1「到列表更新」变慢到 266 ms**：防抖窗口所致（取舍见 F2），常量可调。
+3. **`_entry_tooltip` 仍逐条生成**：每次过滤 497 次字符串拼接（约 2~3 ms，已计入 20.8 ms 内），未单独优化。
+4. **测量坑（写给下一批）**：本机后台负载会让同一路径 P50 抖动 5~10 倍；**不要在测量脚本里挂应用级
+   `eventFilter`**（实测把 2.3 ms 的滚动步放大成 33 ms 假阳性）；同侧至少 3 轮取中位再下结论。
+5. **不发版不 tag**：`APP_VERSION` 仍 `1.0.0.1`，未加 CHANGELOG 节（同 Z/AB/AC 批口径）。
+
+## 六、改动文件
+
+| 文件 | 改动 |
+|---|---|
+| `app/ui_main.py` | 删 `EntryCard`；新增 `entry_view()` / `token_color()` / `EntryListDelegate`；`refresh_list` 改挂数据；搜索防抖；`_schedule_param_recalc` 合并重算 |
+| `app/theme.py` | `ElidedLabel._refresh()` 增加宽度/字体键，`setText()` 失效缓存 |

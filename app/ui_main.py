@@ -22,11 +22,13 @@ ui_main.py —— 主窗口
 """
 
 import os
+import re
 import html
 import datetime
 
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import (QColor, QFont, QKeySequence,                          QSyntaxHighlighter, QTextCharFormat, QTextCursor,
+from PyQt5.QtCore import Qt, QTimer, QSize, QRect, QRectF
+from PyQt5.QtGui import (QColor, QFont, QFontMetrics, QKeySequence, QPainter, QPen,
+                         QSyntaxHighlighter, QTextCharFormat, QTextCursor,
                          QDesktopServices, QIcon)
 from PyQt5.QtCore import QUrl
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -37,7 +39,8 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QTabWidget, QMessageBox, QFileDialog, QDialog, QFormLayout,
                              QDialogButtonBox, QAction, QShortcut, QMenu,
                              QHeaderView, QAbstractItemView, QTextEdit, QSizePolicy,
-                             QStackedWidget, QToolButton, QFrame, QCheckBox)
+                             QStackedWidget, QToolButton, QFrame, QCheckBox,
+                             QStyledItemDelegate)
 from PyQt5.QtCore import QByteArray, QEvent
 
 import renderer
@@ -54,12 +57,12 @@ from db import (get_base_dir, resource_path, display_vendor, display_os,
 # ---------------------------------------------------------------------------
 from theme import (VENDOR_COLORS, DEFAULT_VENDOR_COLOR, PLATFORM_COLORS,
                    VERIFIED_COLOR, UNVERIFIED_COLOR,
-                   ACCENT, SUCCESS, WARNING,
+                   ACCENT, SUCCESS, WARNING, BG_RAISED, BORDER, SUCCESS_14, WARNING_14,
                    CODE_IP_COLOR, CODE_IFACE_COLOR,
                    BORDER_HOVER,
-                   TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED,
+                   TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, TOKENS,
                    SPACE_XS, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XL,
-                   GripSplitter, ThemedComboBox, mono_font,
+                   GripSplitter, ThemedComboBox, mono_font, ui_font,
                    ElidedLabel, ElidedStatusBar,
                    load_ui_state, save_ui_state, read_sizes, set_state)
 
@@ -75,6 +78,7 @@ PANE_MIN_LIST_H = 150       # 列表区最小高（保留：窄高窗口下的�
 PANE_MIN_DETAIL_H = 260     # 详情区最小高
 PARAM_TABLE_MIN_ROWS = 4    # 参数表至少要露出几行（AB 批：改前只剩表头）
 PARAM_TABLE_MAX_ROWS = 5    # 参数表按几行封顶（再多交给滚动条）
+SEARCH_DEBOUNCE_MS = 200    # 搜索框输入防抖（AD 批：停止输入 200ms 才过滤一次）
 # 布局记忆键（沿用 ui_state.json 的 key 风格：xxx_split 存尺寸数组；
 # 本键存 QSplitter.saveState() 的 base64 —— 精确像素 + 折叠态）
 CMD_SPLIT_STATE_KEY = "cmd_work_split_state"
@@ -86,9 +90,9 @@ CMD_SPLIT_STATE_KEY = "cmd_work_split_state"
 # 厂商配色 / 平台配色 / 状态色 / 产品名 均由 theme.py 统一提供（见上方 import）。
 # 下面只保留与"数据"相关、不属于主题的常量。
 
-# 产品名（模块 06 规格：exe 名 NetToolBox，中文标题"离网网络运维工具箱"）
+# 产品名（模块 06 规格：exe 名 NetToolBox，中文标题"网络运维工具箱"）
 APP_NAME = "NetToolBox"
-APP_TITLE = "离网网络运维工具箱"
+APP_TITLE = "网络运维工具箱"
 APP_SUBTITLE = "网络设备 + Linux 命令库 / 排查向导 / 报错诊断 / 操作单"
 # 产品版本（semver；发版时与 tag/Release/CHANGELOG 三处对齐，标题栏与关于对话框均引用此常量）
 APP_VERSION = "1.0.0.1"
@@ -339,112 +343,232 @@ class CommandHighlighter(QSyntaxHighlighter):
 
 
 # ---------------------------------------------------------------------------
-# 条目列表卡片（厂商色块 + 标题 + 场景标签 + 验证徽章）
+# 命令列表的行绘制（AD 批 2026-11-12：widget 卡片 → delegate 自绘）
 # ---------------------------------------------------------------------------
-class EntryCard(QWidget):
+# 改前：每条目一个 EntryCard(QWidget) + setItemWidget —— 497 条 = 497 个部件、
+#       994 个 ElidedLabel。每次 refresh_list 全量销毁重建：实测单次 1.1~2.8 s，
+#       逐键 P50 133 ms / P95 1567 ms，拖动分隔条 75 ms/帧（都是列表重排）。
+# 改后：QListWidget 保留（theme.qss 的 QListWidget::item 选中/hover/左侧竖条
+#       规则原样生效），行内容由 QStyledItemDelegate 直接画：零子部件、定高、
+#       视口外的行不产生任何对象。
+ENTRY_ROW_H = 57            # 与改前 EntryCard.sizeHint() 逐像素一致（497 行实测均为 57）
+_ENTRY_TITLE_PX = 14        # 对齐 theme.qss 里 QLabel#EntryTitle 的 14px
+_ENTRY_AUX_PX = int(str(TOKENS.get("aux_size") or "12px").rstrip("px") or 12)
+
+_RGBA_RE = re.compile(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)")
+_COLOR_CACHE = {}
+
+
+def token_color(token):
     """
-    列表里的一行条目卡片（第 5 轮 P-B：圆角卡片式，去掉粗蓝条）
+    theme 令牌 → QColor（带缓存）。
 
-    结构：
-        [厂商色块] 标题(收藏★) ──────────── [场景标签] [验证徽章]   ← 右对齐
-                   平台 · OS 版本 · 型号 · 生效方式
+    ★ theme.py 里的半透明底（success_14 / warning_14 / accent_12 …）是 **QSS 语法**
+      的 "rgba(r, g, b, a)" 字符串（a 为 0~255）。QColor 只认 #RRGGBB / #AARRGGBB /
+      SVG 颜色名，直接 QColor("rgba(...)") 会静默构造出**黑色** —— delegate 自绘时
+      必须先解析，否则徽章底色变黑块。
+    ★ 缓存：一帧要画 4~6 种颜色 × 可见行数，重复解析 rgba 字符串实测占 15% 绘制时间。
+    """
+    key = "" if token is None else str(token).strip()
+    cached = _COLOR_CACHE.get(key)
+    if cached is not None:
+        return cached
+    match = _RGBA_RE.match(key)
+    if match:
+        red, green, blue = (int(match.group(i)) for i in (1, 2, 3))
+        raw_alpha = match.group(4)
+        if raw_alpha is None:
+            alpha = 255
+        else:
+            alpha = float(raw_alpha)
+            alpha = int(round(alpha * 255)) if alpha <= 1.0 else int(round(alpha))
+        color = QColor(red, green, blue, max(0, min(255, alpha)))
+    else:
+        color = QColor(key)
+    _COLOR_CACHE[key] = color
+    return color
 
-    背景 / 圆角 / hover / 选中态由 QSS 的 QListWidget::item 统一负责
-    （选中 = accent 12% 底 + 左侧 3px accent 竖条），卡片内部部件只挂
-    objectName 引主题，不再逐个内联写颜色 —— 厂商色块例外，它随数据变。
+
+def entry_view(entry, ai_imported=False):
+    """
+    把条目字典整理成"列表行要画的字段"（原 EntryCard 构造函数里的取值逻辑，
+    搬到绘制侧后每个可见行只算一次，靠 delegate 缓存）。
+    """
+    vendor_slug = dbmod.normalize_vendor(entry.get("vendor"))
+    favorite = bool(entry.get("favorite"))
+    if dbmod.normalize_platform(entry.get("platform")) == "linux":
+        left = display_platform(entry.get("platform"))
+    else:
+        left = entry.get("device_type") or display_platform(entry.get("platform"))
+    sub_text = "%s · %s · %s" % (left or "-",
+                                display_os(entry.get("os_family")),
+                                entry.get("models") or "-")
+    duration = dbmod.normalize_duration(entry.get("duration"))
+    if duration:
+        sub_text += " · %s" % dbmod.DURATIONS[duration]
+    return {
+        "vendor": display_vendor(vendor_slug)[:6],
+        "color": VENDOR_COLORS.get(vendor_slug, DEFAULT_VENDOR_COLOR),
+        "title": ("★ " if favorite else "") + ("🤖 " if ai_imported else "")
+                 + (entry.get("title") or "(无标题)"),
+        "fav": favorite,
+        "tag": entry.get("category") or "未分类",
+        "verified": int(entry.get("verified") or 0) == 1,
+        "skeleton": str(entry.get("exec_level") or "").strip() == "skeleton",
+        "sub": sub_text,
+    }
+
+
+class EntryListDelegate(QStyledItemDelegate):
+    """
+    命令列表行绘制：厂商色块 + 标题 + 场景标签 + 验证/骨架徽章 + 副标题。
+
+    几何与改前 EntryCard 的布局逐像素对齐（实测值，见 dev-notes AD 批）：
+        行高 57；内容左 11 / 右 14；首行 y=8；
+        色块 60×22；标题/标签/徽章 高 20；副标题 y=31、左缩进 68。
+    背景（hover / 选中 / 左侧 3px accent 竖条）仍由 theme.qss 的 QListWidget::item
+    负责 —— 这里先调 super().paint() 让样式引擎画底，再在上面画内容，选中观感不变。
+    颜色一律取 theme 常量，与 QSS 的 EntryVendor/EntryTag/EntryBadge 规则同源。
     """
 
-    def __init__(self, entry, ai_imported=False, parent=None):
-        super(EntryCard, self).__init__(parent)
-        self._ai_imported = bool(ai_imported)
-        self.entry = entry
-        self.setAutoFillBackground(False)
+    _BADGE_STYLES = {"verified": (SUCCESS_14, SUCCESS, SUCCESS),
+                     "unverified": (BG_RAISED, TEXT_MUTED, BORDER),
+                     "skeleton": (WARNING_14, WARNING, WARNING)}
 
-        vendor_slug = dbmod.normalize_vendor(entry.get("vendor"))
-        vendor_name = display_vendor(vendor_slug)
-        color = VENDOR_COLORS.get(vendor_slug, DEFAULT_VENDOR_COLOR)
+    def __init__(self, parent=None):
+        super(EntryListDelegate, self).__init__(parent)
+        self._entries = []
+        self._imported = set()
+        self._cache = {}
+        self._fit_title = {}    # row → (宽度, 省略后标题)
+        self._fit = {}          # row → (宽度, 省略后副标题)
+        self._f_title = ui_font()
+        self._f_title.setPixelSize(_ENTRY_TITLE_PX)
+        self._f_title.setBold(True)
+        self._f_aux = ui_font()
+        self._f_aux.setPixelSize(_ENTRY_AUX_PX)
+        self._f_aux_bold = QFont(self._f_aux)
+        self._f_aux_bold.setBold(True)
+        self._fm_title = QFontMetrics(self._f_title)
+        self._fm_aux = QFontMetrics(self._f_aux)
 
-        # 厂商色块（颜色按 slug 取，属数据驱动 → 唯一保留内联背景色的部件）
-        block = QLabel(vendor_name[:6])
-        block.setObjectName("EntryVendor")
-        block.setFixedSize(60, 22)
-        block.setAlignment(Qt.AlignCenter)
-        block.setToolTip("厂商：%s（%s）" % (vendor_name, vendor_slug or "-"))
-        block.setStyleSheet("background-color:%s;" % color)
+    # ---------------- 数据 ----------------
+    def set_entries(self, entries, imported_uuids=()):
+        self._entries = entries or []
+        self._imported = imported_uuids or set()
+        self._cache.clear()
+        self._fit_title.clear()
+        self._fit.clear()
 
-        # 标题（收藏加星；颜色交给 QSS 的属性选择器 [fav="true"]）
-        # AB 批：列表区变窄后标题/副标题会硬裁半字 → 改单行省略（全文进 tooltip）
-        favorite = bool(entry.get("favorite"))
-        title = ElidedLabel(("★ " if favorite else "") + ("🤖 " if self._ai_imported else "")
-                            + (entry.get("title") or "(无标题)"), mode=Qt.ElideRight)
-        title.setObjectName("EntryTitle")
-        title.setProperty("fav", "true" if favorite else "false")
-        title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    def _view(self, row):
+        view = self._cache.get(row)
+        if view is None:
+            entry = self._entries[row]
+            view = entry_view(entry, entry.get("uuid") in self._imported)
+            self._cache[row] = view
+        return view
 
-        # 场景标签（统一最小宽度，避免长短不一导致右侧徽章参差）
-        tag = QLabel(entry.get("category") or "未分类")
-        tag.setObjectName("EntryTag")
-        tag.setAlignment(Qt.AlignCenter)
-        tag.setMinimumWidth(58)
+    # ---------------- 尺寸 / 绘制 ----------------
+    def sizeHint(self, option, index):
+        return QSize(0, ENTRY_ROW_H)
 
-        # 验证徽章（右对齐 + 固定尺寸，保证所有条目徽章严格对齐）
-        verified = int(entry.get("verified") or 0) == 1
-        badge = QLabel("已验证" if verified else "未验证")
-        badge.setObjectName("EntryBadge")
-        badge.setProperty("state", "verified" if verified else "unverified")
-        badge.setAlignment(Qt.AlignCenter)
-        badge.setFixedSize(60, 20)
+    def _draw_badge(self, painter, rect, text, state):
+        bg, fg, border = self._BADGE_STYLES[state]
+        self._bordered_box(painter, rect, bg, border, 4)
+        painter.setFont(self._f_aux_bold)
+        painter.setPen(token_color(fg))
+        painter.drawText(rect, Qt.AlignCenter, text)
 
-        # 骨架徽章（审计 P1：exec_level=skeleton 的待真机核对条目，插入在验证徽章左侧）
-        self.is_skeleton = str(entry.get("exec_level") or "").strip() == "skeleton"
-        if self.is_skeleton:
-            sk = QLabel("骨架")
-            sk.setObjectName("EntryBadge")
-            sk.setProperty("state", "skeleton")
-            sk.setAlignment(Qt.AlignCenter)
-            sk.setFixedSize(44, 20)
-            sk.setToolTip("CLI 骨架——待真机核对，复制执行前须验证")
-            badge_stack = QHBoxLayout()
-            badge_stack.setContentsMargins(0, 0, 0, 0)
-            badge_stack.setSpacing(4)
-            badge_stack.addWidget(sk)
-            badge_stack.addWidget(badge)
+    @staticmethod
+    def _bordered_box(painter, rect, bg, border, radius):
+        """
+        画"圆角底 + 1px 边框"的小方块。
 
-        # 副标题：平台/设备形态 · OS 版本 · 型号（Linux 条目额外显示 duration）
-        if dbmod.normalize_platform(entry.get("platform")) == "linux":
-            left = display_platform(entry.get("platform"))
-        else:
-            left = entry.get("device_type") or display_platform(entry.get("platform"))
-        sub_text = "%s · %s · %s" % (left or "-",
-                                     display_os(entry.get("os_family")),
-                                     entry.get("models") or "-")
-        if dbmod.normalize_duration(entry.get("duration")):
-            sub_text += " · %s" % dbmod.DURATIONS[dbmod.normalize_duration(entry["duration"])]
-        # AB 批：副标题同样改单行省略（改前 QSizePolicy.Ignored 是硬裁切）
-        sub = ElidedLabel(sub_text, mode=Qt.ElideRight)
-        sub.setObjectName("EntrySub")
-        sub.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        ★ 路径内缩 0.5px：QSS 的 border 画在控件矩形的**内侧**，而 QPen(width=1)
+          以路径为中心（跨 0.5px 两侧）。不内缩的话边框整体外扩 1px，
+          和改前 QLabel 版本逐像素比对会差一整条边线。
+        """
+        painter.setPen(QPen(token_color(border), 1))
+        painter.setBrush(token_color(bg))
+        painter.drawRoundedRect(QRectF(rect).adjusted(0.5, 0.5, -0.5, -0.5),
+                                radius, radius)
 
-        top = QHBoxLayout()
-        top.setContentsMargins(0, 0, 0, 0)
-        top.setSpacing(SPACE_SM)
-        top.addWidget(block)
-        top.addWidget(title, 1)
-        top.addWidget(tag)
-        if self.is_skeleton:
-            top.addLayout(badge_stack)
-        else:
-            top.addWidget(badge)
+    def paint(self, painter, option, index):
+        super(EntryListDelegate, self).paint(painter, option, index)   # QSS ::item 底色
+        row = index.row()
+        if row < 0 or row >= len(self._entries):
+            return
+        view = self._view(row)
+        rect = option.rect
+        x0 = rect.left() + 11
+        # 右边界用 left+width（QRect.right() 是含端点的，会差 1px）；
+        # 14 = QSS item 右边距 6 + 卡片内右边距 8，与改前卡片部件位置一致
+        right = rect.left() + rect.width() - 14
+        y0 = rect.top() + 8
 
-        bottom = QHBoxLayout()
-        bottom.setContentsMargins(68, 0, 0, 0)
-        bottom.addWidget(sub, 1)
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing, True)
 
-        root = QVBoxLayout(self)
-        root.setContentsMargins(6, 7, 8, 7)
-        root.setSpacing(3)
-        root.addLayout(top)
-        root.addLayout(bottom)
+        # ---- 厂商色块（颜色按 slug 数据驱动）----
+        block = QRect(x0, y0, 60, 22)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(token_color(view["color"]))
+        painter.drawRoundedRect(block, 3, 3)
+        painter.setFont(self._f_aux_bold)
+        painter.setPen(QColor("#ffffff"))       # 与 theme.qss QLabel#EntryVendor 同值
+        painter.drawText(block, Qt.AlignCenter, view["vendor"])
+
+        # ---- 右侧徽章（骨架 + 验证），右对齐 ----
+        badge_w, sk_w = 60, 44
+        group_w = (sk_w + SPACE_XS + badge_w) if view["skeleton"] else badge_w
+        self._draw_badge(painter, QRect(right - badge_w, y0, badge_w, 20),
+                         "已验证" if view["verified"] else "未验证",
+                         "verified" if view["verified"] else "unverified")
+        if view["skeleton"]:
+            self._draw_badge(painter, QRect(right - group_w, y0, sk_w, 20),
+                             "骨架", "skeleton")
+
+        # ---- 场景标签（最小 58 宽，随文案伸缩）----
+        tag_w = max(58, self._fm_aux.boundingRect(view["tag"]).width() + 18)
+        tag = QRect(right - group_w - SPACE_SM - tag_w, y0, tag_w, 20)
+        self._bordered_box(painter, tag, BG_RAISED, BORDER, 4)
+        painter.setFont(self._f_aux)
+        painter.setPen(token_color(TEXT_SECONDARY))
+        painter.drawText(tag, Qt.AlignCenter, view["tag"])
+
+        # ---- 标题（收藏金色，单行右省略）----
+        title_x = x0 + 60 + SPACE_SM
+        title = QRect(title_x, y0, max(0, tag.left() - SPACE_SM - title_x), 20)
+        painter.setFont(self._f_title)
+        painter.setPen(token_color(WARNING if view["fav"] else TEXT_PRIMARY))
+        painter.drawText(title, Qt.AlignLeft | Qt.AlignVCenter,
+                         self._elided(self._fit_title, row, view["title"],
+                                      self._fm_title, title.width()))
+
+        # ---- 副标题（平台 · OS · 型号 [· 生效方式]）----
+        sub = QRect(x0 + 68, y0 + 23, max(0, right - (x0 + 68)), 17)
+        painter.setFont(self._f_aux)
+        painter.setPen(token_color(TEXT_MUTED))
+        painter.drawText(sub, Qt.AlignLeft | Qt.AlignVCenter,
+                         self._elided(self._fit, row, view["sub"],
+                                      self._fm_aux, sub.width()))
+        painter.restore()
+
+    @staticmethod
+    def _elided(cache, row, text, metrics, width):
+        """
+        按"行 + 当前可用宽度"缓存的省略文本。
+
+        ★ 滚动/重绘时每个可见行都会重画，而 elidedText 要跑字体度量；
+          实测未缓存时 elidedText 占单帧绘制时间 ~22%（20 次滚动 441 次调用）。
+          宽度不变就复用 —— 只有拖分隔条 / 窗口 resize 才需要重算。
+        """
+        hit = cache.get(row)
+        if hit is not None and hit[0] == width:
+            return hit[1]
+        value = metrics.elidedText(text, Qt.ElideRight, width)
+        cache[row] = (width, value)
+        return value
 
 
 # ---------------------------------------------------------------------------
@@ -487,7 +611,7 @@ class VerifyDialog(QDialog):
 
     def _on_accept(self):
         if not self.ed_by.text().strip() or not self.ed_model.text().strip():
-            QMessageBox.warning(self, "信息不完整", "验证人与验证设备型号都要填，离网环境靠这个留痕。")
+            QMessageBox.warning(self, "信息不完整", "验证人与验证设备型号都要填，现场留痕靠这个。")
             return
         self.accept()
 
@@ -563,7 +687,7 @@ class MainWindow(QMainWindow):
         act_export_one = QAction("导出当前条目为 .txt…", self)
         act_export_one.triggered.connect(self.on_export_txt)
         act_site = QAction("导出静态站点 (.html)…", self)
-        act_site.setToolTip("三库+覆盖度仪表盘导出为单文件离线站点（脱敏扫描+零写权断言）")
+        act_site.setToolTip("三库+覆盖度仪表盘导出为单文件站点（脱敏扫描+零写权断言）")
         act_site.triggered.connect(self.on_export_site)
         act_quit = QAction("退出", self)
         act_quit.setShortcut(QKeySequence("Ctrl+Q"))
@@ -624,7 +748,7 @@ class MainWindow(QMainWindow):
         act_palette.setToolTip("四库统一搜索浮层（命令 / 报错 / 树 / 速查手册），Enter 直接跳转定位")
         act_palette.triggered.connect(self.open_command_palette)
         m_view.addAction(act_palette)
-        act_handbook = QAction("速查手册（七本离线手册）", self)
+        act_handbook = QAction("速查手册（七本）", self)
         act_handbook.setShortcut(QKeySequence("Ctrl+Shift+H"))
         act_handbook.setToolTip("HTTP 状态码 / 常用端口 / Git / Linux / Vim / SSH / 网络命令")
         act_handbook.triggered.connect(self.open_handbook_tab)
@@ -638,7 +762,7 @@ class MainWindow(QMainWindow):
         m_view.addAction(act_translate)
         act_tools = QAction("工具箱（子网计算 / 进制转换 / curl 生成）", self)
         act_tools.setShortcut(QKeySequence("Ctrl+Shift+T"))
-        act_tools.setToolTip("纯本地计算与命令生成：零联网、不执行任何命令")
+        act_tools.setToolTip("纯本地计算与命令生成，不执行任何命令")
         act_tools.triggered.connect(self.open_tools_tab)
         m_view.addAction(act_tools)
         m_view.addSeparator()
@@ -735,7 +859,15 @@ class MainWindow(QMainWindow):
             "全局搜索：标题 / 描述 / 命令内容 / 备注 / 型号…（Ctrl+F 聚焦，输入即搜）")
         self.ed_search.setClearButtonEnabled(True)
         self.ed_search.setMinimumHeight(32)
-        self.ed_search.textChanged.connect(self.refresh_list)
+        # AD 批（2026-11-12）：输入防抖 —— 逐键触发全量过滤时，连续输入会排成一串
+        # 重建（改前单次 1.1 s，输入 5 个字就是 5 秒卡顿）。这里把"停止输入 200 ms
+        # 后"合并成一次过滤；回车/清空/筛选项切换仍走立即刷新（refresh_list 本体不变）。
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(SEARCH_DEBOUNCE_MS)
+        self._search_timer.timeout.connect(self.refresh_list)
+        self.ed_search.textChanged.connect(self._on_search_text_changed)
+        self.ed_search.returnPressed.connect(self._flush_search)
 
         self.cmb_platform = self._make_combo("全部平台")
         self.cmb_device = self._make_combo("全部设备")
@@ -797,7 +929,11 @@ class MainWindow(QMainWindow):
 
         self.list_entries = QListWidget()
         self.list_entries.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.list_entries.setUniformItemSizes(False)
+        # AD 批：条目改 delegate 自绘 → 定高行可按"统一样式"走快速布局路径
+        #（改前每条是独立 QWidget 卡片，行高由各卡片 sizeHint 决定）
+        self.list_entries.setUniformItemSizes(True)
+        self._entry_delegate = EntryListDelegate(self.list_entries)
+        self.list_entries.setItemDelegate(self._entry_delegate)
         self.list_entries.setContextMenuPolicy(Qt.CustomContextMenu)
         self.list_entries.customContextMenuRequested.connect(self.on_list_context_menu)
         self.list_entries.currentItemChanged.connect(self.on_entry_selected)
@@ -1683,6 +1819,16 @@ class MainWindow(QMainWindow):
         if self.db.readonly:
             self.lbl_stats.setText(self.lbl_stats.text() + "   [只读]")
 
+    def _on_search_text_changed(self, _text):
+        """搜索框逐键：只重置防抖计时器，真正过滤在停止输入后跑一次（AD 批）"""
+        self._search_timer.start()
+
+    def _flush_search(self):
+        """立即过滤（回车 / 程序内部需要立刻看到结果的场景）"""
+        if self._search_timer.isActive():
+            self._search_timer.stop()
+        self.refresh_list()
+
     def refresh_list(self):
         """按搜索词 + 过滤链重新查询并重建列表（下拉的 currentData 是 slug）"""
         if self.db.closed:
@@ -1720,14 +1866,14 @@ class MainWindow(QMainWindow):
         imported_uuids = self.db.ai_imported_uuids()      # AI 溯源 🤖 徽标（一次查询）
         self.list_entries.blockSignals(True)
         self.list_entries.clear()
+        # AD 批：不再逐条建 card 部件 —— 只挂数据，绘制交给 delegate
+        #（改前 497 条 = 497 个 QWidget + setItemWidget，单次重建 1.1~2.8 s）
+        self._entry_delegate.set_entries(self.entries_in_view, imported_uuids)
         for entry in self.entries_in_view:
             item = QListWidgetItem()
             item.setData(Qt.UserRole, entry.get("uuid"))
-            card = EntryCard(entry, entry.get("uuid") in imported_uuids)
-            item.setSizeHint(card.sizeHint())
             item.setToolTip(self._entry_tooltip(entry))
             self.list_entries.addItem(item)
-            self.list_entries.setItemWidget(item, card)
         self.list_entries.blockSignals(False)
 
         self.lbl_count.setText("共 %d 条" % len(self.entries_in_view))
@@ -1784,6 +1930,10 @@ class MainWindow(QMainWindow):
         if duration:
             parts.append("生效方式：%s" % dbmod.DURATIONS[duration])
         parts.append("状态：%s" % ("已验证" if int(entry.get("verified") or 0) == 1 else "未验证"))
+        # AD 批：骨架徽章从 QLabel（带 tooltip）改成 delegate 自绘，
+        # 徽章上的悬浮说明改由整行 tooltip 承载，信息量不减
+        if str(entry.get("exec_level") or "").strip() == "skeleton":
+            parts.append("骨架：CLI 骨架——待真机核对，复制执行前须验证")
         return "\n".join(parts)
 
     def reset_filters(self):
@@ -2056,7 +2206,7 @@ class MainWindow(QMainWindow):
         else:
             verify_text = ("状态：未验证（灰色徽章）\n\n"
                            "本条目由 AI 生成/人工整理，尚未在真机上执行验证。\n"
-                           "使用前请先核对语法，建议先在测试设备或离线环境执行。\n"
+                           "使用前请先核对语法，建议先在测试设备或演练环境执行。\n"
                            "真机验证通过后，右键条目 →『标记已验证』，填写验证人/型号/日期，"
                            "徽章即可变绿。")
             self.txt_verify.setHtml(build_text_card(verify_text, "warn"))
@@ -2091,9 +2241,26 @@ class MainWindow(QMainWindow):
         """列表│详情 分隔条被拖动：详情宽度变了 → 参数表行高/最小高度重算"""
         if not self.tbl_params.isVisible() or self.tbl_params.rowCount() <= 0:
             return
-        QTimer.singleShot(
-            0, lambda: self._sync_param_table_min_height(
-                self.tbl_params.rowCount()))
+        self._schedule_param_recalc()
+
+    def _schedule_param_recalc(self):
+        """
+        把"行高重算"合并到下一次事件循环（AD 批）。
+
+        ★ 改前：splitterMoved 与参数表自身 Resize 各自 QTimer.singleShot(0, …)，
+          拖分隔条的每一帧会算 2 次（实测 2.03 次/帧 × 671 次 resizeRowToContents）。
+          这里用"已排队"标志合并成一次 —— 拖完一帧只算一遍，语义不变。
+        """
+        if getattr(self, "_param_recalc_pending", False):
+            return
+        self._param_recalc_pending = True
+        QTimer.singleShot(0, self._run_param_recalc)
+
+    def _run_param_recalc(self):
+        self._param_recalc_pending = False
+        if not self.tbl_params.isVisible() or self.tbl_params.rowCount() <= 0:
+            return
+        self._sync_param_table_min_height(self.tbl_params.rowCount())
 
     def eventFilter(self, obj, event):
         """
@@ -2110,9 +2277,7 @@ class MainWindow(QMainWindow):
             if width != getattr(self, "_param_last_width", None):
                 self._param_last_width = width
                 if self.tbl_params.isVisible() and self.tbl_params.rowCount() > 0:
-                    QTimer.singleShot(
-                        0, lambda: self._sync_param_table_min_height(
-                            self.tbl_params.rowCount()))
+                    self._schedule_param_recalc()
         return super(MainWindow, self).eventFilter(obj, event)
 
     def _toggle_param_panel(self, checked):
@@ -2123,9 +2288,7 @@ class MainWindow(QMainWindow):
                                       + self._param_tab_suffix)
         if checked:
             # 展开这一刻列宽才定型（说明列折行数 → 行高），下一轮事件循环重算最小高度
-            QTimer.singleShot(
-                0, lambda: self._sync_param_table_min_height(
-                    self.tbl_params.rowCount()))
+            self._schedule_param_recalc()
 
     def _sync_param_tab(self, specs):
         """无参数条目：参数说明整页不渲染（任务2 要求）；有参数时默认收起"""
@@ -2890,7 +3053,7 @@ class MainWindow(QMainWindow):
         """导出静态站点（单文件 HTML）：调 site_export 核心零写权导出。"""
         default = os.path.join(get_base_dir(),
                                "%s_站点_%s.html" % (APP_NAME, datetime.datetime.now().strftime("%Y%m%d")))
-        path, _ = QFileDialog.getSaveFileName(self, "导出静态站点（单文件离线 HTML）", default,
+        path, _ = QFileDialog.getSaveFileName(self, "导出静态站点（单文件 HTML）", default,
                                               "HTML (*.html)")
         if not path:
             return
@@ -3012,9 +3175,9 @@ class MainWindow(QMainWindow):
             "内置命令库由 AI 生成 / 人工整理，全部标记为『未验证』（灰色徽章）。\n"
             "未经真机执行验证前，请勿直接用于生产设备！\n"
             "真机验证通过后，右键条目 →『标记已验证』填写验证人/型号/日期，徽章变绿。\n\n"
-            "【离网部署说明】\n"
+            "【本地部署说明】\n"
             "· 数据库文件与程序同目录（command_lib.db），U 盘整盘拷贝即完成迁移\n"
-            "· 本工具不含任何终端/SSH/串口/联网功能，命令由外部 Xshell/SecureCRT 执行\n"
+            "· 本工具不含任何终端/SSH/串口功能，命令由外部 Xshell/SecureCRT 执行\n"
             "· U 盘写保护时自动进入只读模式，编辑功能会被禁用\n"
             "· 命令库处于只读状态时无法导入，请先关闭写保护")
         btn_yes = box.addButton("导入内置种子库", QMessageBox.AcceptRole)
@@ -3150,21 +3313,21 @@ class MainWindow(QMainWindow):
             "  （深信服 AF / 天融信为 Web 控制台操作路径清单，正文首行已标注，勿直接粘贴执行）\n\n"
             "【快捷键】Ctrl+K 全局搜索 / Ctrl+F 搜索 / Ctrl+G 生成器 / Ctrl+B 配置包 / Ctrl+N 新建\n"
             "          Ctrl+E 编辑 / Ctrl+L 库管理器 / Ctrl+C 复制命令块 / Ctrl+D 收藏 / F5 刷新 / Ctrl+Q 退出\n\n"
-            "【数据安全】本机无任何联网行为，命令库随 U 盘走，可导出 .nlb 在团队间同步。")
+            "【数据安全】命令库数据保存在本机，随 U 盘走，可导出 .nlb 在团队间同步。")
 
     def show_about(self):
         """关于"""
         seed_files = self.db.count_seed_files()
         # HTML 内联色 → 引用主题令牌（先拼接成 template，再交给 .format）
         template = (
-            "<b>离网网络运维工具箱 </b><br><br>"
+            "<b>网络运维工具箱 </b><br><br>"
             "版本：v%s<br>"
             "技术栈：Python 3.9+ / PyQt5 / SQLite<br>"
             "库文件：command_lib.db（与程序同目录）<br>"
             "种子库：%d 个厂商文件（seed_data/，改库不需重新打包）<br>"
             "厂商：Cisco / 华为 / H3C / 锐捷 / Fortinet / Juniper / 深信服 / 天融信 / "
             "Palo Alto / 中兴<br><br>"
-            "<span style='color:{warning};'>本工具不包含任何终端、SSH、串口、联网功能，<br>"
+            "<span style='color:{warning};'>本工具不包含任何终端、SSH、串口功能，<br>"
             "命令的执行者永远是外部 Xshell / SecureCRT。</span>"
         )
         QMessageBox.about(self, "关于 %s" % APP_NAME,
