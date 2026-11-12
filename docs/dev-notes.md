@@ -2224,3 +2224,74 @@ SQL 函数逐行回调被 `lru_cache` 吃掉，**无可测劣化**。
    有搜索态实测 `vp=486`），但极端小窗下详情区更紧。
 3. P1-B 只做详情页，列表行不做高亮（P6 已裁决不做）。
 
+
+---
+
+# AG 批：v1.0.0.2 发版实录（2026-11-12）
+
+**入版范围**：AB（命令库布局重构）+ AC（文案统一）+ AD（卡顿修复）+ AE（搜索逻辑修复）+ AF（搜索提案 4 项）。
+v1.0.0.1 原样保留（未删、未改、未重传）。**数据零改动**：497 / 26 / 106 / 7 与 v1.0.0.1 一字不差，
+无 schema 变更、无新增依赖。
+
+## 一、版本与文档
+
+| 项 | 值 |
+|---|---|
+| 版本三处一致 | `APP_VERSION` `1.0.0.1 → 1.0.0.2`（`app/ui_main.py:98`，标题栏与「关于」同时生效）、`README.md` 当前版本、`CHANGELOG.md` 新节 `## v1.0.0.2（2026-11-12）` |
+| CHANGELOG 分节 | 界面优化 / 性能（4 行数字表）/ 修复（8 条）/ 文案 / 升级说明，按用户可感口径写；性能数字照抄 AD 批实测，未做任何圆整 |
+| 发版提交 | `843eab1`（3 files / +52 / −2；仅 CHANGELOG + README + ui_main 版本常量，无代码杂项） |
+| tag | `v1.0.0.2`（tag 对象 `526d80d`，指向 `843eab1`）→ SSH 推 `main` + tag |
+| 措辞红线 | CHANGELOG 新节与 Release notes 全文扫描「离线 / 零联网 / 不联网 / 无网络请求」**零命中**（AC 批口径；功能描述只写功能本身） |
+
+## 二、CI
+
+| 工作流 | run | 结果 |
+|---|---|---|
+| validate-seed（main，push） | `43150045946` | success |
+| validate-seed（tag v1.0.0.2） | `43150150752` | success |
+| release（tag v1.0.0.2） | `43150150751` | success，**11 步全绿**（Checkout / Py 3.11 / deps / Build exe / Assert exe / Assemble staging / Sanitize / Zip / Assert zip / Attach / Complete） |
+
+## 三、Release
+
+| 项 | 值 |
+|---|---|
+| draft → 发布 | draft `442472174`（CI 自动建，标题 `NetToolBox v1.0.0.2`）→ PATCH `draft=false` 发布 |
+| published_at | `2026-11-12T03:47:19Z`，`html_url .../releases/tag/v1.0.0.2` |
+| 标题 | `NetToolBox v1.0.0.2 —— 体验版（布局收尾 · 卡顿修复 · 搜索逻辑重做 · 文案统一）` |
+| 正文 | 与 CHANGELOG v1.0.0.2 节同口径（2223 字符），含资产说明与「完整变更见 CHANGELOG」链接 |
+| 资产 | `NetToolBox_v1.0.0.2.zip` **42,792,552 B**，asset digest `sha256:aff0ea27…619cd624` |
+
+## 四、出库自核验（全量下载，不是抽样）
+
+| 项 | 结果 |
+|---|---|
+| 哈希 | 完整下载 `.workbuddy/ag/NetToolBox_v1.0.0.2.zip`（42,792,552 B）→ sha256 **`aff0ea27e0ff4335dd7736b4bfb6179f9e818fc4ec7b958ac50c75bb619cd624`**，与 API `digest` **逐字节一致**，字节数一致 |
+| 白名单 | zip **31 条目**：`NetToolBox.exe` / `check_db.py` / `command_lib.db` / `seed_data/*.json` ×28；**白名单外 0 条** |
+| 包内库 | `entries 497` / `trouble_trees 26` / `err_dict 106` / `scenario_packs 7` / `user_version=3` / `verified=1` 计数 **0**（零冒充口径不变）；`history 636`（种子导入留痕）、`err_unresolved 0`、`ai_imports 0` |
+| 体检脚本 | 包内 `python check_db.py` 正常跑完，计数与上表一致；`[!]` 仅 2 条**既有**人工确认项（`ops` 厂商 ×18、26 条非规范 slug），非本版新增 |
+| 旧版未动 | v1.0.0.1 仍 published `2026-11-11T07:21:57Z`，资产 digest `sha256:fbaea969…b0205b240` 不变；v1.0.0 仍 published `2026-11-10T01:58:58Z`，digest `sha256:71c8d58f…3260e2` 不变 |
+
+## 五、本地验证
+
+| 项 | 结果 |
+|---|---|
+| 全量 smoke（20 套，`PYTHONPATH="app;_vendor"` + offscreen） | **20/20 rc=0**（ai_chat / ai_stage2 / ai_stage3 / backfill / baseurl_policy / diff / export_site / handbook / import_guard / keyvault / p1_fixes / panel_dashboard / regex_guard / runbook / scenarios / schema_rollback / send_gate / tools / translate / tree_visual） |
+| 种子校验 | `python app/main.py --validate-seed` **EXIT=0**：497 + 26 + 106 + 7 + 输出分析器 9 类 + 变更对比 11 类/48 变体 |
+| 本地 exe 重编 | `dist_package/NetToolBox.exe` **45,370,844 B**，`sha256:a3078b25a92a4f0b4c8afc9fdc48a0cb3e5fbe3fbd187e7a2e055332e1c2bda1`；`NetToolBox.exe --validate-seed` **rc=0**（py3.13 栈；CI py3.11 出 42.79 MB zip 属版本栈差异） |
+
+## 六、踩坑（本批新增 2 条）
+
+1. **草稿 Release 不能按 tag 查**：`GET /releases/tags/v1.0.0.2` 对 draft 返回 **404**（即使带 token），
+   须走 `GET /releases?per_page=N` 列表找 `draft=true` 那条再取 `id`。v1.0.0.1 当批靠 known draft id，
+   未暴露此点。
+2. **smoke 批量跑法固化**：`cd 仓库根` + `PYTHONPATH="app;_vendor"` + `QT_QPA_PLATFORM=offscreen` +
+   `python scripts/smoke_*.py`，**判据只看 rc**（atexit 的「主库零接触」打印会盖住真失败）；
+   20 套串行约 **68 s**。`.workbuddy/ag/run_smoke.sh` 为一键脚本（`.workbuddy/` 已 gitignore，不入库）。
+
+## 七、遗留
+
+1. 本批为发版批，未改任何代码与种子；AB/AD/AE/AF 批的既有遗留（P2/P4/P6/P7/P8 裁决不做、
+   树计数 0 显示空白、标注行占 18px）**随版本原样带到 v1.0.0.2**，未新增未修项。
+2. 伴生私有仓 `nettoolbox-data`：本版 db 未变（497 底数、`user_version=3`），按口径**不打 `data-v` 快照**。
+
+
